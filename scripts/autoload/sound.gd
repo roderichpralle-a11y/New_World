@@ -18,7 +18,7 @@ const SFX := {
 ## Mindestabstand in Sekunden, bevor derselbe Effekt wieder erklingt
 const GAP := {"hammer": 0.16, "axt": 0.2, "stein": 0.2, "pfluecken": 0.3, "platsch": 0.4,
 	"saege": 0.8, "treffer": 0.12, "pfeil": 0.15, "klick": 0.04, "essen": 0.6, "heulen": 6.0,
-	"knurren": 1.5, "grunzen": 1.5, "morgen": 20.0}
+	"knurren": 1.5, "grunzen": 1.5, "morgen": 20.0, "stufe": 15.0, "autsch": 0.3}
 ## Grundlautstaerke je Effekt in dB
 const LEVEL := {"klick": -8.0, "hammer": -7.0, "axt": -6.0, "stein": -9.0, "pfluecken": -9.0,
 	"platsch": -8.0, "saege": -12.0, "essen": -12.0, "morgen": -6.0, "heulen": -4.0,

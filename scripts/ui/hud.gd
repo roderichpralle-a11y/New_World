@@ -761,7 +761,13 @@ const HELP_TEXT := """[b]Ziel[/b]
 Führe deine kleine Siedlung durch die Generationen. Sorge für Nahrung, baue Hütten und lass deine Insel wachsen.
 
 [b]Bedienung[/b]
-Ziehen bewegt die Karte, Mausrad oder zwei Finger zoomen. Tippe auf Siedler, Gebäude oder Rohstoffe für Infos.
+Ziehen bewegt die Karte, Mausrad oder zwei Finger zoomen und schieben. Am PC geht es auch mit WASD oder den Pfeiltasten. Tippe auf Siedler, Gebäude oder Rohstoffe für Infos.
+
+[b]Ziele[/b]
+Oben links steht immer das nächste Ziel. Tippe darauf für eine Erklärung. Jedes erreichte Ziel bringt eine Belohnung, und es kommen immer neue nach.
+
+[b]Ton[/b]
+Lautstärke von Musik und Geräuschen stellst du im Menü ein.
 
 [b]Siedler[/b]
 Jeder Siedler hat eigene Fähigkeiten. Gib ihnen im Infofenster einen Beruf, der zu ihren Stärken passt. Mit Übung werden sie besser. Freie Siedler helfen dort, wo es nötig ist.
