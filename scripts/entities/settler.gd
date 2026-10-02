@@ -184,7 +184,8 @@ func gain_xp(sk: String, amount: float = 1.0) -> void:
 func best_job() -> String:
 	var best := "frei"
 	var best_v := 1.5
-	var map := {"holz": "holzfaeller", "stein": "steinmetz", "nahrung": "sammler", "bauen": "baumeister"}
+	var map := {"holz": "holzfaeller", "stein": "steinmetz", "nahrung": "sammler", "bauen": "baumeister",
+		"handwerk": "handwerker", "wissen": "forscher"}
 	for sk in map:
 		if skill_level(sk) > best_v:
 			best_v = skill_level(sk)
@@ -228,7 +229,7 @@ func _needs(days: float) -> void:
 	if hunger <= 0.0:
 		health -= float(Data.bal("starve_damage_per_day")) * days
 	elif hunger > 30.0:
-		health = min(100.0, health + float(Data.bal("heal_per_day")) * days)
+		health = min(100.0, health + float(Data.bal("heal_per_day")) * Game.eff("heal") * days)
 	var was_adult := is_adult()
 	age += days
 	if not was_adult and is_adult():
@@ -238,7 +239,7 @@ func _needs(days: float) -> void:
 	_update_scale()
 	if health <= 0.0:
 		world.kill_settler(self, "verhungert")
-	elif age >= max_age:
+	elif age >= max_age + Game.eff_add("life"):
 		world.kill_settler(self, "im hohen Alter von %d Jahren gestorben" % int(age))
 
 
@@ -282,8 +283,11 @@ func abort_plan() -> void:
 
 
 func _release() -> void:
-	if _reserved and is_instance_valid(_reserved) and _reserved.reserved_by == id:
-		_reserved.reserved_by = 0
+	if _reserved and is_instance_valid(_reserved):
+		if _reserved.reserved_by == id:
+			_reserved.reserved_by = 0
+		if _reserved is Building:
+			_reserved.occupants.erase(id)
 	_reserved = null
 	for inc in _incoming:
 		var b = inc[0]
@@ -295,6 +299,25 @@ func _release() -> void:
 func _reserve(obj) -> void:
 	_reserved = obj
 	obj.reserved_by = id
+
+
+## Platz in einer Werkstatt oder Forschungsstaette belegen (mehrere Plaetze moeglich).
+func _occupy(b) -> void:
+	_reserved = b
+	if not id in b.occupants:
+		b.occupants.append(id)
+
+
+func carry_capacity() -> int:
+	return int(Data.bal("carry_capacity")) + int(Game.eff_add("carry"))
+
+
+## Arbeitstempo fuer eine Faehigkeit inklusive Forschungsboni.
+func work_factor(sk: String, bonus: String = "") -> float:
+	var f := skill_factor(sk) * Game.eff("work")
+	if bonus != "":
+		f *= Game.eff(bonus)
+	return f
 
 
 ## Gehe zu einer Zelle neben dem Ziel. Gibt false zurueck, wenn unerreichbar.
@@ -413,6 +436,8 @@ func _plan_work() -> bool:
 			return _plan_construction() or _plan_free_gather()
 		"bauer":
 			return _plan_farm() or _plan_gather(["busch"])
+		"forscher":
+			return _plan_research() or _plan_free_gather()
 		_:
 			var targets: Array = Data.jobs.get(job, {}).get("targets", [])
 			# Ist das eigene Lager voll, hilft der Siedler woanders aus
@@ -450,6 +475,10 @@ func _plan_gather(types: Array) -> bool:
 			if _plan_construction():
 				return true
 			continue
+		if t.begins_with("prod:"):
+			if _plan_production(t.trim_prefix("prod:")):
+				return true
+			continue
 		var res: String = Data.nodes.get(t, {}).get("yield", "")
 		if res != "" and Game.space_for(res) <= 0:
 			continue
@@ -466,7 +495,7 @@ func _plan_gather(types: Array) -> bool:
 		var tool_name: String = job_def.get("tool", "")
 		if tool_name == "" or not t in job_def.get("targets", []):
 			tool_name = _tool_for_node(t)
-		_plan.append({"a": "work", "t": float(def.work_time) / skill_factor(def.skill), "act": _verb(t),
+		_plan.append({"a": "work", "t": float(def.work_time) / work_factor(def.skill, "gather_" + res), "act": _verb(t),
 			"tool": tool_name, "face": node.position, "done": _do_harvest.bind(node)})
 		activity = "%s (%s)" % [_verb(t), def.name]
 		return true
@@ -496,10 +525,10 @@ func _do_harvest(node) -> void:
 	gain_xp(node.def.skill)
 	world.spawn_effect("chips_" + node.type, node.position + Vector2(0, -6))
 	# Weiterarbeiten, solange Platz und Zeit ist
-	var cap := int(Data.bal("carry_capacity"))
+	var cap := carry_capacity()
 	if carry_n < cap and is_instance_valid(node) and node.is_available() and not Game.is_night() \
 			and hunger >= float(Data.bal("eat_below")) * 0.6:
-		_plan.push_front({"a": "work", "t": float(node.def.work_time) / skill_factor(node.def.skill),
+		_plan.push_front({"a": "work", "t": float(node.def.work_time) / work_factor(node.def.skill, "gather_" + res),
 			"act": _verb(node.type), "tool": _cur_tool, "face": node.position,
 			"done": _do_harvest.bind(node)})
 	else:
@@ -527,13 +556,13 @@ func _plan_farm() -> bool:
 		return false
 	_reserve(field)
 	if task == "sow":
-		_plan.append({"a": "work", "t": float(fd.sow_time) / skill_factor("nahrung"), "act": "Sät",
+		_plan.append({"a": "work", "t": float(fd.sow_time) / work_factor("nahrung"), "act": "Sät",
 			"tool": "sickle", "done": _do_sow.bind(field)})
-		activity = "Sät Getreide"
+		activity = fd.get("sow_verb", "Sät")
 	else:
-		_plan.append({"a": "work", "t": float(fd.harvest_time) * 2.0 / skill_factor("nahrung"), "act": "Erntet",
+		_plan.append({"a": "work", "t": float(fd.harvest_time) * 2.0 / work_factor("nahrung"), "act": "Erntet",
 			"tool": "sickle", "done": _do_field_harvest.bind(field)})
-		activity = "Erntet Getreide"
+		activity = fd.get("harvest_verb", "Erntet")
 	return true
 
 
@@ -567,7 +596,7 @@ func _plan_construction() -> bool:
 	for site in sites:
 		var need: Dictionary = site.remaining_cost()
 		for res in need:
-			var n: int = min(min(int(need[res]), Game.amount(res)), int(Data.bal("carry_capacity")) + 2)
+			var n: int = min(min(int(need[res]), Game.amount(res)), carry_capacity() + 2)
 			if n <= 0:
 				continue
 			var st = world.nearest_storage(cell)
@@ -619,12 +648,94 @@ func _do_site_deliver(site) -> void:
 func _do_build(site) -> void:
 	if not is_instance_valid(site) or site.complete:
 		return
-	site.add_work(1.5 * skill_factor("bauen"))
+	site.add_work(1.5 * work_factor("bauen", "build"))
 	gain_xp("bauen", 0.5)
 	world.spawn_effect("dust", site.position + Vector2(_rng.randf_range(-12, 12), -4))
 	if not site.complete and not Game.is_night() and hunger >= float(Data.bal("eat_below")) * 0.6:
 		_plan.push_front({"a": "work", "t": 1.5, "act": "Baut", "tool": "hammer",
 			"face": site.position, "done": _do_build.bind(site)})
+
+
+# ------------------------------------------------------------------ Werkstaetten
+func _plan_production(kind: String) -> bool:
+	var b = world.find_workshop(kind, cell, id)
+	if b == null:
+		return false
+	if not _push_move_to([b.entrance_cell()], false) and not _push_move_to(b.cells()):
+		world.mark_unreachable(b)
+		return false
+	_occupy(b)
+	var p: Dictionary = b.prod_def()
+	var tool_name: String = p.get("tool", Data.jobs.get(job, {}).get("tool", "hammer"))
+	_plan.append({"a": "work", "t": 0.3, "act": "Holt Rohstoffe", "done": _do_take_inputs.bind(b)})
+	_plan.append({"a": "work", "t": float(p.time) / work_factor(p.get("skill", "handwerk")), "act": p.get("verb", "Arbeitet"),
+		"tool": tool_name, "face": b.position, "done": _do_produce.bind(b)})
+	activity = "%s (%s)" % [p.get("verb", "Arbeitet"), b.def.name]
+	return true
+
+
+func _do_take_inputs(b) -> void:
+	if not is_instance_valid(b) or not b.take_inputs():
+		abort_plan()
+		return
+	if carry_n > 0:
+		_do_deliver()
+	b.mark_active(float(b.prod_def().time) / work_factor(b.prod_def().get("skill", "handwerk")) + 0.5)
+
+
+func _do_produce(b) -> void:
+	if not is_instance_valid(b):
+		return
+	var p: Dictionary = b.prod_def()
+	gain_xp(p.get("skill", "handwerk"))
+	var outs: Dictionary = p.get("outputs", {})
+	var first := true
+	for res in outs:
+		var n := int(outs[res])
+		if first:
+			carry_res = res
+			carry_n = n
+			first = false
+		else:
+			# Nebenprodukte gehen direkt ins Lager
+			Game.add_stock(res, n)
+	world.spawn_effect("dust", b.position + Vector2(_rng.randf_range(-8, 8), -4))
+	_plan_deliver_after()
+
+
+# ------------------------------------------------------------------ Forschung
+func _plan_research() -> bool:
+	if not Game.has_research_goal():
+		return false
+	var b = world.find_research_place(cell, id)
+	if b == null:
+		return false
+	if not _push_move_to(b.cells()):
+		world.mark_unreachable(b)
+		return false
+	_occupy(b)
+	_push_research_step(b)
+	activity = "Forscht: %s" % Data.techs[Game.research.current].name
+	return true
+
+
+func _push_research_step(b) -> void:
+	_plan.append({"a": "work", "t": float(Data.bal("research_work_time", 2.5)), "act": "Forscht",
+		"tool": "book", "face": b.position, "done": _do_research.bind(b)})
+
+
+func _do_research(b) -> void:
+	if not is_instance_valid(b) or not b.complete:
+		return
+	var pts := float(Data.bal("research_per_work", 1.0)) * float(b.research_def().get("factor", 1.0)) * skill_factor("wissen")
+	Game.add_research(pts)
+	gain_xp("wissen", 0.5)
+	b.mark_active(3.0)
+	if _rng.randf() < 0.2:
+		world.float_text(position + Vector2(0, -28), "Idee!", "")
+	if Game.has_research_goal() and not Game.is_night() and hunger >= float(Data.bal("eat_below")) * 0.6:
+		_plan.push_front({"a": "work", "t": float(Data.bal("research_work_time", 2.5)), "act": "Forscht",
+			"tool": "book", "face": b.position, "done": _do_research.bind(b)})
 
 
 # ------------------------------------------------------------------ Ausfuehrung
@@ -652,7 +763,7 @@ func _run_action(delta: float) -> void:
 				_plan.pop_front()
 				return
 			var target: Vector2 = _path[_path_i]
-			var spd := float(Data.bal("walk_speed")) * (1.0 if is_adult() else 0.85)
+			var spd := float(Data.bal("walk_speed")) * Game.eff("walk") * (1.0 if is_adult() else 0.85)
 			if hunger <= 0.0:
 				spd *= 0.6
 			var to := target - position

@@ -77,11 +77,14 @@ func build_from_save(d: Dictionary) -> void:
 		node.regrow_at = float(n[4])
 		node.refresh()
 	for b in w.buildings:
+		if not Data.buildings.has(b.type):
+			continue
 		var bld := place_building(b.type, Vector2i(int(b.x), int(b.y)), bool(b.complete), int(b.id))
 		bld.progress = float(b.progress)
 		bld.delivered = b.delivered
 		bld.farm_state = b.get("farm_state", "fallow")
 		bld.farm_time = float(b.get("farm_time", 0.0))
+		bld.paused = bool(b.get("paused", false))
 		bld.refresh()
 	for s in w.settlers:
 		spawn_settler(s)
@@ -448,6 +451,75 @@ func construction_sites() -> Array:
 	return buildings.filter(func(b): return not b.complete)
 
 
+## Werkstatt einer Art ("kueche", "handwerk", "stein"), die gerade arbeiten kann.
+## Bevorzugt wird die, deren Ware am knappsten ist.
+func find_workshop(kind: String, from: Vector2i, sid: int):
+	var best = null
+	var best_score := INF
+	for b in buildings:
+		if not b.complete or b.prod_def().get("job", "") != kind:
+			continue
+		if b.free_slots() <= 0 and not sid in b.occupants:
+			continue
+		if _unreachable.has(b) and _unreachable[b] > Game.time_days:
+			continue
+		if b.prod_blocker() != "":
+			continue
+		var scarce := INF
+		for res in b.prod_def().get("outputs", {}):
+			scarce = min(scarce, float(Game.amount(res)))
+		var score := scarce * 4.0 + Vector2(b.cell - from).length()
+		if score < best_score:
+			best_score = score
+			best = b
+	return best
+
+
+## Bester Forschungsplatz mit freiem Platz (Bibliothek vor Schreibstube vor Lagerfeuer).
+func find_research_place(from: Vector2i, sid: int):
+	var best = null
+	var best_score := -INF
+	for b in buildings:
+		if not b.complete or not b.def.has("research"):
+			continue
+		if b.free_slots() <= 0 and not sid in b.occupants:
+			continue
+		if _unreachable.has(b) and _unreachable[b] > Game.time_days:
+			continue
+		var score := float(b.research_def().get("factor", 1.0)) * 100.0 - Vector2(b.cell - from).length()
+		if score > best_score:
+			best_score = score
+			best = b
+	return best
+
+
+## Ausbau (z. B. Huette -> Holzhaus): das Gebaeude wird zur Baustelle des neuen Typs.
+func upgrade_building(b: Building) -> Building:
+	var to: String = b.def.get("upgrade", "")
+	if to == "" or not Game.is_unlocked(to) or not b.complete:
+		return null
+	var c := b.cell
+	var bid := b.id
+	for s in settlers:
+		if s._reserved == b or s._incoming.any(func(i): return i[0] == b):
+			s.abort_plan()
+		if s.home_id == bid and s.sleeping:
+			s._wake_up()
+	buildings.erase(b)
+	for cc in b.cells():
+		building_at.erase(cc)
+		_set_solid(cc, false)
+	var was_selected: bool = Game.selected == b
+	b.queue_free()
+	var nb := place_building(to, c, false, bid)
+	spawn_effect("dust", nb.position)
+	assign_homes()
+	if was_selected:
+		Game.select(nb)
+	Game.population_changed.emit()
+	return nb
+
+
 func find_field_task(from: Vector2i, sid: int):
 	var best = null
 	var best_d := INF
@@ -617,6 +689,22 @@ func spawn_effect(kind: String, p: Vector2) -> void:
 		tw.chain().tween_callback(r.queue_free)
 
 
+func spawn_smoke(p: Vector2) -> void:
+	var r := ColorRect.new()
+	var sz := _rng.randf_range(2.0, 4.0)
+	r.size = Vector2(sz, sz)
+	r.color = Color(0.82, 0.8, 0.78, 0.75) if _rng.randf() < 0.6 else Color(0.62, 0.6, 0.62, 0.7)
+	r.position = p + Vector2(_rng.randf_range(-1.5, 1.5), 0)
+	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fx.add_child(r)
+	var tw := r.create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(r, "position", r.position + Vector2(_rng.randf_range(2, 9), -_rng.randf_range(14, 22)), 1.6)
+	tw.tween_property(r, "size", Vector2(sz + 2, sz + 2), 1.6)
+	tw.tween_property(r, "modulate:a", 0.0, 1.0).set_delay(0.6)
+	tw.chain().tween_callback(r.queue_free)
+
+
 func float_text(p: Vector2, text: String, icon_res: String) -> void:
 	var box := HBoxContainer.new()
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -698,7 +786,6 @@ func start_placement(type: String, at_pos: Vector2) -> void:
 	_ghost_cell = pos_to_cell(at_pos) - sz / 2
 	var tex: AtlasTexture
 	if def.get("ground", false):
-		tex = Data.object_tex("field0")
 		_ghost_sprite.visible = false
 	else:
 		tex = Data.object_tex(def.sprite)

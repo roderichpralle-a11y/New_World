@@ -52,13 +52,31 @@ func _maybe_autotest() -> void:
 	Game.notified.connect(func(t, _i): print("[Tag %d %s] %s" % [Game.day(), Game.clock_text(), t]))
 	if args.has("build"):
 		_autotest_build()
+	if args.has("prodtest"):
+		_autotest_prod()
+	if args.has("research"):
+		world.settlers[0].set_job("forscher")
+	if args.has("upgrade"):
+		for b in world.buildings.duplicate():
+			if b.type == "huette":
+				print("Ausbau: ", world.upgrade_building(b) != null)
 	var elapsed := 0.0
 	var next_report := 0.0
 	while elapsed < secs:
 		await get_tree().create_timer(1.0, true, false, true).timeout
 		elapsed += 1.0
+		if args.has("research") and not Game.has_research_goal():
+			for t in Data.sorted_tech_ids():
+				if Game.tech_state(t) == "available" and Game.start_research(t) == "":
+					print("Forschung gestartet: ", t)
+					break
 		if elapsed >= next_report:
 			next_report += 20.0
+			if args.has("prodtest") or args.has("research"):
+				var st := []
+				for id in Data.sorted_resource_ids():
+					st.append("%s=%d" % [id, Game.amount(id)])
+				print("   ", " ".join(st), " | Forschung ", Game.research.current, " ", int(Game.tech_progress(Game.research.current)), " erforscht ", Game.research.done.size())
 			var jobs := world.settlers.map(func(s): return "%s:%s:%s:%d" % [s.display_name, s.job, s.activity, int(s.hunger)])
 			print("t=%d Tag %d %s pop=%d/%d holz=%d stein=%d food=%d | %s" % [elapsed, Game.day(), Game.clock_text(),
 				Game.population(), Game.housing_capacity(), Game.amount("holz"), Game.amount("stein"), Game.total_food(), jobs])
@@ -73,6 +91,26 @@ func _maybe_autotest() -> void:
 			camera.focus(world.settlers[0].position)
 		if args.has("buildmenu"):
 			hud._toggle(hud._build_panel)
+		if args.has("panel"):
+			match args.panel:
+				"research":
+					hud._fill_research_list()
+					hud._toggle(hud._research_panel)
+				"stock":
+					hud._refresh_stock(true)
+					hud._toggle(hud._stock_panel)
+				"build":
+					hud._build_cat = args.get("cat", "nahrung")
+					hud._fill_build_list()
+					hud._toggle(hud._build_panel)
+		if args.has("selectb"):
+			for b in world.buildings:
+				if b.type == args.selectb:
+					Game.select(b)
+					camera.focus(b.position)
+		if args.has("look"):
+			Game.select(null)
+			camera.focus(world.cell_to_pos(world.center))
 		await get_tree().create_timer(0.5).timeout
 		await RenderingServer.frame_post_draw
 		get_viewport().get_texture().get_image().save_png(args.shot)
@@ -97,6 +135,50 @@ func _autotest_build() -> void:
 			world.place_building("feld", cc, false)
 			break
 	world.settlers[1].set_job("baumeister")
+
+
+func _roomy(type: String, cc: Vector2i) -> bool:
+	var sz: Array = Data.buildings[type].size
+	for y in range(-1, int(sz[1]) + 2):
+		for x in range(-1, int(sz[0]) + 1):
+			var p := cc + Vector2i(x, y)
+			if world.building_at.has(p) or not world.is_walkable(p):
+				return false
+	return true
+
+
+func _autotest_prod() -> void:
+	for t in Data.techs:
+		if not Data.techs[t].get("soon", false):
+			Game.research.done.append(t)
+	Game._recompute_effects()
+	Game.research_changed.emit()
+	var c := world.center
+	var r := 4
+	for type in Data.buildings:
+		var def: Dictionary = Data.buildings[type]
+		if not (def.has("production") or def.has("research")) or type == "lagerfeuer":
+			continue
+		var done := false
+		for rad in range(r, 20):
+			for dy in range(-rad, rad + 1):
+				for dx in range(-rad, rad + 1):
+					var cc := c + Vector2i(dx, dy)
+					if not done and world.can_place(type, cc) and _roomy(type, cc):
+						world.place_building(type, cc, true)
+						done = true
+		print("platziert ", type, " ", done)
+	world.place_building("grosslager", c + Vector2i(-8, 6), true) if world.can_place("grosslager", c + Vector2i(-8, 6)) else null
+	for id in Data.resources:
+		Game.stock[id] = 40
+	for i in 8:
+		world.spawn_newcomer("f" if i % 2 else "m")
+	var jobs := ["koch", "koch", "handwerker", "handwerker", "steinmetz", "forscher", "forscher", "holzfaeller", "bauer", "fischer"]
+	for i in world.settlers.size():
+		world.settlers[i].age = 20.0
+		world.settlers[i].set_job(jobs[i % jobs.size()])
+	Game.research.done.erase("eisenwerkzeuge")
+	Game.start_research("eisenwerkzeuge")
 
 
 ## Kleine Bildschirme (Handy) bekommen eine groessere Oberflaeche:

@@ -33,6 +33,15 @@ BERRY = [(120, 30, 60), (180, 46, 78), (232, 88, 110)]
 FLOWER = [(250, 250, 240), (250, 214, 80), (236, 110, 140), (150, 170, 250)]
 WHEAT = [(170, 124, 48), (214, 170, 72), (240, 210, 110), (110, 150, 60), (140, 180, 70)]
 FIRE = [(150, 40, 30), (220, 80, 30), (250, 160, 50), (255, 230, 140)]
+PLASTER = [(206, 186, 150), (230, 214, 180), (246, 236, 210)]
+SLATE = [(52, 60, 90), (72, 84, 120), (96, 112, 150), (130, 148, 186)]
+ROOF_RED = [(110, 40, 36), (150, 58, 44), (190, 84, 56), (222, 120, 80)]
+BRICK = [(120, 52, 40), (160, 72, 50), (196, 100, 66)]
+SHINGLE = [(70, 46, 40), (98, 64, 50), (128, 86, 62), (156, 112, 78)]
+DARK = (36, 26, 30)
+GLOW = [(200, 70, 30), (250, 150, 50), (255, 220, 120)]
+CLAY = [(150, 92, 56), (184, 120, 72), (210, 150, 96)]
+IRON = [(60, 64, 76), (100, 104, 118), (150, 154, 168), (200, 204, 214)]
 
 
 def rgba(c, a=255):
@@ -613,6 +622,7 @@ def gen_objects():
     # Zeile E (y=128): Acker 4 Stufen
     for s in range(4):
         atlas.paste(field_tile(s), (s * 16, 128))
+        atlas.paste(orchard_tile(s), (64 + s * 16, 128))
     atlas.save(os.path.join(OUT, "objects.png"))
 
 
@@ -794,7 +804,7 @@ def gen_settlers():
 # ------------------------------------------------------------------ Werkzeuge
 def tools():
     """tools.png: 16x16 Werkzeuge in der Hand: Axt, Spitzhacke, Korb, Angel, Hammer, Sichel."""
-    atlas = new(96, 16)
+    atlas = new(144, 16)
     axe = new(16, 16)
     for i in range(10):
         put(axe, 3 + i, 13 - i, WOOD[2])
@@ -836,7 +846,7 @@ def tools():
     for a in range(200, 360, 12):
         put(sickle, int(10 + math.cos(math.radians(a)) * 4), int(6 + math.sin(math.radians(a)) * 4), STONE[4])
     add_outline(sickle)
-    for i, im in enumerate([axe, pick, basket, rod, hammer, sickle]):
+    for i, im in enumerate([axe, pick, basket, rod, hammer, sickle] + tools2()):
         atlas.paste(im, (i * 16, 0))
     atlas.save(os.path.join(OUT, "tools.png"))
 
@@ -1146,6 +1156,370 @@ ICONS = {
 }
 
 
+ICONS.update({
+    "bretter": (["................",
+                 "................",
+                 "................",
+                 "..1111111111113.",
+                 ".222222222222223",
+                 ".333333333333333",
+                 "................",
+                 ".1111111111113..",
+                 "2222222222222223",
+                 "3333333333333333",
+                 "................",
+                 "..1111111111113.",
+                 ".222222222222223",
+                 ".333333333333333",
+                 "................",
+                 "................"],
+                {"1": WOOD[3], "2": WOOD[2], "3": WOOD[1]}),
+    "lehm": (["................",
+              "................",
+              "................",
+              "................",
+              "......1111......",
+              "....11222211....",
+              "...1222332221...",
+              "..122233332221..",
+              "..122222222221..",
+              ".12222222222221.",
+              ".11222222222211.",
+              "..111111111111..",
+              "................",
+              "................",
+              "................",
+              "................"],
+             {"1": CLAY[0], "2": CLAY[1], "3": CLAY[2]}),
+    "ziegel": (["................",
+                "................",
+                "................",
+                "....33333333....",
+                "...3222222221...",
+                "...2222222221...",
+                "...1111111111...",
+                ".33333333.333...",
+                "3222222221221...",
+                "2222222221221...",
+                "1111111111111...",
+                "................",
+                "................",
+                "................",
+                "................",
+                "................"],
+               {"1": BRICK[0], "2": BRICK[1], "3": BRICK[2]}),
+    "kohle": (["................",
+               "................",
+               "................",
+               "................",
+               ".....11.........",
+               "....1332.112....",
+               "...133222132....",
+               "...1222221222...",
+               "..11222211122...",
+               ".1332211222221..",
+               ".1222221122211..",
+               "..11111111111...",
+               "................",
+               "................",
+               "................",
+               "................"],
+              {"1": (24, 24, 30), "2": (48, 48, 58), "3": (96, 96, 110)}),
+    "erz": (["................",
+             "................",
+             "................",
+             "................",
+             ".....1111.......",
+             "....122441......",
+             "...12224421.....",
+             "...122222221....",
+             "..1244222221....",
+             "..1244222441....",
+             "..12222224421...",
+             "...111111111....",
+             "................",
+             "................",
+             "................",
+             "................"],
+            {"1": STONE[0], "2": STONE[1], "4": (200, 120, 80)}),
+    "eisen": (["................",
+               "................",
+               "................",
+               "................",
+               "................",
+               ".....444444.....",
+               "....43333332....",
+               "...4333333322...",
+               "..433333333222..",
+               ".11111111111222.",
+               ".12222222222122.",
+               ".11111111111111.",
+               "................",
+               "................",
+               "................",
+               "................"],
+              {"1": IRON[0], "2": IRON[1], "3": IRON[2], "4": IRON[3]}),
+    "werkzeug": (["................",
+                  "..44.......333..",
+                  ".4334.....33.3..",
+                  ".4334....3......",
+                  "..444...1.......",
+                  "....1..1........",
+                  ".....11.........",
+                  ".....11.........",
+                  "....1..1........",
+                  "...1....1.......",
+                  "..1......1......",
+                  ".1........1.....",
+                  "1..........1....",
+                  "................",
+                  "................",
+                  "................"],
+                 {"1": WOOD[2], "3": IRON[2], "4": IRON[3]}),
+    "mehl": (["................",
+              "................",
+              "......1..1......",
+              ".......11.......",
+              "......2222......",
+              ".....233332.....",
+              "....23333332....",
+              "...2333333332...",
+              "...2333443332...",
+              "...2333443332...",
+              "...2333333332...",
+              "....23333332....",
+              ".....222222.....",
+              "................",
+              "................",
+              "................"],
+             {"1": (150, 120, 80), "2": (190, 172, 136), "3": (236, 226, 200), "4": WHEAT[1]}),
+    "aepfel": (["................",
+                "........5.......",
+                ".......544......",
+                "........4.......",
+                "....111.111.....",
+                "...13311112l....",
+                "...1311111ll....",
+                "...111111122....",
+                "...11111112l....",
+                "....1111122.....",
+                ".....l1.l2......",
+                "................",
+                "................",
+                "................",
+                "................",
+                "................"],
+               {"1": (220, 50, 50), "2": (180, 36, 40), "3": (255, 150, 140), "4": LEAF[3], "5": WOOD[1],
+                "l": (140, 26, 30)}),
+    "eier": (["................",
+              "................",
+              "................",
+              "......11........",
+              ".....1331.......",
+              "....133221......",
+              "....1322221.11..",
+              "....132222113321",
+              ".....1222113322.",
+              "......11..132221",
+              "..........122221",
+              "...........1111.",
+              "................",
+              "................",
+              "................",
+              "................"],
+             {"1": (200, 186, 160), "2": (246, 238, 222), "3": (255, 255, 250)}),
+    "raeucherfisch": (["................",
+                       "................",
+                       "................",
+                       "................",
+                       "......1111......",
+                       "4...11133311....",
+                       "44.1133333311...",
+                       "4441333333e31...",
+                       "4441222222221...",
+                       "44.1122222211...",
+                       "4...11222211....",
+                       "......1111......",
+                       "................",
+                       "................",
+                       "................",
+                       "................"],
+                      {"1": (110, 60, 30), "2": (210, 150, 80), "3": (170, 100, 50), "4": (130, 76, 40),
+                       "e": (20, 20, 30)}),
+    "brot": (["................",
+              "................",
+              "................",
+              "................",
+              ".....111111.....",
+              "...1123232211...",
+              "..122323232321..",
+              ".12222222222221.",
+              ".12222222222221.",
+              ".11222222222211.",
+              "..111111111111..",
+              "................",
+              "................",
+              "................",
+              "................",
+              "................"],
+             {"1": (150, 84, 40), "2": (200, 130, 60), "3": (240, 196, 120)}),
+    "wissen": (["................",
+                "................",
+                "..11111..11111..",
+                ".1222221122222l.",
+                ".1233321123332l.",
+                ".1222221122222l.",
+                ".1233321123332l.",
+                ".1222221122222l.",
+                ".1233321123332l.",
+                ".1222221122222l.",
+                ".11111111111111.",
+                "......4444......",
+                "................",
+                "................",
+                "................",
+                "................"],
+               {"1": (150, 46, 40), "2": (246, 236, 210), "3": (150, 140, 130), "l": (120, 36, 32),
+                "4": (180, 60, 50)}),
+    "axt": (["................",
+             "........4444....",
+             ".......433334...",
+             "......4333334...",
+             "......433.334...",
+             ".......1..44....",
+             "......1.........",
+             ".....1..........",
+             "....1...........",
+             "...1............",
+             "..1.............",
+             ".1..............",
+             "................",
+             "................",
+             "................",
+             "................"],
+            {"1": WOOD[2], "3": STONE[2], "4": STONE[3]}),
+    "korb": (["................",
+              "................",
+              "......3333......",
+              ".....3....3.....",
+              "....3......3....",
+              "...1111111111...",
+              "...1212121212...",
+              "...2121212121...",
+              "...1212121212...",
+              "....12121212....",
+              "....21212121....",
+              ".....111111.....",
+              "................",
+              "................",
+              "................",
+              "................"],
+             {"1": THATCH[1], "2": THATCH[2], "3": THATCH[0]}),
+    "wasser": (["................",
+                ".......1........",
+                ".......1........",
+                "......121.......",
+                "......121.......",
+                ".....12221......",
+                "....1223221.....",
+                "....1232222.....",
+                "...122322221....",
+                "...122222221....",
+                "...112222211....",
+                "....1122211.....",
+                "......111.......",
+                "................",
+                "................",
+                "................"],
+               {"1": WATER[0], "2": WATER[2], "3": WATER[4]}),
+    "karren": (["................",
+                "................",
+                "................",
+                "................",
+                "..1111111111....",
+                "..1222222221....",
+                "..1222222221111.",
+                "..111111111111..",
+                "....3.....3.....",
+                "...343...343....",
+                "...333...333....",
+                "................",
+                "................",
+                "................",
+                "................",
+                "................"],
+               {"1": WOOD[1], "2": WOOD[2], "3": WOOD[0], "4": IRON[2]}),
+    "pflug": (["................",
+               "1...............",
+               ".1..............",
+               "..1.............",
+               "...1............",
+               "....1...........",
+               ".....1..........",
+               "......1.........",
+               ".......1222.....",
+               "........13332...",
+               ".......1.13332..",
+               "......1....1332.",
+               ".....1.......12.",
+               "................",
+               "................",
+               "................"],
+              {"1": WOOD[2], "2": IRON[1], "3": IRON[3]}),
+    "schiff": (["................",
+                ".......1........",
+                ".......12.......",
+                ".......122......",
+                ".......1222.....",
+                ".......12222....",
+                ".......122222...",
+                ".......1........",
+                ".3333333333333..",
+                "..344444444443..",
+                "...3444444443...",
+                "....33333333....",
+                "..5555555555555.",
+                "................",
+                "................",
+                "................"],
+               {"1": WOOD[1], "2": (246, 236, 210), "3": WOOD[0], "4": WOOD[2], "5": WATER[2]}),
+    "schwert": (["................",
+                 "...........11...",
+                 "..........1331..",
+                 ".........1331...",
+                 "........1331....",
+                 ".......1331.....",
+                 "......1331......",
+                 "..4..1331.......",
+                 "...4131.........",
+                 "....41..........",
+                 "...5.44.........",
+                 "..5...4.........",
+                 ".5..............",
+                 "................",
+                 "................",
+                 "................"],
+                {"1": IRON[1], "3": IRON[3], "4": (200, 160, 60), "5": WOOD[1]}),
+    "kiste": (["................",
+               "................",
+               "................",
+               "..111111111111..",
+               "..133333333331..",
+               "..122222222221..",
+               "..111111111111..",
+               "..122222222221..",
+               "..123332233321..",
+               "..122222222221..",
+               "..122222222221..",
+               "..111111111111..",
+               "................",
+               "................",
+               "................",
+               "................"],
+              {"1": WOOD[0], "2": WOOD[2], "3": WOOD[3]}),
+})
+
+
 def gen_icons():
     names = list(ICONS.keys())
     atlas = new(16 * len(names), 16)
@@ -1188,7 +1562,7 @@ def ui_panel():
 
 def preview():
     """Vorschaubild zur Kontrolle (nicht im Spiel benutzt)."""
-    files = ["terrain.png", "objects.png", "icons.png", "tools.png", "ui.png",
+    files = ["terrain.png", "objects.png", "buildings.png", "icons.png", "tools.png", "ui.png",
              "settler_fixed.png", "settler_skin.png", "settler_hair_0.png", "settler_hair_1.png",
              "settler_hair_2.png", "settler_shirt.png", "settler_pants.png"]
     ims = [Image.open(os.path.join(OUT, f)) for f in files]
@@ -1204,10 +1578,799 @@ def preview():
     sheet.save(os.path.join(ROOT, "tools", "preview", "atlas_preview.png"))
 
 
+# ================================================================== Etappe 2
+
+
+def rect(img, x0, y0, w, h, c):
+    for y in range(y0, y0 + h):
+        for x in range(x0, x0 + w):
+            put(img, x, y, c)
+
+
+def ground_line(img, x0, x1, y=59):
+    """Weicher Schatten-Sockel unter Gebaeuden."""
+    for x in range(x0, x1):
+        put(img, x, y + 1, (60, 90, 50, 110))
+
+
+def stone_wall(img, x0, y0, w, h, cols=STONE):
+    for y in range(h):
+        row = y // 4
+        for x in range(w):
+            c = cols[2] if (x + row * 3) % 7 else cols[3]
+            if y % 4 == 3 or (x + (row % 2) * 4) % 8 == 0:
+                c = cols[1]
+            if x in (0, w - 1):
+                c = cols[1]
+            put(img, x0 + x, y0 + y, c)
+
+
+def brick_wall(img, x0, y0, w, h):
+    for y in range(h):
+        row = y // 3
+        for x in range(w):
+            c = BRICK[1] if (x // 3 + row) % 3 else BRICK[2]
+            if y % 3 == 2 or (x + (row % 2) * 3) % 6 == 0:
+                c = BRICK[0]
+            put(img, x0 + x, y0 + y, c)
+
+
+def plaster_wall(img, x0, y0, w, h, beams=True):
+    """Fachwerk: heller Putz mit dunklen Balken."""
+    for y in range(h):
+        for x in range(w):
+            c = PLASTER[1] if (x * 7 + y * 3) % 11 else PLASTER[0]
+            if y < 2:
+                c = PLASTER[2]
+            put(img, x0 + x, y0 + y, c)
+    if beams:
+        for x in range(w):
+            put(img, x0 + x, y0, WOOD[0])
+            put(img, x0 + x, y0 + h // 2, WOOD[1])
+            put(img, x0 + x, y0 + h - 1, WOOD[0])
+        for bx in range(0, w, 10):
+            for y in range(h):
+                put(img, x0 + bx, y0 + y, WOOD[1])
+        for y in range(h):
+            put(img, x0 + w - 1, y0 + y, WOOD[0])
+        # Diagonalstreben
+        for bx in range(0, w - 10, 20):
+            for i in range(h // 2):
+                put(img, x0 + bx + 1 + i * 9 // max(1, h // 2), y0 + h // 2 + i, WOOD[1])
+
+
+def tile_roof(img, x0, y0, w, h, cols=ROOF_RED, overhang=3):
+    """Ziegel- oder Schieferdach: Reihen mit Schuppen, oben schmaler."""
+    for y in range(h):
+        inset = max(0, (h - y) // 3 - 1)
+        xa = x0 + inset - overhang * y // h
+        xb = x0 + w - inset + overhang * y // h
+        for x in range(xa, xb):
+            c = cols[2]
+            if y % 4 == 3:
+                c = cols[1]
+            elif (x + (y // 4) * 2) % 4 == 0 and y % 4 == 2:
+                c = cols[1]
+            if y % 4 == 0 and (x + y) % 3 == 0:
+                c = cols[3]
+            if x - xa < 2:
+                c = cols[3] if y % 4 != 3 else cols[2]
+            if xb - x <= 2:
+                c = cols[1]
+            if y >= h - 2:
+                c = cols[0] if y == h - 1 else cols[1]
+            put(img, x, y0 + y, c)
+
+
+def door(img, x0, y0, w, h, cols=None, arch=False):
+    for y in range(h):
+        for x in range(w):
+            if arch and y == 0 and x in (0, w - 1):
+                continue
+            c = (70, 44, 34)
+            if x in (0, w - 1) or y == 0:
+                c = WOOD[0]
+            elif x % 3 == 0:
+                c = (86, 54, 40)
+            put(img, x0 + x, y0 + y, c)
+    put(img, x0 + w - 3, y0 + h // 2, THATCH[3])
+
+
+def window(img, x0, y0, w=6, h=6, lit=True, shutters=False):
+    for y in range(h):
+        for x in range(w):
+            edge = x in (0, w - 1) or y in (0, h - 1)
+            put(img, x0 + x, y0 + y, WOOD[0] if edge else ((250, 220, 130) if (x + y) % 3 else (230, 190, 100)) if lit
+                else (60, 80, 110))
+    for x in range(w):
+        put(img, x0 + x, y0 + h // 2, WOOD[1])
+    if shutters:
+        for y in range(h):
+            put(img, x0 - 2, y0 + y, (60, 110, 80))
+            put(img, x0 - 1, y0 + y, (80, 140, 100))
+            put(img, x0 + w, y0 + y, (80, 140, 100))
+            put(img, x0 + w + 1, y0 + y, (60, 110, 80))
+
+
+def chimney(img, x0, y0, h, cols=STONE):
+    for y in range(h):
+        for x in range(4):
+            put(img, x0 + x, y0 + y, cols[2] if x < 3 else cols[1])
+    for x in range(-1, 5):
+        put(img, x0 + x, y0, cols[3])
+
+
+def barrel(img, x0, y0):
+    for y in range(7):
+        for x in range(6):
+            c = WOOD[2] if 1 <= x <= 3 else WOOD[1]
+            if y in (1, 5):
+                c = IRON[1]
+            put(img, x0 + x, y0 + y, c)
+
+
+def sack(img, x0, y0, c=(222, 206, 170)):
+    for y in range(6):
+        for x in range(6):
+            if (y == 0 and x in (0, 5)) or (y == 5 and x in (0, 5)):
+                continue
+            put(img, x0 + x, y0 + y, c if x < 4 else (190, 172, 136))
+    put(img, x0 + 2, y0 - 1, (190, 172, 136))
+    put(img, x0 + 3, y0 - 1, (190, 172, 136))
+
+
+def house_wood():
+    img = new(64, 64)
+    plank_wall(img, 10, 38, 44, 22)
+    # Querbalken und Ecken
+    for y in range(38, 60):
+        put(img, 10, y, WOOD[0])
+        put(img, 53, y, WOOD[0])
+    door(img, 28, 46, 8, 14)
+    window(img, 14, 43, 7, 7, shutters=True)
+    window(img, 43, 43, 7, 7, shutters=True)
+    # Blumenkasten
+    for x in range(13, 22):
+        put(img, x, 51, WOOD[1])
+    for x, c in [(14, FLOWER[2]), (16, FLOWER[1]), (18, FLOWER[2]), (20, FLOWER[3])]:
+        put(img, x, 50, c)
+    tile_roof(img, 9, 12, 46, 28, SHINGLE)
+    # Giebelfenster
+    window(img, 29, 22, 6, 6)
+    chimney(img, 42, 8, 10)
+    ground_line(img, 10, 54)
+    add_outline(img)
+    return img
+
+
+def house_stone():
+    img = new(64, 64)
+    stone_wall(img, 9, 34, 46, 26)
+    door(img, 28, 45, 8, 15, arch=True)
+    window(img, 13, 38, 7, 8, shutters=True)
+    window(img, 44, 38, 7, 8, shutters=True)
+    window(img, 13, 50, 7, 6)
+    window(img, 44, 50, 7, 6)
+    tile_roof(img, 8, 6, 48, 30, ROOF_RED)
+    # Gaube
+    for y in range(16, 26):
+        for x in range(26, 38):
+            put(img, x, y, PLASTER[1])
+    window(img, 29, 18, 6, 6)
+    for i, x in enumerate(range(24, 40)):
+        put(img, x, 15, ROOF_RED[3] if i % 2 else ROOF_RED[2])
+    chimney(img, 14, 2, 12)
+    chimney(img, 46, 4, 10)
+    ground_line(img, 9, 55)
+    add_outline(img)
+    return img
+
+
+def store_big():
+    img = new(64, 64)
+    stone_wall(img, 3, 32, 58, 28)
+    # grosses Tor
+    for y in range(40, 60):
+        for x in range(22, 42):
+            c = WOOD[1] if (x - 22) % 4 else WOOD[0]
+            if y == 40:
+                c = WOOD[0]
+            put(img, x, y, c)
+    for x in range(22, 42):
+        put(img, x, 49, WOOD[0])
+    for i in range(10):
+        put(img, 23 + i * 2, 41 + i * 2 - 1 if i < 9 else 58, WOOD[3])
+    window(img, 7, 38, 6, 5, lit=False)
+    window(img, 51, 38, 6, 5, lit=False)
+    tile_roof(img, 2, 8, 60, 26, ROOF_RED)
+    # Lastkran-Balken
+    for x in range(28, 37):
+        put(img, x, 22, WOOD[1])
+    for y in range(22, 29):
+        put(img, 35, y, (220, 210, 180))
+    barrel(img, 5, 52)
+    barrel(img, 12, 53)
+    sack(img, 48, 54)
+    sack(img, 54, 53, (200, 184, 150))
+    ground_line(img, 3, 61)
+    add_outline(img)
+    return img
+
+
+def mill(frame):
+    img = new(64, 64)
+    # Turm, nach oben schmaler
+    for y in range(26, 60):
+        t = (y - 26) / 34
+        half = int(9 + t * 5)
+        for x in range(32 - half, 32 + half):
+            c = PLASTER[1] if (x * 5 + y * 3) % 13 else PLASTER[0]
+            if x - (32 - half) < 2:
+                c = PLASTER[2]
+            if (32 + half) - x <= 2:
+                c = PLASTER[0]
+            put(img, x, y, c)
+    # Sockel aus Stein
+    stone_wall(img, 18, 54, 28, 6)
+    door(img, 28, 48, 8, 12, arch=True)
+    window(img, 29, 34, 5, 6)
+    # Kegeldach
+    for y in range(14, 28):
+        half = int((y - 14) * 0.85) + 2
+        for x in range(32 - half, 32 + half):
+            c = SHINGLE[2] if x < 32 else SHINGLE[1]
+            if (y + x) % 5 == 0:
+                c = SHINGLE[3] if x < 32 else SHINGLE[2]
+            put(img, x, y, c)
+    add_outline(img)
+    # Fluegel (vierzaehlig, 4 Frames = Vierteldrehung)
+    sails = new(64, 64)
+    cx, cy = 32, 22
+    for k in range(4):
+        a = math.radians(frame * 22.5 + k * 90)
+        dx, dy = math.cos(a), math.sin(a)
+        px, py = -dy, dx
+        for r in range(3, 22):
+            x = cx + dx * r
+            y = cy + dy * r * 0.95
+            put(sails, int(round(x)), int(round(y)), WOOD[1])
+            if r > 6:
+                for w in range(1, 6):
+                    sx = x + px * w
+                    sy = y + py * w * 0.95
+                    c = (240, 232, 214) if (r + w) % 4 else (200, 186, 160)
+                    if w == 5 or r == 21:
+                        c = WOOD[1]
+                    put(sails, int(round(sx)), int(round(sy)), c)
+    add_outline(sails)
+    img.alpha_composite(sails)
+    for (x, y) in [(31, 21), (32, 21), (31, 22), (32, 22)]:
+        put(img, x, y, IRON[1])
+    return img
+
+
+def bakery():
+    img = new(64, 64)
+    plaster_wall(img, 8, 36, 48, 24)
+    door(img, 30, 46, 8, 14)
+    window(img, 13, 42, 8, 7)
+    window(img, 44, 42, 7, 7)
+    # Ladenschild mit Brezel
+    for y in range(28, 35):
+        put(img, 19, y, WOOD[0])
+    for y in range(32, 38):
+        for x in range(12, 20):
+            put(img, x, y, WOOD[2] if 0 < x - 12 < 7 and 32 < y < 37 else WOOD[0])
+    for (x, y) in [(14, 34), (15, 33), (16, 34), (17, 33), (18, 34), (15, 35), (17, 35), (16, 36)]:
+        put(img, x, y, (200, 130, 60))
+    thatch_roof(img, 7, 12, 50, 26)
+    # Backofen-Kamin aus Ziegeln (Rauch bei 42,20)
+    for y in range(20, 34):
+        for x in range(40, 46):
+            put(img, x, y, BRICK[1] if (y // 2 + x // 3) % 2 else BRICK[2])
+    for x in range(39, 47):
+        put(img, x, 20, BRICK[0])
+    # Brotlaibe auf dem Fensterbrett
+    for x0 in (13, 17):
+        for x in range(x0, x0 + 3):
+            put(img, x, 49, (190, 120, 60))
+    ground_line(img, 8, 56)
+    add_outline(img)
+    return img
+
+
+def smokehouse():
+    img = new(64, 64)
+    for y in range(40, 60):
+        for x in range(17, 47):
+            c = SHINGLE[1] if (x - 17) % 5 else SHINGLE[0]
+            if y % 6 == 0:
+                c = SHINGLE[0]
+            put(img, x, y, c)
+    door(img, 28, 48, 8, 12)
+    thatch_roof(img, 15, 24, 34, 18, [(90, 64, 40), (120, 86, 50), (150, 110, 64), (176, 136, 82)])
+    # Rauchloch
+    for x in range(29, 36):
+        put(img, x, 25, DARK)
+        put(img, x, 26, DARK)
+    # Fischleine
+    for x in range(8, 57):
+        if x < 17 or x > 46:
+            put(img, x, 44, (220, 210, 180))
+    for y in range(44, 60):
+        put(img, 8, y, WOOD[1])
+        put(img, 56, y, WOOD[1])
+    for fx in (10, 13, 50, 53):
+        for y in range(45, 50):
+            put(img, fx, y, (170, 110, 60) if y < 49 else (130, 80, 40))
+            put(img, fx + 1, y, (200, 140, 80) if y < 48 else (150, 96, 50))
+    ground_line(img, 8, 57)
+    add_outline(img)
+    return img
+
+
+def henhouse():
+    img = new(64, 64)
+    # Stall links
+    plank_wall(img, 6, 40, 24, 20)
+    for y in range(50, 56):
+        for x in range(14, 20):
+            put(img, x, y, DARK)
+    thatch_roof(img, 4, 26, 28, 16)
+    # Leiter
+    for i in range(6):
+        put(img, 20 + i, 59 - i, WOOD[3])
+    # Zaun rechts
+    for x in range(32, 60):
+        put(img, x, 46, WOOD[2])
+        put(img, x, 52, WOOD[2])
+    for x in range(32, 60, 5):
+        for y in range(44, 60):
+            put(img, x, y, WOOD[1])
+    # Huehner
+    for (hx, hy) in [(38, 54), (47, 50), (53, 55)]:
+        for (dx, dy) in [(0, 0), (1, 0), (2, 0), (0, 1), (1, 1), (2, 1), (1, -1), (2, -1), (3, 1)]:
+            put(img, hx + dx, hy + dy, (248, 244, 236))
+        put(img, hx + 2, hy - 2, (220, 50, 50))
+        put(img, hx + 3, hy - 1, (240, 180, 40))
+        put(img, hx + 1, hy + 2, (240, 180, 40))
+    # Koerner
+    for (x, y) in [(41, 57), (44, 56), (50, 58), (35, 58)]:
+        put(img, x, y, WHEAT[2])
+    ground_line(img, 6, 60)
+    add_outline(img)
+    return img
+
+
+def sawpit():
+    img = new(64, 64)
+    # Pfosten und Pultdach
+    for x in (16, 47):
+        for y in range(30, 60):
+            put(img, x, y, WOOD[1])
+            put(img, x + 1, y, WOOD[2])
+    thatch_roof(img, 12, 22, 40, 10, [(110, 72, 40), (140, 96, 50), (170, 120, 64), (196, 150, 86)])
+    # Saegebock
+    for x in range(20, 44):
+        put(img, x, 50, WOOD[1])
+        put(img, x, 51, WOOD[0])
+    for (x0, d) in [(22, 1), (41, -1)]:
+        for i in range(8):
+            put(img, x0 + d * (i // 2), 51 + i, WOOD[1])
+            put(img, x0 - d * (i // 2), 51 + i, WOOD[1])
+    # Stamm auf dem Bock
+    for y in range(44, 50):
+        for x in range(19, 46):
+            c = WOOD[2] if y < 46 else WOOD[1]
+            if y == 44:
+                c = WOOD[3]
+            put(img, x, y, c)
+    for y in range(44, 50):
+        put(img, 46, y, (220, 180, 120))
+    # Saege
+    for y in range(36, 56):
+        put(img, 33, y, IRON[3] if y % 2 else IRON[2])
+    for x in range(30, 37):
+        put(img, x, 35, WOOD[1])
+    # Bretterstapel
+    for y in range(54, 60):
+        for x in range(48, 62):
+            put(img, x, y, WOOD[3] if y % 2 == 0 else WOOD[2])
+    # Saegespaene
+    for (x, y) in [(28, 58), (31, 59), (36, 58), (39, 59), (34, 57)]:
+        put(img, x, y, (230, 200, 140))
+    ground_line(img, 16, 62)
+    add_outline(img)
+    return img
+
+
+def claypit():
+    img = new(64, 64)
+    # Grube (Ellipse)
+    for y in range(36, 61):
+        for x in range(10, 54):
+            dx = (x + 0.5 - 32) / 21
+            dy = (y + 0.5 - 49) / 11
+            d = dx * dx + dy * dy
+            if d <= 1:
+                c = CLAY[2]
+                if d < 0.75:
+                    c = CLAY[1]
+                if d < 0.75 and dy < -0.2:
+                    c = CLAY[0]
+                if d < 0.4 and (x + y) % 5 == 0:
+                    c = (128, 78, 46)
+                put(img, x, y, c)
+    # Wasserpfuetze
+    for y in range(50, 55):
+        for x in range(34, 44):
+            if (x - 39) ** 2 / 25 + (y - 52.5) ** 2 / 6 <= 1:
+                put(img, x, y, WATER[2] if y < 52 else WATER[1])
+    # Lehmhaufen
+    blob(img, 52, 54, 7, 5, [CLAY[0], CLAY[1], CLAY[2], (230, 176, 120)], noise_seed=41)
+    # Schaufel
+    for i in range(14):
+        put(img, 18 + i // 3, 30 + i, WOOD[2])
+    for y in range(44, 49):
+        for x in range(21, 25):
+            put(img, x, y, IRON[2])
+    ground_line(img, 10, 60)
+    add_outline(img)
+    return img
+
+
+def brickworks():
+    img = new(64, 64)
+    # Brennofen (Kuppel) links
+    for y in range(28, 60):
+        for x in range(4, 40):
+            dx = (x + 0.5 - 22) / 18
+            dy = (y + 0.5 - 60) / 30
+            if dx * dx + dy * dy <= 1:
+                c = BRICK[1] if ((x // 3) + (y // 3)) % 2 else BRICK[2]
+                if y % 3 == 2:
+                    c = BRICK[0]
+                if dx < -0.5:
+                    c = BRICK[2] if y % 3 != 2 else BRICK[1]
+                put(img, x, y, c)
+    # Feuerloch
+    for y in range(48, 60):
+        for x in range(16, 28):
+            dx = (x + 0.5 - 22) / 6
+            dy = (y + 0.5 - 60) / 12
+            if dx * dx + dy * dy <= 1:
+                c = GLOW[0]
+                if dx * dx + dy * dy < 0.5:
+                    c = GLOW[1]
+                if dx * dx + dy * dy < 0.2:
+                    c = GLOW[2]
+                put(img, x, y, c)
+    # Schornstein (Rauch bei 46,20)
+    for y in range(20, 52):
+        for x in range(43, 50):
+            put(img, x, y, BRICK[1] if (y // 3 + x // 3) % 2 else BRICK[2])
+    for x in range(42, 51):
+        put(img, x, 20, BRICK[0])
+        put(img, x, 21, BRICK[0])
+    # Ziegelstapel rechts
+    for (x0, y0) in [(50, 52), (50, 46), (56, 52)]:
+        for y in range(y0, y0 + 6):
+            for x in range(x0, x0 + 6):
+                c = ROOF_RED[2] if y % 2 else ROOF_RED[1]
+                put(img, x, y, c)
+    ground_line(img, 4, 62)
+    add_outline(img)
+    return img
+
+
+def quarry():
+    img = new(64, 64)
+    blob(img, 32, 44, 26, 17, STONE[0:5], noise_seed=51, jag=0.05)
+    # Abgebaute, flache Stufen
+    for (y0, x0, x1) in [(36, 14, 34), (44, 20, 46), (52, 12, 30)]:
+        for x in range(x0, x1):
+            put(img, x, y0, STONE[4])
+            put(img, x, y0 + 1, STONE[3])
+            for y in range(y0 + 2, y0 + 5):
+                put(img, x, y, STONE[1])
+    # Bloecke vorne
+    for (x0, y0) in [(42, 54), (50, 52)]:
+        for y in range(y0, y0 + 6):
+            for x in range(x0, x0 + 7):
+                put(img, x, y, STONE[3] if y == y0 or x == x0 else STONE[2])
+    # Keil und Hammer
+    for i in range(6):
+        put(img, 24 + i, 30 - i, WOOD[2])
+    ground_line(img, 8, 58)
+    add_outline(img)
+    return img
+
+
+def charcoal():
+    img = new(64, 64)
+    # Meiler: Erdkuppel mit Rauchloch (Rauch bei 32,34)
+    cols = [(52, 40, 36), (76, 58, 48), (100, 78, 60), (124, 98, 74)]
+    blob(img, 32, 52, 20, 16, cols, noise_seed=61)
+    for (x, y) in [(31, 37), (32, 37), (33, 37), (32, 36)]:
+        put(img, x, y, DARK)
+    for (x, y) in [(22, 50), (40, 48), (30, 56), (38, 55)]:
+        put(img, x, y, GLOW[0])
+        put(img, x + 1, y, GLOW[1])
+    # Holzstapel
+    for y in range(50, 60):
+        for x in range(50, 62):
+            c = WOOD[2]
+            if (x - 50) % 4 == 0 or y % 5 == 0:
+                c = WOOD[1]
+            put(img, x, y, c)
+    for y in range(50, 60, 5):
+        for x in range(51, 61, 4):
+            put(img, x + 1, y + 2, WOOD[3])
+    ground_line(img, 12, 62)
+    add_outline(img)
+    return img
+
+
+def mine():
+    img = new(64, 64)
+    blob(img, 32, 42, 28, 20, [STONE[0], (90, 86, 96), STONE[1], STONE[2], STONE[3]], noise_seed=71, jag=0.05)
+    for (x, y) in [(14, 36), (15, 35), (16, 36), (46, 32), (47, 33)]:
+        put(img, x, y, GRASS[2])
+    # Stollen
+    for y in range(40, 60):
+        for x in range(23, 41):
+            put(img, x, y, DARK if y > 42 else (60, 50, 50))
+    for y in range(38, 60):
+        for x in (21, 22, 41, 42):
+            put(img, x, y, WOOD[2] if x in (21, 41) else WOOD[1])
+    for x in range(19, 45):
+        put(img, x, 38, WOOD[2])
+        put(img, x, 39, WOOD[1])
+    # Gleise
+    for y in range(48, 64, 3):
+        for x in range(27, 37):
+            put(img, x, y, WOOD[1])
+    for y in range(46, 64):
+        put(img, 28, y, IRON[2])
+        put(img, 35, y, IRON[2])
+    # Lore mit Erz
+    for y in range(52, 58):
+        for x in range(26, 38):
+            put(img, x, y, IRON[1] if y > 52 else IRON[2])
+    for x in range(27, 37, 2):
+        put(img, x, 51, (180, 110, 80))
+        put(img, x + 1, 51, (140, 80, 60))
+    # Erzbrocken neben dem Eingang
+    for (x0, y0) in [(48, 54), (12, 55)]:
+        blob(img, x0 + 3, y0 + 3, 4, 3, [STONE[0], STONE[1], (160, 100, 80), (200, 130, 90)], noise_seed=x0)
+    ground_line(img, 6, 60)
+    add_outline(img)
+    return img
+
+
+def smelter():
+    img = new(64, 64)
+    # Hoher Ofen (Rauch bei 38,14)
+    for y in range(14, 60):
+        t = (y - 14) / 46
+        half = int(6 + t * 9)
+        for x in range(38 - half, 38 + half):
+            c = STONE[2] if (x + (y // 4) * 3) % 6 else STONE[3]
+            if y % 4 == 3:
+                c = STONE[1]
+            if x - (38 - half) < 2:
+                c = STONE[3]
+            put(img, x, y, c)
+    for x in range(31, 46):
+        put(img, x, 14, STONE[4])
+        put(img, x, 15, STONE[1])
+    # Glut-Oeffnung
+    for y in range(46, 58):
+        for x in range(33, 44):
+            dx = (x + 0.5 - 38.5) / 5.5
+            dy = (y + 0.5 - 58) / 12
+            if dx * dx + dy * dy <= 1:
+                put(img, x, y, GLOW[2] if dx * dx + dy * dy < 0.25 else GLOW[1] if dx * dx + dy * dy < 0.6 else GLOW[0])
+    # Blasebalg und Kohlehaufen
+    for y in range(48, 56):
+        for x in range(10, 22):
+            if abs(x - 16) * 2 + abs(y - 52) * 3 < 14:
+                put(img, x, y, (120, 80, 50) if y < 52 else (90, 60, 40))
+    for x in range(21, 25):
+        put(img, x, 52, WOOD[0])
+    blob(img, 54, 56, 6, 4, [(30, 30, 36), (50, 50, 58), (70, 70, 80)], noise_seed=81)
+    # Eisenbarren
+    for x in range(12, 22):
+        put(img, x, 58, IRON[2])
+        put(img, x, 59, IRON[1])
+    ground_line(img, 10, 61)
+    add_outline(img)
+    return img
+
+
+def smithy():
+    img = new(64, 64)
+    # Rueckwand und Esse
+    stone_wall(img, 8, 32, 48, 28)
+    for y in range(40, 52):
+        for x in range(12, 28):
+            put(img, x, y, STONE[1])
+    for y in range(46, 52):
+        for x in range(14, 26):
+            put(img, x, y, GLOW[1] if (x + y) % 3 else GLOW[2])
+    # Kamin (Rauch bei 46,18)
+    chimney(img, 44, 18, 16)
+    # Dach auf Pfosten (offene Front)
+    tile_roof(img, 6, 20, 52, 14, SHINGLE, overhang=2)
+    for x in (8, 54):
+        for y in range(34, 60):
+            put(img, x, y, WOOD[1])
+            put(img, x + 1, y, WOOD[2])
+    # Amboss
+    for y in range(50, 54):
+        for x in range(36, 48):
+            if y == 50 or 38 <= x <= 45:
+                put(img, x, y, IRON[2] if y == 50 else IRON[1])
+    for y in range(54, 60):
+        for x in range(39, 45):
+            put(img, x, y, WOOD[1])
+    # Werkzeuge an der Wand
+    for (x0, c) in [(32, IRON[3]), (35, IRON[2])]:
+        for y in range(36, 44):
+            put(img, x0, y, WOOD[2])
+        put(img, x0 - 1, 36, c)
+        put(img, x0 + 1, 36, c)
+    ground_line(img, 8, 56)
+    add_outline(img)
+    return img
+
+
+def scriptorium():
+    img = new(64, 64)
+    plaster_wall(img, 9, 36, 46, 24)
+    door(img, 28, 46, 8, 14, arch=True)
+    window(img, 13, 41, 8, 8)
+    window(img, 43, 41, 8, 8)
+    tile_roof(img, 8, 12, 48, 26, SLATE)
+    # kleiner Turm mit Glocke
+    for y in range(4, 16):
+        for x in range(28, 36):
+            put(img, x, y, PLASTER[1] if x < 34 else PLASTER[0])
+    for y in range(7, 12):
+        for x in range(30, 34):
+            put(img, x, y, DARK)
+    put(img, 31, 9, (230, 190, 70))
+    put(img, 32, 9, (230, 190, 70))
+    put(img, 31, 10, (200, 150, 50))
+    put(img, 32, 10, (200, 150, 50))
+    for y in range(0, 5):
+        for x in range(30 - y, 34 + y):
+            put(img, x, y + 1, SLATE[2] if x < 32 else SLATE[1])
+    # Schild mit Feder
+    for y in range(29, 34):
+        for x in range(42, 50):
+            put(img, x, y, (240, 230, 200))
+    for i in range(5):
+        put(img, 44 + i, 33 - i, (60, 60, 120))
+    ground_line(img, 9, 55)
+    add_outline(img)
+    return img
+
+
+def library():
+    img = new(64, 64)
+    stone_wall(img, 6, 30, 52, 30, [STONE[1], STONE[2], STONE[3], STONE[4], STONE[4]])
+    # Saeulen
+    for x0 in (10, 20, 40, 50):
+        for y in range(34, 58):
+            for x in range(x0, x0 + 4):
+                put(img, x, y, (236, 232, 222) if x < x0 + 2 else (200, 196, 186))
+        for x in range(x0 - 1, x0 + 5):
+            put(img, x, 33, (250, 246, 236))
+            put(img, x, 58, (200, 196, 186))
+    door(img, 27, 42, 10, 18, arch=True)
+    window(img, 14, 38, 5, 9) if False else None
+    # Treppe
+    for i, y in enumerate(range(58, 61)):
+        for x in range(4 - i, 60 + i):
+            put(img, x, y, STONE[3] if i % 2 == 0 else STONE[2])
+    # Giebel mit Rundfenster
+    tile_roof(img, 4, 6, 56, 26, SLATE)
+    for y in range(13, 23):
+        for x in range(27, 37):
+            d = (x + 0.5 - 32) ** 2 + (y + 0.5 - 18) ** 2
+            if d <= 22:
+                put(img, x, y, WOOD[0] if d > 14 else ((250, 220, 130) if (x + y) % 2 else (120, 160, 220)))
+    for x in range(30, 34):
+        put(img, x, 4, (230, 190, 70))
+    for y in range(1, 5):
+        put(img, 31, y, (230, 190, 70))
+        put(img, 32, y, (200, 150, 50))
+    ground_line(img, 4, 60)
+    add_outline(img)
+    return img
+
+
+def orchard_tile(stage):
+    """Obstgarten-Kachel 16x16: 0 Setzlinge, 1 klein, 2 gruen, 3 Aepfel."""
+    img = new(16, 16)
+    for y in range(16):
+        for x in range(16):
+            c = GRASS[1] if (x * 3 + y * 5) % 7 else GRASS[0]
+            put(img, x, y, c)
+    for x in range(0, 16, 2):
+        put(img, x, 15, SOIL[1])
+    cx, cy = 8, 8
+    if stage == 0:
+        for y in range(8, 13):
+            put(img, cx, y, WOOD[2])
+        put(img, cx - 1, 8, LEAF[3])
+        put(img, cx + 1, 9, LEAF[3])
+        for x in range(5, 12):
+            put(img, x, 13, SOIL[0])
+    else:
+        for y in range(9, 14):
+            put(img, cx, y, WOOD[1])
+            put(img, cx + 1, y, WOOD[2])
+        r = 4.0 if stage == 1 else 6.0
+        crown = new(16, 16)
+        blob(crown, 8.5, 7, r, r * 0.85, LEAF[1:5], noise_seed=90 + stage)
+        if stage == 3:
+            for (x, y) in [(5, 6), (10, 5), (8, 9), (12, 8), (6, 9), (9, 3)]:
+                put(crown, x, y, (220, 50, 50))
+                put(crown, x, y - 1, (255, 140, 120)) if (x + y) % 2 else None
+        add_outline(crown)
+        img.alpha_composite(crown)
+    return img
+
+
+def gen_buildings2():
+    """buildings.png: Zellen 64x64, 8 je Zeile (Reihenfolge = Data.BUILDING_CELLS)."""
+    order = [house_wood(), house_stone(), store_big(), mill(0), mill(1), mill(2), mill(3),
+             bakery(), smokehouse(), henhouse(), sawpit(), claypit(), brickworks(), quarry(),
+             charcoal(), mine(), smelter(), smithy(), scriptorium(), library()]
+    atlas = new(512, 64 * ((len(order) + 7) // 8))
+    for i, im in enumerate(order):
+        atlas.paste(im, ((i % 8) * 64, (i // 8) * 64))
+    atlas.save(os.path.join(OUT, "buildings.png"))
+
+
+def tools2():
+    """Zusaetzliche Werkzeuge: Kochloeffel, Buch, Schaufel (an tools.png angehaengt)."""
+    spoon = new(16, 16)
+    for i in range(9):
+        put(spoon, 3 + i, 13 - i, WOOD[2])
+    blob(spoon, 12.5, 3.5, 2.5, 2.2, [WOOD[1], WOOD[2], WOOD[3]], noise_seed=5)
+    add_outline(spoon)
+    book = new(16, 16)
+    for y in range(4, 13):
+        for x in range(3, 13):
+            c = (180, 60, 50) if x < 4 or x > 11 else (246, 236, 210)
+            if y in (4, 12):
+                c = (150, 46, 40)
+            if 4 < y < 12 and x == 8:
+                c = (200, 186, 160)
+            put(book, x, y, c)
+    for x in range(5, 8):
+        put(book, x, 7, (120, 110, 100))
+        put(book, x + 4, 9, (120, 110, 100))
+    add_outline(book)
+    shovel = new(16, 16)
+    for i in range(9):
+        put(shovel, 2 + i, 14 - i, WOOD[2])
+    for y in range(1, 6):
+        for x in range(10, 15):
+            if abs(x - 12) + abs(y - 3) < 4:
+                put(shovel, x, y, STONE[3])
+    add_outline(shovel)
+    return [spoon, book, shovel]
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     gen_terrain()
     gen_objects()
+    gen_buildings2()
     gen_settlers()
     tools()
     gen_icons()

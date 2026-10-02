@@ -31,13 +31,45 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
 - Speichern: automatisch alle `autosave_seconds` Sekunden, beim Verlassen und über das Menü
   (`user://savegame.json`, im Browser in IndexedDB).
 
+## Entwicklungsbaum und Wirtschaft (Etappe 2)
+
+- **Forschung** (`data/techs.json`): 27 Forschungen in 5 Stufen (`_tiers`). Jede hat
+  `tier`, `requires` (andere Forschungen), `cost` (Waren, beim ersten Start bezahlt),
+  `points`, `effects`, optional `icon` und `soon` (sichtbar, aber erst in Etappe 3
+  erforschbar: `schiffsbau`, `waffenkunde`). Es läuft immer genau eine Forschung
+  (`Game.research = {current, progress, done, paid}`, wird gespeichert).
+- **Forscher** (Beruf, Fähigkeit `wissen`) arbeiten an Gebäuden mit `research`
+  {factor, slots}: Lagerfeuer 0.5, Schreibstube 1.0, Bibliothek 1.8. Je Arbeitsgang
+  `research_per_work * factor * Fähigkeit * eff("research")` Punkte, dazu
+  `passive_research_per_day` ohne Forscher.
+- **Effekte** werden aus allen erforschten Forschungen summiert: `Game.eff(key)` =
+  1 + Summe, `Game.eff_add(key)` = Summe. Schlüssel: `gather_<rohstoff>`, `work`,
+  `build`, `carry`, `walk`, `storage`, `farm_yield`, `farm_speed`, `life`, `heal`, `research`.
+- **Freischalten**: Gebäude mit `requires: <forschung>` sind vorher im Bau-Menü gesperrt.
+- **Werkstätten** (`production` {job, inputs, outputs, time, skill, verb, tool?, smoke?}):
+  `job` ist `kueche` (Beruf Koch), `handwerk` (Handwerker) oder `stein` (Steinmetz,
+  über Ziel `prod:stein`). Ein Arbeiter nimmt die Zutaten aus dem Lager, arbeitet
+  `time / Tempo` Sekunden und trägt die erste Ware zum Lager (weitere direkt ins Lager).
+  Gewählt wird die Werkstatt mit der knappsten Ware. Werkstätten lassen sich anhalten.
+- **Ketten**: Holz → Bretter; Lehm (+Holz) → Ziegel; Holz → Kohle; Erz + Kohle → Eisen;
+  Eisen + Bretter → Werkzeug; Getreide → Mehl (+Holz) → Brot; Fisch (+Holz) → Räucherfisch;
+  Getreide → Eier; Obstgarten → Äpfel. Steinbruch und Mine liefern endlos Stein und Erz.
+- **Wohnen**: Hütte 2 → Holzhaus 4 → Steinhaus 6. `upgrade` im Gebäude erlaubt den
+  Ausbau an Ort und Stelle (wird zur Baustelle, Bewohner ziehen solange aus).
+- **Abwechslung**: ab `variety_min` Nahrungssorten im Lager ist die Geburtenchance
+  `variety_birth_bonus`-mal höher.
+- Grafiken der neuen Gebäude liegen in `assets/sprites/buildings.png` (Zellen 64x64,
+  `Data.BUILDING_CELLS`), Obstgarten-Kacheln in `objects.png` (`orchard0..3`).
+- Für Etappe 3: `schiffsbau` und `waffenkunde` stehen am Ende des Baums mit `soon: true`.
+  Werft und Wachturm als Gebäude mit `requires` anlegen und `soon` entfernen.
+
 ## Ordner
 
 | Pfad | Inhalt |
 |---|---|
 | `data/*.json` | Alle Spielwerte (Ressourcen, Rohstoffquellen, Gebäude, Berufe, Balance, Namen) |
 | `scripts/autoload/data.gd` | Lädt JSON, Sprite-Regionen (`OBJECT_REGIONS`), Icons |
-| `scripts/autoload/game.gd` | Zeit, Vorräte, Nachwuchs, Abstammung, Speichern/Laden, Signale |
+| `scripts/autoload/game.gd` | Zeit, Vorräte, Nachwuchs, Abstammung, Forschung und Effekte, Speichern/Laden |
 | `scripts/world/island_gen.gd` | Inselgenerator (Seed → Gelände + Rohstoffe) |
 | `scripts/world/world.gd` | Tilemaps, Wegfindung (AStarGrid2D), Entitäten, Bauen, Effekte, Tag/Nacht |
 | `scripts/world/game_camera.gd` | Ziehen, Zoom (Mausrad, zwei Finger), Tippen |
@@ -75,8 +107,9 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
 - Neue Ressource: Eintrag in `resources.json` und Icon in `tools/gen_art.py` (`ICONS`).
 - Neue Rohstoffquelle: Eintrag in `nodes.json`, Sprite-Region in `Data.OBJECT_REGIONS`,
   Platzierung in `IslandGen._place_nodes`.
-- Neues Gebäude: Eintrag in `buildings.json` plus Sprite. Für Freischaltungen über den
-  Entwicklungsbaum ist ein Feld `requires` vorgesehen (noch nicht ausgewertet).
+- Neues Gebäude: Eintrag in `buildings.json` (mit `category` und optional `requires`)
+  plus Sprite in `tools/gen_art.py` (`gen_buildings2`, Reihenfolge = `Data.BUILDING_CELLS`).
+- Neue Forschung: Eintrag in `techs.json`; neue Effekt-Schlüssel dort auswerten, wo sie wirken.
 - Weitere Inseln: `IslandGen.generate(seed, size, opts)` ist rein datenbasiert;
   `World` hält derzeit genau eine Insel.
 
@@ -84,6 +117,9 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
 
 ```
 godot --headless -- --autotest=120 --scale=10 --build=1     # Simulation mit Bericht
+godot --headless -- --autotest=400 --scale=10 --build=1 --research=1   # forscht automatisch
+godot --headless -- --autotest=60 --scale=10 --prodtest=1  # alle Werkstätten, alles erforscht
+# Bildschirmfoto-Optionen: --panel=research|build|stock, --selectb=<typ>, --look=1
 xvfb-run godot --rendering-driver opengl3 -- --autotest=20 --shot=/tmp/bild.png
 godot --headless --export-release "Web" build/web/index.html
 ```

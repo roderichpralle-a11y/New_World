@@ -25,5 +25,11 @@
   "base_storage": 0,
   "start_stock": {"holz": 10, "stein": 0, "beeren": 16},
   "autosave_seconds": 45.0,
-  "map_size": 64
+  "map_size": 64,
+  "passive_research_per_day": 4.0,
+  "research_cost_factor": 1.0,
+  "research_per_work": 1.5,
+  "research_work_time": 2.5,
+  "variety_min": 3,
+  "variety_birth_bonus": 1.5
 }
