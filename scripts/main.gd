@@ -177,6 +177,24 @@ func _maybe_autotest() -> void:
 					hud._toggle(hud._stock_panel)
 				"sea":
 					hud._open_sea()
+					if args.has("seazoom"):
+						# Testhilfe: Mausrad ueber der Karte, dann ein Stueck ziehen
+						var sp = hud._sea_panel
+						await get_tree().process_frame
+						for i in int(args.seazoom):
+							var w := InputEventMouseButton.new()
+							w.button_index = MOUSE_BUTTON_WHEEL_UP
+							w.pressed = true
+							w.position = sp._map.size * Vector2(0.3, 0.5)
+							sp._on_map_input(w)
+						var drag := InputEventMouseMotion.new()
+						sp._pressed = true
+						drag.position = Vector2(100, 100)
+						drag.relative = Vector2(30, 0)
+						sp._on_map_input(drag)
+						sp._on_map_input(drag)
+						sp._pressed = false
+						print("Seekarte Zoom: ", sp._zoom, " Verschiebung: ", sp._pan)
 				"settlers":
 					hud._toggle(hud._settler_panel)
 					hud._refresh_settler_list()
