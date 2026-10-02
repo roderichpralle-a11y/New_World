@@ -17,6 +17,7 @@ var reserved_by: int = 0
 var occupants: Array = []  # Siedler-IDs, die hier arbeiten (Produktion, Forschung)
 var paused: bool = false
 var active_until: float = 0.0  # Echtzeit, bis zu der die Werkstatt als "in Betrieb" gilt
+var deliveries: int = 0  # Ablieferungen an dieses Lager (nur zur Verteilung, nicht gespeichert)
 var world
 
 var _sprite: Sprite2D
@@ -107,6 +108,13 @@ func entrance_cell() -> Vector2i:
 
 func is_storage() -> bool:
 	return complete and def.get("storage", 0) > 0
+
+
+## Abstand in Zellen (zum Quadrat) von einer Zelle zur naechsten Zelle des Gebaeudes.
+func dist_sq(from: Vector2i) -> float:
+	var nx: int = clamp(from.x, cell.x, cell.x + size.x - 1)
+	var ny: int = clamp(from.y, cell.y, cell.y + size.y - 1)
+	return Vector2(Vector2i(nx, ny) - from).length_squared()
 
 
 func housing() -> int:

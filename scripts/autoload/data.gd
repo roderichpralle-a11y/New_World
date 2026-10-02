@@ -158,6 +158,11 @@ func tool_tex(name: String) -> AtlasTexture:
 	return at
 
 
+## Platzbedarf einer Einheit im Lager (0 = braucht keinen Lagerraum, z. B. Boote).
+func good_size(id: String) -> int:
+	return int(resources.get(id, {}).get("size", 1))
+
+
 func resource_name(id: String) -> String:
 	return resources.get(id, {}).get("name", id)
 
