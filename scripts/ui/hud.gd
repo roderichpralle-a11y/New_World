@@ -1237,12 +1237,12 @@ func _info_upgrade(b: Building) -> void:
 	var to: String = b.def.upgrade
 	var td: Dictionary = Data.buildings[to]
 	if not Game.is_unlocked(to):
-		var l := UiTheme.label("Ausbau zum %s nach der Forschung %s." % [td.name, Data.techs[td.requires].name], 13, Color("#8a5a3a"))
+		var l := UiTheme.label("Ausbau: %s nach der Forschung %s." % [td.name, Data.techs[td.requires].name], 13, Color("#8a5a3a"))
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_info_box.add_child(l)
 		return
 	var ub := UiTheme.button("Ausbauen: %s" % td.name, "hammer", 36)
-	ub.tooltip_text = "Wird zur Baustelle. Die Bewohner ziehen solange aus."
+	ub.tooltip_text = "Wird zur Baustelle. Bewohner und Forscher ziehen solange aus."
 	ub.pressed.connect(func(): world.upgrade_building(b))
 	_info_box.add_child(ub)
 	var h := HBoxContainer.new()
@@ -1251,7 +1251,15 @@ func _info_upgrade(b: Building) -> void:
 		h.add_child(UiTheme.icon_rect(Data.res_icon(res), 14))
 		h.add_child(UiTheme.label(str(int(td.cost[res])), 13, UiTheme.TEXT if Game.amount(res) >= int(td.cost[res]) else UiTheme.BAD))
 	_info_box.add_child(h)
-	_info_box.add_child(UiTheme.label("Platz für %d statt %d Siedler." % [int(td.get("housing", 0)), int(b.def.get("housing", 0))], 12))
+	if td.has("housing"):
+		_info_box.add_child(UiTheme.label("Platz für %d statt %d Siedler." % [int(td.get("housing", 0)), int(b.def.get("housing", 0))], 12))
+	if td.has("research"):
+		var rd: Dictionary = td.research
+		var cur := b.research_def()
+		var l := UiTheme.label("Forschungstempo x%.1f statt x%.1f, %d statt %d Forscher." % [float(rd.factor), float(cur.get("factor", 1.0)),
+			int(rd.slots), int(cur.get("slots", 1))], 12, UiTheme.GOOD)
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_info_box.add_child(l)
 	if float(td.get("birth_bonus", 1.0)) > float(b.def.get("birth_bonus", 1.0)):
 		_info_box.add_child(UiTheme.label("Dort kommen mehr Kinder zur Welt.", 12, UiTheme.GOOD))
 

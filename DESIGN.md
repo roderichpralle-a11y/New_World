@@ -58,6 +58,10 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
 - **Ketten**: Holz → Bretter; Lehm (+Holz) → Ziegel; Holz → Kohle; Erz + Kohle → Eisen;
   Eisen + Bretter → Werkzeug; Getreide → Mehl (+Holz) → Brot; Fisch (+Holz) → Räucherfisch;
   Getreide → Eier; Obstgarten → Äpfel. Steinbruch und Mine liefern endlos Stein und Erz.
+- **Schreibstube in Stufen**: Schreibstube (x1.0, 2 Forscher) → Große Schreibstube (x1.4, 3)
+  → Gelehrtenstube (x1.9, 3, Forschung Gelehrsamkeit) → Akademie (x2.6, 4, Schmiedekunst),
+  jeweils per `upgrade` im Infofenster und mit hohen Kosten. Ausbau-Typen haben
+  `buildable: false` und `base: "schreibstube"` (zählt für Ziele wie die Grundform).
 - **Wohnen**: Hütte 2 → Holzhaus 4 → Steinhaus 6. `upgrade` im Gebäude erlaubt den
   Ausbau an Ort und Stelle (wird zur Baustelle, Bewohner ziehen solange aus).
 - **Abwechslung**: ab `variety_min` Nahrungssorten im Lager ist die Geburtenchance
