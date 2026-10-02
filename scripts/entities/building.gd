@@ -205,7 +205,7 @@ func farm_task() -> String:
 	if not complete or not def.has("farm"):
 		return ""
 	if farm_state == "fallow":
-		return "sow"
+		return "sow" if Seasons.can_sow(type) else ""
 	if farm_state == "ripe":
 		return "harvest"
 	return ""
@@ -328,6 +328,8 @@ func _process(delta: float) -> void:
 		_light.energy = target * (0.75 if type == "lagerfeuer" else 0.45) * flicker
 		_light.visible = _light.energy > 0.02
 	if is_ground() and complete and farm_state == "growing":
+		# Jahreszeit: im Winter steht das Wachstum still, im Sommer geht es schneller
+		farm_time += Seasons.dt_days * (1.0 - Seasons.growth(type))
 		if Game.time_days - farm_time >= grow_days():
 			farm_state = "ripe"
 			refresh()

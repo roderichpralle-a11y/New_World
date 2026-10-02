@@ -25,7 +25,7 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
   Siedler angespült (`newcomer_chance`), damit eine Familie nicht ausstirbt.
 - **Alter**: Siedler sterben zwischen `old_age_min` und `old_age_max` Tagen.
 - **Tag und Nacht**: ein Tag dauert `day_length` Sekunden, die Nacht läuft
-  `night_speedup`-mal (5) schneller. Nachts schlafen alle (in ihrer Hütte oder am Feuer).
+  `night_speedup`-mal (5) schneller. Wann die Nacht beginnt, hängt von der Jahreszeit ab. Nachts schlafen alle (in ihrer Hütte oder am Feuer).
 - **Lager**: Lager haben Stauraum (`storage` in buildings.json: Lagerfeuer 200, Lagerhaus
   400, Großes Lager 1000, mal Forschungsbonus `storage`), jede Ware eine Größe (`size` in
   resources.json, `Data.good_size`; Boote 0 = brauchen keinen Lagerraum). Belegt ist Menge
@@ -169,6 +169,49 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
   Fangradius beim Tippen, schmale Leiste mit Symbol über Text, gewählte Objekte rücken über das
   Infofenster, Vollbild-Knopf im Menü.
 
+## Jahreszeiten
+
+Autoload `Seasons` (`scripts/autoload/seasons.gd`), alle Zahlen in `data/seasons.json` (Listen immer
+Frühling, Sommer, Herbst, Winter). Eine Jahreszeit dauert `season_days` = 3 Tage, ein Jahr 12 Tage.
+Spielbeginn (Tag 1) ist Frühling; die Jahreszeit folgt nur aus `Game.time_days`, also ohne eigenen
+Spielstand-Eintrag (alte Spielstände landen einfach in der passenden Jahreszeit).
+
+- **Abfragen für andere Teile**: `Seasons.season()` (0–3, Konstanten `Seasons.SPRING..WINTER`),
+  `is_winter()`, `year()`, `day_in_season()`, `season_name()`, `season_progress()`, Signal
+  `season_changed(season)`. `Seasons.dt_days` = in diesem Frame vergangene Spieltage.
+- **Anzeige**: Symbol und „Frühling 2/3“ oben in der Leiste (schmal nur das Symbol); Tippen zeigt,
+  was die Jahreszeit bewirkt. Beim Wechsel eine Meldung, am letzten Herbsttag eine Wintervorwarnung
+  mit dem Holzbedarf.
+- **Wachstum** (`growth` je Knoten- oder Feldtyp, sonst `_default`): Faktor auf das Nachwachsen von
+  Rohstoffquellen und das Reifen der Felder. Umgesetzt durch Verschieben von `regrow_at` bzw.
+  `farm_time` um `dt_days * (1 - Faktor)`, das Speicherformat bleibt gleich. Winter 0 (nichts wächst),
+  Herbst etwa halb so schnell, Bäume im Frühling am schnellsten, Beeren im Sommer, Pilze im Herbst.
+- **Tiere vermehren sich nur im Frühling**: baut der Tier-Faden auf `Seasons.season() == Seasons.SPRING`.
+- **Heizen**: je Siedler und Tag `heat_wood_per_settler` Holz (Herbst 0,3, Winter 1) aus dem Lager.
+  Fehlt Holz, frieren die Siedler der Insel (`Seasons.cold`): Hunger x`cold_hunger`, Arbeit
+  x`cold_work`.
+
+Fünf weitere Jahreszeit-Mechaniken:
+
+1. **Tageslänge**: `night_start`/`night_end` je Jahreszeit (`Seasons.night_start()`), Sommertage lang,
+   Wintertage kurz. `Game.is_night()` und das Licht der Welt richten sich danach.
+2. **Feldbau-Kalender und Frost**: Getreide wird nur im Frühling und Sommer gesät (`sow_seasons`);
+   zu Winterbeginn erfriert, was noch auf den Feldern wächst (`frost_kills`). Reifes Korn bleibt.
+   Sträucher und Pilze verlieren zu Winterbeginn ihre Früchte (`winter_bare`).
+3. **Verderb**: frische Nahrung (`perishable`) verdirbt anteilig je Tag (`spoil_per_day`, Sommer 8 %,
+   Winter 0). Brot, Räucherfisch, Getreide, Kokos halten. Erlegtes verdirbt im Sommer schneller und
+   hält im Winter länger (`decay`). Morgens meldet das Spiel, was verdorben ist.
+4. **Schnee und Winterkälte**: im Winter Bauen x0,7 (gefrorener Boden), Laufen x0,85, Hunger x1,15;
+   Fischgründe erholen sich unter Eis kaum. Schnee färbt Boden und Bäume weiß (Shader
+   `assets/shaders/season.gdshader`, Materialien je Insel in `World._update_season_look`, nicht auf
+   Palmeninseln: `snow_biomes`), es schneit (Partikel im Autoload).
+5. **Herbststürme**: Schiffsreisen und Erkundung dauern im Herbst x1,4, im Winter x1,2, im Sommer
+   x0,9 (`Seasons.sail_mult()`, gilt beim Ablegen).
+
+Herbstlaub: Laubbäume und Büsche färben sich im Herbst orange (gleicher Shader), Laub fällt. Grafiken
+der Symbole und Partikel: `tools/gen_art_seasons.py` → `assets/sprites/seasons.png`.
+Test: `--season=<0..3>` startet in einer Jahreszeit, Bericht zeigt Jahreszeit und Holz.
+
 ## Ordner
 
 | Pfad | Inhalt |
@@ -176,6 +219,7 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
 | `data/*.json` | Alle Spielwerte (Ressourcen, Rohstoffquellen, Gebäude, Berufe, Balance, Namen) |
 | `scripts/autoload/data.gd` | Lädt JSON, Sprite-Regionen (`OBJECT_REGIONS`), Icons |
 | `scripts/autoload/game.gd` | Zeit, Vorräte, Nachwuchs, Abstammung, Forschung und Effekte, Speichern/Laden |
+| `scripts/autoload/seasons.gd` | Jahreszeiten: Kalender, Wachstum, Heizen, Verderb, Frost, Schnee |
 | `scripts/autoload/sea.gd` | Inseln, Welten je Insel, Schiffsreisen, Inselwechsel |
 | `scripts/world/island_gen.gd` | Inselgenerator (Seed → Gelände + Rohstoffe) |
 | `scripts/world/world.gd` | Tilemaps, Wegfindung (AStarGrid2D), Entitäten, Bauen, Effekte, Tag/Nacht |
@@ -234,6 +278,7 @@ godot --headless -- --autotest=400 --scale=10 --build=1 --research=1   # forscht
 godot --headless -- --autotest=60 --scale=10 --prodtest=1  # alle Werkstätten, alles erforscht
 godot --headless -- --autotest=120 --scale=10 --tuttest=1  # spielt die Einführung durch
 godot --headless -- --autotest=150 --scale=10 --schooltest=1  # Steinhaus und Schule: Geburten, Schulkinder
+godot --headless -- --autotest=230 --scale=10 --build=1   # ein ganzes Jahr, Bericht mit Jahreszeit und Holz
 godot --headless -- --autotest=300 --scale=10 --seatest=1  # Werft, drei Inseln entdecken und besiedeln
 #   dazu --weak=1: ohne Waffenkunde (Tiere gefährlicher), Bildschirmfoto: --island=<id>, --panel=sea
 # Bildschirmfoto-Optionen: --panel=research|build|stock, --selectb=<typ>, --look=1
