@@ -108,6 +108,19 @@ func _maybe_autotest() -> void:
 			s.hunger = float((i * 37) % 100)
 			if s.is_adult():
 				s.set_job(["holzfaeller", "sammler", "frei", "steinmetz", "bauer"][i % 5] if Data.jobs.has("steinmetz") else "frei")
+	if args.has("comfort"):
+		# Testhilfe: so viele Forschungen als erledigt markieren (Lebensstil steigt)
+		for t in Data.sorted_tech_ids().slice(0, int(args.comfort)):
+			Game.research.done.append(t)
+		Game._recompute_effects()
+		print("Lebensstil: ", SettlerMind.comfort_stage()[0], " ", SettlerMind.comfort())
+	if args.has("sick"):
+		# Testhilfe: einige Siedler krank machen
+		var ills := ["fieber", "erkaeltung", "ruhr"]
+		for i in min(int(args.sick), world.settlers.size()):
+			world.settlers[i].mind._fall_ill(ills[i % ills.size()])
+	if args.has("chartest"):
+		_autotest_chars()
 	if args.has("seatest"):
 		_autotest_sea()
 	if args.has("schooltest"):
@@ -217,6 +230,28 @@ func _maybe_autotest() -> void:
 		print("Screenshot: ", args.shot)
 	Game.save_game()
 	get_tree().quit()
+
+
+## Charakter-Test: taeglicher Bericht ueber Laune, Krankheit, Vitamine und Arbeitskraft.
+func _autotest_chars() -> void:
+	Game.day_started.connect(func(d):
+		var all := []
+		for w in Sea.all_worlds():
+			all.append_array(w.settlers)
+		var sick := all.filter(func(x): return x.mind.sick != "")
+		var mood := 0.0
+		var wp := 0.0
+		var vit := 0.0
+		for x in all:
+			mood += x.mind.mood
+			wp += x.mind.work_power()
+			vit += x.mind.vit
+		var n := maxf(1.0, all.size())
+		print("   Tag %d: %d Siedler, %d krank, Laune %.0f, Vitamine %.0f, Arbeitskraft %.0f%%, Lebensstil %s, Tote %d" % [d, all.size(), sick.size(),
+			mood / n, vit / n, wp / n * 100.0, SettlerMind.comfort_stage()[0], Game.stats.deaths])
+		for x in all.slice(0, 4):
+			print("      %s (%s): Laune %d %s, Erholung %d, Gründe %s" % [x.display_name, x.mind.character_text(), int(x.mind.mood),
+				x.mind.mood_text(), int(x.mind.rest), x.mind.reasons.map(func(r): return "%s %+d" % [r[0], int(r[1])])]))
 
 
 func _autotest_build() -> void:
