@@ -222,8 +222,8 @@ func _build_bottom() -> void:
 	_bottom.add_child(_research_btn)
 	var sb := UiTheme.button("Siedler", "person", 44)
 	sb.pressed.connect(func():
-		_refresh_settler_list()
-		_toggle(_settler_panel))
+		_toggle(_settler_panel)
+		_refresh_settler_list())
 	_bottom.add_child(sb)
 	_sea_btn = UiTheme.button("Inseln", "boot", 44)
 	_sea_btn.pressed.connect(_open_sea)
@@ -664,36 +664,61 @@ func _refresh_settler_list() -> void:
 	if _settler_list == null or not _settler_panel.visible:
 		return
 	for c in _settler_list.get_children():
+		_settler_list.remove_child(c)
 		c.queue_free()
 	var list := world.settlers.duplicate()
 	list.sort_custom(func(a, b): return a.age > b.age)
+	if list.is_empty():
+		_settler_list.add_child(UiTheme.label("Auf dieser Insel lebt niemand.", 14))
 	for s in list:
-		var b := Button.new()
-		b.focus_mode = Control.FOCUS_NONE
-		b.custom_minimum_size = Vector2(330, 44)
 		var h := HBoxContainer.new()
-		h.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		h.set_anchors_preset(Control.PRESET_FULL_RECT)
-		h.offset_left = 10
-		h.offset_right = -10
-		b.add_child(h)
-		var name := UiTheme.label("%s (%d)" % [s.display_name, int(s.age)], 15, UiTheme.TEXT, true)
-		name.custom_minimum_size.x = 120
-		h.add_child(name)
-		var job := UiTheme.label(s.job_name() if s.is_adult() else "Kind", 14)
-		job.custom_minimum_size.x = 90
-		h.add_child(job)
-		var hb := UiTheme.bar(Color("#e0a040"), 8)
-		hb.value = s.hunger
-		hb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		hb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		h.add_child(hb)
+		h.add_theme_constant_override("separation", 6)
 		var sref = s
-		b.pressed.connect(func():
+		# Name antippen: Siedler zeigen
+		var nb := Button.new()
+		nb.focus_mode = Control.FOCUS_NONE
+		nb.text = "%s (%d)" % [s.display_name, int(s.age)]
+		nb.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		nb.custom_minimum_size = Vector2(130, 40)
+		nb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		nb.add_theme_font_size_override("font_size", 14)
+		nb.tooltip_text = "Zeigen"
+		nb.pressed.connect(func():
 			_settler_panel.visible = false
 			Game.select(sref)
 			camera.focus(sref.position + _view_offset()))
-		_settler_list.add_child(b)
+		h.add_child(nb)
+		if s.is_adult():
+			# Beruf direkt in der Liste waehlen
+			var ob := OptionButton.new()
+			ob.focus_mode = Control.FOCUS_NONE
+			ob.custom_minimum_size = Vector2(130, 40)
+			ob.add_theme_font_size_override("font_size", 14)
+			ob.get_popup().add_theme_font_size_override("font_size", 15)
+			var ids := []
+			for j in Data.jobs:
+				if not Data.job_unlocked(j) and j != s.job:
+					continue
+				ob.add_item(Data.jobs[j].name, ids.size())
+				ids.append(j)
+				if j == s.job:
+					ob.select(ids.size() - 1)
+			ob.tooltip_text = "Beruf wählen"
+			ob.item_selected.connect(func(i):
+				sref.set_job(ids[i])
+				Game.player_action.emit("job", ids[i]))
+			h.add_child(ob)
+		else:
+			var kl := UiTheme.label("Kind", 14)
+			kl.custom_minimum_size.x = 130
+			h.add_child(kl)
+		var hb := UiTheme.bar(Color("#e0a040"), 8)
+		hb.value = s.hunger
+		hb.tooltip_text = "Sättigung"
+		hb.custom_minimum_size.x = 50
+		hb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		h.add_child(hb)
+		_settler_list.add_child(h)
 
 
 # ================================================================== Menue / Hilfe

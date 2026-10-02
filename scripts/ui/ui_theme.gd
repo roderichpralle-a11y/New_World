@@ -52,6 +52,11 @@ static func make() -> Theme:
 		t.set_color("font_disabled_color", cls, Color(TEXT, 0.5))
 		t.set_color("icon_normal_color", cls, Color.WHITE)
 		t.set_constant("h_separation", cls, 6)
+	# Aufklappliste (Beruf in der Siedlerliste) im selben Holzrahmen
+	t.set_stylebox("panel", "PopupMenu", _box(Rect2(0, 0, 24, 24), 6, 8))
+	t.set_stylebox("hover", "PopupMenu", bh)
+	t.set_color("font_color", "PopupMenu", TEXT)
+	t.set_color("font_hover_color", "PopupMenu", TEXT)
 	t.set_color("font_color", "Label", TEXT)
 	t.set_color("font_color", "RichTextLabel", TEXT)
 	t.set_color("default_color", "RichTextLabel", TEXT)
