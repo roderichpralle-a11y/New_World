@@ -643,35 +643,93 @@ func _on_placement(active: bool, type: String, valid: bool) -> void:
 	_bottom.get_parent().visible = not active
 	if active:
 		_place_ok.disabled = not valid
+		var moving: bool = world.moving_building() != null
+		_place_ok.text = "Hier hinstellen" if moving else "Hier bauen"
+		if moving:
+			_place_label.text = "%s verschieben: Klicke auf den neuen Platz. Am Handy tippen, dann Hier hinstellen.%s" % [
+				Data.buildings[type].name, " Der Platz passt." if valid else ("\nMuss am Ufer stehen und Platz haben." if Data.buildings[type].get("coast", false) else "\nHier ist kein Platz frei.")]
+			_layout()
+			return
 		_place_label.text = "%s: Klicke auf einen freien Platz. Am Handy tippen, dann Hier bauen.%s" % [
 			Data.buildings[type].name, " Der Platz passt." if valid else ("\nMuss am Ufer stehen und Platz haben." if Data.buildings[type].get("coast", false) else "\nHier ist kein Platz frei.")]
 	_layout()
 
 
 # ================================================================== Siedlerliste
+const DIM := Color("#6e5a50")
+## Sortierbare Spalten: Schluessel, Text, Breite (0 = dehnbar; breit / schmal)
+const SETTLER_COLS := [["name", "Name", 0, 0], ["age", "Alter", 62, 56], ["act", "Tätigkeit", 0, -1],
+	["job", "Beruf", 150, 104], ["hunger", "Satt", 130, 64]]
 var _settler_scroll: ScrollContainer
 var _settler_updaters: Array = []
 var _settler_tick: float = 0.0
-var _settler_head: Array = []  # Spaltenueberschriften
+var _settler_head: Dictionary = {}  # Spalte -> Knopf
+var _settler_sort: String = "age"
+var _settler_desc: bool = true
+var _settler_f_job: OptionButton
+var _settler_f_group: OptionButton
+var _settler_f_hungry: CheckBox
+var _settler_f_island: OptionButton
+var _settler_count: Label
+var _settler_narrow: bool = false
 
 
 func _build_settler_panel() -> void:
 	var r := _popup_panel("Siedler")
 	_settler_panel = r[0]
 	var v: VBoxContainer = r[1]
-	var legend := UiTheme.label("Der Balken zeigt, wie satt ein Siedler ist. Wird er rot, hungert der Siedler und braucht bald etwas zu essen.", 13, Color("#6e5a50"))
-	legend.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	legend.custom_minimum_size.x = 280
-	v.add_child(legend)
+	# Filter
+	var fr := HFlowContainer.new()
+	fr.add_theme_constant_override("h_separation", 8)
+	fr.add_theme_constant_override("v_separation", 4)
+	_settler_f_job = _settler_filter_button("Welche Berufe anzeigen")
+	fr.add_child(_settler_f_job)
+	_settler_f_group = _settler_filter_button("Erwachsene oder Kinder anzeigen")
+	for t in ["Alle Alter", "Erwachsene", "Kinder"]:
+		_settler_f_group.add_item(t)
+	fr.add_child(_settler_f_group)
+	_settler_f_island = _settler_filter_button("Welche Insel anzeigen")
+	fr.add_child(_settler_f_island)
+	_settler_f_hungry = CheckBox.new()
+	_settler_f_hungry.text = "Nur Hungrige"
+	_settler_f_hungry.focus_mode = Control.FOCUS_NONE
+	_settler_f_hungry.custom_minimum_size.y = 40
+	_settler_f_hungry.add_theme_font_size_override("font_size", 15)
+	_settler_f_hungry.toggled.connect(func(_on): _refresh_settler_list())
+	fr.add_child(_settler_f_hungry)
+	v.add_child(fr)
+	_settler_count = UiTheme.label("", 13, DIM)
+	_settler_count.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_settler_count.custom_minimum_size.x = 280
+	v.add_child(_settler_count)
+	# Spaltenkoepfe: antippen sortiert, nochmal antippen dreht die Reihenfolge um
 	var head := HBoxContainer.new()
-	head.add_theme_constant_override("separation", 8)
-	for col in ["Name (Alter) und was er gerade tut", "Beruf", "Satt"]:
-		var l := UiTheme.label(col, 13, Color("#6e5a50"), true)
-		l.clip_text = true
-		head.add_child(l)
-		_settler_head.append(l)
-	_settler_head[0].size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_settler_head[0].custom_minimum_size.x = 60
+	head.add_theme_constant_override("separation", 6)
+	for col in SETTLER_COLS:
+		var b := Button.new()
+		b.flat = true
+		b.focus_mode = Control.FOCUS_NONE
+		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		b.clip_text = true
+		b.custom_minimum_size.y = 32
+		b.add_theme_font_size_override("font_size", 14)
+		b.add_theme_color_override("font_color", DIM)
+		b.add_theme_color_override("font_hover_color", UiTheme.TEXT)
+		var key: String = col[0]
+		if key == "act":
+			b.disabled = true
+			b.add_theme_color_override("font_disabled_color", DIM)
+		else:
+			b.tooltip_text = "Nach %s sortieren" % col[1]
+			b.pressed.connect(func():
+				if _settler_sort == key:
+					_settler_desc = not _settler_desc
+				else:
+					_settler_sort = key
+					_settler_desc = key in ["age", "hunger"]
+				_refresh_settler_list())
+		head.add_child(b)
+		_settler_head[key] = b
 	v.add_child(head)
 	_settler_scroll = ScrollContainer.new()
 	_settler_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -679,62 +737,193 @@ func _build_settler_panel() -> void:
 	v.add_child(_settler_scroll)
 	_settler_list = VBoxContainer.new()
 	_settler_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_settler_list.add_theme_constant_override("separation", 6)
+	_settler_list.add_theme_constant_override("separation", 3)
 	_settler_scroll.add_child(_settler_list)
 
 
-## Groesse passt sich dem Bildschirm an: am PC gross, am Handy so breit wie moeglich.
-func _size_settler_panel() -> void:
+func _settler_filter_button(tip: String) -> OptionButton:
+	var ob := OptionButton.new()
+	ob.focus_mode = Control.FOCUS_NONE
+	ob.custom_minimum_size = Vector2(120, 40)
+	ob.add_theme_font_size_override("font_size", 15)
+	ob.get_popup().add_theme_font_size_override("font_size", 16)
+	ob.tooltip_text = tip
+	ob.item_selected.connect(func(_i): _refresh_settler_list())
+	return ob
+
+
+## Fast der ganze Bildschirm, damit viele Siedler auf einmal zu sehen sind.
+func _size_settler_panel(avail_h: float = -1.0) -> void:
 	if _settler_scroll == null:
 		return
 	var vs := get_viewport().get_visible_rect().size
-	_settler_scroll.custom_minimum_size = Vector2(
-		clampf(vs.x - 40.0, 300.0, 700.0), clampf(vs.y - 400.0, 160.0, 520.0))
-	var narrow := _settler_scroll.custom_minimum_size.x < 460.0
-	_settler_head[0].text = "Name (Alter)" if narrow else "Name (Alter) und was er gerade tut"
-	_settler_head[1].custom_minimum_size.x = 110 if narrow else 150
-	_settler_head[2].custom_minimum_size.x = 80 if narrow else 130
+	if avail_h < 0.0:
+		avail_h = vs.y - 160.0
+	var w := clampf(vs.x - 36.0, 290.0, 980.0)
+	_settler_narrow = w < 620.0
+	# Platz fuer Titel, Filter, Zaehler und Spaltenkoepfe abziehen
+	var extra := 150.0 + (46.0 if _settler_narrow else 0.0)
+	_settler_scroll.custom_minimum_size = Vector2(w, clampf(avail_h - extra, 140.0, 2000.0))
+	for col in SETTLER_COLS:
+		var b: Button = _settler_head[col[0]]
+		var cw: int = col[3] if _settler_narrow else col[2]
+		b.visible = cw >= 0
+		b.custom_minimum_size.x = max(cw, 40)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL if cw == 0 else Control.SIZE_FILL
+		if col[0] == "act":
+			b.size_flags_stretch_ratio = 1.4
+
+
+## Flachere Knoepfe fuer lange Listen
+var _compact_boxes: Dictionary = {}
+
+
+func _compact(b: Button) -> void:
+	for st in ["normal", "hover", "pressed", "hover_pressed", "disabled"]:
+		if not _compact_boxes.has(st):
+			var sb = _settler_panel.get_theme_stylebox(st, "Button")
+			if sb == null:
+				continue
+			sb = sb.duplicate()
+			sb.content_margin_top = 2
+			sb.content_margin_bottom = 2
+			_compact_boxes[st] = sb
+		b.add_theme_stylebox_override(st, _compact_boxes[st])
+
+
+func _settler_job_label(s) -> String:
+	return Data.jobs[s.job].name if s.is_adult() else "Kind"
+
+
+## Filterauswahl aktuell halten (Berufe, Inseln), gewaehlte Eintraege bleiben stehen.
+func _update_settler_filters() -> void:
+	var keep_job = _settler_f_job.get_item_metadata(_settler_f_job.selected) if _settler_f_job.item_count > 0 else ""
+	_settler_f_job.clear()
+	_settler_f_job.add_item("Alle Berufe")
+	_settler_f_job.set_item_metadata(0, "")
+	for j in Data.jobs:
+		if Data.job_unlocked(j):
+			_settler_f_job.add_item(Data.jobs[j].name)
+			_settler_f_job.set_item_metadata(_settler_f_job.item_count - 1, j)
+			if j == keep_job:
+				_settler_f_job.select(_settler_f_job.item_count - 1)
+	var keep_isl = _settler_f_island.get_item_metadata(_settler_f_island.selected) if _settler_f_island.item_count > 0 else -1
+	_settler_f_island.clear()
+	_settler_f_island.add_item("Diese Insel")
+	_settler_f_island.set_item_metadata(0, -1)
+	_settler_f_island.add_item("Alle Inseln")
+	_settler_f_island.set_item_metadata(1, -2)
+	if keep_isl == -2:
+		_settler_f_island.select(1)
+	_settler_f_island.visible = Sea.all_worlds().size() > 1
+	if not _settler_f_island.visible:
+		_settler_f_island.select(0)
 
 
 func _refresh_settler_list() -> void:
 	if _settler_list == null or not _settler_panel.visible:
 		return
 	_size_settler_panel()
+	_update_settler_filters()
 	_settler_updaters.clear()
 	for c in _settler_list.get_children():
 		_settler_list.remove_child(c)
 		c.queue_free()
-	var list := world.settlers.duplicate()
-	list.sort_custom(func(a, b): return a.age > b.age)
+	var all_isl: bool = _settler_f_island.visible and _settler_f_island.selected == 1
+	var pool := []
+	if all_isl:
+		for w in Sea.all_worlds():
+			pool.append_array(w.settlers)
+	else:
+		pool = world.settlers.duplicate()
+	var f_job: String = _settler_f_job.get_item_metadata(_settler_f_job.selected)
+	var group := _settler_f_group.selected
+	var list := pool.filter(func(s):
+		if f_job != "" and (not s.is_adult() or s.job != f_job):
+			return false
+		if group == 1 and not s.is_adult():
+			return false
+		if group == 2 and s.is_adult():
+			return false
+		if _settler_f_hungry.button_pressed and s.hunger >= 30.0:
+			return false
+		return true)
+	var key := _settler_sort
+	var desc := _settler_desc
+	list.sort_custom(func(a, b):
+		var va
+		var vb
+		match key:
+			"name":
+				va = a.display_name.to_lower()
+				vb = b.display_name.to_lower()
+			"job":
+				va = _settler_job_label(a)
+				vb = _settler_job_label(b)
+			"hunger":
+				va = a.hunger
+				vb = b.hunger
+			_:
+				va = a.age
+				vb = b.age
+		if va == vb:
+			return a.display_name < b.display_name
+		return va > vb if desc else va < vb)
+	# Spaltenkoepfe mit Pfeil fuer die Sortierung
+	for col in SETTLER_COLS:
+		var b: Button = _settler_head[col[0]]
+		b.text = col[1] + ((" ▼" if _settler_desc else " ▲") if col[0] == _settler_sort else "")
+	_settler_count.text = "%d von %d Siedlern. Spaltenkopf antippen sortiert. Satt zeigt, wie voll der Magen ist; rot heißt Hunger." % [list.size(), pool.size()]
 	if list.is_empty():
-		_settler_list.add_child(UiTheme.label("Auf dieser Insel lebt niemand.", 14))
-	var narrow := _settler_scroll.custom_minimum_size.x < 460.0
+		_settler_list.add_child(UiTheme.label("Niemand passt zu dieser Auswahl." if not pool.is_empty() else "Auf dieser Insel lebt niemand.", 14))
+	var narrow := _settler_narrow
+	var row_h := 30
 	for s in list:
 		var h := HBoxContainer.new()
-		h.add_theme_constant_override("separation", 8)
+		h.add_theme_constant_override("separation", 6)
 		var sref = s
-		# Name antippen: Siedler zeigen
+		# Name antippen: Siedler zeigen (auch auf einer anderen Insel)
 		var nb := Button.new()
 		nb.focus_mode = Control.FOCUS_NONE
 		nb.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		nb.custom_minimum_size = Vector2(120, 48)
+		nb.custom_minimum_size = Vector2(40, row_h)
 		nb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		nb.clip_text = true
-		nb.add_theme_font_size_override("font_size", 15)
+		nb.add_theme_font_size_override("font_size", 14)
+		_compact(nb)
+		var other: bool = s.world != world
+		nb.text = s.display_name + ("  (%s)" % Sea.island_name(s.world) if other else "")
 		nb.tooltip_text = "Auf der Karte zeigen"
 		nb.pressed.connect(func():
 			_settler_panel.visible = false
+			if is_instance_valid(sref) and sref.world != world:
+				Sea.switch_to(sref.world.island_id)
 			Game.select(sref)
 			camera.focus(sref.position + _view_offset()))
 		h.add_child(nb)
+		var al := UiTheme.label("", 15)
+		al.custom_minimum_size.x = SETTLER_COLS[1][3] if narrow else SETTLER_COLS[1][2]
+		al.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		h.add_child(al)
+		var act: Label = null
+		if not narrow:
+			act = UiTheme.label("", 13, DIM)
+			act.clip_text = true
+			act.custom_minimum_size.x = 40
+			act.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			act.size_flags_stretch_ratio = 1.4
+			h.add_child(act)
+		var jw: int = SETTLER_COLS[3][3] if narrow else SETTLER_COLS[3][2]
 		if s.is_adult():
 			# Beruf direkt in der Liste waehlen
 			var ob := OptionButton.new()
 			ob.focus_mode = Control.FOCUS_NONE
-			ob.custom_minimum_size = Vector2(110 if narrow else 150, 44)
+			ob.custom_minimum_size = Vector2(jw, row_h - 2)
+			ob.clip_text = true
 			ob.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-			ob.add_theme_font_size_override("font_size", 15)
+			ob.add_theme_font_size_override("font_size", 14)
 			ob.get_popup().add_theme_font_size_override("font_size", 16)
+			_compact(ob)
 			var ids := []
 			for j in Data.jobs:
 				if not Data.job_unlocked(j) and j != s.job:
@@ -749,18 +938,17 @@ func _refresh_settler_list() -> void:
 				Game.player_action.emit("job", ids[i]))
 			h.add_child(ob)
 		else:
-			var kl := UiTheme.label("Kind", 15, Color("#6e5a50"))
-			kl.custom_minimum_size.x = 110 if narrow else 150
+			var kl := UiTheme.label("Kind", 14, DIM)
+			kl.custom_minimum_size.x = jw
 			h.add_child(kl)
 		# Saettigung: Balken mit Prozentzahl
 		var sat := VBoxContainer.new()
-		sat.custom_minimum_size.x = 80 if narrow else 130
+		sat.custom_minimum_size.x = SETTLER_COLS[4][3] if narrow else SETTLER_COLS[4][2]
 		sat.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		sat.add_theme_constant_override("separation", 2)
-		sat.tooltip_text = "Wie satt der Siedler ist"
-		var pl := UiTheme.label("", 13)
+		sat.add_theme_constant_override("separation", 1)
+		var pl := UiTheme.label("", 12)
 		sat.add_child(pl)
-		var hb := UiTheme.bar(Color("#e0a040"), 12)
+		var hb := UiTheme.bar(Color("#e0a040"), 8)
 		hb.custom_minimum_size.x = 0
 		sat.add_child(hb)
 		h.add_child(sat)
@@ -768,13 +956,13 @@ func _refresh_settler_list() -> void:
 		var upd := func():
 			if not is_instance_valid(sref) or not is_instance_valid(nb):
 				return
-			nb.text = "%s (%d)\n%s" % [sref.display_name, int(sref.age), sref.activity]
+			al.text = str(int(sref.age))
+			if act:
+				act.text = sref.activity
 			hb.value = sref.hunger
 			var hungry: bool = sref.hunger < 30.0
 			fill.bg_color = Color("#d04a3a") if hungry else Color("#e0a040")
-			pl.text = ("Satt %d%%" if not narrow else "%d%%") % int(round(sref.hunger))
-			if hungry:
-				pl.text += " Hunger!" if not narrow else "!"
+			pl.text = "%d%%" % int(round(sref.hunger)) + (" Hunger!" if hungry and not narrow else "")
 		upd.call()
 		_settler_updaters.append(upd)
 		_settler_list.add_child(h)
@@ -1135,6 +1323,10 @@ func _info_building(b: Building) -> void:
 		_info_research(b)
 	if b.def.has("upgrade"):
 		_info_upgrade(b)
+	var mv := UiTheme.button("Verschieben", "hammer", 36)
+	mv.tooltip_text = "Stellt das Gebäude an einen anderen Platz. Vorräte, Bewohner und Baufortschritt ziehen mit."
+	mv.pressed.connect(func(): world.start_move(b))
+	_info_box.add_child(mv)
 	if b.type != "lagerfeuer":
 		var dm := UiTheme.button("Abreißen" if not _demolish_armed else "Wirklich abreißen?", "abriss", 36)
 		dm.pressed.connect(func():
@@ -1230,12 +1422,12 @@ func _info_upgrade(b: Building) -> void:
 	var to: String = b.def.upgrade
 	var td: Dictionary = Data.buildings[to]
 	if not Game.is_unlocked(to):
-		var l := UiTheme.label("Ausbau zum %s nach der Forschung %s." % [td.name, Data.techs[td.requires].name], 13, Color("#8a5a3a"))
+		var l := UiTheme.label("Ausbau: %s nach der Forschung %s." % [td.name, Data.techs[td.requires].name], 13, Color("#8a5a3a"))
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_info_box.add_child(l)
 		return
 	var ub := UiTheme.button("Ausbauen: %s" % td.name, "hammer", 36)
-	ub.tooltip_text = "Wird zur Baustelle. Die Bewohner ziehen solange aus."
+	ub.tooltip_text = "Wird zur Baustelle. Bewohner und Forscher ziehen solange aus."
 	ub.pressed.connect(func(): world.upgrade_building(b))
 	_info_box.add_child(ub)
 	var h := HBoxContainer.new()
@@ -1244,7 +1436,15 @@ func _info_upgrade(b: Building) -> void:
 		h.add_child(UiTheme.icon_rect(Data.res_icon(res), 14))
 		h.add_child(UiTheme.label(str(int(td.cost[res])), 13, UiTheme.TEXT if Game.amount(res) >= int(td.cost[res]) else UiTheme.BAD))
 	_info_box.add_child(h)
-	_info_box.add_child(UiTheme.label("Platz für %d statt %d Siedler." % [int(td.get("housing", 0)), int(b.def.get("housing", 0))], 12))
+	if td.has("housing"):
+		_info_box.add_child(UiTheme.label("Platz für %d statt %d Siedler." % [int(td.get("housing", 0)), int(b.def.get("housing", 0))], 12))
+	if td.has("research"):
+		var rd: Dictionary = td.research
+		var cur := b.research_def()
+		var l := UiTheme.label("Forschungstempo x%.1f statt x%.1f, %d statt %d Forscher." % [float(rd.factor), float(cur.get("factor", 1.0)),
+			int(rd.slots), int(cur.get("slots", 1))], 12, UiTheme.GOOD)
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_info_box.add_child(l)
 	if float(td.get("birth_bonus", 1.0)) > float(b.def.get("birth_bonus", 1.0)):
 		_info_box.add_child(UiTheme.label("Dort kommen mehr Kinder zur Welt.", 12, UiTheme.GOOD))
 
@@ -1465,7 +1665,7 @@ func _layout() -> void:
 		goal_card.set_deferred("size", Vector2(gw, 0))
 		if goal_card.visible:
 			_toasts.position.y = max(top_h, goal_card.position.y + goal_card.size.y) + 6
-	_size_settler_panel()
+	_size_settler_panel(vs.y - top_h - bp.size.y - 18.0)
 	for pnl in _panels():
 		pnl.reset_size()
 		pnl.size.x = min(pnl.size.x, vs.x - 12)

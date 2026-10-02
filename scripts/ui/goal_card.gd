@@ -134,7 +134,7 @@ func progress(g: Dictionary) -> Array:
 			var cnt := 0
 			for w in Sea.all_worlds():
 				for b in w.buildings:
-					if b.type == what and (b.complete or c.get("any", false)):
+					if (b.type == what or b.def.get("base", "") == what) and (b.complete or c.get("any", false)):
 						cnt += 1
 			return [cnt, n]
 		"housing":

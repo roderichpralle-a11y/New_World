@@ -38,6 +38,43 @@ func _ready() -> void:
 
 
 # ---------------------------------------------------------------- Selbsttest
+## Verschiebt Lagerfeuer und Huette ueber die Platzierung und prueft Raster und Bewohner.
+## --movetest=<Sekunden>: Wartezeit vorher (z. B. bis zur Nacht, wenn Siedler in der Huette schlafen).
+func _autotest_move(wait: float) -> void:
+	await get_tree().create_timer(max(3.0, wait), true, false, true).timeout
+	print("Vor dem Verschieben (", Game.clock_text(), "): ", world.settlers.map(func(s): return "%s schläft=%s sichtbar=%s %s" % [s.display_name, s.sleeping, s.visible, s.cell]))
+	for b in world.buildings.duplicate():
+		var old: Vector2i = b.cell
+		var target = null
+		for r in range(3, 14):
+			for dy in range(-r, r + 1):
+				for dx in range(-r, r + 1):
+					var c: Vector2i = old + Vector2i(dx, dy)
+					if target == null and abs(dx) + abs(dy) >= r and world.can_place(b.type, c, b) and _roomy(b.type, c):
+						target = c
+		if target == null:
+			print("Verschieben: kein Platz fuer ", b.type)
+			continue
+		world.start_move(b)
+		print("Verschieben ", b.type, ": Geist ok am alten Platz = ", world.can_place(b.type, old, b))
+		world.move_placement(world.cell_to_pos(target) + (Vector2(b.size) - Vector2.ONE) * 8.0)
+		var ok: bool = world.confirm_placement()
+		var grid_ok := true
+		for cc in b.cells():
+			if world.building_at.get(cc) != b or world.astar.is_point_solid(cc) != (not b.is_ground()):
+				grid_ok = false
+		var old_free := true
+		var bc: Array = b.cells()
+		for y in b.size.y:
+			for x in b.size.x:
+				var oc: Vector2i = old + Vector2i(x, y)
+				if not bc.has(oc) and world.building_at.has(oc):
+					old_free = false
+		print("Verschieben ", b.type, " ", old, " -> ", b.cell, " ok=", ok, " raster=", grid_ok, " alt_frei=", old_free,
+			" bewohner=", b.residents().size(), " platzierung_aus=", not world.is_placing(), " tuer=", b.entrance_cell())
+	print("Nach dem Verschieben: ", world.settlers.map(func(s): return "%s schläft=%s %s" % [s.display_name, s.sleeping, s.cell]))
+	Game.save_game()
+
 ## Aufruf: godot -- --autotest=600 --scale=8 --shot=/pfad/bild.png
 ## Startet ein neues Spiel, simuliert und schreibt Zustandsberichte.
 func _maybe_autotest() -> void:
@@ -61,10 +98,22 @@ func _maybe_autotest() -> void:
 		_autotest_prod()
 	if args.has("research"):
 		world.settlers[0].set_job("forscher")
+	if args.has("crowd"):
+		# Testhilfe: viele Siedler fuer die Siedlerliste
+		var names := ["Anna", "Ben", "Clara", "Dirk", "Emma", "Finn", "Greta", "Hugo", "Ida", "Karl", "Mia", "Ole", "Paula", "Rudi", "Sina", "Tom"]
+		for i in int(args.crowd):
+			var c: Vector2i = world.settlers[0].cell
+			var s = world.spawn_settler({"name": names[i % names.size()], "sex": "f" if i % 2 else "m",
+				"age": 3.0 + (i * 7) % 40, "max_age": 50.0, "skills": {}, "x": c.x, "y": c.y})
+			s.hunger = float((i * 37) % 100)
+			if s.is_adult():
+				s.set_job(["holzfaeller", "sammler", "frei", "steinmetz", "bauer"][i % 5] if Data.jobs.has("steinmetz") else "frei")
 	if args.has("seatest"):
 		_autotest_sea()
 	if args.has("schooltest"):
 		_autotest_school()
+	if args.has("movetest"):
+		await _autotest_move(float(args.movetest))
 	if args.has("upgrade"):
 		for b in world.buildings.duplicate():
 			if b.type == "huette":
@@ -74,6 +123,14 @@ func _maybe_autotest() -> void:
 	while elapsed < secs:
 		await get_tree().create_timer(1.0, true, false, true).timeout
 		elapsed += 1.0
+		if args.has("upgrade"):
+			# Testhilfe: Schreibstube Stufe fuer Stufe ausbauen, Material nachfuellen
+			for b in world.buildings.duplicate():
+				if b.def.get("base", b.type) == "schreibstube" and b.complete and b.def.has("upgrade"):
+					var nb = world.upgrade_building(b)
+					print("Schreibstube ausgebaut: ", b.type, " -> ", nb.type if nb else "nein")
+			for id in ["holz", "bretter", "stein", "ziegel", "eisen", "werkzeug"]:
+				Game.stock[id] = max(Game.amount(id), 40)
 		if args.has("seatest"):
 			_autotest_sea_tick(elapsed)
 		if args.has("tuttest"):
@@ -123,6 +180,14 @@ func _maybe_autotest() -> void:
 				"settlers":
 					hud._toggle(hud._settler_panel)
 					hud._refresh_settler_list()
+					if args.has("sfilter"):
+						# Testhilfe: Filter und Sortierung der Siedlerliste
+						hud._settler_head["hunger"].pressed.emit()
+						hud._settler_head["hunger"].pressed.emit()
+						hud._settler_f_hungry.button_pressed = true
+						hud._settler_f_group.select(1)
+						hud._settler_f_group.item_selected.emit(1)
+						print("Siedlerliste: ", hud._settler_count.text)
 				"build":
 					hud._build_cat = args.get("cat", "nahrung")
 					hud._fill_build_list()
@@ -132,6 +197,14 @@ func _maybe_autotest() -> void:
 				if b.type == args.selectb:
 					Game.select(b)
 					camera.focus(b.position)
+		if args.has("moveb"):
+			# Bildschirmfoto mitten im Verschieben: Geist zwei Felder rechts
+			for b in world.buildings:
+				if b.type == args.moveb:
+					world.start_move(b)
+					world.move_placement(b.position + Vector2(40, -8))
+					camera.focus(b.position)
+					break
 		if args.has("island"):
 			Sea.switch_to(int(args.island))
 			await get_tree().process_frame
@@ -349,6 +422,8 @@ func _new_world() -> void:
 
 ## Eine andere Insel wird angezeigt.
 func _on_island_switched(w) -> void:
+	if world and is_instance_valid(world) and world.is_placing():
+		world.cancel_placement()
 	if world and is_instance_valid(world) and world.placement_changed.is_connected(hud._on_placement):
 		world.placement_changed.disconnect(hud._on_placement)
 	world = w

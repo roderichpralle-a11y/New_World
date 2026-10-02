@@ -443,7 +443,10 @@ func start_research(t: String) -> String:
 			for id in cost:
 				if amount(id) < int(cost[id]):
 					miss.append("%d %s" % [int(cost[id]) - amount(id), Data.resource_name(id)])
-			return "Es fehlt noch: " + ", ".join(miss)
+			var why := "Es fehlt noch: " + ", ".join(miss)
+			if amount("felle") < int(cost.get("felle", 0)):
+				why += ". Felle bringen Jäger, wenn sie wilde Tiere erlegen."
+			return why
 		for id in cost:
 			take_stock(id, int(cost[id]))
 		research.paid.append(t)

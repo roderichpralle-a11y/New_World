@@ -67,6 +67,10 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
 - **Ketten**: Holz → Bretter; Lehm (+Holz) → Ziegel; Holz → Kohle; Erz + Kohle → Eisen;
   Eisen + Bretter → Werkzeug; Getreide → Mehl (+Holz) → Brot; Fisch (+Holz) → Räucherfisch;
   Getreide → Eier; Obstgarten → Äpfel. Steinbruch und Mine liefern endlos Stein und Erz.
+- **Schreibstube in Stufen**: Schreibstube (x1.0, 2 Forscher) → Große Schreibstube (x1.4, 3)
+  → Gelehrtenstube (x1.9, 3, Forschung Gelehrsamkeit) → Akademie (x2.6, 4, Schmiedekunst),
+  jeweils per `upgrade` im Infofenster und mit hohen Kosten. Ausbau-Typen haben
+  `buildable: false` und `base: "schreibstube"` (zählt für Ziele wie die Grundform).
 - **Wohnen**: Hütte 2 → Holzhaus 4 → Steinhaus 6. `upgrade` im Gebäude erlaubt den
   Ausbau an Ort und Stelle (wird zur Baustelle, Bewohner ziehen solange aus).
 - **Abwechslung**: ab `variety_min` Nahrungssorten im Lager ist die Geburtenchance
@@ -124,6 +128,8 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
 
 ## Feinschliff (Etappe 4)
 
+**Siedlerliste:** fast bildschirmfüllend mit kompakten Zeilen; Spaltenköpfe Name, Alter, Beruf, Satt sortieren (nochmal tippen dreht um), Filter für Beruf, Erwachsene/Kinder, Nur Hungrige (unter 30 % satt) und, bei mehreren Inseln, Diese Insel/Alle Inseln. Testaufruf: `--crowd=24 --panel=settlers [--sfilter=1]`.
+
 **Schrift:** Pixelify Sans mit eigenen 5x7-Ziffern (die Originalziffern 2/5/6/8/9 waren klein kaum zu unterscheiden). Neu erzeugen mit `python3 tools/gen_font_digits.py` (liest `tools/fonts_src/`, schreibt `assets/fonts/`).
 
 - **Ton** (Autoload `Sound`, `scripts/autoload/sound.gd`): drei Musikstücke (`tag` Heimatinsel,
@@ -142,6 +148,13 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
   Spieleraktionen. Statistik `kills` zählt erlegte Tiere.
 - **Bauen**: mit der Maus baut ein Klick sofort (Rechtsklick oder Esc bricht ab), am Handy tippt man
   den Platz an und bestätigt mit „Hier bauen“.
+- **Verschieben**: Knopf „Verschieben“ im Infofenster jedes Gebäudes (auch Baustellen, Felder und
+  Lagerfeuer). Danach läuft dieselbe Platzierung wie beim Bauen (`World.start_move`, Geist mit
+  `can_place(type, cell, ignore)`, eigene alte Felder gelten als frei); „Hier hinstellen“ am Handy.
+  Kostenlos und sofort (`World.move_building`): Lager, Bewohner, Baufortschritt, Feldstand und
+  Werkstatt bleiben; wer drinnen schläft oder sich versteckt, zieht mit; Siedler auf dem Weg zum
+  alten Platz planen neu (laufende Arbeit wird zu Ende gebracht). Test: `--movetest=<Sekunden>`,
+  Bildschirmfoto `--moveb=<typ>`.
 - **Handy**: Karte gleitet nach dem Wischen nach, zwei Finger zoomen und schieben, größerer
   Fangradius beim Tippen, schmale Leiste mit Symbol über Text, gewählte Objekte rücken über das
   Infofenster, Vollbild-Knopf im Menü.
