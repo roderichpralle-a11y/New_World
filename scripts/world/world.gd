@@ -35,6 +35,7 @@ var _unreachable: Dictionary = {}
 var _storage_warn_time: float = -10.0
 var _placing: String = ""
 var _ghost_cell: Vector2i
+var _move_b = null  # Gebaeude, das gerade verschoben wird (sonst null)
 var _ghost: Node2D
 var _ghost_sprite: Sprite2D
 var _clouds: Array = []
@@ -406,19 +407,25 @@ func place_building(type: String, c: Vector2i, complete: bool, bid: int = 0) -> 
 	return b
 
 
-func can_place(type: String, c: Vector2i) -> bool:
+## ignore: Gebaeude, dessen eigene Felder als frei gelten (beim Verschieben).
+func can_place(type: String, c: Vector2i, ignore = null) -> bool:
 	var def: Dictionary = Data.buildings[type]
 	for y in int(def.size[1]):
 		for x in int(def.size[0]):
 			var cc := c + Vector2i(x, y)
 			if not is_inside(cc) or terrain_at(cc) == WATER:
 				return false
-			if node_at.has(cc) or building_at.has(cc):
+			if node_at.has(cc) or (building_at.has(cc) and building_at[cc] != ignore):
 				return false
 	# Eingang muss frei sein
 	if not def.get("ground", false):
 		var e := c + Vector2i(int(def.size[0]) / 2, int(def.size[1]))
-		if not is_walkable(e) or building_at.has(e):
+		var own: bool = ignore != null and building_at.get(e) == ignore
+		if building_at.has(e) and not own:
+			return false
+		if not own and not is_walkable(e):
+			return false
+		if own and (not is_inside(e) or is_water(e) or (node_at.has(e) and node_at[e].is_solid())):
 			return false
 	# Werft und Leuchtturm muessen am Wasser stehen
 	if def.get("coast", false):
@@ -570,6 +577,59 @@ func upgrade_building(b: Building) -> Building:
 		Game.select(nb)
 	Game.population_changed.emit()
 	return nb
+
+
+## Verschieben: das Gebaeude zieht samt Lager, Bewohnern und Baufortschritt an einen neuen Platz.
+func move_building(b: Building, c: Vector2i) -> bool:
+	if c == b.cell:
+		return true
+	if not can_place(b.type, c, b):
+		return false
+	var old_cells := b.cells()
+	var near := {}  # Felder, zu denen Siedler wegen dieses Gebaeudes unterwegs sein koennten
+	for cc in old_cells:
+		for dy in range(-1, 2):
+			for dx in range(-1, 2):
+				near[cc + Vector2i(dx, dy)] = true
+	for cc in old_cells:
+		building_at.erase(cc)
+		_set_solid(cc, node_at.has(cc) and node_at[cc].is_solid())
+	b.cell = c
+	b.position = b.foot_pos()
+	for cc in b.cells():
+		building_at[cc] = b
+		if not b.is_ground():
+			_set_solid(cc, true)
+	_unreachable.erase(b)
+	var door := cell_to_pos(b.entrance_cell())
+	for s in settlers:
+		var inside: bool = s._hiding == b or (s.sleeping and not s.visible and s.home_id == b.id)
+		if inside:
+			# Wer drinnen schlaeft oder sich versteckt, zieht mit um
+			s.cell = b.entrance_cell()
+			s.position = door
+			continue
+		if s._plan.is_empty():
+			continue
+		var busy: bool = s._plan[0].a == "work"  # laufende Arbeit (z. B. in der Werkstatt) zu Ende bringen
+		var refs: bool = s._reserved == b or s._incoming.any(func(i): return i[0] == b)
+		var heading := false
+		for a in s._plan:
+			if a.a == "move" and near.has(a.cell):
+				heading = true
+		if (refs or heading) and not busy:
+			s.abort_plan()
+	# Siedler, die auf dem neuen Platz stehen, treten zur Seite
+	if not b.is_ground():
+		for s in settlers:
+			if b.cells().has(s.cell):
+				s.cell = b.entrance_cell()
+				s.position = door
+	spawn_effect("dust", b.position)
+	if b.housing() > 0:
+		assign_homes()
+	Game.stock_changed.emit()
+	return true
 
 
 func find_field_task(from: Vector2i, sid: int):
@@ -929,6 +989,21 @@ func start_placement(type: String, at_pos: Vector2) -> void:
 	_update_ghost()
 
 
+## Verschieben: wie Bauen, nur mit einem fertigen Gebaeude.
+func start_move(b: Building) -> void:
+	start_placement(b.type, b.position)
+	_move_b = b
+	_ghost_cell = b.cell
+	b.modulate.a = 0.35
+	if Game.selected == b:
+		Game.select(null)
+	_update_ghost()
+
+
+func moving_building():
+	return _move_b
+
+
 func move_placement(at_pos: Vector2) -> void:
 	if _placing == "":
 		return
@@ -945,7 +1020,7 @@ func _update_ghost() -> void:
 	if _ghost_sprite.visible:
 		var r: Vector2 = _ghost_sprite.texture.region.size
 		_ghost_sprite.offset = Vector2(-r.x / 2.0, -r.y + 4)
-	var ok := can_place(_placing, _ghost_cell)
+	var ok := can_place(_placing, _ghost_cell, _move_b)
 	_ghost_sprite.modulate = Color(1, 1, 1, 0.7) if ok else Color(1, 0.45, 0.4, 0.7)
 	_ghost.queue_redraw()
 	placement_changed.emit(true, _placing, ok)
@@ -956,7 +1031,7 @@ func _draw_ghost() -> void:
 		return
 	var def: Dictionary = Data.buildings[_placing]
 	var sz := Vector2i(int(def.size[0]), int(def.size[1]))
-	var ok := can_place(_placing, _ghost_cell)
+	var ok := can_place(_placing, _ghost_cell, _move_b)
 	var col := Color(0.4, 1.0, 0.5, 0.45) if ok else Color(1.0, 0.25, 0.25, 0.55)
 	var origin := Vector2(-sz.x * 8, -sz.y * 16)
 	for y in sz.y:
@@ -968,9 +1043,17 @@ func _draw_ghost() -> void:
 
 
 func confirm_placement() -> bool:
-	if _placing == "" or not can_place(_placing, _ghost_cell):
+	if _placing == "" or not can_place(_placing, _ghost_cell, _move_b):
 		Sound.play("fehler")
 		return false
+	if _move_b != null:
+		var mb: Building = _move_b
+		cancel_placement()
+		move_building(mb, _ghost_cell)
+		Sound.play("platzieren")
+		Game.player_action.emit("move", mb.type)
+		Game.select(mb)
+		return true
 	var b := place_building(_placing, _ghost_cell, false)
 	Sound.play("platzieren")
 	Game.player_action.emit("place", b.type)
@@ -985,6 +1068,9 @@ func confirm_placement() -> bool:
 
 
 func cancel_placement() -> void:
+	if _move_b != null and is_instance_valid(_move_b):
+		_move_b.modulate.a = 1.0
+	_move_b = null
 	_placing = ""
 	_ghost.visible = false
 	placement_changed.emit(false, "", false)

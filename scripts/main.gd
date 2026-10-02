@@ -38,6 +38,43 @@ func _ready() -> void:
 
 
 # ---------------------------------------------------------------- Selbsttest
+## Verschiebt Lagerfeuer und Huette ueber die Platzierung und prueft Raster und Bewohner.
+## --movetest=<Sekunden>: Wartezeit vorher (z. B. bis zur Nacht, wenn Siedler in der Huette schlafen).
+func _autotest_move(wait: float) -> void:
+	await get_tree().create_timer(max(3.0, wait), true, false, true).timeout
+	print("Vor dem Verschieben (", Game.clock_text(), "): ", world.settlers.map(func(s): return "%s schläft=%s sichtbar=%s %s" % [s.display_name, s.sleeping, s.visible, s.cell]))
+	for b in world.buildings.duplicate():
+		var old: Vector2i = b.cell
+		var target = null
+		for r in range(3, 14):
+			for dy in range(-r, r + 1):
+				for dx in range(-r, r + 1):
+					var c: Vector2i = old + Vector2i(dx, dy)
+					if target == null and abs(dx) + abs(dy) >= r and world.can_place(b.type, c, b) and _roomy(b.type, c):
+						target = c
+		if target == null:
+			print("Verschieben: kein Platz fuer ", b.type)
+			continue
+		world.start_move(b)
+		print("Verschieben ", b.type, ": Geist ok am alten Platz = ", world.can_place(b.type, old, b))
+		world.move_placement(world.cell_to_pos(target) + (Vector2(b.size) - Vector2.ONE) * 8.0)
+		var ok: bool = world.confirm_placement()
+		var grid_ok := true
+		for cc in b.cells():
+			if world.building_at.get(cc) != b or world.astar.is_point_solid(cc) != (not b.is_ground()):
+				grid_ok = false
+		var old_free := true
+		var bc: Array = b.cells()
+		for y in b.size.y:
+			for x in b.size.x:
+				var oc: Vector2i = old + Vector2i(x, y)
+				if not bc.has(oc) and world.building_at.has(oc):
+					old_free = false
+		print("Verschieben ", b.type, " ", old, " -> ", b.cell, " ok=", ok, " raster=", grid_ok, " alt_frei=", old_free,
+			" bewohner=", b.residents().size(), " platzierung_aus=", not world.is_placing(), " tuer=", b.entrance_cell())
+	print("Nach dem Verschieben: ", world.settlers.map(func(s): return "%s schläft=%s %s" % [s.display_name, s.sleeping, s.cell]))
+	Game.save_game()
+
 ## Aufruf: godot -- --autotest=600 --scale=8 --shot=/pfad/bild.png
 ## Startet ein neues Spiel, simuliert und schreibt Zustandsberichte.
 func _maybe_autotest() -> void:
@@ -65,6 +102,8 @@ func _maybe_autotest() -> void:
 		_autotest_sea()
 	if args.has("schooltest"):
 		_autotest_school()
+	if args.has("movetest"):
+		await _autotest_move(float(args.movetest))
 	if args.has("upgrade"):
 		for b in world.buildings.duplicate():
 			if b.type == "huette":
@@ -140,6 +179,14 @@ func _maybe_autotest() -> void:
 				if b.type == args.selectb:
 					Game.select(b)
 					camera.focus(b.position)
+		if args.has("moveb"):
+			# Bildschirmfoto mitten im Verschieben: Geist zwei Felder rechts
+			for b in world.buildings:
+				if b.type == args.moveb:
+					world.start_move(b)
+					world.move_placement(b.position + Vector2(40, -8))
+					camera.focus(b.position)
+					break
 		if args.has("island"):
 			Sea.switch_to(int(args.island))
 			await get_tree().process_frame
@@ -357,6 +404,8 @@ func _new_world() -> void:
 
 ## Eine andere Insel wird angezeigt.
 func _on_island_switched(w) -> void:
+	if world and is_instance_valid(world) and world.is_placing():
+		world.cancel_placement()
 	if world and is_instance_valid(world) and world.placement_changed.is_connected(hud._on_placement):
 		world.placement_changed.disconnect(hud._on_placement)
 	world = w
