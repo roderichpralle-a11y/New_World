@@ -87,7 +87,9 @@ func _process(delta: float) -> void:
 		return
 	# delta ist bereits mit Engine.time_scale skaliert
 	if speed > 0:
-		time_days += delta / float(Data.bal("day_length"))
+		# Naechte vergehen schneller, damit das Warten nicht langweilt
+		var mult := float(Data.bal("night_speedup", 1.0)) if is_night() else 1.0
+		time_days += delta * mult / float(Data.bal("day_length"))
 		if day() != _last_day:
 			_last_day = day()
 			day_started.emit(_last_day)

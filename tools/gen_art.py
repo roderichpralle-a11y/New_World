@@ -103,16 +103,23 @@ def dither(v, x, y):
 
 # ------------------------------------------------------------------ Terrain
 def tex_grass(x, y, variant):
-    n = periodic_noise(11)(x, y)
-    n2 = periodic_noise(29, cells=8)(x, y)
-    c = GRASS[2]
-    if n > 0.62 and dither((n - 0.62) * 3, x, y):
-        c = GRASS[3]
-    if n < 0.35 and dither((0.35 - n) * 3, x, y):
-        c = GRASS[1]
-    if n2 > 0.78:
-        c = GRASS[3]
-    return c
+    """Ruhiger Grasgrund: kaum Muster, damit keine Kachelwiederholung auffaellt."""
+    return GRASS[2]
+
+
+def grass_blades(img, rnd, count, flowers=0):
+    for _ in range(count):
+        x, y = rnd.randint(2, 13), rnd.randint(3, 13)
+        put(img, x, y, GRASS[1])
+        put(img, x - 1, y - 1, GRASS[1])
+        put(img, x + 1, y - 1, GRASS[3])
+        put(img, x + 1, y - 2, GRASS[4])
+    for _ in range(flowers):
+        x, y = rnd.randint(2, 13), rnd.randint(2, 13)
+        col = FLOWER[rnd.randint(0, 3)]
+        put(img, x, y, col)
+        put(img, x + 1, y, FLOWER[1] if col != FLOWER[1] else FLOWER[0])
+        put(img, x, y + 1, GRASS[1])
 
 
 def tex_sand(x, y, variant):
@@ -200,25 +207,16 @@ def terrain_tile(mask, kind, variant=0):
 def grass_variant(variant):
     img = terrain_tile(15, "grass")
     rnd = random.Random(1000 + variant)
-    if variant == 1:  # Grasbueschel
-        for _ in range(3):
-            x, y = rnd.randint(2, 12), rnd.randint(3, 13)
-            for dx, dy in [(0, 0), (1, -1), (2, 0), (1, 0)]:
-                put(img, x + dx, y + dy, GRASS[4] if dy < 0 else GRASS[3])
-            put(img, x + 1, y + 1, GRASS[1])
-    elif variant == 2:  # Blumen
-        for _ in range(3):
-            x, y = rnd.randint(2, 13), rnd.randint(2, 13)
-            col = FLOWER[rnd.randint(0, 3)]
-            put(img, x, y, col)
-            put(img, x + 1, y, col)
-            put(img, x, y + 1, col)
-            put(img, x + 1, y + 1, FLOWER[1] if col != FLOWER[1] else FLOWER[0])
-            put(img, x, y + 2, GRASS[1])
+    if variant == 0:
+        grass_blades(img, rnd, 3)
+    elif variant == 1:
+        grass_blades(img, rnd, 2, flowers=2)
+    elif variant == 2:
+        grass_blades(img, rnd, 1, flowers=1)
     elif variant == 3:  # Kleine Steinchen
+        grass_blades(img, rnd, 1)
         x, y = rnd.randint(3, 11), rnd.randint(3, 11)
-        for dx, dy, c in [(0, 0, STONE[3]), (1, 0, STONE[2]), (0, 1, STONE[2]), (1, 1, STONE[1]),
-                          (5, 3, STONE[3]), (5, 4, STONE[1])]:
+        for dx, dy, c in [(0, 0, STONE[3]), (1, 0, STONE[2]), (0, 1, STONE[2]), (1, 1, STONE[1])]:
             put(img, x + dx, y + dy, c)
     return img
 

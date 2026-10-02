@@ -185,7 +185,7 @@ func _paint_terrain() -> void:
 			elif ms > 0:
 				sand.set_cell(Vector2i(x, y), 0, Vector2i(ms, 1))
 			if mg == 15:
-				var v := Vector2i(15, 2) if h < 70 else Vector2i(4 + h % 4, 3)
+				var v := Vector2i(15, 2) if h < 45 else Vector2i(4 + h % 4, 3)
 				grass.set_cell(Vector2i(x, y), 0, v)
 			elif mg > 0:
 				grass.set_cell(Vector2i(x, y), 0, Vector2i(mg, 2))
@@ -672,7 +672,7 @@ func _process(delta: float) -> void:
 	var t := Game.time_of_day()
 	var day_col := Color(1, 1, 1)
 	var dusk := Color(1.0, 0.82, 0.7)
-	var night := Color(0.38, 0.42, 0.68)
+	var night := Color(0.26, 0.3, 0.52)
 	var c := day_col
 	if nf > 0.0:
 		var is_evening := t > 0.5

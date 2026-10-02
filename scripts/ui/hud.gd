@@ -290,7 +290,7 @@ func _build_settler_panel() -> void:
 	var v: VBoxContainer = r[1]
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.custom_minimum_size = Vector2(380, 280)
+	scroll.custom_minimum_size = Vector2(350, 280)
 	v.add_child(scroll)
 	_settler_list = VBoxContainer.new()
 	_settler_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -307,7 +307,7 @@ func _refresh_settler_list() -> void:
 	for s in list:
 		var b := Button.new()
 		b.focus_mode = Control.FOCUS_NONE
-		b.custom_minimum_size = Vector2(360, 44)
+		b.custom_minimum_size = Vector2(330, 44)
 		var h := HBoxContainer.new()
 		h.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		h.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -315,10 +315,10 @@ func _refresh_settler_list() -> void:
 		h.offset_right = -10
 		b.add_child(h)
 		var name := UiTheme.label("%s (%d)" % [s.display_name, int(s.age)], 15, UiTheme.TEXT, true)
-		name.custom_minimum_size.x = 130
+		name.custom_minimum_size.x = 120
 		h.add_child(name)
 		var job := UiTheme.label(s.job_name() if s.is_adult() else "Kind", 14)
-		job.custom_minimum_size.x = 100
+		job.custom_minimum_size.x = 90
 		h.add_child(job)
 		var hb := UiTheme.bar(Color("#e0a040"), 8)
 		hb.value = s.hunger
@@ -392,7 +392,7 @@ func _build_help_panel() -> void:
 	var rt := RichTextLabel.new()
 	rt.bbcode_enabled = true
 	rt.text = HELP_TEXT
-	rt.custom_minimum_size = Vector2(420, 300)
+	rt.custom_minimum_size = Vector2(360, 300)
 	rt.scroll_active = true
 	v.add_child(rt)
 

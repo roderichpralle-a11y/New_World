@@ -1,7 +1,8 @@
 {
   "day_length": 240.0,
-  "night_start": 0.78,
-  "night_end": 0.06,
+  "night_speedup": 2.0,
+  "night_start": 0.84,
+  "night_end": 0.18,
   "hunger_per_day": 60.0,
   "eat_below": 50.0,
   "eat_until": 92.0,

@@ -230,7 +230,7 @@ func _process(delta: float) -> void:
 		var target: float = world.night_factor() if complete else 0.0
 		var flicker := 1.0 + (sin(_anim_t * 13.0) * 0.06 + sin(_anim_t * 7.3) * 0.05 if type == "lagerfeuer" else 0.0)
 		_anim_t += 0.0 if type == "lagerfeuer" else delta
-		_light.energy = target * (1.1 if type == "lagerfeuer" else 0.7) * flicker
+		_light.energy = target * (0.75 if type == "lagerfeuer" else 0.45) * flicker
 		_light.visible = _light.energy > 0.02
 	if is_ground() and complete and farm_state == "growing":
 		if Game.time_days - farm_time >= float(farm_def().grow_days):

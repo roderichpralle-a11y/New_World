@@ -7,6 +7,8 @@ var hud: Hud
 
 
 func _ready() -> void:
+	get_window().size_changed.connect(_update_ui_scale)
+	_update_ui_scale()
 	camera = GameCamera.new()
 	add_child(camera)
 	camera.make_current()
@@ -94,6 +96,25 @@ func _autotest_build() -> void:
 			world.place_building("feld", cc, false)
 			break
 	world.settlers[1].set_job("baumeister")
+
+
+## Kleine Bildschirme (Handy) bekommen eine groessere Oberflaeche:
+## die kurze Bildschirmseite entspricht 400 bis 540 virtuellen Pixeln.
+func _update_ui_scale() -> void:
+	var win := get_window()
+	var px := Vector2(win.size)
+	if px.x < 2 or px.y < 2:
+		return
+	var dpr := DisplayServer.screen_get_scale()
+	if dpr <= 0.0:
+		dpr = 1.0
+	var css := px / dpr
+	var short_css: float = min(css.x, css.y)
+	var virt_short: float = clamp(short_css, 400.0, 540.0)
+	var s: float = min(px.x, px.y) / virt_short
+	var target := Vector2i(roundi(px.x / s), roundi(px.y / s))
+	if win.content_scale_size != target:
+		win.content_scale_size = target
 
 
 func _create_world() -> void:

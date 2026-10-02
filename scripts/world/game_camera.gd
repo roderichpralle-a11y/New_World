@@ -20,7 +20,7 @@ var _multi := false
 
 
 func _ready() -> void:
-	zoom = Vector2(3, 3)
+	reset_zoom()
 	position_smoothing_enabled = false
 
 
@@ -124,6 +124,13 @@ func _clamp() -> void:
 	var maxp := bounds.end - view / 2.0
 	position.x = clamp(position.x, minp.x, max(minp.x, maxp.x)) if maxp.x > minp.x else bounds.get_center().x
 	position.y = clamp(position.y, minp.y, max(minp.y, maxp.y)) if maxp.y > minp.y else bounds.get_center().y
+
+
+## Startzoom: etwa 17 Kacheln auf der kurzen Bildschirmseite.
+func reset_zoom() -> void:
+	var vs := get_viewport_rect().size
+	var z: float = clamp(roundf(min(vs.x, vs.y) / (16.0 * 17.0) * 2.0) / 2.0, 1.5, 4.0)
+	zoom = Vector2(z, z)
 
 
 func focus(p: Vector2) -> void:
