@@ -23,6 +23,7 @@
   "skill_xp_per_level": 30.0,
   "skill_max": 10,
   "base_storage": 0,
+  "delivery_spread": 6,
   "start_stock": {
     "holz": 10,
     "stein": 0,

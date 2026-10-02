@@ -249,7 +249,7 @@ func _heat(days: float) -> void:
 		var acc: float = float(_heat_acc.get(w, 0.0)) + per * w.settlers.size() * days
 		var need := int(acc)
 		if need > 0:
-			var got := Game.take_stock("holz", need)
+			var got := Game.take_stock("holz", need, w)
 			acc -= need
 			if got < need:
 				if not cold.has(w):
@@ -267,22 +267,31 @@ func _heat(days: float) -> void:
 
 
 ## Frische Nahrung verdirbt, im Sommer schnell, im Winter gar nicht.
+## Läuft je Vorrat (heute teilen sich alle Inseln einen, später hat jede Insel ihren).
 func _spoil(days: float) -> void:
 	var rate := _val("spoil_per_day", -1, 0.0)
 	if rate <= 0.0:
 		return
-	for id in cfg.get("perishable", []):
-		var have := Game.amount(id)
-		if have <= 0:
-			_spoil_acc.erase(id)
-			continue
-		var acc: float = float(_spoil_acc.get(id, 0.0)) + have * rate * days
-		var n := int(acc)
-		if n > 0:
-			acc -= n
-			var lost := Game.take_stock(id, n)
-			_spoiled[id] = int(_spoiled.get(id, 0)) + lost
-		_spoil_acc[id] = acc
+	var stores := []
+	for w in Sea.all_worlds():
+		var st: Dictionary = Game._stock_of(w)
+		if not stores.any(func(x): return is_same(x[1], st)):
+			stores.append([w, st])
+	for pair in stores:
+		var w = pair[0]
+		for id in cfg.get("perishable", []):
+			var key := "%s|%d" % [id, int(w.island_id)]
+			var have := Game.amount(id, w)
+			if have <= 0:
+				_spoil_acc.erase(key)
+				continue
+			var acc: float = float(_spoil_acc.get(key, 0.0)) + have * rate * days
+			var n := int(acc)
+			if n > 0:
+				acc -= n
+				var lost := Game.take_stock(id, n, w)
+				_spoiled[id] = int(_spoiled.get(id, 0)) + lost
+			_spoil_acc[key] = acc
 
 
 ## Frost zu Winterbeginn: was noch auf den Feldern wächst, erfriert.

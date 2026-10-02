@@ -13,6 +13,17 @@ var _scroll: ScrollContainer
 var _tex_cache: Dictionary = {}
 var _probe_cache: Dictionary = {}
 var _anim: float = 0.0
+# Zoom und Verschieben der Karte
+const ZOOM_MIN := 1.0
+const ZOOM_MAX := 8.0
+var _zoom: float = 1.0
+var _pan := Vector2.ZERO  # Verschiebung in Kartenkoordinaten
+var _press_pos := Vector2.ZERO
+var _pressed: bool = false
+var _dragging: bool = false
+var _touches: Dictionary = {}  # Fingerindex -> Position (Zwei-Finger-Zoom)
+var _pinch_dist: float = 0.0
+var _zoom_btns: HBoxContainer
 
 
 func setup(p_hud) -> void:
@@ -39,7 +50,31 @@ func setup(p_hud) -> void:
 	_map.draw.connect(_draw_map)
 	_map.gui_input.connect(_on_map_input)
 	_map.mouse_filter = Control.MOUSE_FILTER_STOP
+	_map.clip_contents = true
+	_map.tooltip_text = "Mausrad oder zwei Finger: zoomen. Ziehen: Karte verschieben."
 	v.add_child(_map)
+	_zoom_btns = HBoxContainer.new()
+	_zoom_btns.add_theme_constant_override("separation", 4)
+	var zin := UiTheme.button("+", "", 30)
+	zin.tooltip_text = "Hineinzoomen"
+	zin.custom_minimum_size.x = 30
+	zin.pressed.connect(func(): _zoom_at(_map.size / 2.0, 1.5))
+	var zout := UiTheme.button("-", "", 30)
+	zout.tooltip_text = "Herauszoomen"
+	zout.custom_minimum_size.x = 30
+	zout.pressed.connect(func(): _zoom_at(_map.size / 2.0, 1.0 / 1.5))
+	var zall := UiTheme.button("Alle", "", 30)
+	zall.tooltip_text = "Alle Inseln zeigen"
+	zall.pressed.connect(func():
+		_zoom = 1.0
+		_pan = Vector2.ZERO
+		_map.queue_redraw())
+	for zb in [zout, zin, zall]:
+		zb.add_theme_font_size_override("font_size", 14)
+		zb.focus_mode = Control.FOCUS_NONE
+		_zoom_btns.add_child(zb)
+	_zoom_btns.position = Vector2(5, 5)
+	_map.add_child(_zoom_btns)
 	_scroll = ScrollContainer.new()
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_scroll.custom_minimum_size = Vector2(350, 135)
@@ -107,12 +142,45 @@ func _probe_pos(index: int) -> Vector2:
 	return _probe_cache[index]
 
 
-func _to_screen(p: Vector2, b: Rect2) -> Vector2:
+func _base_scale(b: Rect2) -> float:
 	var sz := _map.size - Vector2(40, 40)
 	var s: float = min(sz.x / max(b.size.x, 0.01), sz.y / max(b.size.y, 0.01))
-	s = min(s, 70.0)
-	var center := b.get_center()
-	return _map.size / 2.0 + (p - center) * s
+	return min(s, 70.0)
+
+
+func _to_screen(p: Vector2, b: Rect2) -> Vector2:
+	var center := b.get_center() + _pan
+	return _map.size / 2.0 + (p - center) * _base_scale(b) * _zoom
+
+
+func _to_map(sp: Vector2, b: Rect2) -> Vector2:
+	var center := b.get_center() + _pan
+	return center + (sp - _map.size / 2.0) / (_base_scale(b) * _zoom)
+
+
+## Groesse einer Insel auf der Karte; waechst beim Hineinzoomen mit.
+func _island_px(m: Dictionary) -> float:
+	return (18.0 + float(m.size) * 0.3) * min(_zoom, 5.0)
+
+
+## Zoomt so, dass der Kartenpunkt unter sp an seinem Platz bleibt.
+func _zoom_at(sp: Vector2, factor: float) -> void:
+	var b := _bounds()
+	var before := _to_map(sp, b)
+	_zoom = clamp(_zoom * factor, ZOOM_MIN, ZOOM_MAX)
+	var after := _to_map(sp, b)
+	_pan += before - after
+	_clamp_pan(b)
+	_map.queue_redraw()
+
+
+func _clamp_pan(b: Rect2) -> void:
+	if _zoom <= ZOOM_MIN + 0.001:
+		_pan = Vector2.ZERO
+		return
+	var half := b.size / 2.0
+	_pan.x = clamp(_pan.x, -half.x, half.x)
+	_pan.y = clamp(_pan.y, -half.y, half.y)
 
 
 func _island_tex(m: Dictionary) -> Texture2D:
@@ -163,7 +231,9 @@ func _draw_map() -> void:
 		_map.draw_texture_rect(Data.icon("boot"), Rect2(bp - Vector2(10, 14), Vector2(20, 20)), false)
 	for m in Sea.islands:
 		var p := _to_screen(_meta_pos(int(m.id)), b)
-		var s := 18.0 + float(m.size) * 0.3
+		var s := _island_px(m)
+		if not Rect2(Vector2.ZERO, sz).grow(s).has_point(p):
+			continue  # beim Zoomen ausserhalb des Bildes
 		var tex := _island_tex(m)
 		var col := Color.WHITE if m.state != "lost" else Color(0.45, 0.4, 0.4)
 		if int(m.id) == _selected:
@@ -179,8 +249,9 @@ func _draw_map() -> void:
 		var name: String = m.name
 		var w := font.get_string_size(name, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
 		var tp := p + Vector2(-w / 2.0, s / 2.0 + 9)
-		tp.x = clamp(tp.x, 3.0, sz.x - w - 3.0)
-		tp.y = min(tp.y, sz.y - 4.0)
+		if _zoom <= ZOOM_MIN + 0.001:
+			tp.x = clamp(tp.x, 3.0, sz.x - w - 3.0)
+			tp.y = min(tp.y, sz.y - 4.0)
 		_map.draw_string_outline(font, tp, name, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, 3, Color("#2a1c20"))
 		_map.draw_string(font, tp, name, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color("#fff6e0"))
 
@@ -199,13 +270,68 @@ func _meta_pos(id: int) -> Vector2:
 
 
 func _on_map_input(ev: InputEvent) -> void:
-	if not (ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT):
+	# Zwei Finger: zoomen
+	if ev is InputEventScreenTouch:
+		if ev.pressed:
+			_touches[ev.index] = ev.position
+		else:
+			_touches.erase(ev.index)
+		_pinch_dist = 0.0
+		if _touches.size() >= 2:
+			_pressed = false
+			_dragging = false
 		return
+	if ev is InputEventScreenDrag:
+		_touches[ev.index] = ev.position
+		if _touches.size() >= 2:
+			var pts: Array = _touches.values()
+			var d: float = (pts[0] - pts[1]).length()
+			if _pinch_dist > 0.0 and d > 1.0:
+				_zoom_at((pts[0] + pts[1]) / 2.0, d / _pinch_dist)
+			_pinch_dist = d
+			accept_event()
+		return
+	if ev is InputEventMagnifyGesture:
+		_zoom_at(ev.position, ev.factor)
+		accept_event()
+		return
+	if ev is InputEventMouseButton:
+		if ev.button_index == MOUSE_BUTTON_WHEEL_UP and ev.pressed:
+			_zoom_at(ev.position, 1.2)
+			accept_event()
+		elif ev.button_index == MOUSE_BUTTON_WHEEL_DOWN and ev.pressed:
+			_zoom_at(ev.position, 1.0 / 1.2)
+			accept_event()
+		elif ev.button_index == MOUSE_BUTTON_LEFT:
+			if ev.pressed:
+				_pressed = true
+				_dragging = false
+				_press_pos = ev.position
+			else:
+				var was_click := _pressed and not _dragging
+				_pressed = false
+				_dragging = false
+				if was_click and _touches.size() < 2:
+					_select_at(ev.position)
+		return
+	if ev is InputEventMouseMotion and _pressed and _touches.size() < 2:
+		if not _dragging and (ev.position - _press_pos).length() > 6.0:
+			_dragging = true
+		if _dragging and _zoom > ZOOM_MIN + 0.001:
+			var b := _bounds()
+			_pan -= ev.relative / (_base_scale(b) * _zoom)
+			_clamp_pan(b)
+			_map.queue_redraw()
+
+
+func _select_at(pos: Vector2) -> void:
 	var b := _bounds()
 	var best := -1
 	var best_d := 40.0
 	for m in Sea.islands:
-		var d: float = (_to_screen(_meta_pos(int(m.id)), b) - ev.position).length()
+		best_d = max(best_d, _island_px(m) * 0.6)
+	for m in Sea.islands:
+		var d: float = (_to_screen(_meta_pos(int(m.id)), b) - pos).length()
 		if d < best_d:
 			best_d = d
 			best = int(m.id)

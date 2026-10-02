@@ -352,7 +352,7 @@ func _push_move_to(target_cells: Array, adjacent: bool = true) -> bool:
 
 
 func _plan_deliver() -> bool:
-	var st = world.nearest_storage(cell)
+	var st = world.delivery_storage(cell)
 	if st == null:
 		return false
 	if not _push_move_to(st.cells()):
@@ -570,7 +570,7 @@ func _do_harvest(node) -> void:
 
 func _plan_deliver_after() -> void:
 	_release()
-	var st = world.nearest_storage(cell)
+	var st = world.delivery_storage(cell)
 	if st and _push_move_to(st.cells()):
 		_plan.append({"a": "work", "t": 0.4, "act": "Liefert ab", "done": _do_deliver})
 		activity = "Bringt %s zum Lager" % Data.resource_name(carry_res)
