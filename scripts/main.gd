@@ -169,6 +169,8 @@ func _maybe_autotest() -> void:
 					var w = Sea.worlds.get(int(m.id))
 					isl.append("%s[%s]:%s pop=%d tiere=%d holz=%d essen=%d" % [m.name, m.biome, m.state, w.settlers.size() if w else 0, w.animals.size() if w else 0,
 						Game.amount("holz", w) if w else 0, Game.total_food(w) if w else 0])
+				if args.has("wildlife"):
+					_report_wildlife()
 				print("   Inseln: ", ", ".join(isl), " | See: ", Sea.voyages.size(), " Boote: ", Game.amount("boot"), " Fleisch: ", Game.amount("fleisch"), " Felle: ", Game.amount("felle"))
 			var jobs := world.settlers.map(func(s): return "%s:%s:%s:%d" % [s.display_name, s.job, s.activity, int(s.hunger)])
 			print("   %s, Jahr %d: Holz %d, frierend %d Inseln" % [Seasons.short_text(), Seasons.year(), Game.amount("holz"), Seasons.cold.size()])
@@ -277,6 +279,28 @@ func _autotest_chars() -> void:
 		for x in all.slice(0, 4):
 			print("      %s (%s): Laune %d %s, Erholung %d, Gründe %s" % [x.display_name, x.mind.character_text(), int(x.mind.mood),
 				x.mind.mood_text(), int(x.mind.rest), x.mind.reasons.map(func(r): return "%s %+d" % [r[0], int(r[1])])]))
+
+
+## Testhilfe: Tierbestand je Insel und Art (erwachsen/jung, satt, Futter am Bau).
+func _report_wildlife() -> void:
+	for m in Sea.islands:
+		var w = Sea.worlds.get(int(m.id))
+		if w == null or w.animals.is_empty():
+			continue
+		var out := []
+		for t in Data.animals:
+			var all: Array = w.animals.filter(func(a): return a.type == t)
+			if all.is_empty():
+				continue
+			var food := 0.0
+			for a in all:
+				food += a.food
+			out.append("%s %d+%d jung satt=%d%%" % [t, w.adult_count(t), all.size() - w.adult_count(t), int(food / all.size() * 100.0)])
+		var dens := []
+		for n in w.nodes:
+			if n.def.has("spawns"):
+				dens.append("%s:%d/%d" % [n.type, w.animals.filter(func(a): return a.home == n.cell).size(), w.den_capacity(n)])
+		print("   Tiere %s: %s | Baue %s" % [m.name, ", ".join(out), " ".join(dens)])
 
 
 func _autotest_build() -> void:

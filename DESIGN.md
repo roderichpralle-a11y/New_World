@@ -121,17 +121,44 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
 - **Neue Insel besiedeln**: beim ersten Boot entsteht die World mit Lagerfeuer in der Mitte;
   die Siedler landen am Strand (`World.landing_cell`), ein Boot liegt kurz am Ufer.
 - **Wilde Tiere** (`data/animals.json`, `scripts/entities/animal.gd`): Wolf, Wildschwein, Bär.
-  Tierbauten sind Rohstoffquellen mit `spawns` und `den_cap`; alle `den_spawn_interval` Tage
-  kommt mit `den_spawn_chance` ein Tier nach (nicht, wenn Siedler danebenstehen). Tiere streifen
+  Tierbauten sind Rohstoffquellen mit `spawns` und `den_cap` (Tiere zu Beginn). Tiere streifen
   um ihren Bau (`leash`), greifen sichtbare Siedler in `aggro` (nachts `night_aggro`) Feldern an
   und verfolgen Angreifer. Wildschweine beißen einmal und lassen dann ab. Am Lagerfeuer
   (3,5 Felder) und in Gebäuden sind Siedler sicher.
+- **Tierbestand im Gleichgewicht** (`World._process_dens`, alle `animal_tick_days`):
+  - *Futter*: jedes Tier hat `food` (1 satt, sinkt um `animal_hunger_per_day`). Unter 0,6 sucht es
+    im Umkreis `roam` (sonst `animal_food_radius`) seines Baus eine Quelle aus `food`
+    {Knotentyp: verbraucht?} und frisst 2 s; `true` nimmt eine Einheit (Beeren, Pilze, Kokos, Aas),
+    `false` nicht (Wild im Wald an Bäumen). Danach ist die Quelle `animal_graze_days` für Tiere leer.
+    `winter_food` gilt nur im Winter (Wildschweine: Eicheln und Wurzeln an Bäumen). Hungrige Tiere
+    (unter 0,25) suchen 6 Felder weiter, haben 1,5-fachen Angriffsradius und 5 Felder mehr Leine.
+    Im Winter werden sie langsamer hungrig (`animal_winter_hunger`). Bei 0 verlieren sie
+    `animal_starve_per_day` ihrer Kraft je Tag und verhungern (die letzten zwei Erwachsenen einer
+    Art magern nur bis 10 % ab); satte heilen.
+  - *Tragfähigkeit* `World.den_capacity` = Futterquellen mit Vorrat um den Bau (ohne Aas) geteilt
+    durch `food_per_animal`, höchstens `den_max`. Wer Beerensträucher aberntet oder Wald rodet,
+    hat weniger Tiere.
+  - *Junge*: einmal je Frühling (`Seasons.SPRING`), wenn am Bau zwei satte Erwachsene leben und der
+    Bau unter seiner Tragfähigkeit ist, mit `animal_breed_chance` je Takt ein Wurf `litter`
+    (höchstens Tragfähigkeit + 1). Jungtiere sind klein, haben halbe Kraft, greifen nie an, werden
+    nicht gejagt und sind nach `adult_days` erwachsen. Hat ein Bau kein Paar, zieht ein Tier von
+    einem Bau mit mehr als zwei Erwachsenen herüber, oder zwei einzelne Tiere finden zusammen (am
+    Bau mit mehr Futter). `World._den_breed` merkt sich je Bau den Wurf dieses Frühlings.
+  - *Schonung*: Jäger jagen nur Erwachsene, und nur solange mehr als `hunt_min_keep` (2)
+    erwachsene Tiere dieser Art auf der Insel leben (`World.is_huntable`). Würde ein geschütztes
+    Tier (eines der letzten zwei oder ein Jungtier) durch Jäger, Notwehr oder Wachturm sterben,
+    entkommt es mit 20 % Kraft und flieht einen halben Tag lang in seinen Bau (`Animal._scared`).
+    So stirbt keine Art mehr aus, solange noch zwei erwachsene Tiere leben.
+  - *Winterruhe*: Tiere mit `hibernate` (Bär) ziehen sich im Winter in die Höhle zurück
+    (unsichtbar, harmlos) und wachen im Frühling hungrig und damit angriffslustig auf.
+  - Gefahr gegen Ausrottung: die letzten zwei Wölfe oder Bären bleiben immer gefährlich; Jäger
+    ernten nur den Zuwachs ab. Je mehr Futter, desto mehr Tiere und desto mehr Angriffe.
 - **Siedler bei Gefahr**: Jäger kämpfen, alle anderen fliehen ins nächste Haus, Lager oder
   Wachturm (`refuge_radius`) und verstecken sich, bis die Tiere weg sind, sonst ans Lagerfeuer.
   Neue Fähigkeit `jagd`. Beruf **Jäger** (braucht Waffenkunde): jagt Tiere in der Nähe, holt
-  Fleisch von erlegten Tieren (`beute`, verdirbt nach `decay_days`) und räumt Bauten aus
-  (gibt Felle, danach kommen keine Tiere mehr nach). Felle kommen beim Erlegen direkt ins Lager.
-- **Wachturm** (`defense` {range, damage, interval}): schießt Pfeile auf Tiere in Reichweite.
+  Fleisch von erlegten Tieren (`beute`, verdirbt nach `decay_days`; Wölfe und Bären fressen Aas).
+  Bauten bleiben bestehen. Felle kommen beim Erlegen direkt ins Lager.
+- **Wachturm** (`defense` {range, damage, interval}): schießt Pfeile auf angreifende Tiere in Reichweite.
 - **Neue Waren**: Fleisch, Kokosnüsse, Pilze (Nahrung), Felle, Gold, Boote.
 - **Stufe VI „Neue Welt“**: Navigation, Jagdkunst, Befestigung, Warme Kleidung, Leuchtfeuer
   (Leuchtturm: Erkunden doppelt so schnell), Goldenes Zeitalter (Denkmal: mehr Kinder, längeres
@@ -299,12 +326,15 @@ Spielstände würfeln die Werte reproduzierbar aus der Siedler-ID).
 - **jobs.json**: `skill`, `tool` (Sprite in tools.png), `targets` (Knotentypen oder
   `farm`/`construction`), optional `requires` (Forschung).
 - **islands.json**: Inselarten, siehe Etappe 3. **animals.json**: `hp`, `damage`, `speed`,
-  `aggro`, `night_aggro`, `attack_time`, `meat`, `felle`, `leash`, `row` (Zeile in animals.png).
+  `aggro`, `night_aggro`, `attack_time`, `meat`, `felle`, `leash`, `row` (Zeile in animals.png),
+  `plural`, `plural_dat`, `food`, `winter_food`, `food_name`, `food_per_animal`, `roam`, `litter`,
+  `den_max`, `adult_days`, `hibernate`.
 - **balance.json**: alle Zahlen für Zeit, Hunger, Nachwuchs, Lager, Karte.
 - **Spielstand** (Version 3): `{version, seed, time_days, next_id, stats, lineage, research,
   islands: [{id, name, biome, seed, size, pos, state, found_day, dens, world?}], active, voyages}`
   mit `world: {stock, nodes: [[type,x,y,amount,regrow_at,variant]], buildings: [...], settlers: [...],
-  graves, animals: [[type,x,y,hp,home_x,home_y]]}`. Version 1 (nur `world`) wird beim Laden als
+  graves, animals: [[type,x,y,hp,home_x,home_y,age,food]], den_breed}`. Ohne `den_breed` (älterer
+  Spielstand) kehren ausgeräumte Baue zurück und jeder Bau wird einmalig auf `den_cap` Tiere aufgefüllt. Version 1 (nur `world`) wird beim Laden als
   Heimatinsel übernommen. Version 1 und 2 hatten ein gemeinsames `stock`: das bekommt beim Laden
   die Heimatinsel. Das Gelände wird aus dem Seed neu erzeugt, nur Rohstoffe, Gebäude,
   Siedler und Tiere werden gespeichert.
@@ -331,7 +361,7 @@ godot --headless -- --autotest=120 --scale=10 --tuttest=1  # spielt die Einführ
 godot --headless -- --autotest=150 --scale=10 --schooltest=1  # Steinhaus und Schule: Geburten, Schulkinder
 godot --headless -- --autotest=230 --scale=10 --build=1   # ein ganzes Jahr, Bericht mit Jahreszeit und Holz
 godot --headless -- --autotest=300 --scale=10 --seatest=1  # Werft, drei Inseln entdecken und besiedeln
-#   dazu --weak=1: ohne Waffenkunde (Tiere gefährlicher), Bildschirmfoto: --island=<id>, --panel=sea
+#   dazu --wildlife=1: Tierbestand je Insel und Bau; --weak=1: ohne Waffenkunde (Tiere gefährlicher), Bildschirmfoto: --island=<id>, --panel=sea
 # Bildschirmfoto-Optionen: --panel=research|build|stock, --selectb=<typ>, --look=1
 xvfb-run godot --rendering-driver opengl3 -- --autotest=20 --shot=/tmp/bild.png
 godot --headless --export-release "Web" build/web/index.html

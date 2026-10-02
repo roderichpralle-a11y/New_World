@@ -579,7 +579,7 @@ func _plan_work() -> bool:
 			return _plan_research() or _plan_free_gather()
 		"jaeger":
 			if Data.job_unlocked("jaeger"):
-				if _plan_hunt() or _plan_gather(["beute", "wolfsbau", "eberbau", "baerenhoehle"]):
+				if _plan_hunt() or _plan_gather(["beute"]):
 					return true
 			return _plan_free_gather()
 		_:
@@ -1033,7 +1033,8 @@ func _check_danger(delta: float) -> void:
 func _plan_hunt() -> bool:
 	if health < 55.0 or Game.is_night() or mind.sick != "":
 		return false
-	var an = world.nearest_animal(position, 24.0 * 16.0)
+	# Jaeger jagen nur erwachsene Tiere und lassen von jeder Art genug zum Vermehren uebrig
+	var an = world.nearest_animal(position, 24.0 * 16.0, "hunt")
 	if an == null:
 		return false
 	_plan.append({"a": "hunt", "target": an, "start": cell})
@@ -1043,7 +1044,7 @@ func _plan_hunt() -> bool:
 
 func _run_hunt(a: Dictionary, delta: float) -> void:
 	var an = a.target
-	if not is_instance_valid(an) or an.dead or (health < 25.0 and not a.get("flee", false)) \
+	if not is_instance_valid(an) or an.dead or an.is_scared() or (health < 25.0 and not a.get("flee", false)) \
 			or Vector2(cell - a.start).length() > 26.0:
 		_working = false
 		_plan.pop_front()
