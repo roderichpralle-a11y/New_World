@@ -1577,9 +1577,19 @@ func _info_node(n: ResNode) -> void:
 		"palme": "Sammler", "pilzkreis": "Sammler", "erzader": "Steinmetz", "goldader": "Steinmetz", "beute": "Jäger"}
 	if n.def.has("spawns"):
 		var an: Dictionary = Data.animals[n.def.spawns]
-		var l := UiTheme.label("Hier leben bis zu %d: %s. Jäger können den Bau ausräumen, dann kommen keine Tiere mehr nach." % [int(n.def.get("den_cap", 1)), an.name], 13, UiTheme.BAD)
+		var w = n.world
+		var here: Array = w.animals.filter(func(a): return a.home == n.cell)
+		var young := here.filter(func(a): return not a.is_adult()).size()
+		var t := "Hier leben %d %s" % [here.size(), an.get("plural", an.name)]
+		if young > 0:
+			t += ", davon %d Jungtiere" % young
+		t += ". Futter (%s) reicht für %d." % [an.get("food_name", "Futter"), w.den_capacity(n)]
+		var l := UiTheme.label(t, 13, UiTheme.BAD)
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_info_box.add_child(l)
+		var l2 := UiTheme.label("Im Frühling bekommt ein sattes Paar Junge, wenn das Futter reicht. Jäger lassen von jeder Art mindestens %d erwachsene Tiere auf der Insel übrig." % int(Data.bal("hunt_min_keep", 2)), 12)
+		l2.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_info_box.add_child(l2)
 	else:
 		_info_box.add_child(UiTheme.label("Wird bearbeitet von: %s" % who.get(n.type, "?"), 13))
 	if n.def.has("decay_days") and n.regrow_at >= 0.0:
@@ -1587,20 +1597,25 @@ func _info_node(n: ResNode) -> void:
 
 
 func _info_animal(a: Animal) -> void:
-	_info_head(a.def.name)
+	_info_head(a.def.name if a.is_adult() else "Junges: %s" % a.def.name)
 	var hb := _bar_row("Kraft", a.hp / a.max_hp() * 100.0, UiTheme.BAD)
+	var fb := _bar_row("Satt", a.food * 100.0, UiTheme.GOOD)
 	var st := UiTheme.label("", 14, Color("#6a4a30"))
 	_info_box.add_child(st)
 	var upd := func():
 		if not is_instance_valid(a):
 			return
 		hb.value = a.hp / a.max_hp() * 100.0
-		st.text = ("Greift %s an!" % a.target.display_name) if a.target and is_instance_valid(a.target) else "Streift umher."
+		fb.value = a.food * 100.0
+		st.text = a.state_text()
 	upd.call()
 	_updaters.append(upd)
-	var t := "Gefährlich! Biss: %d Schaden. Siedler fliehen in Häuser. Jäger (Forschung Waffenkunde) und Wachtürme wehren die Tiere ab. Erlegt gibt es Fleisch und Felle." % int(a.def.damage)
+	var t := "Gefährlich! Biss: %d Schaden, hungrig noch angriffslustiger. Siedler fliehen in Häuser. Jäger (Forschung Waffenkunde) und Wachtürme wehren die Tiere ab. Erlegt gibt es Fleisch und Felle." % int(a.def.damage)
 	if float(a.def.aggro) < 3.0:
-		t = "Greift nur an, wenn man ihm zu nahe kommt. Biss: %d Schaden. Jäger und Wachtürme erlegen es für Fleisch und Felle." % int(a.def.damage)
+		t = "Greift nur an, wenn man ihm zu nahe kommt. Biss: %d Schaden. Jäger erlegen es für Fleisch und Felle." % int(a.def.damage)
+	if not a.is_adult():
+		t = "Ein Jungtier. Harmlos und wird nicht gejagt. Nach %d Tagen ist es erwachsen." % int(ceil(float(a.def.get("adult_days", 2.0))))
+	t += " Frisst: %s." % a.def.get("food_name", "Futter")
 	var l := UiTheme.label(t, 13)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_info_box.add_child(l)
