@@ -1,8 +1,8 @@
 extends Node
 ## Seefahrt (Etappe 3): alle Inseln, die Seekarte und Schiffsreisen.
 ## Jede besiedelte Insel ist eine eigene World. Nur die aktive Insel (Game.world) ist
-## sichtbar, die anderen leben unsichtbar weiter. Vorraete teilen sich alle Inseln
-## (die Boote bringen die Waren hin und her).
+## sichtbar, die anderen leben unsichtbar weiter. Jede Insel hat ihr eigenes Lager;
+## Waren kommen nur per Schiff auf eine andere Insel.
 
 signal islands_changed
 signal island_switched(world)
@@ -183,30 +183,31 @@ func ship_capacity() -> int:
 
 func voyage_days(from_id: int, to_id: int) -> float:
 	var d := distance(from_id, to_id)
-	return (float(Data.bal("voyage_days_base")) + float(Data.bal("voyage_days_per_dist")) * d) / Game.eff("ship_speed")
+	# Herbststürme verlängern die Fahrt (Seasons.sail_mult, gilt beim Ablegen)
+	return (float(Data.bal("voyage_days_base")) + float(Data.bal("voyage_days_per_dist")) * d) / Game.eff("ship_speed") * Seasons.sail_mult()
 
 
 func exploring() -> bool:
 	return voyages.any(func(v): return v.kind == "explore")
 
 
-func can_explore() -> String:
+func can_explore(from_world = null) -> String:
 	if exploring():
 		return "Ein Boot ist schon auf Erkundungsfahrt."
-	if Game.amount("boot") < 1:
+	if Game.amount("boot", from_world) < 1:
 		return "Es gibt kein Boot. Baue eines in der Werft."
 	return ""
 
 
 func start_explore(from_world) -> String:
-	var err := can_explore()
+	var err := can_explore(from_world)
 	if err != "":
 		return err
-	Game.take_stock("boot", 1)
+	Game.take_stock("boot", 1, from_world)
 	var next := islands.size()
 	var probe := make_island(next)
 	var d := Vector2(float(probe.pos[0]), float(probe.pos[1])).length()
-	var days := (float(Data.bal("explore_days_base")) + float(Data.bal("explore_days_per_dist")) * d) / Game.eff("explore")
+	var days := (float(Data.bal("explore_days_base")) + float(Data.bal("explore_days_per_dist")) * d) / Game.eff("explore") * Seasons.sail_mult()
 	voyages.append({"kind": "explore", "from": from_world.island_id, "to": next, "depart": Game.time_days,
 		"arrive": Game.time_days + days, "settlers": []})
 	from_world.sail_away()
@@ -222,8 +223,8 @@ func can_send(from_world, to_id: int, people: Array) -> String:
 		return "Diese Insel ist verloren."
 	if from_world.island_id == to_id:
 		return "Die Siedler sind schon dort."
-	if Game.amount("boot") < 1:
-		return "Es gibt kein Boot. Baue eines in der Werft."
+	if Game.amount("boot", from_world) < 1:
+		return "Auf dieser Insel liegt kein Boot. Baue eines in der Werft."
 	if people.is_empty():
 		return "Wähle Siedler für die Fahrt aus."
 	if people.size() > ship_capacity():
@@ -237,7 +238,7 @@ func send_settlers(from_world, to_id: int, people: Array) -> String:
 	var err := can_send(from_world, to_id, people)
 	if err != "":
 		return err
-	Game.take_stock("boot", 1)
+	Game.take_stock("boot", 1, from_world)
 	var datas := []
 	for s in people:
 		datas.append(s.serialize())
@@ -265,7 +266,9 @@ func _arrive(v: Dictionary) -> void:
 	if v.kind == "explore":
 		var m := make_island(int(v.to))
 		islands.append(m)
-		Game.add_stock("boot", 1)
+		var home = worlds.get(int(v.from))
+		if home and is_instance_valid(home):
+			Game.add_stock("boot", 1, home)
 		var danger := dangers(m).map(func(a): return Data.animals[a].name)
 		var text := "Entdeckt: %s, eine %s!" % [m.name, biome_name(m)]
 		text += " Gefahr: %s." % ", ".join(danger) if not danger.is_empty() else " Keine wilden Tiere gesichtet."
@@ -341,6 +344,15 @@ func build_from_save(d: Dictionary) -> void:
 			w.build_from_save(e.world, m)
 	for v in d.get("voyages", []):
 		voyages.append(v)
+	# Bis Version 2 gab es ein gemeinsames Lager: das bekommt die Heimatinsel
+	if not Game.stock.is_empty() and not worlds.is_empty():
+		var heir = worlds.get(0, worlds.values()[0])
+		if not heir.had_stock:
+			for id in Game.stock:
+				heir.stock[id] = int(heir.stock.get(id, 0)) + int(Game.stock[id])
+			heir.store_limits = Game.store_limits.duplicate()
+	Game.stock = {}
+	Game.store_limits = {}
 	var active := int(d.get("active", 0))
 	if not worlds.has(active) and not worlds.is_empty():
 		active = int(worlds.keys()[0])

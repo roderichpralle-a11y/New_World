@@ -30,6 +30,7 @@
   "sick_outside": 1.4,
   "sick_crowd": 0.35,
   "sick_contagion": 0.6,
+  "sick_cold": 1.8,
   "illnesses": {
     "erkaeltung": {"name": "Erkältung", "weight": 5, "days": 0.7, "damage": 14, "work": 0.75, "bed": false, "contagious": true},
     "fieber": {"name": "Fieber", "weight": 2, "days": 1.0, "damage": 55, "work": 0.0, "bed": true, "contagious": true, "deadly": "am Fieber gestorben"},

@@ -236,7 +236,7 @@ func relax(days: float) -> void:
 func wants_break() -> bool:
 	if not s.is_adult() or leisure_share() <= 0.0 or rest >= 35.0:
 		return false
-	return Game.total_food() >= Game.population() * 3
+	return Game.total_food(s.world) >= s.world.settlers.size() * 3
 
 
 func break_length() -> float:
@@ -260,8 +260,10 @@ func _maybe_get_sick(days: float) -> void:
 		risk *= float(Data.ppl("sick_vit_low", 2.0))
 	if s.home_id == 0:
 		risk *= float(Data.ppl("sick_outside", 1.4))
-	if Game.has_method("season_mod"):
-		risk *= float(Game.season_mod("sickness"))
+	risk *= Seasons.season_mod("sickness")
+	# Kein Heizholz in Herbst und Winter: frierende Siedler werden schneller krank
+	if not Seasons.is_warm(s.world):
+		risk *= float(Data.ppl("sick_cold", 1.8))
 	risk /= sqrt(Game.eff("heal"))
 	# Ansteckung: Kranke im selben Haus oder ganz in der Naehe
 	var near := 0
@@ -292,16 +294,19 @@ func _fall_ill(k: String) -> void:
 	sick = k
 	sick_left = float(ill.days) * _rng.randf_range(0.8, 1.2)
 	s.abort_plan()
-	Game.notify_at(s.world, "%s ist krank: %s." % [s.display_name, ill.name], "herz")
+	# Leichte Krankheiten nur in Liste und Infofenster, schwere als Meldung
+	if ill.get("bed", false) or ill.has("deadly"):
+		Game.notify_at(s.world, "%s ist krank: %s." % [s.display_name, ill.name], "herz")
 
 
 func _recover() -> void:
 	if sick == "":
 		return
-	var name: String = Data.ppl("illnesses")[sick].name
+	var ill: Dictionary = Data.ppl("illnesses")[sick]
+	var name: String = ill.name
 	sick = ""
 	sick_left = 0.0
-	if s.world and s.world.settlers.has(s):
+	if (ill.get("bed", false) or ill.has("deadly")) and s.world and s.world.settlers.has(s):
 		Game.notify_at(s.world, "%s ist wieder gesund (%s überstanden)." % [s.display_name, name], "herz")
 
 
@@ -392,10 +397,11 @@ func _update_mood(days: float) -> void:
 		r.append(["Trauert um %s" % g[0], -full])
 	if Game.time_days < joy_until:
 		r.append(["Freut sich über das Baby", float(Data.ppl("joy_mood", 12.0))])
-	if Game.has_method("season_mod"):
-		var sm := float(Game.season_mod("mood")) - 1.0
-		if absf(sm) > 0.01:
-			r.append(["Jahreszeit", sm * 40.0])
+	var sm := Seasons.season_mod("mood") - 1.0
+	if absf(sm) > 0.01:
+		r.append([("Freut sich über: %s" if sm > 0.0 else "Leidet unter: %s") % Seasons.season_name(), sm * 60.0])
+	if not Seasons.is_warm(s.world):
+		r.append(["Friert (kein Heizholz)", -15.0])
 	var target := base
 	for x in r:
 		target += float(x[1])

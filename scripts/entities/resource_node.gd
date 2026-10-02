@@ -67,6 +67,7 @@ func refresh() -> void:
 		return
 	var tex := Data.object_tex(name, 0)
 	_sprite.texture = tex
+	_sprite.material = world.season_material(type, name)
 	var sz := tex.region.size
 	_sprite.offset = Vector2(-sz.x / 2.0, -sz.y + (8 if sz.y <= 16 else 3))
 	if sz.y <= 16:
@@ -99,6 +100,10 @@ func harvest_one() -> int:
 
 
 func _process(delta: float) -> void:
+	# Jahreszeit: im Winter wächst nichts nach, im Frühling schneller; Erlegtes hält im Winter länger
+	if regrow_at >= 0.0 and Seasons.dt_days > 0.0:
+		var f := Seasons.decay() if def.has("decay_days") else Seasons.growth(type)
+		regrow_at += Seasons.dt_days * (1.0 - f)
 	# Erlegte Tiere verderben nach ein paar Tagen
 	if def.has("decay_days") and regrow_at >= 0.0 and Game.time_days >= regrow_at:
 		world.remove_node(self)
