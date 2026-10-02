@@ -2331,12 +2331,60 @@ def orchard_tile(stage):
     return img
 
 
+def school():
+    """Schule: Fachwerkhaus mit rotem Dach, Glockentürmchen, Tafel und Schulhof-Zaun."""
+    img = new(64, 64)
+    plaster_wall(img, 8, 34, 48, 26)
+    door(img, 28, 45, 8, 15, arch=True)
+    window(img, 12, 40, 8, 8)
+    window(img, 44, 40, 8, 8)
+    tile_roof(img, 6, 12, 52, 24, ROOF_RED)
+    # Glockentuermchen auf dem First
+    for y in range(3, 14):
+        for x in range(28, 36):
+            put(img, x, y, WOOD[2] if x < 34 else WOOD[1])
+    for y in range(6, 11):
+        for x in range(30, 34):
+            put(img, x, y, DARK)
+    for (x, y, c) in [(31, 8, (240, 200, 80)), (32, 8, (240, 200, 80)), (31, 9, (200, 150, 50)), (32, 9, (200, 150, 50))]:
+        put(img, x, y, c)
+    for y in range(0, 4):
+        for x in range(30 - y, 34 + y):
+            put(img, x, y, ROOF_RED[2] if x < 32 else ROOF_RED[1])
+    # Schultafel neben der Tuer mit "ABC"
+    for y in range(47, 56):
+        for x in range(38, 43):
+            put(img, x, y, (50, 78, 62))
+    for x in range(38, 43):
+        put(img, x, 46, WOOD[1])
+        put(img, x, 56, WOOD[1])
+    for (x, y) in [(39, 49), (41, 49), (39, 51), (40, 51), (41, 51), (40, 53), (39, 53)]:
+        put(img, x, y, (236, 240, 230))
+    # Schild ueber der Tuer: aufgeschlagenes Buch
+    for y in range(37, 42):
+        for x in range(27, 37):
+            put(img, x, y, (246, 236, 210) if x != 31 and x != 32 else (200, 186, 160))
+    for x in (28, 29, 34, 35):
+        put(img, x, 39, (90, 90, 140))
+    # Zaun um den Schulhof
+    for x0 in (2, 58):
+        for y in range(50, 61):
+            put(img, x0, y, WOOD[2] if y % 4 else WOOD[1])
+            put(img, x0 + 3, y, WOOD[2] if y % 4 else WOOD[1])
+        for x in range(x0, x0 + 4):
+            put(img, x, 52, WOOD[3])
+            put(img, x, 56, WOOD[3])
+    ground_line(img, 2, 62)
+    add_outline(img)
+    return img
+
+
 def gen_buildings2():
     """buildings.png: Zellen 64x64, 8 je Zeile (Reihenfolge = Data.BUILDING_CELLS)."""
     import gen_art_sea
     order = [house_wood(), house_stone(), store_big(), mill(0), mill(1), mill(2), mill(3),
              bakery(), smokehouse(), henhouse(), sawpit(), claypit(), brickworks(), quarry(),
-             charcoal(), mine(), smelter(), smithy(), scriptorium(), library()] + gen_art_sea.extra_buildings()
+             charcoal(), mine(), smelter(), smithy(), scriptorium(), library()] + gen_art_sea.extra_buildings() + [school()]
     atlas = new(512, 64 * ((len(order) + 7) // 8))
     for i, im in enumerate(order):
         atlas.paste(im, ((i % 8) * 64, (i // 8) * 64))

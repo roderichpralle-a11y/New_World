@@ -31,7 +31,7 @@
     {"id": "m_steinhaus", "text": "Baue ein Steinhaus.", "check": {"type": "building", "what": "steinhaus", "n": 1}, "reward": {"ziegel": 15}},
     {"id": "m_gold", "text": "Sammle 10 Gold.", "hint": "Gold gibt es in den Adern der Felseninseln.", "check": {"type": "stock", "what": "gold", "n": 10}, "reward": {"werkzeug": 4}},
     {"id": "m_settle3", "text": "Lebe auf 3 Inseln zugleich.", "check": {"type": "islands_settled", "n": 3}, "reward": {"boot": 1, "eisen": 8}},
-    {"id": "m_alltech", "text": "Erforsche den ganzen Baum.", "check": {"type": "techs", "n": 33}, "reward": {"gold": 6}},
+    {"id": "m_alltech", "text": "Erforsche den ganzen Baum.", "check": {"type": "techs", "n": 34}, "reward": {"gold": 6}},
     {"id": "m_denkmal", "text": "Errichte das goldene Denkmal.", "hint": "Das Denkmal krönt das Goldene Zeitalter: mehr Kinder und ein längeres Leben.", "check": {"type": "building", "what": "denkmal", "n": 1}, "reward": {"brot": 20, "fleisch": 10}},
     {"id": "m_pop40", "text": "Wachse auf 40 Siedler.", "check": {"type": "pop", "n": 40}, "reward": {"werkzeug": 6, "eisen": 6}}
   ]

@@ -255,21 +255,31 @@ func _try_birth_on(w) -> void:
 		return
 	if couples.is_empty():
 		return
+	var pair: Array = couples[_rng.randi() % couples.size()]
+	var mother = pair[0]
+	var father = pair[1]
 	var chance := float(Data.bal("birth_chance"))
 	# Abwechslungsreiche Kost macht Lust auf Familie
 	if food_variety() >= int(Data.bal("variety_min", 3)):
 		chance *= float(Data.bal("variety_birth_bonus", 1.0))
 	chance *= eff("birth")
+	# In besseren Haeusern kommen mehr Kinder zur Welt
+	chance *= home_birth_bonus(w, mother)
 	if _rng.randf() > chance:
 		return
-	var pair: Array = couples[_rng.randi() % couples.size()]
-	var mother = pair[0]
-	var father = pair[1]
 	mother.birth_cooldown_until = time_days + float(Data.bal("birth_cooldown"))
 	var child = w.spawn_child(mother, father)
 	stats.births += 1
 	Sound.play_on("geburt", w)
 	notify_at(w, "%s ist geboren! Eltern: %s und %s." % [child.display_name, mother.display_name, father.display_name], "herz")
+
+
+## Geburtenfaktor des Hauses, in dem die Mutter wohnt (Hütte 1, Holzhaus 1.4, Steinhaus 1.8).
+func home_birth_bonus(w, mother) -> float:
+	var home = w.building_by_id(mother.home_id)
+	if home and home.complete:
+		return float(home.def.get("birth_bonus", 1.0))
+	return 1.0
 
 
 ## Ohne passendes Paar wird gelegentlich ein Schiffbrüchiger angespült.

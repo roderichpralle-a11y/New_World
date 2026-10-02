@@ -63,6 +63,8 @@ func _maybe_autotest() -> void:
 		world.settlers[0].set_job("forscher")
 	if args.has("seatest"):
 		_autotest_sea()
+	if args.has("schooltest"):
+		_autotest_school()
 	if args.has("upgrade"):
 		for b in world.buildings.duplicate():
 			if b.type == "huette":
@@ -252,6 +254,34 @@ func _roomy(type: String, cc: Vector2i) -> bool:
 			if world.building_at.has(p) or not world.is_walkable(p):
 				return false
 	return true
+
+
+## Steinhaus und Schule fertig hinstellen, viel Essen: Geburten und Schulkinder beobachten.
+func _autotest_school() -> void:
+	for t in Data.techs:
+		Game.research.done.append(t)
+	Game._recompute_effects()
+	var c := world.center
+	for type in ["steinhaus", "schule", "grosslager"]:
+		var done := false
+		for rad in range(4, 20):
+			for dy in range(-rad, rad + 1):
+				for dx in range(-rad, rad + 1):
+					var cc := c + Vector2i(dx, dy)
+					if not done and world.can_place(type, cc) and _roomy(type, cc):
+						world.place_building(type, cc, true)
+						done = true
+		print("platziert ", type, " ", done)
+	for id in ["beeren", "fisch", "brot", "aepfel", "holz"]:
+		Game.stock[id] = 150
+	world.assign_homes()
+	for s in world.settlers:
+		var h = world.building_by_id(s.home_id)
+		print("   %s wohnt in %s" % [s.display_name, h.type if h else "-"])
+	Game.day_started.connect(func(d):
+		var kids := world.settlers.filter(func(s): return not s.is_adult())
+		print("   Tag %d: Geburten %d, Kinder %s" % [d, Game.stats.births,
+			kids.map(func(k): return "%s %.2f %s" % [k.display_name, k.age, "Schule" if world.school_of(k) else "-"])]))
 
 
 func _autotest_prod() -> void:

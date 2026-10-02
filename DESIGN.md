@@ -25,7 +25,7 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
   Siedler angespült (`newcomer_chance`), damit eine Familie nicht ausstirbt.
 - **Alter**: Siedler sterben zwischen `old_age_min` und `old_age_max` Tagen.
 - **Tag und Nacht**: ein Tag dauert `day_length` Sekunden, die Nacht läuft
-  `night_speedup`-mal schneller. Nachts schlafen alle (in ihrer Hütte oder am Feuer).
+  `night_speedup`-mal (5) schneller. Nachts schlafen alle (in ihrer Hütte oder am Feuer).
 - **Lager**: jede Ressource hat dieselbe Obergrenze = Summe `storage` aller Lager.
 - **Verloren**: Stirbt auf einer Insel der letzte Siedler, ist sie für immer verloren. Sind alle
   Inseln verloren und niemand mehr auf See, ist das Spiel vorbei (Spielstand wird gelöscht).
@@ -34,7 +34,7 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
 
 ## Entwicklungsbaum und Wirtschaft (Etappe 2)
 
-- **Forschung** (`data/techs.json`): 33 Forschungen in 6 Stufen (`_tiers`). Jede hat
+- **Forschung** (`data/techs.json`): 34 Forschungen in 6 Stufen (`_tiers`). Jede hat
   `tier`, `requires` (andere Forschungen), `cost` (Waren, beim ersten Start bezahlt),
   `points`, `effects`, optional `icon` und `soon` (sichtbar, aber noch nicht erforschbar;
   derzeit von keiner Forschung benutzt). Es läuft immer genau eine Forschung
@@ -62,6 +62,13 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
   Ausbau an Ort und Stelle (wird zur Baustelle, Bewohner ziehen solange aus).
 - **Abwechslung**: ab `variety_min` Nahrungssorten im Lager ist die Geburtenchance
   `variety_birth_bonus`-mal höher.
+- **Bessere Häuser**: Gebäude mit `birth_bonus` (Holzhaus 1.4, Steinhaus 1.8) vervielfachen die
+  Geburtenchance, wenn die Mutter dort wohnt (`Game.home_birth_bonus`). `World.assign_homes` belegt
+  bessere Häuser zuerst und lässt Siedler (nicht schlafend) in ein besseres Haus umziehen, sobald dort
+  Platz ist.
+- **Schule** (Forschung Unterricht, Stufe III; `school` {growth, slots}): jede fertige Schule nimmt
+  `slots` Kinder der Insel auf (die ältesten zuerst, `World.school_of`). Schulkinder altern
+  `growth`-mal so schnell (werden also schneller erwachsen) und halten sich tagsüber an der Schule auf.
 - Grafiken der neuen Gebäude liegen in `assets/sprites/buildings.png` (Zellen 64x64,
   `Data.BUILDING_CELLS`), Obstgarten-Kacheln in `objects.png` (`orchard0..3`).
 
@@ -104,7 +111,7 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
   Leben). Gold gibt es nur auf Felseninseln.
 - Grafiken: `assets/sprites/objects2.png` (`Data.OBJECT2_REGIONS`: Palmen, Höhle, Pilze, Adern,
   Bauten, Beute, Pfeil, Boot), `animals.png` (Zellen 24x24, Zeile je Tier, Spalten 0–3 Laufen,
-  4 Angriff), Gebäude ab Zelle 20 in `buildings.png`. Gezeichnet von `tools/gen_art_sea.py`.
+  4 Angriff), Gebäude ab Zelle 20 in `buildings.png` (Schule Zelle 25, `school()` in `gen_art.py`). Gezeichnet von `tools/gen_art_sea.py`.
 
 ## Feinschliff (Etappe 4)
 
@@ -192,6 +199,7 @@ godot --headless -- --autotest=120 --scale=10 --build=1     # Simulation mit Ber
 godot --headless -- --autotest=400 --scale=10 --build=1 --research=1   # forscht automatisch
 godot --headless -- --autotest=60 --scale=10 --prodtest=1  # alle Werkstätten, alles erforscht
 godot --headless -- --autotest=120 --scale=10 --tuttest=1  # spielt die Einführung durch
+godot --headless -- --autotest=150 --scale=10 --schooltest=1  # Steinhaus und Schule: Geburten, Schulkinder
 godot --headless -- --autotest=300 --scale=10 --seatest=1  # Werft, drei Inseln entdecken und besiedeln
 #   dazu --weak=1: ohne Waffenkunde (Tiere gefährlicher), Bildschirmfoto: --island=<id>, --panel=sea
 # Bildschirmfoto-Optionen: --panel=research|build|stock, --selectb=<typ>, --look=1

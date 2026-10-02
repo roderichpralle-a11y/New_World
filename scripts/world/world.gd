@@ -40,6 +40,8 @@ var _ghost_sprite: Sprite2D
 var _clouds: Array = []
 var _rng := RandomNumberGenerator.new()
 var _den_t: float = 0.0
+var _school_frame: int = -1
+var _school_of: Dictionary = {}  # Kind-ID -> Schule
 
 
 func _ready() -> void:
@@ -585,9 +587,11 @@ func find_field_task(from: Vector2i, sid: int):
 
 func assign_homes() -> void:
 	var free := {}
-	for b in buildings:
-		if b.housing() > 0:
-			free[b] = b.housing()
+	# Bessere Haeuser zuerst belegen: dort kommen mehr Kinder zur Welt
+	var homes := buildings.filter(func(b): return b.housing() > 0)
+	homes.sort_custom(func(a, b): return float(a.def.get("birth_bonus", 1.0)) > float(b.def.get("birth_bonus", 1.0)))
+	for b in homes:
+		free[b] = b.housing()
 	for s in settlers:
 		var h = building_by_id(s.home_id)
 		if h and free.has(h) and free[h] > 0:
@@ -602,6 +606,40 @@ func assign_homes() -> void:
 				free[b] -= 1
 				s.home_id = b.id
 				break
+	# Umzug in ein besseres Haus, wenn dort Platz ist (Erwachsene zuerst)
+	var movers := settlers.filter(func(s): return not s.sleeping and s.home_id != 0)
+	movers.sort_custom(func(a, b): return a.is_adult() and not b.is_adult())
+	for s in movers:
+		var cur = building_by_id(s.home_id)
+		var cur_bonus := float(cur.def.get("birth_bonus", 1.0))
+		for h in free:
+			if free[h] > 0 and float(h.def.get("birth_bonus", 1.0)) > cur_bonus:
+				free[h] -= 1
+				free[cur] += 1
+				s.home_id = h.id
+				break
+
+
+## Schule, die dieses Kind besucht (oder null). Jede fertige Schule nimmt `school.slots`
+## Kinder auf, die aeltesten zuerst.
+func school_of(child):
+	var f := Engine.get_process_frames()
+	if f != _school_frame:
+		_school_frame = f
+		_school_of.clear()
+		var kids := settlers.filter(func(s): return not s.is_adult())
+		kids.sort_custom(func(a, b): return a.age > b.age)
+		var i := 0
+		for b in buildings:
+			if not b.complete or not b.def.has("school"):
+				continue
+			for n in int(b.def.school.get("slots", 8)):
+				if i >= kids.size():
+					break
+				_school_of[kids[i].id] = b
+				i += 1
+	var sc = _school_of.get(child.id)
+	return sc if sc != null and is_instance_valid(sc) else null
 
 
 # ================================================================== Siedler
