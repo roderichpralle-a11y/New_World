@@ -92,6 +92,9 @@ func _maybe_autotest() -> void:
 	Game.set_speed(1)
 	Engine.time_scale = scale
 	Game.notified.connect(func(t, _i): print("[Tag %d %s] %s" % [Game.day(), Game.clock_text(), t]))
+	if args.has("season"):
+		# Testhilfe: Start in einer Jahreszeit (0 Frühling .. 3 Winter)
+		Seasons.jump_to_season(int(args.season))
 	if args.has("build"):
 		_autotest_build()
 	if args.has("prodtest"):
@@ -154,6 +157,7 @@ func _maybe_autotest() -> void:
 					isl.append("%s[%s]:%s pop=%d tiere=%d" % [m.name, m.biome, m.state, w.settlers.size() if w else 0, w.animals.size() if w else 0])
 				print("   Inseln: ", ", ".join(isl), " | See: ", Sea.voyages.size(), " Boote: ", Game.amount("boot"), " Fleisch: ", Game.amount("fleisch"), " Felle: ", Game.amount("felle"))
 			var jobs := world.settlers.map(func(s): return "%s:%s:%s:%d" % [s.display_name, s.job, s.activity, int(s.hunger)])
+			print("   %s, Jahr %d: Holz %d, frierend %d Inseln" % [Seasons.short_text(), Seasons.year(), Game.amount("holz"), Seasons.cold.size()])
 			print("t=%d Tag %d %s pop=%d/%d holz=%d stein=%d food=%d | %s" % [elapsed, Game.day(), Game.clock_text(),
 				Game.population(), Game.housing_capacity(), Game.amount("holz"), Game.amount("stein"), Game.total_food(), jobs])
 		if Game.is_over:

@@ -29,6 +29,10 @@ var ground: Node2D  # Felder unter allem
 var entities: Node2D  # y-sortiert
 var fx: Node2D
 var day_tint: CanvasModulate
+## Jahreszeit-Shader (Schnee, Herbstlaub): Boden, Laubbäume und Büsche, Nadelbäume
+var _mat_ground: ShaderMaterial
+var _mat_leaf: ShaderMaterial
+var _mat_needle: ShaderMaterial
 
 var _layers: Array = []
 var _unreachable: Dictionary = {}
@@ -150,6 +154,8 @@ func _build_terrain(island: Dictionary) -> void:
 		_layers.append(l)
 	# Jede Inselart hat ihren eigenen Grünton
 	_layers[2].modulate = Color(Data.islands.get(biome, {}).get("tint", "#ffffff"))
+	_make_season_materials()
+	_layers[2].material = _mat_ground
 	ground = Node2D.new()
 	add_child(ground)
 	entities = Node2D.new()
@@ -929,8 +935,8 @@ func warn_storage_full(res: String) -> void:
 func night_factor() -> float:
 	var t := Game.time_of_day()
 	# 0 am Tag, 1 in der Nacht, weiche Uebergaenge in Daemmerung
-	var ns := float(Data.bal("night_start"))
-	var ne := float(Data.bal("night_end"))
+	var ns := Seasons.night_start()
+	var ne := Seasons.night_end()
 	if t >= ns - 0.06 and t < ns:
 		return (t - (ns - 0.06)) / 0.06
 	if t >= ns or t < ne:
@@ -953,6 +959,7 @@ func _process(delta: float) -> void:
 		var is_evening := t > 0.5
 		c = day_col.lerp(dusk if is_evening else Color(0.9, 0.85, 1.0), clamp(nf * 2.0, 0.0, 1.0)).lerp(night, clamp(nf * 2.0 - 1.0, 0.0, 1.0))
 	day_tint.color = c
+	_update_season_look()
 	for cl in _clouds:
 		cl.position.x += delta * 6.0
 		if cl.position.x > size * T + 300:
@@ -970,6 +977,40 @@ func _process(delta: float) -> void:
 			d[0].queue_free()
 			decor.remove_at(i)
 	_process_dens(delta)
+
+
+# ================================================================== Jahreszeiten (Aussehen)
+func _make_season_materials() -> void:
+	var sh: Shader = preload("res://assets/shaders/season.gdshader")
+	_mat_ground = ShaderMaterial.new()
+	_mat_ground.shader = sh
+	_mat_leaf = ShaderMaterial.new()
+	_mat_leaf.shader = sh
+	_mat_needle = ShaderMaterial.new()
+	_mat_needle.shader = sh
+
+
+## Material für eine Rohstoffquelle: Laub färbt sich, auf allen Bäumen liegt Schnee.
+func season_material(type: String, sprite: String) -> Material:
+	if _mat_leaf == null:
+		return null
+	if type == "busch" or (type == "baum" and sprite != "tree2"):
+		return _mat_leaf
+	if type == "baum":
+		return _mat_needle
+	return null
+
+
+func _update_season_look() -> void:
+	if _mat_ground == null:
+		return
+	# Auf Palmeninseln fällt kein Schnee
+	var snow := Seasons.snow_amount() * float(Seasons.cfg.get("snow_biomes", {}).get(biome, 1.0))
+	var autumn := Seasons.autumn_amount()
+	_mat_ground.set_shader_parameter("snow", snow * 0.85)
+	_mat_leaf.set_shader_parameter("snow", snow * 0.7)
+	_mat_leaf.set_shader_parameter("autumn", autumn)
+	_mat_needle.set_shader_parameter("snow", snow * 0.5)
 
 
 # ================================================================== Bauen (Platzieren)

@@ -80,8 +80,9 @@ func time_of_day() -> float:
 
 
 func is_night() -> bool:
+	# Die Nacht ist im Sommer kurz und im Winter lang (Seasons)
 	var t := time_of_day()
-	return t >= Data.bal("night_start") or t < Data.bal("night_end")
+	return t >= Seasons.night_start() or t < Seasons.night_end()
 
 
 func clock_text() -> String:

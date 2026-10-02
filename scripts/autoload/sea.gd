@@ -183,7 +183,8 @@ func ship_capacity() -> int:
 
 func voyage_days(from_id: int, to_id: int) -> float:
 	var d := distance(from_id, to_id)
-	return (float(Data.bal("voyage_days_base")) + float(Data.bal("voyage_days_per_dist")) * d) / Game.eff("ship_speed")
+	# Herbststürme verlängern die Fahrt (Seasons.sail_mult, gilt beim Ablegen)
+	return (float(Data.bal("voyage_days_base")) + float(Data.bal("voyage_days_per_dist")) * d) / Game.eff("ship_speed") * Seasons.sail_mult()
 
 
 func exploring() -> bool:
@@ -206,7 +207,7 @@ func start_explore(from_world) -> String:
 	var next := islands.size()
 	var probe := make_island(next)
 	var d := Vector2(float(probe.pos[0]), float(probe.pos[1])).length()
-	var days := (float(Data.bal("explore_days_base")) + float(Data.bal("explore_days_per_dist")) * d) / Game.eff("explore")
+	var days := (float(Data.bal("explore_days_base")) + float(Data.bal("explore_days_per_dist")) * d) / Game.eff("explore") * Seasons.sail_mult()
 	voyages.append({"kind": "explore", "from": from_world.island_id, "to": next, "depart": Game.time_days,
 		"arrive": Game.time_days + days, "settlers": []})
 	from_world.sail_away()

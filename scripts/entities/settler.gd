@@ -234,6 +234,7 @@ func _needs(days: float) -> void:
 	var f := 1.0 if is_adult() else float(Data.bal("child_hunger_factor"))
 	if sleeping:
 		f *= 0.6
+	f *= Seasons.hunger_mult(world)  # Winter und Kälte zehren
 	hunger = max(0.0, hunger - float(Data.bal("hunger_per_day")) * Game.eff("hunger") * days * f)
 	if hunger <= 0.0:
 		health -= float(Data.bal("starve_damage_per_day")) * days
@@ -335,7 +336,7 @@ func carry_capacity() -> int:
 
 ## Arbeitstempo fuer eine Faehigkeit inklusive Forschungsboni.
 func work_factor(sk: String, bonus: String = "") -> float:
-	var f := skill_factor(sk) * Game.eff("work")
+	var f := skill_factor(sk) * Game.eff("work") * Seasons.work_mult(world)
 	if bonus != "":
 		f *= Game.eff(bonus)
 	return f
@@ -680,7 +681,7 @@ func _do_site_deliver(site) -> void:
 func _do_build(site) -> void:
 	if not is_instance_valid(site) or site.complete:
 		return
-	site.add_work(1.5 * work_factor("bauen", "build"))
+	site.add_work(1.5 * work_factor("bauen", "build") * Seasons.build_mult())
 	gain_xp("bauen", 0.5)
 	world.spawn_effect("dust", site.position + Vector2(_rng.randf_range(-12, 12), -4))
 	Sound.play_at("hammer", world, site.position)
@@ -830,6 +831,7 @@ func _walk(delta: float, mult: float = 1.0) -> void:
 		return
 	var target: Vector2 = _path[_path_i]
 	var spd := float(Data.bal("walk_speed")) * Game.eff("walk") * (1.0 if is_adult() else 0.85) * mult
+	spd *= Seasons.walk_mult()  # Schnee
 	if hunger <= 0.0:
 		spd *= 0.6
 	var to := target - position

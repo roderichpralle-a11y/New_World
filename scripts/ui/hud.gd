@@ -15,6 +15,8 @@ var _food_label: Label
 var _pop_label: Label
 var _day_label: Label
 var _day_icon: TextureRect
+var _season_icon: TextureRect
+var _season_label: Label
 var _speed_btns: Array = []
 var _bottom: HBoxContainer
 var _build_panel: PanelContainer
@@ -149,6 +151,24 @@ func _build_topbar() -> void:
 	_day_label = UiTheme.label("Tag 1", 16)
 	dc.add_child(_day_label)
 	h.add_child(dc)
+	# Jahreszeit: Tippen zeigt, was sie bewirkt
+	var sc := HBoxContainer.new()
+	sc.add_theme_constant_override("separation", 3)
+	sc.mouse_filter = Control.MOUSE_FILTER_STOP
+	sc.tooltip_text = "Jahreszeit (Tag in der Jahreszeit). Tippen: was sie bewirkt"
+	sc.gui_input.connect(func(ev):
+		if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
+			sc.accept_event()
+			Sound.play("klick")
+			Game.notify("Jahr %d, %s Tag %d von %d. %s" % [Seasons.year(), Seasons.season_name(),
+				Seasons.day_in_season(), int(Seasons.season_days()), Seasons.effects_text()], ""))
+	_season_icon = UiTheme.icon_rect(Seasons.icon(), 18)
+	_season_icon.mouse_filter = Control.MOUSE_FILTER_PASS
+	sc.add_child(_season_icon)
+	_season_label = UiTheme.label("", 16)
+	_season_label.mouse_filter = Control.MOUSE_FILTER_PASS
+	sc.add_child(_season_label)
+	h.add_child(sc)
 	_island_label = UiTheme.label("", 14, Color("#7a4a28"), true)
 	_island_label.visible = false
 	h.add_child(_island_label)
@@ -1180,7 +1200,7 @@ func _info_signature() -> String:
 		return "s%d|%s|%s|%d|%s|%s" % [o.id, o.job, o.is_adult(), o.home_id, str(o.skills), _follow]
 	if o is Building:
 		return "b%d|%s|%s|%s|%d|%d|%s|%s|%s|%s" % [o.id, o.complete, o.farm_state, str(o.delivered), int(o.build_fraction() * 50),
-			int((Game.time_days - o.farm_time) * 20), str(o.occupants), o.paused, o.is_active(), o.prod_blocker()]
+			int((Game.time_days - o.farm_time) * 20), str(o.occupants), o.paused, o.is_active(), o.prod_blocker()] + "|%d" % Seasons.season()
 	if o is ResNode:
 		return "n%s|%d|%d" % [o.cell, o.amount, int((o.regrow_at - Game.time_days) * 24)]
 	if o is Animal:
@@ -1305,7 +1325,13 @@ func _info_building(b: Building) -> void:
 			_info_box.add_child(UiTheme.label("Lagerplatz: +%d je Sorte" % int(b.def.storage), 14))
 		if b.is_ground() and b.def.has("farm"):
 			var st := {"fallow": "Wartet auf den Bauern", "growing": "Wächst", "ripe": "Erntereif!"}
-			_info_box.add_child(UiTheme.label(st.get(b.farm_state, ""), 14))
+			if b.farm_state == "fallow" and not Seasons.can_sow(b.type):
+				st.fallow = "Ruht bis zum Frühling (Aussaat nur im Frühling und Sommer)"
+			var fl := UiTheme.label(st.get(b.farm_state, ""), 14)
+			fl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			_info_box.add_child(fl)
+			if b.farm_state == "growing" and Seasons.growth(b.type) <= 0.0:
+				_info_box.add_child(UiTheme.label("Im Winter wächst nichts.", 13, UiTheme.BAD))
 			if b.farm_state == "growing":
 				var frac: float = (Game.time_days - b.farm_time) / b.grow_days()
 				_bar_row("Wachstum", frac * 100.0, UiTheme.GOOD)
@@ -1645,6 +1671,8 @@ func _layout() -> void:
 	var sp: Control = root.get_node("SpeedPanel")
 	sp.reset_size()
 	var top_h := 50.0
+	# Schmal: Jahreszeit nur als Symbol
+	_season_label.visible = not (portrait or vs.x < 760)
 	if portrait or vs.x < 760:
 		sp.position = Vector2(vs.x - sp.size.x - 6, 54)
 		top_h = 100.0
@@ -1681,6 +1709,8 @@ func _process(delta: float) -> void:
 	_tick_settler_list(delta)
 	_day_label.text = "Tag %d  %s" % [Game.day(), Game.clock_text()]
 	_day_icon.texture = Data.icon("mond" if Game.is_night() else "sonne")
+	_season_icon.texture = Seasons.icon()
+	_season_label.text = Seasons.short_text()
 	_research_tick -= delta
 	if _research_tick <= 0.0:
 		_research_tick = 0.5
