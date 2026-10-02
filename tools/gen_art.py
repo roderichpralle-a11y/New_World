@@ -1523,7 +1523,10 @@ ICONS.update({
 
 def gen_icons():
     import gen_art_sea
+    import gen_art_polish
     for k, v in gen_art_sea.ICONS_SEA.items():
+        ICONS.setdefault(k, v)
+    for k, v in gen_art_polish.ICONS_POLISH.items():
         ICONS.setdefault(k, v)
     names = list(ICONS.keys())
     atlas = new(16 * len(names), 16)

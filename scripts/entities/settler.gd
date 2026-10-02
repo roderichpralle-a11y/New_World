@@ -183,6 +183,7 @@ func gain_xp(sk: String, amount: float = 1.0) -> void:
 		skills[sk] = skill_level(sk) + 1.0
 		Game.notify("%s ist besser geworden: %s Stufe %d." % [display_name, Data.skills[sk].name, int(skills[sk])], "sonne")
 		world.float_text(position + Vector2(0, -30), "Stufe %d!" % int(skills[sk]), "")
+		Sound.play_on("stufe", world)
 
 
 func best_job() -> String:
@@ -671,6 +672,7 @@ func _do_build(site) -> void:
 	site.add_work(1.5 * work_factor("bauen", "build"))
 	gain_xp("bauen", 0.5)
 	world.spawn_effect("dust", site.position + Vector2(_rng.randf_range(-12, 12), -4))
+	Sound.play_at("hammer", world, site.position)
 	if not site.complete and not Game.is_night() and hunger >= float(Data.bal("eat_below")) * 0.6:
 		_plan.push_front({"a": "work", "t": 1.5, "act": "Baut", "tool": "hammer",
 			"face": site.position, "done": _do_build.bind(site)})
@@ -720,6 +722,7 @@ func _do_produce(b) -> void:
 			# Nebenprodukte gehen direkt ins Lager
 			Game.add_stock(res, n)
 	world.spawn_effect("dust", b.position + Vector2(_rng.randf_range(-8, 8), -4))
+	Sound.play_at(String(b.def.get("sound", "hammer")), world, b.position)
 	_plan_deliver_after()
 
 
@@ -964,6 +967,7 @@ func take_damage(n: float, by) -> void:
 		return
 	health -= n
 	_hurt = 0.2
+	Sound.play_at("autsch", world, position)
 	_danger_t = 0.0
 	world.spawn_effect("blood", position + Vector2(0, -8))
 	if health <= 0.0:

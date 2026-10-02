@@ -17,6 +17,9 @@ var _moved := false
 var _touches: Dictionary = {}
 var _pinch_dist := 0.0
 var _multi := false
+var _pinch_mid := Vector2.ZERO
+var _vel := Vector2.ZERO  # Schwung nach dem Loslassen (Weltpixel je Sekunde)
+var _last_move_us: int = 0
 
 
 func _ready() -> void:
@@ -33,17 +36,23 @@ func _unhandled_input(event: InputEvent) -> void:
 		if _touches.size() >= 2:
 			_multi = true
 			_dragging = false
+			_vel = Vector2.ZERO
 			_pinch_dist = _touch_dist()
+			_pinch_mid = _touch_mid()
 		elif _touches.is_empty():
 			_multi = false
 	elif event is InputEventScreenDrag:
 		_touches[event.index] = event.position
 		if _touches.size() >= 2:
 			var d := _touch_dist()
+			var mid := _touch_mid()
 			if _pinch_dist > 0.0 and d > 0.0:
-				var mid := _touch_mid()
 				_zoom_at(zoom.x * d / _pinch_dist, mid)
+			# Zwei Finger verschieben die Karte auch
+			position -= (mid - _pinch_mid) / zoom.x
+			_clamp()
 			_pinch_dist = d
+			_pinch_mid = mid
 			get_viewport().set_input_as_handled()
 	elif event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton
@@ -52,9 +61,13 @@ func _unhandled_input(event: InputEvent) -> void:
 				_dragging = true
 				_moved = false
 				_press_pos = mb.position
+				_vel = Vector2.ZERO
 			else:
 				if _dragging and not _moved and not _multi and mb.button_index == MOUSE_BUTTON_LEFT:
 					tapped.emit(screen_to_world(mb.position))
+				# Kein Schwung, wenn der Finger vor dem Loslassen stillstand
+				if Time.get_ticks_usec() - _last_move_us > 80000:
+					_vel = Vector2.ZERO
 				_dragging = false
 		elif mb.pressed and mb.button_index == MOUSE_BUTTON_WHEEL_UP:
 			_zoom_at(zoom.x * 1.15, mb.position)
@@ -68,6 +81,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			if _moved:
 				position -= mm.relative / zoom.x
 				_clamp()
+				var now := Time.get_ticks_usec()
+				var dt: float = clamp((now - _last_move_us) / 1000000.0, 0.004, 0.1)
+				_last_move_us = now
+				_vel = _vel.lerp(-mm.relative / zoom.x / dt, 0.4)
 		elif not _dragging:
 			hovered.emit(screen_to_world(mm.position))
 	elif event is InputEventMagnifyGesture:
@@ -78,6 +95,15 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _process(delta: float) -> void:
+	# Echtzeit, unabhaengig von der Spielgeschwindigkeit
+	var real: float = delta / max(Engine.time_scale, 0.001) if Engine.time_scale > 0 else 1.0 / 60.0
+	if not _dragging and not _multi and _vel.length() > 4.0:
+		position += _vel * real
+		_vel *= exp(-real * 4.5)
+		var before := position
+		_clamp()
+		if before != position:
+			_vel = Vector2.ZERO
 	var v := Vector2.ZERO
 	if Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT):
 		v.x -= 1
@@ -88,8 +114,6 @@ func _process(delta: float) -> void:
 	if Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN):
 		v.y += 1
 	if v != Vector2.ZERO:
-		# Echtzeit, unabhaengig von der Spielgeschwindigkeit
-		var real: float = delta / max(Engine.time_scale, 0.001) if Engine.time_scale > 0 else 1.0 / 60.0
 		position += v.normalized() * 260.0 * real / zoom.x
 		_clamp()
 
@@ -134,5 +158,6 @@ func reset_zoom() -> void:
 
 
 func focus(p: Vector2) -> void:
+	_vel = Vector2.ZERO
 	position = p
 	_clamp()

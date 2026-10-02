@@ -13,6 +13,7 @@ var techs: Dictionary = {}
 var tiers: Array = []
 var islands: Dictionary = {}  # Inselarten (Biome)
 var animals: Dictionary = {}
+var goals: Dictionary = {}  # Einfuehrung und Ziele
 
 var tex_terrain: Texture2D = preload("res://assets/sprites/terrain.png")
 var tex_objects: Texture2D = preload("res://assets/sprites/objects.png")
@@ -79,6 +80,7 @@ func _ready() -> void:
 	tiers = techs.get("_tiers", [])
 	techs.erase("_tiers")
 	islands = _load("islands")
+	goals = _load("goals")
 	animals = _load("animals")
 	var f := FileAccess.open("res://assets/sprites/icons.txt", FileAccess.READ)
 	if f:

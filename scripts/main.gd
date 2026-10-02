@@ -71,6 +71,8 @@ func _maybe_autotest() -> void:
 		elapsed += 1.0
 		if args.has("seatest"):
 			_autotest_sea_tick(elapsed)
+		if args.has("tuttest"):
+			_autotest_tutorial()
 		if args.has("research") and not Game.has_research_goal():
 			for t in Data.sorted_tech_ids():
 				if Game.tech_state(t) == "available" and Game.start_research(t) == "":
@@ -208,6 +210,34 @@ func _autotest_sea_tick(elapsed: float) -> void:
 			Game.stock["boot"] = max(Game.amount("boot"), 2)
 
 
+## Spielt die Einfuehrung durch, wie es ein Spieler tun wuerde.
+func _autotest_tutorial() -> void:
+	var g: Dictionary = hud.goal_card.current()
+	print("   Ziel: ", g.id, " ", hud.goal_card.progress(g), " tut=", Game.goals.tut, " ms=", Game.goals.ms)
+	match g.id:
+		"t_select":
+			Game.select(world.settlers[0])
+		"t_job":
+			world.settlers[0].set_job("holzfaeller")
+			Game.player_action.emit("job", "holzfaeller")
+		"t_hut", "t_field":
+			var type := "huette" if g.id == "t_hut" else "feld"
+			for rad in range(3, 12):
+				for dy in range(-rad, rad + 1):
+					for dx in range(-rad, rad + 1):
+						var cc := world.center + Vector2i(dx, dy)
+						if not world.is_placing() and hud.goal_card.current().id == g.id and world.can_place(type, cc) and _roomy(type, cc):
+							world.start_placement(type, world.cell_to_pos(cc))
+							world.move_placement(world.cell_to_pos(cc))
+							print("   platziert: ", world.confirm_placement())
+							return
+		"t_research":
+			Game.start_research("steinwerkzeuge")
+		"t_speed":
+			Game.set_speed(3)
+			Engine.time_scale = 10.0
+
+
 func _roomy(type: String, cc: Vector2i) -> bool:
 	var sz: Array = Data.buildings[type].size
 	for y in range(-1, int(sz[1]) + 2):
@@ -302,6 +332,7 @@ func _focus_start() -> void:
 
 
 func _on_new_game() -> void:
+	Sound.in_title = false
 	Game.delete_save()
 	_new_world()
 	hud.world = world
@@ -311,10 +342,10 @@ func _on_new_game() -> void:
 	Game.set_speed(1)
 	Game.save_game()
 	Game.notify("Willkommen auf deiner Insel! Lena und Jonas brauchen ein Zuhause für Nachwuchs.", "sonne")
-	Game.notify("Tippe auf einen Siedler, um seinen Beruf zu wählen. Über Bauen entstehen neue Hütten.", "hammer")
 
 
 func _on_continue() -> void:
+	Sound.in_title = false
 	Game.set_speed(1)
 	Game.notify("Willkommen zurück! Tag %d." % Game.day(), "sonne")
 
@@ -325,7 +356,11 @@ func _on_tap(p: Vector2) -> void:
 	if world.is_placing():
 		world.move_placement(p)
 		return
-	Game.select(world.pick_at(p))
+	# Finger sind dicker als Mauszeiger: groesserer Fangradius auf Touchgeraeten
+	var radius := 12.0
+	if DisplayServer.is_touchscreen_available():
+		radius = max(12.0, 34.0 / camera.zoom.x)
+	Game.select(world.pick_at(p, radius))
 
 
 func _on_hover(p: Vector2) -> void:

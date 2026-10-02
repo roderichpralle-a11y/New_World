@@ -52,6 +52,8 @@ var _research_tick: float = 0.0
 var _sea_panel: SeaPanel
 var _sea_btn: Button
 var _island_label: Label
+var _build_btn: Button
+var goal_card: GoalCard
 
 
 func setup(p_world: World, p_camera: GameCamera) -> void:
@@ -64,6 +66,9 @@ func setup(p_world: World, p_camera: GameCamera) -> void:
 	add_child(root)
 	_build_topbar()
 	_build_bottom()
+	goal_card = GoalCard.new()
+	root.add_child(goal_card)
+	goal_card.setup(self)
 	_build_build_panel()
 	_build_research_panel()
 	_build_stock_panel()
@@ -80,6 +85,7 @@ func setup(p_world: World, p_camera: GameCamera) -> void:
 	_toasts.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_toasts.add_theme_constant_override("separation", 3)
 	root.add_child(_toasts)
+	get_viewport().size_changed.connect(_refresh_top)
 	Game.stock_changed.connect(_refresh_top)
 	Game.stock_changed.connect(_refresh_stock)
 	Game.research_changed.connect(_on_research_changed)
@@ -94,6 +100,7 @@ func setup(p_world: World, p_camera: GameCamera) -> void:
 	get_viewport().size_changed.connect(_layout)
 	_update_sea_button()
 	_refresh_top()
+	goal_card.attach_pointer(root)
 	_layout()
 
 
@@ -185,7 +192,9 @@ func _refresh_top() -> void:
 		tip += "\nAuf allen Inseln und See: %d" % (pop + Sea.people_at_sea())
 	_pop_label.get_parent().tooltip_text = tip
 	if _island_label:
-		_island_label.visible = Sea.worlds.size() > 1
+		var vs := get_viewport().get_visible_rect().size
+		# Auf schmalen Bildschirmen passt der Inselname nicht mehr in die Leiste
+		_island_label.visible = Sea.worlds.size() > 1 and vs.x >= 520
 		_island_label.text = Sea.island_name(world) if world and is_instance_valid(world) else ""
 
 
@@ -205,6 +214,7 @@ func _build_bottom() -> void:
 	var bb := UiTheme.button("Bauen", "hammer", 44)
 	bb.pressed.connect(func(): _toggle(_build_panel))
 	_bottom.add_child(bb)
+	_build_btn = bb
 	_research_btn = UiTheme.button("Forschung", "wissen", 44)
 	_research_btn.pressed.connect(func():
 		_fill_research_list()
@@ -379,6 +389,7 @@ func _fill_build_list() -> void:
 			locked_rows.append(b)
 			continue
 		var bt: String = type
+		b.set_meta("btype", type)
 		b.pressed.connect(func():
 			_build_panel.visible = false
 			Game.select(null)
@@ -472,6 +483,7 @@ func _tech_row(t: String) -> Button:
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	b.toggle_mode = true
 	b.button_pressed = st == "current"
+	b.set_meta("tid", t)
 	var h := HBoxContainer.new()
 	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	h.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -680,7 +692,7 @@ func _refresh_settler_list() -> void:
 		b.pressed.connect(func():
 			_settler_panel.visible = false
 			Game.select(sref)
-			camera.focus(sref.position))
+			camera.focus(sref.position + _view_offset()))
 		_settler_list.add_child(b)
 
 
@@ -710,8 +722,39 @@ func _build_menu_panel() -> void:
 		armed[0] = false
 		ng.text = "Neues Spiel")
 	v.add_child(ng)
+	v.add_child(_volume_row("Musik", "musik", Sound.music_volume, func(x): Sound.set_volumes(x, Sound.sfx_volume)))
+	v.add_child(_volume_row("Geräusche", "glocke", Sound.sfx_volume, func(x):
+		Sound.set_volumes(Sound.music_volume, x)
+		Sound.play("klick")))
+	if OS.has_feature("web") or OS.has_feature("mobile") or OS.has_feature("pc"):
+		var fs := UiTheme.button("Vollbild", "vollbild", 44)
+		fs.pressed.connect(func():
+			var full := DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN
+			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED if full else DisplayServer.WINDOW_MODE_FULLSCREEN)
+			_menu_panel.visible = false)
+		v.add_child(fs)
 	var info := UiTheme.label("Das Spiel speichert automatisch.", 12)
 	v.add_child(info)
+
+
+func _volume_row(text: String, icon_name: String, value: float, on_change: Callable) -> HBoxContainer:
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 6)
+	h.add_child(UiTheme.icon_rect(Data.icon(icon_name), 20))
+	var l := UiTheme.label(text, 15)
+	l.custom_minimum_size.x = 86
+	h.add_child(l)
+	var sl := HSlider.new()
+	sl.min_value = 0.0
+	sl.max_value = 1.0
+	sl.step = 0.05
+	sl.value = value
+	sl.custom_minimum_size = Vector2(170, 36)
+	sl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sl.focus_mode = Control.FOCUS_NONE
+	sl.value_changed.connect(on_change)
+	h.add_child(sl)
+	return h
 
 
 const HELP_TEXT := """[b]Ziel[/b]
@@ -792,6 +835,21 @@ func _on_selection(obj) -> void:
 	_info_panel.visible = true
 	_rebuild_info()
 	_layout()
+	# Liegt das Gewaehlte unter dem Infofenster, rueckt die Kamera es ins Bild
+	if obj is Node2D and is_instance_valid(obj):
+		var sp: Vector2 = obj.get_global_transform_with_canvas().origin
+		if _info_panel.get_global_rect().grow(24).has_point(sp):
+			camera.focus(obj.position + _view_offset())
+
+
+## Kameraversatz, damit ein Ziel im freien Bereich neben dem Infofenster liegt.
+func _view_offset() -> Vector2:
+	if not _info_panel.visible:
+		return Vector2.ZERO
+	var vs := get_viewport().get_visible_rect().size
+	if vs.y > vs.x:
+		return Vector2(0, (vs.y / 2.0 - _info_panel.position.y / 2.0) / camera.zoom.y)
+	return Vector2((vs.x / 2.0 - _info_panel.position.x / 2.0) / camera.zoom.x, 0)
 
 
 func _clear_info() -> void:
@@ -905,6 +963,7 @@ func _info_settler(s: Settler) -> void:
 				b.tooltip_text = tip + "\nBenötigt Forschung: %s" % Data.techs.get(jd.requires, {}).get("name", "?")
 			b.pressed.connect(func():
 				s.set_job(jid)
+				Game.player_action.emit("job", jid)
 				_rebuild_info())
 			grid.add_child(b)
 		_info_box.add_child(grid)
@@ -1119,7 +1178,12 @@ func _info_animal(a: Animal) -> void:
 
 # ================================================================== Meldungen
 func toast(text: String, icon_name: String = "") -> void:
+	# Dieselbe Meldung nicht doppelt stapeln
+	for c in _toasts.get_children():
+		if c.get_meta("text", "") == text and not c.is_queued_for_deletion():
+			return
 	var p := PanelContainer.new()
+	p.set_meta("text", text)
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var h := HBoxContainer.new()
 	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1147,6 +1211,7 @@ func toast(text: String, icon_name: String = "") -> void:
 # ================================================================== Overlays
 func show_title(has_save: bool) -> void:
 	_overlay_clear()
+	Sound.in_title = true
 	_overlay = ColorRect.new()
 	_overlay.color = Color(0.05, 0.08, 0.15, 0.45)
 	_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -1234,6 +1299,30 @@ func _layout() -> void:
 	var vs := get_viewport().get_visible_rect().size
 	var portrait := vs.y > vs.x
 	var bp: Control = _bottom.get_parent()
+	# Schmaler Bildschirm: Symbol ueber dem Text, alle Knoepfe gleich breit
+	var btns := _bottom.get_children().filter(func(b): return b.visible)
+	var narrow_bar := vs.x < 140.0 * btns.size()
+	for b in btns:
+		b.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP if narrow_bar else VERTICAL_ALIGNMENT_CENTER
+		b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER if narrow_bar else HORIZONTAL_ALIGNMENT_LEFT
+		for st in ["normal", "hover", "pressed", "hover_pressed", "disabled"]:
+			if narrow_bar:
+				var sb: StyleBox = root.theme.get_stylebox(st, "Button").duplicate()
+				sb.content_margin_left = 2
+				sb.content_margin_right = 2
+				b.add_theme_stylebox_override(st, sb)
+			else:
+				b.remove_theme_stylebox_override(st)
+		if narrow_bar:
+			b.add_theme_font_size_override("font_size", 12)
+			b.custom_minimum_size = Vector2(floor((vs.x - 30.0 - 6.0 * (btns.size() - 1)) / btns.size()), 50)
+			b.clip_text = true
+		else:
+			b.remove_theme_font_size_override("font_size")
+			b.custom_minimum_size = Vector2(44, 44)
+			b.clip_text = false
+		b.reset_size()
+	_bottom.add_theme_constant_override("separation", 6 if narrow_bar else 8)
 	bp.reset_size()
 	bp.position = Vector2((vs.x - bp.size.x) / 2.0, vs.y - bp.size.y - 6)
 	_place_bar.reset_size()
@@ -1248,6 +1337,16 @@ func _layout() -> void:
 	else:
 		sp.position = Vector2(vs.x - sp.size.x - 6, 6)
 	_toasts.position = Vector2(8, top_h + 6)
+	if goal_card:
+		var narrow := portrait or vs.x < 760
+		var gw: float = (vs.x - sp.size.x - 18.0) if narrow else min(310.0, vs.x * 0.4)
+		goal_card.custom_minimum_size.x = gw
+		goal_card.reset_size()
+		goal_card.size.x = gw
+		goal_card.position = Vector2(6, 54 if narrow else 50)
+		goal_card.set_deferred("size", Vector2(gw, 0))
+		if goal_card.visible:
+			_toasts.position.y = max(top_h, goal_card.position.y + goal_card.size.y) + 6
 	for pnl in _panels():
 		pnl.reset_size()
 		pnl.size.x = min(pnl.size.x, vs.x - 12)
@@ -1282,4 +1381,4 @@ func _process(delta: float) -> void:
 				for u in _updaters:
 					u.call()
 	if _follow and _info_obj and is_instance_valid(_info_obj) and _info_obj is Settler:
-		camera.focus(_info_obj.position)
+		camera.focus(_info_obj.position + _view_offset())

@@ -161,6 +161,7 @@ func island_lost(w) -> void:
 	m.state = "lost"
 	worlds.erase(w.island_id)
 	Game.notify("%s ist verloren! Dort lebt niemand mehr." % m.name, "abriss")
+	Sound.play("verloren")
 	var others := all_worlds()
 	if Game.world == w and not others.is_empty():
 		var best = others[0]
@@ -210,6 +211,7 @@ func start_explore(from_world) -> String:
 		"arrive": Game.time_days + days, "settlers": []})
 	from_world.sail_away()
 	Game.notify("Ein Boot sticht in See und sucht nach neuen Inseln.", "boot")
+	Sound.play("glocke")
 	islands_changed.emit()
 	return ""
 
@@ -244,6 +246,7 @@ func send_settlers(from_world, to_id: int, people: Array) -> String:
 		"arrive": Game.time_days + voyage_days(from_world.island_id, to_id), "settlers": datas})
 	from_world.sail_away()
 	Game.notify("%d Siedler stechen in See nach %s." % [datas.size(), meta(to_id).name], "boot")
+	Sound.play("glocke")
 	Game.on_population_changed()
 	islands_changed.emit()
 	return ""
@@ -267,6 +270,7 @@ func _arrive(v: Dictionary) -> void:
 		var text := "Entdeckt: %s, eine %s!" % [m.name, biome_name(m)]
 		text += " Gefahr: %s." % ", ".join(danger) if not danger.is_empty() else " Keine wilden Tiere gesichtet."
 		Game.notify(text, "kompass")
+		Sound.play("entdeckt")
 		islands_changed.emit()
 		return
 	# Ziel verloren? Dann zurueck nach Hause oder zur naechsten bewohnten Insel.
@@ -294,6 +298,7 @@ func _arrive(v: Dictionary) -> void:
 	w.add_boat_decor(c)
 	if founded:
 		Game.notify("Land in Sicht! %d Siedler gründen eine Siedlung auf %s." % [v.settlers.size(), m.name], "boot")
+		Sound.play("entdeckt")
 	else:
 		Game.notify("%d Siedler sind auf %s angekommen." % [v.settlers.size(), m.name], "boot")
 	if Game.world == null or not is_instance_valid(Game.world) or Game.world.settlers.is_empty():
