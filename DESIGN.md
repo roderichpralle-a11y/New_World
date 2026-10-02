@@ -187,6 +187,8 @@ Spielstand-Eintrag (alte Spielstände landen einfach in der passenden Jahreszeit
   `farm_time` um `dt_days * (1 - Faktor)`, das Speicherformat bleibt gleich. Winter 0 (nichts wächst),
   Herbst etwa halb so schnell, Bäume im Frühling am schnellsten, Beeren im Sommer, Pilze im Herbst.
 - **Tiere vermehren sich nur im Frühling**: baut der Tier-Faden auf `Seasons.season() == Seasons.SPRING`.
+- **Für andere Systeme**: `Seasons.season_mod(key)` (`mods`: `sickness`, `mood`, Standard 1.0),
+  `Seasons.is_warm(world)`.
 - **Heizen**: je Siedler und Tag `heat_wood_per_settler` Holz (Herbst 0,3, Winter 1) aus dem Lager.
   Fehlt Holz, frieren die Siedler der Insel (`Seasons.cold`): Hunger x`cold_hunger`, Arbeit
   x`cold_work`.
