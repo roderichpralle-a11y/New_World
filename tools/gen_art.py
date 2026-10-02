@@ -1528,6 +1528,8 @@ def gen_icons():
         ICONS.setdefault(k, v)
     for k, v in gen_art_polish.ICONS_POLISH.items():
         ICONS.setdefault(k, v)
+    for k, v in gen_art_sea.ICONS_TRADE.items():
+        ICONS.setdefault(k, v)
     names = list(ICONS.keys())
     atlas = new(16 * len(names), 16)
     for i, n in enumerate(names):
@@ -2432,7 +2434,7 @@ def gen_buildings2():
     import gen_art_sea
     order = [house_wood(), house_stone(), store_big(), mill(0), mill(1), mill(2), mill(3),
              bakery(), smokehouse(), henhouse(), sawpit(), claypit(), brickworks(), quarry(),
-             charcoal(), mine(), smelter(), smithy(), scriptorium(), library()] + gen_art_sea.extra_buildings() + [school(), scriptorium(2), scriptorium(3), scriptorium(4)]
+             charcoal(), mine(), smelter(), smithy(), scriptorium(), library()] + gen_art_sea.extra_buildings() + [school(), scriptorium(2), scriptorium(3), scriptorium(4)] + gen_art_sea.harbor_buildings()
     atlas = new(512, 64 * ((len(order) + 7) // 8))
     for i, im in enumerate(order):
         atlas.paste(im, ((i % 8) * 64, (i // 8) * 64))

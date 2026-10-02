@@ -197,7 +197,7 @@ def boat(f):
 
 
 def gen_objects2():
-    atlas = new(128, 96)
+    atlas = new(288, 144)
     for i, im in enumerate([palm(0), palm(1), palm(0, nuts=False), cave()]):
         atlas.paste(im, (i * 32, 0))
     for i, im in enumerate([mushrooms(), vein_rock(IRON[1:] + [(230, 190, 150)]),
@@ -208,6 +208,7 @@ def gen_objects2():
     atlas.paste(ore, (16, 48))
     for f in range(2):
         atlas.paste(boat(f), (f * 32, 64))
+    gen_ships(atlas)
     atlas.save(os.path.join(OUT, "objects2.png"))
 
 
@@ -640,4 +641,366 @@ ICONS_SEA = {
               "................",
               "................"],
              {"1": FUR_BEAR[0], "2": FUR_BEAR[2], "3": (230, 220, 120), "4": FUR_BEAR[3], "5": (30, 20, 20)}),
+}
+
+
+# ------------------------------------------------------------------ Schiffe und Haefen (Inselhandel)
+def _hull(img, cx, y0, half_w, depth, cols, bob, taper=1.0):
+    """Rumpf: oben breit, nach unten schmaler; cols = [dunkel, mittel, hell, Kante]."""
+    for y in range(depth):
+        w = int(half_w - y * taper)
+        for x in range(cx - w, cx + w):
+            c = cols[1] if y < depth - 2 else cols[0]
+            if y == 0:
+                c = cols[3]
+            elif y == 1:
+                c = cols[2]
+            elif (x + y) % 7 == 0:
+                c = cols[0]
+            put(img, x, y0 + y + bob, c)
+
+
+def _mast(img, x, y0, y1, bob):
+    for y in range(y0, y1):
+        put(img, x, y + bob, WOOD[0])
+
+
+def _square_sail(img, x0, y0, w, h, bob, stripe=None, belly=1):
+    for y in range(h):
+        for x in range(w):
+            c = SAIL[1] if (x + y) % 7 else SAIL[0]
+            if y < 1:
+                c = SAIL[2]
+            if stripe and h // 3 <= y < h // 3 + 2:
+                c = stripe
+            dx = belly if 1 <= y < h - 1 else 0
+            put(img, x0 + x + dx, y0 + y + bob, c)
+
+
+def _waves(img, f, y=43):
+    for x in range(1, img.width - 1, 3):
+        put(img, x + f, y, (*WATER[4], 200))
+        put(img, x + 1 + f, y + 1, (*WATER[3], 180))
+
+
+def ship_kogge(f):
+    img = new(48, 48)
+    _mast(img, 24, 6, 34, f)
+    _square_sail(img, 15, 9, 18, 16, f, stripe=(196, 60, 50))
+    put(img, 24, 5 + f, (196, 60, 50))
+    put(img, 25, 5 + f, (196, 60, 50))
+    put(img, 26, 6 + f, (196, 60, 50))
+    _hull(img, 24, 32, 19, 9, [WOOD[0], WOOD[1], WOOD[2], WOOD[3]], f, taper=1.4)
+    # Kastelle vorn und hinten
+    rect(img, 6, 28 + f, 8, 4, WOOD[2])
+    rect(img, 35, 29 + f, 7, 3, WOOD[2])
+    for x in range(6, 14, 2):
+        put(img, x, 27 + f, WOOD[3])
+    add_outline(img)
+    _waves(img, f)
+    return img
+
+
+def ship_fast(f):
+    img = new(48, 48)
+    _mast(img, 19, 8, 35, f)
+    _mast(img, 31, 12, 35, f)
+    # Dreieckssegel
+    for y in range(9, 31):
+        span = int((y - 8) * 0.45)
+        for x in range(20, 21 + span):
+            put(img, x, y + f, SAIL[1] if (x + y) % 6 else SAIL[0])
+    for y in range(13, 31):
+        span = int((y - 12) * 0.5)
+        for x in range(32, 33 + span):
+            put(img, x, y + f, SAIL[2] if (x + y) % 5 else SAIL[1])
+    for y in range(20, 31):
+        span = int((y - 19) * 0.6)
+        for x in range(8, 9 + span):
+            put(img, x + (18 - span) // 2, y + f, SAIL[1])
+    put(img, 19, 7 + f, (60, 120, 200))
+    put(img, 20, 7 + f, (60, 120, 200))
+    blue = [(30, 50, 90), (50, 84, 140), (80, 120, 190), (230, 230, 220)]
+    _hull(img, 24, 34, 21, 6, blue, f, taper=2.6)
+    add_outline(img)
+    _waves(img, f)
+    return img
+
+
+def ship_galleon(f):
+    img = new(48, 48)
+    for mx, top in ((13, 6), (24, 2), (35, 7)):
+        _mast(img, mx, top, 32, f)
+    _square_sail(img, 7, 9, 13, 8, f)
+    _square_sail(img, 7, 19, 13, 9, f)
+    _square_sail(img, 17, 5, 15, 9, f, stripe=(200, 160, 40))
+    _square_sail(img, 17, 16, 15, 11, f, stripe=(200, 160, 40))
+    _square_sail(img, 29, 11, 12, 7, f)
+    _square_sail(img, 29, 20, 12, 8, f)
+    for mx, top in ((13, 6), (24, 2), (35, 7)):
+        put(img, mx + 1, top + f, (196, 60, 50))
+        put(img, mx + 2, top + f, (196, 60, 50))
+    dark = [(50, 30, 24), (78, 48, 34), (110, 70, 46), GOLD[2]]
+    _hull(img, 24, 30, 22, 11, dark, f, taper=1.2)
+    # Heckkastell mit Fenstern und Goldband
+    rect(img, 34, 24 + f, 10, 6, dark[1])
+    for x in range(35, 43, 3):
+        put(img, x, 26 + f, (250, 220, 130))
+    for x in range(4, 44):
+        put(img, x, 34 + f, GOLD[1])
+    add_outline(img)
+    _waves(img, f)
+    return img
+
+
+def gen_ships(atlas):
+    """Zeile y=96 in objects2.png: je Schiff zwei 48x48-Bilder (schaukeln)."""
+    for i, fn in enumerate([ship_kogge, ship_fast, ship_galleon]):
+        for f in range(2):
+            atlas.paste(fn(f), (i * 96 + f * 48, 96))
+
+
+def _planks(img, x0, y0, w, h, horizontal=True):
+    for y in range(y0, y0 + h):
+        for x in range(x0, x0 + w):
+            k = (y - y0) if horizontal else (x - x0)
+            c = WOOD[2] if (k // 3) % 2 else WOOD[3]
+            if k % 3 == 2:
+                c = WOOD[1]
+            put(img, x, y, c)
+
+
+def _posts(img, xs, y0, y1):
+    for x in xs:
+        for y in range(y0, y1):
+            put(img, x, y, WOOD[0])
+            put(img, x + 1, y, WOOD[1])
+
+
+def _crate(img, x, y, s=6):
+    rect(img, x, y, s, s, WOOD[2])
+    for i in range(s):
+        put(img, x + i, y + i, WOOD[1])
+        put(img, x + i, y, WOOD[0])
+        put(img, x, y + i, WOOD[0])
+
+
+def _barrel(img, x, y):
+    for yy in range(6):
+        for xx in range(5):
+            c = WOOD[2] if 0 < xx < 4 else WOOD[1]
+            if yy in (1, 4):
+                c = IRON[1]
+            put(img, x + xx, y + yy, c)
+
+
+def _crane(img, x, y_base, h, arm):
+    for y in range(y_base - h, y_base):
+        put(img, x, y, WOOD[0])
+        put(img, x + 1, y, WOOD[1])
+    for i in range(arm):
+        put(img, x + 1 + i, y_base - h + i // 3, WOOD[1])
+        put(img, x + 1 + i, y_base - h + 1 + i // 3, WOOD[2])
+    hook_x = x + arm
+    top = y_base - h + arm // 3 + 2
+    for y in range(top, top + 9):
+        put(img, hook_x, y, (200, 190, 160))
+    put(img, hook_x - 1, top + 9, IRON[2])
+    put(img, hook_x, top + 9, IRON[2])
+    put(img, hook_x + 1, top + 9, IRON[2])
+
+
+def _quay(img, x0, x1, top, bottom):
+    stone_wall(img, x0, top, x1 - x0, bottom - top)
+    for x in range(x0, x1):
+        put(img, x, top, STONE[4])
+        put(img, x, top + 1, STONE[3])
+
+
+def jetty():
+    img = new(64, 64)
+    _posts(img, [20, 30, 40], 52, 62)
+    _planks(img, 18, 48, 28, 6, horizontal=False)
+    # Poller und Tau
+    rect(img, 22, 44, 3, 4, IRON[1])
+    put(img, 22, 43, IRON[2])
+    put(img, 23, 43, IRON[2])
+    for x, y in [(37, 45), (38, 44), (39, 44), (40, 45), (39, 46), (38, 46)]:
+        put(img, x, y, (200, 180, 130))
+    _crate(img, 28, 42)
+    add_outline(img)
+    return img
+
+
+def harbor():
+    img = new(64, 64)
+    _quay(img, 8, 56, 42, 60)
+    _planks(img, 10, 38, 44, 5)
+    _crane(img, 14, 42, 26, 14)
+    _crate(img, 34, 32)
+    _crate(img, 41, 32)
+    _crate(img, 37, 26)
+    _barrel(img, 48, 32)
+    # Poller
+    for px in (12, 30, 50):
+        rect(img, px, 39, 3, 3, IRON[1])
+    ground_line(img, 8, 56)
+    add_outline(img)
+    return img
+
+
+def harbor_big():
+    img = new(64, 64)
+    _quay(img, 2, 62, 40, 60)
+    # Lagerhalle hinten
+    stone_wall(img, 30, 16, 28, 20)
+    tile_roof(img, 28, 6, 32, 11)
+    door(img, 40, 25, 8, 11, arch=True)
+    window(img, 33, 22, 4, 4, lit=False)
+    window(img, 51, 22, 4, 4, lit=False)
+    _planks(img, 4, 36, 56, 5)
+    _crane(img, 6, 40, 28, 13)
+    _crane(img, 24, 40, 22, 10)
+    _crate(img, 12, 30)
+    _barrel(img, 52, 30)
+    for px in (5, 22, 40, 57):
+        rect(img, px, 37, 3, 3, IRON[1])
+    # Wimpel
+    for y in range(4, 10):
+        put(img, 58, y, WOOD[0])
+    for x, y in [(59, 4), (60, 4), (61, 5), (59, 5), (60, 5), (59, 6)]:
+        put(img, x, y, (60, 120, 200))
+    ground_line(img, 2, 62)
+    add_outline(img)
+    return img
+
+
+def _quay_sign(img, x, col):
+    for y in range(18, 34):
+        put(img, x, y, WOOD[0])
+    rect(img, x + 1, 18, 7, 5, col)
+    for xx in range(x + 1, x + 8):
+        put(img, xx, 18, tuple(min(255, c + 40) for c in col))
+
+
+def quay(kind):
+    img = new(64, 64)
+    _quay(img, 8, 56, 42, 60)
+    _planks(img, 10, 38, 44, 5)
+    _crane(img, 12, 42, 22, 11)
+    if kind == "wood":
+        # Stammstapel und Bretter
+        for row, n in ((0, 5), (1, 4), (2, 3)):
+            for i in range(n):
+                cx = 30 + i * 5 + row * 2
+                cy = 35 - row * 4
+                blob(img, cx, cy, 2.6, 2.2, [WOOD[0], WOOD[1], WOOD[2], WOOD[3]], noise_seed=i + row * 7)
+                put(img, cx, cy, THATCH[3])
+        for y in range(28, 33):
+            for x in range(46, 56):
+                put(img, x, y, WOOD[3] if y % 2 else WOOD[2])
+        _quay_sign(img, 22, (150, 100, 50))
+    elif kind == "ore":
+        # Schuttkegel aus Erz und Stein, Lore
+        blob(img, 36, 34, 8, 5, STONE[0:5], noise_seed=3, jag=0.1)
+        blob(img, 48, 35, 5, 4, [(120, 60, 40), (170, 90, 50), (210, 130, 70)], noise_seed=4, jag=0.1)
+        put(img, 47, 33, GOLD[2])
+        put(img, 50, 34, GOLD[3])
+        rect(img, 26, 30, 7, 5, IRON[1])
+        put(img, 27, 35, DARK)
+        put(img, 31, 35, DARK)
+        _quay_sign(img, 22, (110, 112, 130))
+    else:
+        # Faesser, Koerbe mit Fisch und Aepfeln
+        for i, x in enumerate((28, 34, 40)):
+            _barrel(img, x, 30)
+        for x0, col in ((46, (200, 70, 60)), (52, (120, 170, 210))):
+            rect(img, x0, 32, 5, 4, THATCH[1])
+            for xx in range(x0, x0 + 5):
+                put(img, xx, 31, col)
+        _quay_sign(img, 22, (70, 140, 80))
+    for px in (12, 34, 50):
+        rect(img, px, 39, 3, 3, IRON[1])
+    ground_line(img, 8, 56)
+    add_outline(img)
+    return img
+
+
+def harbor_buildings():
+    """Reihenfolge = Data.BUILDING_CELLS ab Zelle 29."""
+    return [jetty(), harbor(), harbor_big(), quay("wood"), quay("ore"), quay("food")]
+
+
+ICONS_TRADE = {
+    "kogge": (["................",
+               ".......5........",
+               ".......6........",
+               "....33333333....",
+               "....33888833....",
+               "....33333333....",
+               "....33333333....",
+               ".......6........",
+               ".4111111111114..",
+               "..12222222221...",
+               "...122222221....",
+               "....1111111.....",
+               "..77.77.77.77...",
+               "................",
+               "................",
+               "................"],
+              {"1": WOOD[1], "2": WOOD[2], "3": SAIL[1], "4": WOOD[3], "5": (220, 60, 50), "6": WOOD[0],
+               "7": WATER[3], "8": (196, 60, 50)}),
+    "schnellsegler": (["................",
+                       "....5...........",
+                       "....6......5....",
+                       "....63.....6....",
+                       "....633....63...",
+                       "....6333...633..",
+                       "....63333..6333.",
+                       "....633333.6333.",
+                       "....6......6....",
+                       ".1111111111111..",
+                       "..12222222221...",
+                       "....1111111.....",
+                       "..77.77.77.77...",
+                       "................",
+                       "................",
+                       "................"],
+                      {"1": (50, 84, 140), "2": (80, 120, 190), "3": SAIL[2], "5": (60, 120, 200), "6": WOOD[0],
+                       "7": WATER[3]}),
+    "galeone": (["..5....5....5...",
+                 "..6....6....6...",
+                 ".333..3333..33..",
+                 ".333..3883..33..",
+                 ".333..3333..33..",
+                 ".333..3333..33..",
+                 "..6....6....6...",
+                 ".1111111111111..",
+                 ".1999999999991..",
+                 "..12222222222...",
+                 "..12222222221...",
+                 "...111111111....",
+                 "..77.77.77.77...",
+                 "................",
+                 "................",
+                 "................"],
+                {"1": (50, 30, 24), "2": (78, 48, 34), "3": SAIL[1], "5": (220, 60, 50), "6": WOOD[0],
+                 "7": WATER[3], "8": GOLD[1], "9": GOLD[2]}),
+    "anker": (["................",
+               ".......11.......",
+               "......1221......",
+               ".......11.......",
+               "....1111111.....",
+               ".......2........",
+               ".......2........",
+               ".......2........",
+               ".......2........",
+               "..1....2....1...",
+               "..12...2...21...",
+               "...12..2..21....",
+               "....1222221.....",
+               "......111.......",
+               "................",
+               "................"],
+              {"1": IRON[1], "2": IRON[2]}),
 }

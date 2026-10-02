@@ -1,0 +1,84 @@
+{
+  "boot": {
+    "name": "Ruderboot",
+    "desc": "Klein und billig. Landet an jedem Strand, auch ohne Hafen.",
+    "size": 1,
+    "crew": 1,
+    "passengers": 4,
+    "cargo": 40,
+    "speed": 1.0,
+    "requires": "schiffsbau",
+    "build": {
+      "inputs": {
+        "bretter": 8,
+        "holz": 4,
+        "werkzeug": 1
+      },
+      "time": 18.0
+    },
+    "icon": "boot",
+    "sprite": "boat"
+  },
+  "kogge": {
+    "name": "Kogge",
+    "desc": "Bauchiges Lastschiff: viel Laderaum, aber gemächlich. Braucht einen Hafen.",
+    "size": 2,
+    "crew": 2,
+    "passengers": 6,
+    "cargo": 200,
+    "speed": 0.85,
+    "requires": "navigation",
+    "build": {
+      "inputs": {
+        "bretter": 30,
+        "holz": 10,
+        "werkzeug": 4,
+        "eisen": 2
+      },
+      "time": 40.0
+    },
+    "icon": "kogge",
+    "sprite": "ship_kogge"
+  },
+  "schnellsegler": {
+    "name": "Schnellsegler",
+    "desc": "Schlank und doppelt so schnell, aber mit wenig Laderaum und großer Besatzung. Braucht einen Hafen.",
+    "size": 2,
+    "crew": 3,
+    "passengers": 4,
+    "cargo": 80,
+    "speed": 1.9,
+    "requires": "seehandel",
+    "build": {
+      "inputs": {
+        "bretter": 30,
+        "eisen": 4,
+        "werkzeug": 6
+      },
+      "time": 40.0
+    },
+    "icon": "schnellsegler",
+    "sprite": "ship_fast"
+  },
+  "galeone": {
+    "name": "Galeone",
+    "desc": "Riesiges Handelsschiff mit enormem Laderaum. Fährt nur in große Häfen.",
+    "size": 3,
+    "crew": 5,
+    "passengers": 12,
+    "cargo": 500,
+    "speed": 1.05,
+    "requires": "seehandel",
+    "build": {
+      "inputs": {
+        "bretter": 70,
+        "holz": 20,
+        "eisen": 12,
+        "werkzeug": 10
+      },
+      "time": 80.0
+    },
+    "icon": "galeone",
+    "sprite": "ship_galleon"
+  }
+}

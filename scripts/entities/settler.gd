@@ -721,11 +721,16 @@ func _do_produce(b) -> void:
 	if not is_instance_valid(b):
 		return
 	var p: Dictionary = b.prod_def()
+	b.ship_wip = ""
 	gain_xp(p.get("skill", "handwerk"))
 	var outs: Dictionary = p.get("outputs", {})
 	var first := true
 	for res in outs:
 		var n := int(outs[res])
+		if Data.ships.has(res):
+			# Ein fertiges Schiff liegt sofort im Wasser (siehe Sea)
+			Game.add_stock(res, n, world)
+			continue
 		if first:
 			carry_res = res
 			carry_n = n
@@ -735,7 +740,10 @@ func _do_produce(b) -> void:
 			Game.add_stock(res, n, world)
 	world.spawn_effect("dust", b.position + Vector2(_rng.randf_range(-8, 8), -4))
 	Sound.play_at(String(b.def.get("sound", "hammer")), world, b.position)
-	_plan_deliver_after()
+	if carry_n > 0:
+		_plan_deliver_after()
+	else:
+		_release()
 
 
 # ------------------------------------------------------------------ Forschung

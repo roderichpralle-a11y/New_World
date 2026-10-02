@@ -53,3 +53,7 @@ vollbild
 ziel
 haken
 zeiger
+kogge
+schnellsegler
+galeone
+anker

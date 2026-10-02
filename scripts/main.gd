@@ -184,6 +184,24 @@ func _maybe_autotest() -> void:
 					hud._toggle(hud._stock_panel)
 				"sea":
 					hud._open_sea()
+					if args.has("seaview"):
+						var sp2 = hud._sea_panel
+						var first: Dictionary = Sea.ships[0] if not Sea.ships.is_empty() else {}
+						for sh in Sea.ships:
+							if not sh.route.is_empty():
+								first = sh
+						match args.seaview:
+							"ships":
+								sp2._go("ships")
+							"ship":
+								sp2._open_ship(int(first.id))
+							"stop":
+								sp2._ship_id = int(first.id)
+								sp2._stop_i = 0
+								sp2._go("stop")
+							"send":
+								sp2._selected = int(Sea.islands[-1].id)
+								sp2._go("send")
 					if args.has("seazoom"):
 						# Testhilfe: Mausrad ueber der Karte, dann ein Stueck ziehen
 						var sp = hud._sea_panel
@@ -274,7 +292,8 @@ func _autotest_sea() -> void:
 	Game.research_changed.emit()
 	Data.balance["base_storage"] = 4000  # Testlauf: genug Stauraum fuer die Testvorraete
 	for id in Data.resources:
-		world.stock[id] = 50
+		if not Data.ships.has(id):
+			world.stock[id] = 50
 	world.stock["boot"] = 6
 	for i in 14:
 		world.spawn_newcomer("f" if i % 2 else "m")
@@ -292,15 +311,54 @@ func _autotest_sea() -> void:
 						done = true
 		print("platziert ", type, " ", done)
 	Game.refresh_effects()
+	Sea._ship_tick_all()
+	for sh in Sea.ships:
+		Sea.hire_sailor(sh)
+	print("Schiffe: ", Sea.ships.map(func(sh): return "%s %s Besatzung %d" % [sh.type, sh.name, sh.crew.size()]))
 	print("Erkunden: ", Sea.start_explore(world))
 
 
 var _sea_step := 0
+var _route_set := false
 
 
 func _autotest_sea_tick(elapsed: float) -> void:
+	for sh in Sea.ships:
+		if sh.state == "dock" and Sea.crew_missing(sh) > 0 and Sea.worlds.get(int(sh.at)) and Sea.worlds[int(sh.at)].settlers.size() > 3:
+			Sea.hire_sailor(sh)
 	if Sea.can_explore() == "" and Sea.islands.size() < 4:
 		print("Erkunden: ", Sea.start_explore(Game.world))
+	# Handel: Hafen auf beiden Inseln, eine Kogge faehrt Holz hinueber
+	if OS.get_cmdline_user_args().has("--tradetest") and not _route_set and Sea.settled_islands().size() >= 2:
+		var col_w = Sea.worlds.get(int(Sea.settled_islands()[1].id))
+		var home_w = Sea.worlds.get(0)
+		print("Hafen Heimat: ", _place_on(home_w, "hafen"), " Holzkai: ", _place_on(home_w, "holzkai"), " Hafen Kolonie: ", _place_on(col_w, "hafen"))
+		Game.refresh_effects()
+		print("Liegeplaetze Heimat: ", Sea.berths(home_w), " frei fuer Kogge: ", Sea.free_berth(home_w, 2), " Stufe ", Sea.harbor_level(home_w))
+		for i in 6:
+			home_w.spawn_newcomer("m")
+		home_w.stock["kogge"] = 1
+		Sea._ship_tick_all()
+		var kg := Sea.ships[-1]
+		Sea.hire_sailor(kg)
+		Sea.hire_sailor(kg)
+		kg.route = [{"island": 0, "load": {"holz": 80, "bretter": 10}}, {"island": int(col_w.island_id), "load": {"fisch": 20}}]
+		_route_set = true
+		print("Kogge: ", Sea.ship_label(kg), " Besatzung ", kg.crew.size(), " Blocker '", Sea.ship_blocker(kg), "'")
+		print("Galeone darf Kolonie anlaufen: ", Sea.can_visit("galeone", int(col_w.island_id)), ", Kogge: ", Sea.can_visit("kogge", int(col_w.island_id)))
+	# Route: Holz und Beeren von der Heimat zur ersten Kolonie
+	if not _route_set and Sea.settled_islands().size() >= 2:
+		var col := int(Sea.settled_islands()[1].id)
+		for sh in Sea.idle_ships(0):
+			if Sea.can_visit(sh.type, col):
+				sh.route = [{"island": 0, "load": {"holz": 20, "beeren": 10}}, {"island": col, "load": {}}]
+				sh.leg = 0
+				_route_set = true
+				print("Route fuer ", Sea.ship_label(sh), " nach ", Sea.meta(col).name)
+				break
+	if int(elapsed) % 20 == 0:
+		for sh in Sea.ships:
+			print("   Schiff ", sh.name, " [", sh.type, "] ", Sea.ship_status(sh), " Ladung ", Sea.goods_text(sh.cargo), " Besatzung ", sh.crew.size())
 	# Jede entdeckte Insel bekommt vier Siedler, davon zwei Jaeger
 	for m in Sea.islands:
 		if m.state == "discovered" and not Sea.voyages.any(func(v): return int(v.to) == int(m.id)):
@@ -314,7 +372,6 @@ func _autotest_sea_tick(elapsed: float) -> void:
 			for i in 2:
 				group[i].set_job("jaeger" if Data.job_unlocked("jaeger") else "baumeister")
 			print("Sende nach ", m.name, ": ", Sea.send_settlers(home, int(m.id), group))
-			home.stock["boot"] = max(Game.amount("boot", home), 2)
 
 
 ## Prueft Stauraum, Hoechstmengen und Wegwerfen.
@@ -369,6 +426,27 @@ func _autotest_tutorial() -> void:
 		"t_speed":
 			Game.set_speed(3)
 			Engine.time_scale = 10.0
+
+
+## Testhilfe: Gebaeude fertig auf einer beliebigen Insel hinstellen.
+func _place_on(w, type: String) -> bool:
+	var sz: Array = Data.buildings[type].size
+	for rad in range(3, 30):
+		for dy in range(-rad, rad + 1):
+			for dx in range(-rad, rad + 1):
+				var cc: Vector2i = w.center + Vector2i(dx, dy)
+				if not w.can_place(type, cc):
+					continue
+				var ok := true
+				for y in range(-1, int(sz[1]) + 2):
+					for x in range(-1, int(sz[0]) + 1):
+						var p: Vector2i = cc + Vector2i(x, y)
+						if w.building_at.has(p) or not w.is_walkable(p):
+							ok = false
+				if ok:
+					w.place_building(type, cc, true)
+					return true
+	return false
 
 
 func _roomy(type: String, cc: Vector2i) -> bool:

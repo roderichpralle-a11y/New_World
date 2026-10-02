@@ -12,6 +12,7 @@ var names: Dictionary = {}
 var techs: Dictionary = {}
 var tiers: Array = []
 var islands: Dictionary = {}  # Inselarten (Biome)
+var ships: Dictionary = {}  # Schiffsarten (data/ships.json)
 var animals: Dictionary = {}
 var goals: Dictionary = {}  # Einfuehrung und Ziele
 
@@ -49,6 +50,7 @@ const BUILDING_CELLS := {
 	"mine": [15, 1], "smelter": [16, 1], "smithy": [17, 1], "scriptorium": [18, 1],
 	"library": [19, 1], "shipyard": [20, 1], "tower": [21, 1], "lighthouse": [22, 2], "monument": [24, 1],
 	"school": [25, 1], "scriptorium2": [26, 1], "scriptorium3": [27, 1], "scriptorium4": [28, 1],
+	"jetty": [29, 1], "harbor": [30, 1], "harbor_big": [31, 1], "quay_wood": [32, 1], "quay_ore": [33, 1], "quay_food": [34, 1],
 }
 ## Etappe 3 in objects2.png: name -> [x, y, w, h, frames]
 const OBJECT2_REGIONS := {
@@ -58,6 +60,7 @@ const OBJECT2_REGIONS := {
 	"den": [48, 48, 16, 16, 1], "wallow": [64, 48, 16, 16, 1], "carcass": [80, 48, 16, 16, 1],
 	"arrow": [96, 48, 16, 16, 1],
 	"boat": [0, 64, 32, 32, 2],
+	"ship_kogge": [0, 96, 48, 48, 2], "ship_fast": [96, 96, 48, 48, 2], "ship_galleon": [192, 96, 48, 48, 2],
 }
 ## Tiere in animals.png: Zellen 24x24, je Tier eine Zeile (Zeile aus animals.json),
 ## Spalten 0-3 Laufen, 4 Angriff.
@@ -81,6 +84,7 @@ func _ready() -> void:
 	tiers = techs.get("_tiers", [])
 	techs.erase("_tiers")
 	islands = _load("islands")
+	ships = _load("ships")
 	goals = _load("goals")
 	animals = _load("animals")
 	var f := FileAccess.open("res://assets/sprites/icons.txt", FileAccess.READ)

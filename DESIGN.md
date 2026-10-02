@@ -105,13 +105,37 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
   zahlt die aktive Insel, Ziele zählen `Game.amount_all` über alle Inseln. Wohnplätze, Nachwuchs und
   Schiffbrüchige zählen je Insel. Meldungen von anderen Inseln tragen den Inselnamen
   (`Game.notify_at`).
-- **Werft** (`coast: true`, muss bis 2 Felder ans Wasser): Handwerker bauen Boote (Ware `boot`).
-  **Seekarte** (Knopf „Inseln“, `scripts/ui/sea_panel.gd`): „Neue Insel suchen“ schickt ein Boot
-  los (kommt zurück), „Siedler schicken“ verbraucht ein Boot und bringt bis zu
-  `ship_base_capacity` (+ `ship_capacity`) Siedler hinüber. Mindestens einer bleibt zurück.
-  Reisezeit `voyage_days_base + voyage_days_per_dist * Entfernung` geteilt durch `eff(ship_speed)`.
-  Die Karte zoomt (Mausrad, zwei Finger, Knöpfe „-“ „+“ „Alle“, 1x bis 8x um den Zeiger) und
-  lässt sich gezoomt ziehen; ein Klick ohne Ziehen wählt eine Insel. Testhilfe `--panel=sea --seazoom=N`.
+- **Schiffe** (`data/ships.json`, Logik in `Sea`): Ruderboot (Größe 1, 1 Seemann, Laderaum 40),
+  Kogge (2, 2 Seeleute, 200, langsam), Schnellsegler (2, 3 Seeleute, 80, fast doppelt so schnell),
+  Galeone (3, 5 Seeleute, 500). Die **Werft** (`ships: true`) baut das im Gebäudefenster gewählte
+  Schiff (`Building.ship_choice`, Bauplan aus `ships.json`, `ship_wip` merkt das bezahlte
+  Schiff). Fertige Schiffe entstehen als Ware (`boot`, `kogge`, ...; Größe 0, nicht im
+  Lagerfenster) und `Sea._ship_tick_all` macht daraus sofort ein Schiff in `Sea.ships`:
+  `{id, type, name, home, at, state: dock|load|sea, until, crew: [Siedler-IDs], cargo, route,
+  leg, paused, note}`. Alte Spielstände: ihre Ware `boot` wird so zu Ruderbooten.
+- **Besatzung**: Beruf **Seemann** (nach Schiffsbau; an Land angelt er). `Sea.fill_crew` nimmt
+  freie Seeleute der Insel, „Seemann anheuern“ (`hire_sailor`) macht zuerst Freie zu Seeleuten.
+  Ohne volle Besatzung legt kein Schiff ab; die letzten Siedler einer Insel bleiben an Land.
+  Beim Ablegen verlassen Besatzung und Fahrgäste die Insel (Reise `crew`/`settlers`), beim
+  Anlegen gehen sie am Hafen an Land.
+- **Häfen** (`harbor: {level, berths, rate, goods?, goods_rate?}`): Werft (1 Platz klein), Anlegesteg
+  (2 klein), Hafen (Navigation, 2 mittel), Großer Hafen (Seehandel, 3 groß/groß/mittel), Holzkai,
+  Erzkai, Proviantkai (Seehandel, je 1 mittel, ihre Waren 3-mal so schnell). Die Zahl der Schiffe
+  einer Insel ist durch ihre Liegeplätze begrenzt (`Sea.free_berth`, Heimathafen `home`);
+  ohne freien Platz baut die Werft nicht. Ein Schiff der Größe 2 läuft nur Inseln mit Hafen
+  (Stufe 2) an, eine Galeone nur Große Häfen; Ruderboote landen überall am Strand
+  (`Sea.can_visit`). Laden kostet Zeit: Stauraum je Stunde (`Sea.load_rate`, Strand 15).
+- **Fahrten**: Seekarte „Schiff hierher schicken“ (Siedler und Waren, Schiff bleibt am Ziel und lädt
+  dort ab), „Neue Insel suchen“ (schnellstes freies Schiff, kommt zurück), **Routen** (Reiter
+  „Schiffe“): bis 6 Halte; an jedem Halt lädt das Schiff alles ab, was dort nicht geladen wird,
+  und lädt bis zur eingestellten Menge. Fahrzeit `(voyage_days_base + voyage_days_per_dist *
+  Entfernung) / (eff(ship_speed) * Tempo des Schiffs) * Seasons.sail_mult()`. Liegende Schiffe
+  zeigt `World.sync_ships` im Wasser vor dem Hafen. Forschung **Seehandel** (Stufe VI).
+- **Seekarte** (Knopf „Inseln“, `scripts/ui/sea_panel.gd`): Reiter Inseln und Schiffe, Ansichten
+  `island`, `send`, `ships`, `ship`, `stop`. Die Karte zoomt (Mausrad, zwei Finger, Knöpfe „-“ „+“
+  „Alle“, 1x bis 8x um den Zeiger) und lässt sich gezoomt ziehen; ein Klick ohne Ziehen wählt
+  eine Insel. Testhilfen `--panel=sea --seazoom=N --seaview=ships|ship|stop|send`, `--seatest
+  --tradetest` (Hafen, Kogge auf Route).
 - **Inselarten** (`data/islands.json`): `heimat` (Etappe 1, unverändert), `tropen` (Palmeninsel:
   Kokospalmen, viel Fisch, Wildschweine), `wald` (Waldinsel: Nadelwald, Pilze, Wölfe), `berg`
   (Felseninsel: Erz- und Goldadern, Bären). Insel 1–3 sind in dieser Reihenfolge, danach
@@ -132,13 +156,13 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
   Fleisch von erlegten Tieren (`beute`, verdirbt nach `decay_days`) und räumt Bauten aus
   (gibt Felle, danach kommen keine Tiere mehr nach). Felle kommen beim Erlegen direkt ins Lager.
 - **Wachturm** (`defense` {range, damage, interval}): schießt Pfeile auf Tiere in Reichweite.
-- **Neue Waren**: Fleisch, Kokosnüsse, Pilze (Nahrung), Felle, Gold, Boote.
+- **Neue Waren**: Fleisch, Kokosnüsse, Pilze (Nahrung), Felle, Gold.
 - **Stufe VI „Neue Welt“**: Navigation, Jagdkunst, Befestigung, Warme Kleidung, Leuchtfeuer
   (Leuchtturm: Erkunden doppelt so schnell), Goldenes Zeitalter (Denkmal: mehr Kinder, längeres
   Leben). Gold gibt es nur auf Felseninseln.
 - Grafiken: `assets/sprites/objects2.png` (`Data.OBJECT2_REGIONS`: Palmen, Höhle, Pilze, Adern,
   Bauten, Beute, Pfeil, Boot), `animals.png` (Zellen 24x24, Zeile je Tier, Spalten 0–3 Laufen,
-  4 Angriff), Gebäude ab Zelle 20 in `buildings.png` (Schule Zelle 25, `school()` in `gen_art.py`). Gezeichnet von `tools/gen_art_sea.py`.
+  4 Angriff), Gebäude ab Zelle 20 in `buildings.png` (Schule Zelle 25, `school()` in `gen_art.py`; Häfen und Kais ab Zelle 29), Schiffe in `objects2.png` ab y=96 (48x48, 2 Bilder). Gezeichnet von `tools/gen_art_sea.py`.
 
 ## Feinschliff (Etappe 4)
 

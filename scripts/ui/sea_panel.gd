@@ -1,11 +1,17 @@
 class_name SeaPanel
 extends PanelContainer
-## Seekarte: alle entdeckten Inseln, Schiffsreisen, Erkunden und Siedler aussenden.
+## Seekarte: alle entdeckten Inseln, Schiffe, Routen, Erkunden und Siedler aussenden.
 
 var hud  # Hud (fuer Meldungen und Kamera)
 var _selected: int = 0
-var _sending: bool = false
+var _view: String = "island"  # island, send, ships, ship, stop
 var _send_sel: Array = []
+var _send_goods: Dictionary = {}
+var _send_ship: int = -1
+var _ship_id: int = -1
+var _stop_i: int = -1
+var _tab_islands: Button
+var _tab_ships: Button
 var _head: Label
 var _map: Control
 var _details: VBoxContainer
@@ -36,6 +42,14 @@ func setup(p_hud) -> void:
 	var t := UiTheme.label("Seekarte", 20, UiTheme.TEXT, true)
 	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(t)
+	_tab_islands = UiTheme.button("Inseln", "kompass", 32)
+	_tab_islands.toggle_mode = true
+	_tab_islands.pressed.connect(func(): _go("island"))
+	head.add_child(_tab_islands)
+	_tab_ships = UiTheme.button("Schiffe", "anker", 32)
+	_tab_ships.toggle_mode = true
+	_tab_ships.pressed.connect(func(): _go("ships"))
+	head.add_child(_tab_ships)
 	var x := UiTheme.button("", "abriss", 32)
 	x.tooltip_text = "Schließen"
 	x.pressed.connect(func(): visible = false)
@@ -84,14 +98,23 @@ func setup(p_hud) -> void:
 	_scroll.add_child(_details)
 	Sea.islands_changed.connect(refresh)
 	Game.stock_changed.connect(func():
-		if visible and not _sending:
+		if visible:
 			_update_head())
+	get_viewport().size_changed.connect(_fit)
 
 
 func open() -> void:
 	_selected = Game.world.island_id if Game.world else 0
-	_sending = false
+	_view = "island"
+	_fit()
 	refresh()
+
+
+## Liste unter der Karte so hoch wie der Platz auf dem Bildschirm erlaubt.
+func _fit() -> void:
+	var vs := get_viewport().get_visible_rect().size
+	_scroll.custom_minimum_size.y = clamp(vs.y - 365.0, 130.0, 460.0)
+	_map.custom_minimum_size.x = clamp(vs.x - 40.0, 300.0, 420.0)
 
 
 func refresh() -> void:
@@ -104,11 +127,11 @@ func refresh() -> void:
 
 func _update_head() -> void:
 	var at_sea := Sea.people_at_sea()
-	var t := "Boote: %d   Bewohnte Inseln: %d" % [Game.amount("boot"), Sea.settled_islands().size()]
+	var t := "Schiffe: %d   Bewohnte Inseln: %d" % [Sea.ships.size(), Sea.settled_islands().size()]
 	if at_sea > 0:
 		t += "   Auf See: %d Siedler" % at_sea
 	if Sea.exploring():
-		t += "   Ein Boot erkundet."
+		t += "   Ein Schiff erkundet."
 	_head.text = t
 
 
@@ -228,7 +251,9 @@ func _draw_map() -> void:
 		if v.kind == "explore":
 			f = 1.0 - abs(1.0 - f * 2.0)
 		var bp := pa.lerp(pb, f)
-		_map.draw_texture_rect(Data.icon("boot"), Rect2(bp - Vector2(10, 14), Vector2(20, 20)), false)
+		var vs := Sea.ship_by_id(int(v.get("ship", -1)))
+		var ic: String = Sea.ship_def(vs).get("icon", "boot") if not vs.is_empty() else "boot"
+		_map.draw_texture_rect(Data.icon(ic), Rect2(bp - Vector2(10, 14), Vector2(20, 20)), false)
 	for m in Sea.islands:
 		var p := _to_screen(_meta_pos(int(m.id)), b)
 		var s := _island_px(m)
@@ -246,6 +271,11 @@ func _draw_map() -> void:
 			_map.draw_texture_rect(Data.icon("person"), Rect2(p - Vector2(8, 10), Vector2(16, 16)), false)
 		elif m.state == "settled":
 			_map.draw_texture_rect(Data.icon("haus"), Rect2(p - Vector2(7, 9), Vector2(14, 14)), false)
+		# Schiffe, die dort liegen
+		var docked := Sea.ships_at(int(m.id))
+		for i in min(docked.size(), 4):
+			var ic2: String = Sea.ship_def(docked[i]).get("icon", "boot")
+			_map.draw_texture_rect(Data.icon(ic2), Rect2(p + Vector2(s * 0.35 + i * 9, -s * 0.35), Vector2(14, 14)), false)
 		var name: String = m.name
 		var w := font.get_string_size(name, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
 		var tp := p + Vector2(-w / 2.0, s / 2.0 + 9)
@@ -337,7 +367,8 @@ func _select_at(pos: Vector2) -> void:
 			best = int(m.id)
 	if best >= 0:
 		_selected = best
-		_sending = false
+		if _view != "island":
+			_view = "island"
 		refresh()
 
 
@@ -355,11 +386,34 @@ func _wrap(text: String, size: int = 13, col: Color = UiTheme.TEXT) -> Label:
 	return l
 
 
+func _hint(text: String) -> Label:
+	return _wrap(text, 12, Color("#8a5a3a"))
+
+
+func _go(view: String) -> void:
+	_view = view
+	refresh()
+	_scroll.scroll_vertical = 0
+
+
 func _fill_details() -> void:
 	_clear()
-	if _sending:
-		_fill_send()
-		return
+	_tab_islands.set_pressed_no_signal(_view in ["island", "send"])
+	_tab_ships.set_pressed_no_signal(_view in ["ships", "ship", "stop"])
+	match _view:
+		"send":
+			_fill_send()
+		"ships":
+			_fill_ships()
+		"ship":
+			_fill_ship()
+		"stop":
+			_fill_stop()
+		_:
+			_fill_island()
+
+
+func _fill_island() -> void:
 	var m := Sea.meta(_selected)
 	if m.is_empty():
 		_selected = 0
@@ -375,7 +429,7 @@ func _fill_details() -> void:
 			if here:
 				state += " (hier bist du)"
 		"discovered":
-			state = "Unbewohnt. Schicke Siedler hierher, um sie zu besiedeln."
+			state = "Unbewohnt. Schicke Siedler hierher, um sie zu besiedeln. Ohne Hafen können nur Ruderboote landen."
 		"lost":
 			state = "Verloren. Niemand kann hier mehr leben."
 	_details.add_child(_wrap(state, 13, UiTheme.BAD if m.state == "lost" else UiTheme.TEXT))
@@ -399,9 +453,22 @@ func _fill_details() -> void:
 			hs.add_child(UiTheme.icon_rect(Data.res_icon(r), 16))
 			hs.add_child(UiTheme.label(Data.resource_name(r), 13))
 		_details.add_child(hs)
+	if w and m.state == "settled":
+		_details.add_child(_wrap("Hafen: %s. %s." % [Sea.harbor_level_name(Sea.harbor_level(w)), Sea.berth_text(w)], 12))
+		var docked := Sea.ships_at(int(m.id))
+		if not docked.is_empty():
+			var flow := HFlowContainer.new()
+			flow.add_theme_constant_override("h_separation", 4)
+			for sh in docked:
+				var sb := UiTheme.button(sh.name, Sea.ship_def(sh).get("icon", "boot"), 32)
+				sb.add_theme_font_size_override("font_size", 13)
+				var sid := int(sh.id)
+				sb.pressed.connect(func(): _open_ship(sid))
+				flow.add_child(sb)
+			_details.add_child(flow)
 	if not here and Game.world and m.state != "lost":
 		var hours := Sea.voyage_days(Game.world.island_id, int(m.id)) * 24.0
-		_details.add_child(UiTheme.label("Fahrzeit von hier: %d Stunden" % int(ceil(hours)), 13))
+		_details.add_child(UiTheme.label("Fahrzeit von hier (Ruderboot): %d Stunden" % int(ceil(hours)), 13))
 	# Aktionen
 	var acts := HFlowContainer.new()
 	acts.add_theme_constant_override("h_separation", 6)
@@ -413,14 +480,16 @@ func _fill_details() -> void:
 			Sea.switch_to(int(m.id)))
 		acts.add_child(go)
 	if m.state != "lost" and not here:
-		var send := UiTheme.button("Siedler schicken", "boot", 38)
+		var send := UiTheme.button("Schiff hierher schicken", "boot", 38)
+		send.tooltip_text = "Bringt Siedler und Waren von der Insel, auf der du gerade bist."
 		send.pressed.connect(func():
-			_sending = true
 			_send_sel = []
-			refresh())
+			_send_goods = {}
+			_send_ship = -1
+			_go("send"))
 		acts.add_child(send)
 	var ex := UiTheme.button("Neue Insel suchen", "kompass", 38)
-	ex.tooltip_text = "Ein Boot fährt hinaus und kommt mit einer neuen Insel auf der Karte zurück."
+	ex.tooltip_text = "Das schnellste freie Schiff fährt hinaus und kommt mit einer neuen Insel auf der Karte zurück."
 	ex.pressed.connect(func():
 		var err := Sea.start_explore(Game.world)
 		if err != "":
@@ -430,28 +499,97 @@ func _fill_details() -> void:
 	_details.add_child(acts)
 	var why := Sea.can_explore()
 	if why != "" and not Sea.exploring():
-		_details.add_child(_wrap("Neue Inseln suchen: %s" % why, 12, Color("#8a5a3a")))
+		_details.add_child(_hint("Neue Inseln suchen: %s" % why))
 	if Data.buildings.has("werft") and not Game.is_unlocked("werft"):
-		_details.add_child(_wrap("Boote baut die Werft. Dafür braucht es die Forschung Schiffsbau.", 12, Color("#8a5a3a")))
+		_details.add_child(_hint("Schiffe baut die Werft. Dafür braucht es die Forschung Schiffsbau."))
+
+
+## Gemeinsame Zeile fuer eine Ware: Symbol, Name, Info, [-] Menge [+].
+func _goods_row(id: String, info: String, get_n: Callable, set_n: Callable, step: int = 10) -> HBoxContainer:
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 4)
+	h.add_child(UiTheme.icon_rect(Data.res_icon(id), 18))
+	var nm := UiTheme.label(Data.resource_name(id), 13)
+	nm.custom_minimum_size.x = 92
+	nm.clip_text = true
+	h.add_child(nm)
+	var inf := UiTheme.label(info, 11)
+	inf.custom_minimum_size.x = 84
+	inf.modulate.a = 0.75
+	h.add_child(inf)
+	var minus := UiTheme.button("−", "", 30)
+	minus.custom_minimum_size.x = 30
+	minus.focus_mode = Control.FOCUS_NONE
+	var val := UiTheme.label(str(int(get_n.call())), 14, UiTheme.TEXT, true)
+	val.custom_minimum_size.x = 36
+	val.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var plus := UiTheme.button("+", "", 30)
+	plus.custom_minimum_size.x = 30
+	plus.focus_mode = Control.FOCUS_NONE
+	minus.pressed.connect(func():
+		set_n.call(max(0, int(get_n.call()) - step))
+		val.text = str(int(get_n.call())))
+	plus.pressed.connect(func():
+		set_n.call(int(get_n.call()) + step)
+		val.text = str(int(get_n.call())))
+	h.add_child(minus)
+	h.add_child(val)
+	h.add_child(plus)
+	return h
 
 
 func _fill_send() -> void:
 	var m := Sea.meta(_selected)
-	_details.add_child(UiTheme.label("Siedler nach %s schicken" % m.name, 16, UiTheme.TEXT, true))
-	var cap := Sea.ship_capacity()
-	var count := UiTheme.label("Im Boot: %d / %d" % [_send_sel.size(), cap], 14, UiTheme.TEXT, true)
-	_details.add_child(count)
+	var from = Game.world
+	_details.add_child(UiTheme.label("Schiff nach %s schicken" % m.name, 16, UiTheme.TEXT, true))
+	var list := Sea.idle_ships(from.island_id)
+	if list.is_empty():
+		_details.add_child(_wrap("Auf %s liegt kein freies Schiff. Baue eines in der Werft oder hole ein Schiff von seiner Route." % Sea.island_name(from), 13, UiTheme.BAD))
+		_details.add_child(_back_btn("island"))
+		return
+	if Sea.ship_by_id(_send_ship).is_empty() or not list.has(Sea.ship_by_id(_send_ship)):
+		_send_ship = int(list[0].id)
+		for sh in list:
+			if Sea.can_visit(sh.type, _selected) and Sea.ship_blocker(sh) == "":
+				_send_ship = int(sh.id)
+				break
+	var sh := Sea.ship_by_id(_send_ship)
+	var pick := HFlowContainer.new()
+	pick.add_theme_constant_override("h_separation", 4)
+	pick.add_theme_constant_override("v_separation", 4)
+	for s2 in list:
+		var b := UiTheme.button(s2.name, Sea.ship_def(s2).get("icon", "boot"), 32)
+		b.add_theme_font_size_override("font_size", 13)
+		b.toggle_mode = true
+		b.button_pressed = int(s2.id) == _send_ship
+		var sid := int(s2.id)
+		b.pressed.connect(func():
+			_send_ship = sid
+			refresh())
+		pick.add_child(b)
+	_details.add_child(pick)
+	var sd := Sea.ship_def(sh)
+	_details.add_child(_wrap("%s: %d Fahrgäste, Laderaum %d, Fahrzeit %d Std." % [sd.name, Sea.passenger_capacity(sh), int(sd.cargo),
+		int(ceil(Sea.voyage_days(from.island_id, _selected, sh.type) * 24.0))], 12))
+	if not Sea.can_visit(sh.type, _selected):
+		_details.add_child(_wrap("Die %s (%s) ist zu groß für %s: dort fehlt ein passender Hafen." % [sh.name, sd.name, m.name], 12, UiTheme.BAD))
+	_crew_line(sh)
 	if m.state == "discovered":
-		_details.add_child(_wrap("Tipp: Schicke eine Frau und einen Mann mit, damit es dort Kinder gibt. Ein Baumeister baut die ersten Hütten.", 12))
+		_details.add_child(_hint("Tipp: Schicke eine Frau und einen Mann mit, damit es dort Kinder gibt. Ein Baumeister baut die ersten Hütten. Nimm Essen und Holz mit, dort ist das Lager leer."))
 	if not Sea.dangers(m).is_empty():
 		_details.add_child(_wrap("Achtung, wilde Tiere! Jäger mit Speeren schützen die Siedler.", 12, UiTheme.BAD))
-	var list: Array = Game.world.settlers.duplicate()
-	list.sort_custom(func(a, b): return a.age > b.age)
+	# Fahrgaeste
+	var cap := Sea.passenger_capacity(sh)
+	var crew_ids: Array = sh.crew.map(func(x): return int(x))
+	var count := UiTheme.label("Fahrgäste: %d / %d" % [_send_sel.size(), cap], 14, UiTheme.TEXT, true)
+	_details.add_child(count)
+	var people: Array = from.settlers.filter(func(s): return not int(s.id) in crew_ids)
+	people.sort_custom(func(a, b): return a.age > b.age)
 	var grid := GridContainer.new()
 	grid.columns = 2
 	grid.add_theme_constant_override("h_separation", 4)
 	grid.add_theme_constant_override("v_separation", 4)
-	for s in list:
+	for s in people:
 		var who := ("Frau" if s.sex == "f" else "Mann") if s.is_adult() else "Kind"
 		var b := UiTheme.button("%s, %s" % [s.display_name, s.job_name() if s.is_adult() else who], "", 34)
 		b.add_theme_font_size_override("font_size", 13)
@@ -465,29 +603,259 @@ func _fill_send() -> void:
 			if on and not _send_sel.has(sref):
 				if _send_sel.size() >= cap:
 					b.set_pressed_no_signal(false)
-					hud.toast("Ins Boot passen nur %d Siedler." % cap, "boot")
+					hud.toast("Auf die %s passen nur %d Fahrgäste." % [sh.name, cap], "boot")
 					return
 				_send_sel.append(sref)
 			elif not on:
 				_send_sel.erase(sref)
-			count.text = "Im Boot: %d / %d" % [_send_sel.size(), cap])
+			count.text = "Fahrgäste: %d / %d" % [_send_sel.size(), cap])
 		grid.add_child(b)
 	_details.add_child(grid)
+	# Ladung
+	var room_l := UiTheme.label("", 14, UiTheme.TEXT, true)
+	var upd_room := func():
+		var used := 0
+		for id in _send_goods:
+			used += int(_send_goods[id]) * Data.good_size(id)
+		room_l.text = "Ladung: %d / %d Laderaum" % [used, int(sd.cargo)]
+	upd_room.call()
+	_details.add_child(room_l)
+	var any := false
+	for id in Data.sorted_resource_ids():
+		if Data.resources[id].get("category", "") == "ship" or Game.amount(id, from) <= 0:
+			continue
+		any = true
+		var rid: String = id
+		var get_n := func(): return int(_send_goods.get(rid, 0))
+		var set_n := func(n: int):
+			var used := 0
+			for k in _send_goods:
+				if k != rid:
+					used += int(_send_goods[k]) * Data.good_size(k)
+			var size: int = max(1, Data.good_size(rid))
+			n = clamp(n, 0, min(Game.amount(rid, from), (int(sd.cargo) - used) / size))
+			if n <= 0:
+				_send_goods.erase(rid)
+			else:
+				_send_goods[rid] = n
+			upd_room.call()
+		_details.add_child(_goods_row(id, "Lager %d" % Game.amount(id, from), get_n, set_n, 5))
+	if not any:
+		_details.add_child(_hint("Im Lager ist nichts zum Mitnehmen."))
 	var acts := HBoxContainer.new()
 	var go := UiTheme.button("Ablegen", "boot", 40)
 	go.pressed.connect(func():
 		var alive := _send_sel.filter(func(x): return is_instance_valid(x))
-		var err := Sea.send_settlers(Game.world, _selected, alive)
+		var err := Sea.send_ship(from, _selected, alive, Sea.ship_by_id(_send_ship), _send_goods)
 		if err != "":
 			hud.toast(err, "boot")
 			return
-		_sending = false
 		_send_sel = []
-		refresh())
+		_send_goods = {}
+		_go("island"))
 	acts.add_child(go)
-	var back := UiTheme.button("Zurück", "abriss", 40)
-	back.pressed.connect(func():
-		_sending = false
-		refresh())
-	acts.add_child(back)
+	acts.add_child(_back_btn("island"))
 	_details.add_child(acts)
+
+
+func _back_btn(to: String) -> Button:
+	var back := UiTheme.button("Zurück", "abriss", 40)
+	back.pressed.connect(func(): _go(to))
+	return back
+
+
+## Besatzung eines Schiffs mit Knopf zum Anheuern.
+func _crew_line(sh: Dictionary) -> void:
+	if sh.state == "sea":
+		_details.add_child(UiTheme.label("Besatzung: %d Seeleute an Bord" % sh.crew.size(), 13))
+		return
+	Sea.fill_crew(sh)
+	var need := int(Sea.ship_def(sh).get("crew", 1))
+	var have := need - Sea.crew_missing(sh)
+	var h := HBoxContainer.new()
+	h.add_child(UiTheme.label("Besatzung: %d / %d Seeleute" % [have, need], 13, UiTheme.GOOD if have >= need else UiTheme.BAD))
+	if have < need:
+		var hb := UiTheme.button("Seemann anheuern", "person", 32)
+		hb.add_theme_font_size_override("font_size", 13)
+		hb.tooltip_text = "Gibt einem Siedler dieser Insel den Beruf Seemann (zuerst Freie)."
+		hb.pressed.connect(func():
+			var err := Sea.hire_sailor(sh)
+			if err != "":
+				hud.toast(err, "person")
+			refresh())
+		h.add_child(hb)
+	_details.add_child(h)
+
+
+func open_ships() -> void:
+	open()
+	_go("ships")
+
+
+func _open_ship(id: int) -> void:
+	_ship_id = id
+	_go("ship")
+
+
+func _fill_ships() -> void:
+	_details.add_child(UiTheme.label("Deine Schiffe", 16, UiTheme.TEXT, true))
+	if Sea.ships.is_empty():
+		_details.add_child(_wrap("Noch keine Schiffe. Die Werft baut sie, wenn ein Handwerker dort arbeitet und ein Liegeplatz frei ist."))
+	for sh in Sea.ships:
+		var b := UiTheme.button("%s (%s): %s" % [sh.name, Sea.ship_def(sh).name, Sea.ship_status(sh)], Sea.ship_def(sh).get("icon", "boot"), 36)
+		b.add_theme_font_size_override("font_size", 13)
+		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		b.clip_text = true
+		b.custom_minimum_size.x = 330
+		var sid := int(sh.id)
+		b.pressed.connect(func(): _open_ship(sid))
+		_details.add_child(b)
+	_details.add_child(_hint("Jedes Schiff braucht einen Liegeplatz auf seiner Heimatinsel: die Werft hat einen für ein Ruderboot, der Anlegesteg zwei, der Hafen zwei für mittlere Schiffe, der Große Hafen drei für alle Schiffe. Mittlere Schiffe laufen nur Inseln mit Hafen an, Galeonen nur Große Häfen."))
+
+
+func _fill_ship() -> void:
+	var sh := Sea.ship_by_id(_ship_id)
+	if sh.is_empty():
+		_go("ships")
+		return
+	var sd := Sea.ship_def(sh)
+	var top := HBoxContainer.new()
+	top.add_child(UiTheme.icon_rect(Data.icon(sd.get("icon", "boot")), 24))
+	top.add_child(UiTheme.label(Sea.ship_label(sh), 16, UiTheme.TEXT, true))
+	_details.add_child(top)
+	_details.add_child(_wrap(Sea.ship_status(sh), 13, UiTheme.BAD if sh.note != "" else UiTheme.TEXT))
+	_details.add_child(_wrap("Laderaum %d, %d Fahrgäste, Tempo x%.1f. Heimathafen: %s." % [int(sd.cargo), Sea.passenger_capacity(sh),
+		float(sd.speed), Sea.meta(int(sh.home)).get("name", "?")], 12))
+	_crew_line(sh)
+	_details.add_child(_wrap("Ladung (%d / %d): %s" % [Sea.cargo_volume(sh), int(sd.cargo), Sea.goods_text(sh.cargo)], 13))
+	# Route
+	_details.add_child(UiTheme.label("Route", 15, UiTheme.TEXT, true))
+	if sh.route.is_empty():
+		_details.add_child(_hint("Eine Route fährt immer wieder von Insel zu Insel. An jedem Halt lädt das Schiff, was du dort einstellst, und lädt alles andere ab."))
+	for i in sh.route.size():
+		var st: Dictionary = sh.route[i]
+		var row := HBoxContainer.new()
+		var cur: bool = int(sh.leg) == i and not sh.paused
+		var l := UiTheme.label("%d. %s: lädt %s" % [i + 1, Sea.meta(int(st.island)).get("name", "?"), Sea.goods_text(st.get("load", {}))], 13,
+			UiTheme.GOOD if cur else UiTheme.TEXT, cur)
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		l.custom_minimum_size.x = 200
+		row.add_child(l)
+		var ed := UiTheme.button("Ändern", "", 30)
+		ed.add_theme_font_size_override("font_size", 12)
+		var ii: int = i
+		ed.pressed.connect(func():
+			_stop_i = ii
+			_go("stop"))
+		row.add_child(ed)
+		var rm := UiTheme.button("", "abriss", 30)
+		rm.tooltip_text = "Halt entfernen"
+		rm.pressed.connect(func():
+			sh.route.remove_at(ii)
+			sh.leg = 0
+			refresh())
+		row.add_child(rm)
+		_details.add_child(row)
+	var acts := HFlowContainer.new()
+	acts.add_theme_constant_override("h_separation", 6)
+	acts.add_theme_constant_override("v_separation", 6)
+	if sh.route.size() < 6:
+		var add := UiTheme.button("Halt hinzufügen", "anker", 36)
+		add.pressed.connect(func():
+			var last := int(sh.route[-1].island) if not sh.route.is_empty() else (int(sh.at) if sh.state != "sea" else int(sh.home))
+			var next_i := last
+			for m in Sea.settled_islands():
+				if int(m.id) != last:
+					next_i = int(m.id)
+					break
+			if sh.route.is_empty():
+				sh.route.append({"island": last, "load": {}})
+				if next_i != last:
+					sh.route.append({"island": next_i, "load": {}})
+			else:
+				sh.route.append({"island": next_i, "load": {}})
+			sh.paused = true
+			_stop_i = sh.route.size() - 1
+			_go("stop"))
+		acts.add_child(add)
+	if sh.route.size() >= 2:
+		var run := UiTheme.button("Route anhalten" if not sh.paused else "Route starten", "pause" if not sh.paused else "play", 36)
+		run.pressed.connect(func():
+			sh.paused = not sh.paused
+			sh.note = ""
+			refresh())
+		acts.add_child(run)
+	if sh.state != "sea" and sh.at != Game.world.island_id and Sea.worlds.has(int(sh.at)):
+		var look := UiTheme.button("Ansehen", "play", 36)
+		look.pressed.connect(func():
+			visible = false
+			Sea.switch_to(int(sh.at)))
+		acts.add_child(look)
+	_details.add_child(acts)
+	if sh.state != "sea" and not sh.cargo.is_empty() and (sh.route.is_empty() or sh.paused):
+		var ul := UiTheme.button("Hier abladen", "kiste", 36)
+		ul.pressed.connect(func():
+			var got := Sea.unload_goods(sh)
+			hud.toast("Abgeladen: %s" % Sea.goods_text(got) if not got.is_empty() else "Im Lager ist kein Platz.", "kiste")
+			refresh())
+		_details.add_child(ul)
+	_details.add_child(_back_btn("ships"))
+
+
+func _fill_stop() -> void:
+	var sh := Sea.ship_by_id(_ship_id)
+	if sh.is_empty() or _stop_i < 0 or _stop_i >= sh.route.size():
+		_go("ship")
+		return
+	var st: Dictionary = sh.route[_stop_i]
+	var sd := Sea.ship_def(sh)
+	_details.add_child(UiTheme.label("Halt %d der %s" % [_stop_i + 1, sh.name], 16, UiTheme.TEXT, true))
+	var pick := HFlowContainer.new()
+	pick.add_theme_constant_override("h_separation", 4)
+	pick.add_theme_constant_override("v_separation", 4)
+	for m in Sea.settled_islands():
+		var b := UiTheme.button(m.name, "", 32)
+		b.add_theme_font_size_override("font_size", 13)
+		b.toggle_mode = true
+		b.button_pressed = int(m.id) == int(st.island)
+		var mid := int(m.id)
+		if not Sea.can_visit(sh.type, mid):
+			b.disabled = true
+			b.tooltip_text = "Hafen zu klein für die %s (%s)" % [sh.name, sd.name]
+		b.pressed.connect(func():
+			st.island = mid
+			refresh())
+		pick.add_child(b)
+	_details.add_child(pick)
+	var w = Sea.worlds.get(int(st.island))
+	var load: Dictionary = st.load
+	var room_l := UiTheme.label("", 14, UiTheme.TEXT, true)
+	var upd := func():
+		var used := 0
+		for id in load:
+			used += int(load[id]) * Data.good_size(id)
+		room_l.text = "Hier laden: %d / %d Laderaum" % [used, int(sd.cargo)]
+	upd.call()
+	_details.add_child(room_l)
+	_details.add_child(_hint("Alles, was hier nicht geladen wird, lädt das Schiff an diesem Halt ab. Lädt mehr, wenn mehr im Lager liegt."))
+	for id in Data.sorted_resource_ids():
+		if Data.resources[id].get("category", "") == "ship":
+			continue
+		var rid: String = id
+		var get_n := func(): return int(load.get(rid, 0))
+		var set_n := func(n: int):
+			var used := 0
+			for k in load:
+				if k != rid:
+					used += int(load[k]) * Data.good_size(k)
+			n = clamp(n, 0, (int(sd.cargo) - used) / max(1, Data.good_size(rid)))
+			if n <= 0:
+				load.erase(rid)
+			else:
+				load[rid] = n
+			upd.call()
+		_details.add_child(_goods_row(id, "Lager %d" % Game.amount(id, w) if w else "", get_n, set_n, 10))
+	var done := UiTheme.button("Fertig", "play", 40)
+	done.pressed.connect(func(): _go("ship"))
+	_details.add_child(done)
