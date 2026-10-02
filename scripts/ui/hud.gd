@@ -182,7 +182,7 @@ func _refresh_top() -> void:
 	_food_label.text = "%d" % food
 	var parts := []
 	for id in Data.food_ids():
-		parts.append("%s: %d" % [Data.resource_name(id), Game.amount(id)])
+		parts.append("%s: %d  (sättigt %d, Vitamine %d)" % [Data.resource_name(id), Game.amount(id), int(Data.food_satiety(id)), int(Data.food_vitamins(id))])
 	_food_label.get_parent().tooltip_text = "Nahrung\n" + "\n".join(parts) + "\nLagerplatz je Sorte: %d" % cap
 	var pop := Game.population()
 	_food_label.add_theme_color_override("font_color", UiTheme.BAD if food < pop * 3 else UiTheme.TEXT)
@@ -1056,7 +1056,8 @@ Lautstärke von Musik und Geräuschen stellst du im Menü ein.
 Jeder Siedler hat eigene Fähigkeiten. Gib ihnen im Infofenster einen Beruf, der zu ihren Stärken passt. Mit Übung werden sie besser. Freie Siedler helfen dort, wo es nötig ist.
 
 [b]Nahrung[/b]
-Siedler essen am Lagerfeuer. Ohne Nahrung werden sie schwach und verhungern. Beeren wachsen nach, Fische auch, und Getreidefelder bringen viel Ertrag.
+Siedler essen am Lagerfeuer. Jede Speise sättigt unterschiedlich stark und bringt unterschiedlich viele Vitamine: Beeren, Äpfel und Kokosnüsse machen kaum satt, sind aber voller Vitamine. Brot, Räucherfisch und Fleisch machen lange satt, haben aber kaum Vitamine. Rohes Getreide sättigt schlecht, erst Mühle und Bäckerei machen daraus gutes Brot.
+Wer hungert, arbeitet langsamer und verhungert schließlich. Wer zu wenig Vitamine bekommt, arbeitet ebenfalls langsamer, wird krank und kann an Mangelernährung sterben. Sorge also für satt machende Speisen und für Obst. Im Fenster eines Siedlers siehst du seine Vitamine und was er zuletzt gegessen hat. Sammelplätze erschöpfen sich, wenn zu viele Siedler dort ernten; sie wachsen nur langsam nach.
 
 [b]Nachwuchs[/b]
 Kinder kommen nur zur Welt, wenn es freie Wohnplätze in Hütten gibt und genug Nahrung im Lager ist. In Holzhäusern kommen 40 % öfter Kinder zur Welt, in Steinhäusern 80 %. Kinder werden nach 3 Tagen erwachsen, mit einer Schule (Forschung Unterricht) doppelt so schnell. Niemand lebt ewig, also sorge rechtzeitig für Nachwuchs.
@@ -1216,11 +1217,25 @@ func _info_settler(s: Settler) -> void:
 	act.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_info_box.add_child(act)
 	var hb := _bar_row("Sättigung", s.hunger, Color("#e0a040"))
+	var vb := _bar_row("Vitamine", s.vitamins, Color("#7ac050"))
 	var gb := _bar_row("Gesundheit", s.health, UiTheme.GOOD)
+	var ml := UiTheme.label("", 12, Color("#6a4a30"))
+	ml.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_info_box.add_child(ml)
+	var meals_text := func() -> String:
+		if s.meals.is_empty():
+			return "Zuletzt gegessen: noch nichts"
+		var names: Array = []
+		for i in range(s.meals.size() - 1, maxi(-1, s.meals.size() - 6), -1):
+			names.append(Data.resources[s.meals[i]].name)
+		return "Zuletzt gegessen: " + ", ".join(names)
+	ml.text = meals_text.call()
 	_updaters.append(func():
 		act.text = s.activity
 		hb.value = s.hunger
-		gb.value = s.health)
+		vb.value = s.vitamins
+		gb.value = s.health
+		ml.text = meals_text.call())
 	var home = world.building_by_id(s.home_id)
 	_info_box.add_child(UiTheme.label("Zuhause: %s" % (home.def.name if home else "keins (schläft draußen)"), 13))
 	_info_box.add_child(UiTheme.label("Fähigkeiten", 15, UiTheme.TEXT, true))

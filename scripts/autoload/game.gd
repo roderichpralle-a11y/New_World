@@ -30,6 +30,7 @@ var lineage: Dictionary = {}  # Siedler-ID -> [Eltern-IDs], auch fuer Verstorben
 var research: Dictionary = {"current": "", "progress": {}, "done": [], "paid": []}
 ## Einfuehrung und Ziele: Schritt der Einfuehrung (tut), Index des Ziels (ms)
 var goals: Dictionary = {"tut": 0, "ms": 0}
+var eaten: Dictionary = {}  # gegessene Speisen seit Spielbeginn (fuer Statistik und Tests)
 var effects: Dictionary = {}  # Summe aller Forschungs-Effekte, z. B. {"build": 0.2}
 
 var _birth_timer: float = 0.0
@@ -192,15 +193,29 @@ func can_afford(cost: Dictionary) -> bool:
 
 ## Nimmt eine Mahlzeit: liefert Naehrwert (0 wenn nichts da).
 func eat_one() -> float:
-	# Abwechslung: nimm die Sorte, von der am meisten da ist
+	var id := eat_food(false)
+	return Data.food_satiety(id) if id != "" else 0.0
+
+
+## Nimmt eine Speise aus dem Lager und liefert ihre ID ("" wenn nichts da ist).
+## Mit prefer_vitamins wird die vitaminreichste Speise gewaehlt, sonst die saettigendste.
+## Bei Gleichstand nimmt der Siedler die Sorte, von der am meisten da ist.
+func eat_food(prefer_vitamins: bool) -> String:
 	var best := ""
+	var best_v := -INF
 	for id in Data.food_ids():
-		if amount(id) > 0 and (best == "" or amount(id) > amount(best)):
+		var n := amount(id)
+		if n <= 0:
+			continue
+		var v := Data.food_vitamins(id) if prefer_vitamins else Data.food_satiety(id)
+		v += n * 0.001
+		if v > best_v:
+			best_v = v
 			best = id
-	if best == "":
-		return 0.0
-	take_stock(best, 1)
-	return float(Data.resources[best].get("nutrition", 20))
+	if best != "":
+		take_stock(best, 1)
+		eaten[best] = int(eaten.get(best, 0)) + 1
+	return best
 
 
 ## Anzahl der Nahrungssorten, die gerade im Lager sind.

@@ -18,6 +18,13 @@ var sex: String = "m"
 var age: float = 18.0
 var max_age: float = 40.0
 var hunger: float = 90.0
+## Vitamine 0-100: sinken jeden Tag, Obst und Beeren fuellen sie auf. Unter
+## vitamin_low werden Siedler schwach und krank (siehe _needs).
+var vitamins: float = 80.0
+## Die letzten Mahlzeiten (Ressourcen-IDs, neueste zuletzt, hoechstens MEALS_KEPT).
+var meals: Array = []
+var _deficient := false  # schon gewarnt, dass Vitamine fehlen
+const MEALS_KEPT := 12
 var health: float = 100.0
 var skills: Dictionary = {}
 var skill_xp: Dictionary = {}
@@ -78,6 +85,8 @@ func setup(p_world, data: Dictionary) -> void:
 	age = float(data.get("age", 18.0))
 	max_age = float(data.get("max_age", _rng.randf_range(Data.bal("old_age_min"), Data.bal("old_age_max"))))
 	hunger = float(data.get("hunger", 90.0))
+	vitamins = float(data.get("vitamins", 80.0))
+	meals = Array(data.get("meals", []))
 	health = float(data.get("health", 100.0))
 	skills = data.get("skills", {})
 	for sk in Data.skills:
@@ -235,8 +244,18 @@ func _needs(days: float) -> void:
 	if sleeping:
 		f *= 0.6
 	hunger = max(0.0, hunger - float(Data.bal("hunger_per_day")) * Game.eff("hunger") * days * f)
+	vitamins = max(0.0, vitamins - float(Data.bal("vitamins_per_day", 0.0)) * days * f)
+	var low := float(Data.bal("vitamin_low", 25.0))
+	if vitamins < low and not _deficient:
+		_deficient = true
+		Game.notify_at(world, "%s fehlen Vitamine! Sammelt Beeren, Pilze, Kokosnüsse oder Äpfel." % display_name, "beeren")
+	elif vitamins > low + 15.0:
+		_deficient = false
 	if hunger <= 0.0:
 		health -= float(Data.bal("starve_damage_per_day")) * days
+	elif vitamins < low:
+		# Mangelernaehrung: je weniger Vitamine, desto schneller wird man krank
+		health -= float(Data.bal("deficiency_damage_per_day", 0.0)) * (1.0 - vitamins / low) * days
 	elif hunger > 30.0:
 		health = min(100.0, health + float(Data.bal("heal_per_day")) * Game.eff("heal") * days)
 	var was_adult := is_adult()
@@ -252,7 +271,7 @@ func _needs(days: float) -> void:
 		abort_plan()
 	_update_scale()
 	if health <= 0.0:
-		world.kill_settler(self, "verhungert")
+		world.kill_settler(self, "verhungert" if hunger <= 0.0 else "an Mangelernährung gestorben")
 	elif age >= max_age + Game.eff_add("life"):
 		world.kill_settler(self, "im hohen Alter von %d Jahren gestorben" % int(age))
 
@@ -335,9 +354,20 @@ func carry_capacity() -> int:
 
 ## Arbeitstempo fuer eine Faehigkeit inklusive Forschungsboni.
 func work_factor(sk: String, bonus: String = "") -> float:
-	var f := skill_factor(sk) * Game.eff("work")
+	var f := skill_factor(sk) * Game.eff("work") * condition_factor()
 	if bonus != "":
 		f *= Game.eff(bonus)
+	return f
+
+
+## Wie gut genaehrt der Siedler ist, wirkt auf das Arbeitstempo (1.0 = normal).
+## Hunger und Vitaminmangel machen langsamer, eine gute Mahlzeit nicht schneller.
+func condition_factor() -> float:
+	var f := 1.0
+	if hunger < 25.0:
+		f *= float(Data.bal("hungry_work_factor", 0.8))
+	if vitamins < float(Data.bal("vitamin_low", 25.0)):
+		f *= float(Data.bal("deficiency_work_factor", 0.85))
 	return f
 
 
@@ -386,11 +416,16 @@ func _plan_eat() -> bool:
 
 func _do_eat() -> void:
 	var eaten := 0
-	while hunger < float(Data.bal("eat_until")):
-		var n := Game.eat_one()
-		if n <= 0.0:
+	while hunger < float(Data.bal("eat_until")) and eaten < 8:
+		# Fehlen Vitamine, greift der Siedler zu Obst und Beeren, sonst zum Saettigendsten
+		var id := Game.eat_food(vitamins < float(Data.bal("vitamin_target", 70.0)))
+		if id == "":
 			break
-		hunger = min(100.0, hunger + n)
+		hunger = min(100.0, hunger + Data.food_satiety(id))
+		vitamins = min(100.0, vitamins + Data.food_vitamins(id))
+		meals.append(id)
+		if meals.size() > MEALS_KEPT:
+			meals.pop_front()
 		eaten += 1
 	if eaten > 0:
 		world.float_text(position + Vector2(0, -26), "Mahlzeit", "nahrung")
@@ -1047,6 +1082,7 @@ func serialize() -> Dictionary:
 	return {
 		"id": id, "name": display_name, "sex": sex, "age": snappedf(age, 0.001), "max_age": max_age,
 		"hunger": snappedf(hunger, 0.01), "health": snappedf(health, 0.01), "skills": skills,
+		"vitamins": snappedf(vitamins, 0.01), "meals": meals,
 		"skill_xp": skill_xp, "job": job, "home": home_id, "look": look,
 		"carry_res": carry_res, "carry_n": carry_n, "birth_cd": birth_cooldown_until,
 		"parents": parents, "x": cell.x, "y": cell.y,

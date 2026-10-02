@@ -98,6 +98,23 @@ func _maybe_autotest() -> void:
 		_autotest_prod()
 	if args.has("research"):
 		world.settlers[0].set_job("forscher")
+	if args.has("jobs"):
+		# Ertragsmessung: Berufe fest vergeben, Knotenzahl ausgeben
+		var js: PackedStringArray = args.jobs.split(",")
+		for i in js.size():
+			if i >= world.settlers.size():
+				var c: Vector2i = world.settlers[0].cell
+				world.spawn_settler({"name": "Test%d" % i, "sex": "f" if i % 2 else "m", "age": 20.0, "max_age": 60.0, "skills": {}, "x": c.x, "y": c.y})
+			world.settlers[i].set_job(js[i])
+		if args.has("nofruit"):
+			for n in world.nodes.duplicate():
+				if n.type in ["busch", "palme", "pilzkreis"]:
+					world.remove_node(n)
+			Game.stock.erase("beeren")
+		var counts := {}
+		for n in world.nodes:
+			counts[n.type] = counts.get(n.type, 0) + 1
+		print("Knoten: ", counts)
 	if args.has("crowd"):
 		# Testhilfe: viele Siedler fuer die Siedlerliste
 		var names := ["Anna", "Ben", "Clara", "Dirk", "Emma", "Finn", "Greta", "Hugo", "Ida", "Karl", "Mia", "Ole", "Paula", "Rudi", "Sina", "Tom"]
@@ -153,7 +170,8 @@ func _maybe_autotest() -> void:
 					var w = Sea.worlds.get(int(m.id))
 					isl.append("%s[%s]:%s pop=%d tiere=%d" % [m.name, m.biome, m.state, w.settlers.size() if w else 0, w.animals.size() if w else 0])
 				print("   Inseln: ", ", ".join(isl), " | See: ", Sea.voyages.size(), " Boote: ", Game.amount("boot"), " Fleisch: ", Game.amount("fleisch"), " Felle: ", Game.amount("felle"))
-			var jobs := world.settlers.map(func(s): return "%s:%s:%s:%d" % [s.display_name, s.job, s.activity, int(s.hunger)])
+			var jobs := world.settlers.map(func(s): return "%s:%s:%s:%d/v%d/h%d" % [s.display_name, s.job, s.activity, int(s.hunger), int(s.vitamins), int(s.health)])
+			print("   gegessen: ", Game.eaten)
 			print("t=%d Tag %d %s pop=%d/%d holz=%d stein=%d food=%d | %s" % [elapsed, Game.day(), Game.clock_text(),
 				Game.population(), Game.housing_capacity(), Game.amount("holz"), Game.amount("stein"), Game.total_food(), jobs])
 		if Game.is_over:
