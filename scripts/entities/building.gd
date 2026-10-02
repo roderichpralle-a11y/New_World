@@ -232,11 +232,11 @@ func prod_blocker() -> String:
 	if paused:
 		return "angehalten"
 	for res in p.get("inputs", {}):
-		if Game.amount(res) < int(p.inputs[res]):
+		if Game.amount(res, world) < int(p.inputs[res]):
 			return "Es fehlt %s" % Data.resource_name(res)
 	var any_space := false
 	for res in p.get("outputs", {}):
-		if Game.space_for(res) > 0:
+		if Game.space_for(res, world) > 0:
 			any_space = true
 	if not any_space:
 		return "Das Lager ist voll"
@@ -249,7 +249,7 @@ func take_inputs() -> bool:
 		return false
 	var p := prod_def()
 	for res in p.get("inputs", {}):
-		Game.take_stock(res, int(p.inputs[res]))
+		Game.take_stock(res, int(p.inputs[res]), world)
 	return true
 
 

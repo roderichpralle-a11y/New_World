@@ -24,6 +24,8 @@ var graves: Array = []  # [Sprite2D, bis_tag]
 var animals: Array = []  # wilde Tiere (Animal)
 var decor: Array = []  # Boote am Strand: [Sprite2D, bis_tag]
 var center: Vector2i
+var stock: Dictionary = {}  # Lager dieser Insel (Ware -> Menge), siehe Game.amount
+var had_stock: bool = false  # Spielstand hatte ein eigenes Inselllager (ab Version 3)
 
 var ground: Node2D  # Felder unter allem
 var entities: Node2D  # y-sortiert
@@ -52,6 +54,9 @@ func _ready() -> void:
 # ================================================================== Aufbau
 func build_new(seed_value: int) -> void:
 	size = int(Data.bal("map_size", 64))
+	stock = {}
+	for id in Data.bal("start_stock", {}):
+		stock[id] = int(Data.bal("start_stock")[id])
 	var island := IslandGen.generate(seed_value, size)
 	_build_terrain(island)
 	for n in island.nodes:
@@ -104,6 +109,11 @@ func build_from_save(w: Dictionary, m: Dictionary) -> void:
 	size = int(m.get("size", Data.bal("map_size", 64)))
 	var island := IslandGen.generate(int(m.seed), size, _gen_opts(m) if biome != "heimat" else {})
 	_build_terrain(island)
+	stock = {}
+	had_stock = w.has("stock")
+	for id in w.get("stock", {}):
+		if Data.resources.has(id):
+			stock[id] = int(w.stock[id])
 	for n in w.nodes:
 		var node := spawn_node(n[0], Vector2i(int(n[1]), int(n[2])), int(n[5]))
 		node.amount = int(n[3])
@@ -477,7 +487,7 @@ func demolish(b: Building) -> void:
 	spawn_effect("dust", b.position)
 	b.queue_free()
 	for res in refund:
-		Game.add_stock(res, refund[res])
+		Game.add_stock(res, refund[res], self)
 	assign_homes()
 	if b.def.has("effects"):
 		Game.refresh_effects()
@@ -526,7 +536,7 @@ func find_workshop(kind: String, from: Vector2i, sid: int):
 			continue
 		var scarce := INF
 		for res in b.prod_def().get("outputs", {}):
-			scarce = min(scarce, float(Game.amount(res)))
+			scarce = min(scarce, float(Game.amount(res, self)))
 		var score := scarce * 4.0 + Vector2(b.cell - from).length()
 		if score < best_score:
 			best_score = score
@@ -1058,7 +1068,7 @@ func confirm_placement() -> bool:
 	Sound.play("platzieren")
 	Game.player_action.emit("place", b.type)
 	spawn_effect("dust", b.position)
-	if not Game.can_afford(b.def.cost):
+	if not Game.can_afford(b.def.cost, self):
 		Game.notify("Baustelle angelegt. Es fehlt noch Material.", "hammer")
 	var has_builder := settlers.any(func(s): return s.is_adult() and (s.job == "baumeister" or s.job == "frei"))
 	if not has_builder:
@@ -1118,6 +1128,7 @@ func pick_at(p: Vector2, radius: float = 12.0):
 # ================================================================== Speichern
 func serialize() -> Dictionary:
 	return {
+		"stock": stock,
 		"nodes": nodes.map(func(n): return n.serialize()),
 		"buildings": buildings.map(func(b): return b.serialize()),
 		"settlers": settlers.map(func(s): return s.serialize()),
@@ -1235,7 +1246,7 @@ func on_animal_killed(a: Animal, by) -> void:
 		n.amount = meat
 		n.regrow_at = Game.time_days + float(n.def.get("decay_days", 2.0))
 		n.refresh()
-	var f := Game.add_stock("felle", int(a.def.get("felle", 1)))
+	var f := Game.add_stock("felle", int(a.def.get("felle", 1)), self)
 	if f > 0:
 		float_text(a.position + Vector2(0, -20), "+%d" % f, "felle")
 	spawn_effect("blood", a.position + Vector2(0, -6))

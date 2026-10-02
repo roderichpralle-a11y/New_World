@@ -270,7 +270,7 @@ func _think() -> void:
 		if _plan_deliver():
 			return
 	# 2. Essen
-	if hunger < float(Data.bal("eat_below")) and Game.total_food() > 0:
+	if hunger < float(Data.bal("eat_below")) and Game.total_food(world) > 0:
 		if _plan_eat():
 			return
 	# 3. Schlafen
@@ -364,7 +364,7 @@ func _plan_deliver() -> bool:
 func _do_deliver() -> void:
 	if carry_n <= 0:
 		return
-	var added := Game.add_stock(carry_res, carry_n)
+	var added := Game.add_stock(carry_res, carry_n, world)
 	if added > 0:
 		world.float_text(position + Vector2(0, -26), "+%d" % added, carry_res)
 	if added < carry_n:
@@ -387,7 +387,7 @@ func _plan_eat() -> bool:
 func _do_eat() -> void:
 	var eaten := 0
 	while hunger < float(Data.bal("eat_until")):
-		var n := Game.eat_one()
+		var n := Game.eat_one(world)
 		if n <= 0.0:
 			break
 		hunger = min(100.0, hunger + n)
@@ -480,12 +480,12 @@ func _plan_free() -> bool:
 
 func _plan_free_gather() -> bool:
 	var pop: int = max(1, Game.population())
-	if Game.total_food() < pop * 10:
+	if Game.total_food(world) < pop * 10:
 		if _plan_farm() or _plan_gather(["beute", "busch", "palme", "pilzkreis", "fischgrund"]):
 			return true
 	# Was am knappsten ist (Holz wird doppelt gewichtet, weil es ueberall gebraucht wird)
-	var wood := Game.amount("holz") / 2.0
-	var stone := float(Game.amount("stein"))
+	var wood := Game.amount("holz", world) / 2.0
+	var stone := float(Game.amount("stein", world))
 	var order := ["baum", "fels"] if wood <= stone else ["fels", "baum"]
 	for t in order:
 		if _plan_gather([t]):
@@ -508,7 +508,7 @@ func _plan_gather(types: Array) -> bool:
 				return true
 			continue
 		var res: String = Data.nodes.get(t, {}).get("yield", "")
-		if res != "" and Game.space_for(res) <= 0:
+		if res != "" and Game.space_for(res, world) <= 0:
 			continue
 		var node = world.find_node_for(t, cell, id)
 		if node == null:
@@ -581,7 +581,7 @@ func _plan_farm() -> bool:
 		return false
 	var task: String = field.farm_task()
 	var fd: Dictionary = field.farm_def()
-	if task == "harvest" and Game.space_for(fd.yield) <= 0:
+	if task == "harvest" and Game.space_for(fd.yield, world) <= 0:
 		return false
 	var target: Vector2i = field.cells()[_rng.randi() % field.cells().size()]
 	if not _push_move_to([target], false):
@@ -628,7 +628,7 @@ func _plan_construction() -> bool:
 	for site in sites:
 		var need: Dictionary = site.remaining_cost()
 		for res in need:
-			var n: int = min(min(int(need[res]), Game.amount(res)), carry_capacity() + 2)
+			var n: int = min(min(int(need[res]), Game.amount(res, world)), carry_capacity() + 2)
 			if n <= 0:
 				continue
 			var st = world.nearest_storage(cell)
@@ -652,7 +652,7 @@ func _plan_construction() -> bool:
 func _do_pickup(site, res: String, n: int) -> void:
 	if carry_n > 0:
 		_do_deliver()
-	var got := Game.take_stock(res, n)
+	var got := Game.take_stock(res, n, world)
 	# Reservierung anpassen
 	for inc in _incoming:
 		if inc[0] == site and inc[1] == res:
@@ -731,7 +731,7 @@ func _do_produce(b) -> void:
 			first = false
 		else:
 			# Nebenprodukte gehen direkt ins Lager
-			Game.add_stock(res, n)
+			Game.add_stock(res, n, world)
 	world.spawn_effect("dust", b.position + Vector2(_rng.randf_range(-8, 8), -4))
 	Sound.play_at(String(b.def.get("sound", "hammer")), world, b.position)
 	_plan_deliver_after()

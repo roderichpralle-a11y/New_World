@@ -14,13 +14,13 @@ signal research_changed
 signal player_action(kind: String, what: String)
 
 const SAVE_PATH := "user://savegame.json"
-const SAVE_VERSION := 2
+const SAVE_VERSION := 3
 
 var world = null  # aktive (sichtbare) Insel, siehe Sea fuer alle Inseln
 var seed_value: int = 0
 var time_days: float = 0.25  # Start am Morgen von Tag 1
 var speed: int = 1
-var stock: Dictionary = {}
+var stock: Dictionary = {}  # nur noch fuer alte Spielstaende (gemeinsames Lager bis Version 2)
 var next_id: int = 1
 var stats: Dictionary = {"births": 0, "deaths": 0, "max_pop": 0}
 var selected = null
@@ -47,10 +47,6 @@ func reset_state(new_seed: int) -> void:
 	seed_value = new_seed
 	time_days = 0.25
 	stock = {}
-	for id in Data.resources:
-		stock[id] = 0
-	for id in Data.bal("start_stock", {}):
-		stock[id] = int(Data.bal("start_stock")[id])
 	next_id = 1
 	stats = {"births": 0, "deaths": 0, "max_pop": 0}
 	lineage = {}
@@ -121,11 +117,23 @@ func _process(delta: float) -> void:
 
 
 # ---------------------------------------------------------------- Vorraete
-## Alle Inseln teilen sich die Vorraete; Lagerplatz zaehlt von allen Inseln.
-func storage_capacity() -> int:
+## Jede Insel hat ihr eigenes Lager (World.stock). Waren kommen nur per Schiff auf
+## eine andere Insel. Ohne Angabe einer Insel gilt die aktive Insel (Game.world).
+func _isle(w):
+	return w if w != null and is_instance_valid(w) else world
+
+
+func stock_of(w = null) -> Dictionary:
+	var i = _isle(w)
+	return i.stock if i != null else {}
+
+
+## Lagerplatz einer Insel: zaehlt nur die Lager dieser Insel.
+func storage_capacity(w = null) -> int:
+	var i = _isle(w)
 	var cap := int(Data.bal("base_storage"))
-	for w in Sea.all_worlds():
-		for b in w.buildings:
+	if i:
+		for b in i.buildings:
 			if b.complete:
 				cap += int(b.def.get("storage", 0))
 	return int(cap * eff("storage"))
@@ -151,63 +159,78 @@ func population() -> int:
 	return n
 
 
-func total_food() -> int:
+func total_food(w = null) -> int:
+	var st := stock_of(w)
 	var n := 0
 	for id in Data.food_ids():
-		n += int(stock.get(id, 0))
+		n += int(st.get(id, 0))
 	return n
 
 
-func amount(id: String) -> int:
-	return int(stock.get(id, 0))
+func amount(id: String, w = null) -> int:
+	return int(stock_of(w).get(id, 0))
+
+
+## Menge einer Ware auf allen Inseln zusammen (fuer Ziele und Uebersichten).
+func amount_all(id: String) -> int:
+	var n := 0
+	for w in Sea.all_worlds():
+		n += int(w.stock.get(id, 0))
+	return n
 
 
 ## Fuegt Vorrat hinzu; gibt die tatsaechlich eingelagerte Menge zurueck.
-func add_stock(id: String, n: int) -> int:
-	var cap := storage_capacity()
-	var cur := amount(id)
+func add_stock(id: String, n: int, w = null) -> int:
+	var i = _isle(w)
+	if i == null:
+		return 0
+	var cap := storage_capacity(i)
+	var cur := amount(id, i)
 	var add: int = clamp(n, 0, max(0, cap - cur))
-	stock[id] = cur + add
+	i.stock[id] = cur + add
 	stock_changed.emit()
 	return add
 
 
-func space_for(id: String) -> int:
-	return max(0, storage_capacity() - amount(id))
+func space_for(id: String, w = null) -> int:
+	return max(0, storage_capacity(w) - amount(id, w))
 
 
-func take_stock(id: String, n: int) -> int:
-	var take: int = min(n, amount(id))
-	stock[id] = amount(id) - take
+func take_stock(id: String, n: int, w = null) -> int:
+	var i = _isle(w)
+	if i == null:
+		return 0
+	var take: int = min(n, amount(id, i))
+	i.stock[id] = amount(id, i) - take
 	stock_changed.emit()
 	return take
 
 
-func can_afford(cost: Dictionary) -> bool:
+func can_afford(cost: Dictionary, w = null) -> bool:
 	for id in cost:
-		if amount(id) < int(cost[id]):
+		if amount(id, w) < int(cost[id]):
 			return false
 	return true
 
 
 ## Nimmt eine Mahlzeit: liefert Naehrwert (0 wenn nichts da).
-func eat_one() -> float:
+func eat_one(w = null) -> float:
 	# Abwechslung: nimm die Sorte, von der am meisten da ist
 	var best := ""
 	for id in Data.food_ids():
-		if amount(id) > 0 and (best == "" or amount(id) > amount(best)):
+		if amount(id, w) > 0 and (best == "" or amount(id, w) > amount(best, w)):
 			best = id
 	if best == "":
 		return 0.0
-	take_stock(best, 1)
+	take_stock(best, 1, w)
 	return float(Data.resources[best].get("nutrition", 20))
 
 
 ## Anzahl der Nahrungssorten, die gerade im Lager sind.
-func food_variety() -> int:
+func food_variety(w = null) -> int:
 	var n := 0
 	for id in Data.food_ids():
-		if amount(id) > 0:
+		if amount(id, w) > 0:
 			n += 1
 	return n
 
@@ -472,7 +495,6 @@ func save_game() -> void:
 		"version": SAVE_VERSION,
 		"seed": seed_value,
 		"time_days": time_days,
-		"stock": stock,
 		"next_id": next_id,
 		"stats": stats,
 		"lineage": lineage,
@@ -494,7 +516,7 @@ func load_save() -> Dictionary:
 		return {}
 	var d = JSON.parse_string(f.get_as_text())
 	# Version 1 (eine Insel) wird beim Laden in das neue Format uebernommen
-	if not (d is Dictionary) or not int(d.get("version", 0)) in [1, SAVE_VERSION]:
+	if not (d is Dictionary) or not int(d.get("version", 0)) in [1, 2, SAVE_VERSION]:
 		return {}
 	return d
 
@@ -502,9 +524,10 @@ func load_save() -> Dictionary:
 func apply_save_header(d: Dictionary) -> void:
 	seed_value = int(d.seed)
 	time_days = float(d.time_days)
+	# Bis Version 2 gab es ein gemeinsames Lager; Sea.build_from_save gibt es der Heimatinsel
 	stock = {}
-	for id in Data.resources:
-		stock[id] = int(d.stock.get(id, 0))
+	for id in d.get("stock", {}):
+		stock[id] = int(d.stock[id])
 	next_id = int(d.next_id)
 	stats = d.get("stats", stats)
 	lineage = {}
