@@ -97,8 +97,12 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
 
 - **Mehrere Inseln**: Autoload `Sea` hält alle Inseln (`Sea.islands`, Meta-Daten) und für jede
   besiedelte Insel eine eigene `World` (`Sea.worlds`). Nur die aktive Insel `Game.world` ist
-  sichtbar, die anderen laufen unsichtbar weiter. **Alle Inseln teilen sich die Vorräte**
-  (`Game.stock`, Lagerplatz = alle Lager aller Inseln). Wohnplätze, Nachwuchs und
+  sichtbar, die anderen laufen unsichtbar weiter. **Jede Insel hat ihr eigenes Lager**
+  (`World.stock`; Lagerplatz zählt nur die Lager dieser Insel). Alle Lager-Funktionen in `Game`
+  (`amount`, `add_stock`, `take_stock`, `space_for`, `can_afford`, `storage_capacity`,
+  `total_food`, `eat_one`, `food_variety`) nehmen als letzten Parameter die Insel; ohne Angabe gilt
+  die aktive Insel. Siedler und Gebäude geben immer ihre eigene `world` mit. Forschungskosten
+  zahlt die aktive Insel, Ziele zählen `Game.amount_all` über alle Inseln. Wohnplätze, Nachwuchs und
   Schiffbrüchige zählen je Insel. Meldungen von anderen Inseln tragen den Inselnamen
   (`Game.notify_at`).
 - **Werft** (`coast: true`, muss bis 2 Felder ans Wasser): Handwerker bauen Boote (Ware `boot`).
@@ -253,11 +257,12 @@ Test: `--season=<0..3>` startet in einer Jahreszeit, Bericht zeigt Jahreszeit un
 - **islands.json**: Inselarten, siehe Etappe 3. **animals.json**: `hp`, `damage`, `speed`,
   `aggro`, `night_aggro`, `attack_time`, `meat`, `felle`, `leash`, `row` (Zeile in animals.png).
 - **balance.json**: alle Zahlen für Zeit, Hunger, Nachwuchs, Lager, Karte.
-- **Spielstand** (Version 2): `{version, seed, time_days, stock, next_id, stats, lineage, research,
+- **Spielstand** (Version 3): `{version, seed, time_days, next_id, stats, lineage, research,
   islands: [{id, name, biome, seed, size, pos, state, found_day, dens, world?}], active, voyages}`
-  mit `world: {nodes: [[type,x,y,amount,regrow_at,variant]], buildings: [...], settlers: [...],
+  mit `world: {stock, nodes: [[type,x,y,amount,regrow_at,variant]], buildings: [...], settlers: [...],
   graves, animals: [[type,x,y,hp,home_x,home_y]]}`. Version 1 (nur `world`) wird beim Laden als
-  Heimatinsel übernommen. Das Gelände wird aus dem Seed neu erzeugt, nur Rohstoffe, Gebäude,
+  Heimatinsel übernommen. Version 1 und 2 hatten ein gemeinsames `stock`: das bekommt beim Laden
+  die Heimatinsel. Das Gelände wird aus dem Seed neu erzeugt, nur Rohstoffe, Gebäude,
   Siedler und Tiere werden gespeichert.
 
 ## Erweitern (spätere Etappen)

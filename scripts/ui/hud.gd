@@ -1405,7 +1405,7 @@ func _info_building(b: Building) -> void:
 			_updaters.append(upd)
 		if b.def.get("storage", 0) > 0:
 			_info_box.add_child(UiTheme.label("Stauraum dieses Lagers: %d" % Game.building_volume(b.def), 14))
-			var tot := UiTheme.label("Alle Lager zusammen: %d von %d belegt" % [Game.used_volume(), Game.storage_volume()], 13)
+			var tot := UiTheme.label("Alle Lager dieser Insel: %d von %d belegt" % [Game.used_volume(), Game.storage_volume()], 13)
 			tot.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			_info_box.add_child(tot)
 			var sb := UiTheme.button("Lager einstellen", "kiste", 36)
