@@ -113,7 +113,8 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
   Meeresrauschen mit Vögeln (Tag) oder Grillen (Nacht). Effekte über `Sound.play(name)`,
   `Sound.play_on(name, world)` (nur sichtbare Insel) und `Sound.play_at(name, world, pos)`
   (nur im Bild, leiser am Rand). Jeder Knopf klickt (Meta `silent` schaltet das ab).
-  Busse `Musik` und `Effekte`, Lautstärken im Menü, gespeichert in `user://settings.cfg`.
+  Busse `Musik` und `Effekte` stehen in `default_bus_layout.tres` (im Browser nötig: zur Laufzeit
+  angelegte Busse bleiben dort stumm), Lautstärken im Menü, gespeichert in `user://settings.cfg`.
   Alle Klänge erzeugt `tools/gen_audio.py` (Ausgabe `assets/audio/`). Gebäude können mit
   `sound` einen eigenen Werkstatt-Klang haben, Tiere mit `sound` ihren Ruf.
 - **Einführung und Ziele** (`data/goals.json`, `scripts/ui/goal_card.gd`): sieben Schritte mit
@@ -121,6 +122,8 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
   Geburten). Zustand `Game.goals {tut, ms}` im Spielstand; ältere Spielstände überspringen die
   Einführung und holen erreichte Ziele still nach. `Game.player_action(kind, what)` meldet
   Spieleraktionen. Statistik `kills` zählt erlegte Tiere.
+- **Bauen**: mit der Maus baut ein Klick sofort (Rechtsklick oder Esc bricht ab), am Handy tippt man
+  den Platz an und bestätigt mit „Hier bauen“.
 - **Handy**: Karte gleitet nach dem Wischen nach, zwei Finger zoomen und schieben, größerer
   Fangradius beim Tippen, schmale Leiste mit Symbol über Text, gewählte Objekte rücken über das
   Infofenster, Vollbild-Knopf im Menü.

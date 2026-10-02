@@ -3,8 +3,9 @@ extends Camera2D
 ## Kamera mit Ziehen (Maus/Finger), Mausrad- und Zwei-Finger-Zoom.
 ## Ein kurzer Klick/Tipp ohne Bewegung meldet `tapped`.
 
-signal tapped(world_pos: Vector2)
+signal tapped(world_pos: Vector2, touch: bool)
 signal hovered(world_pos: Vector2)
+signal right_tapped
 
 const ZOOM_MIN := 1.0
 const ZOOM_MAX := 6.0
@@ -63,8 +64,12 @@ func _unhandled_input(event: InputEvent) -> void:
 				_press_pos = mb.position
 				_vel = Vector2.ZERO
 			else:
+				# Mausereignisse aus Fingertipps tragen die Emulations-Geraete-ID
+				var touch := mb.device == InputEvent.DEVICE_ID_EMULATION
 				if _dragging and not _moved and not _multi and mb.button_index == MOUSE_BUTTON_LEFT:
-					tapped.emit(screen_to_world(mb.position))
+					tapped.emit(screen_to_world(mb.position), touch)
+				elif _dragging and not _moved and mb.button_index == MOUSE_BUTTON_RIGHT:
+					right_tapped.emit()
 				# Kein Schwung, wenn der Finger vor dem Loslassen stillstand
 				if Time.get_ticks_usec() - _last_move_us > 80000:
 					_vel = Vector2.ZERO
@@ -85,7 +90,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				var dt: float = clamp((now - _last_move_us) / 1000000.0, 0.004, 0.1)
 				_last_move_us = now
 				_vel = _vel.lerp(-mm.relative / zoom.x / dt, 0.4)
-		elif not _dragging:
+		elif not _dragging and mm.device != InputEvent.DEVICE_ID_EMULATION:
 			hovered.emit(screen_to_world(mm.position))
 	elif event is InputEventMagnifyGesture:
 		_zoom_at(zoom.x * event.factor, event.position)

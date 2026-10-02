@@ -81,8 +81,10 @@ func _make_bus(name: String) -> int:
 	var idx := AudioServer.get_bus_index(name)
 	if idx >= 0:
 		return idx
-	AudioServer.add_bus()
-	idx = AudioServer.bus_count - 1
+	# Position ausdruecklich angeben: add_bus() ohne Position ordnet im Browser die Busse
+	# falsch an (Godot 4.7, Web-Samples), dann landet kein Ton mehr beim Lautsprecher.
+	idx = AudioServer.bus_count
+	AudioServer.add_bus(idx)
 	AudioServer.set_bus_name(idx, name)
 	AudioServer.set_bus_send(idx, "Master")
 	return idx

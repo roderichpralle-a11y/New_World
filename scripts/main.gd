@@ -28,6 +28,9 @@ func _ready() -> void:
 	hud.continue_requested.connect(_on_continue)
 	camera.tapped.connect(_on_tap)
 	camera.hovered.connect(_on_hover)
+	camera.right_tapped.connect(func():
+		if world.is_placing():
+			world.cancel_placement())
 	_focus_start()
 	Game.set_speed(0)
 	hud.show_title(not save.is_empty())
@@ -350,11 +353,14 @@ func _on_continue() -> void:
 	Game.notify("Willkommen zurück! Tag %d." % Game.day(), "sonne")
 
 
-func _on_tap(p: Vector2) -> void:
+func _on_tap(p: Vector2, touch: bool = false) -> void:
 	if hud.has_overlay():
 		return
 	if world.is_placing():
 		world.move_placement(p)
+		# Mit der Maus baut ein Klick sofort, am Handy erst der Knopf "Hier bauen"
+		if not touch:
+			world.confirm_placement()
 		return
 	# Finger sind dicker als Mauszeiger: groesserer Fangradius auf Touchgeraeten
 	var radius := 12.0
@@ -364,5 +370,10 @@ func _on_tap(p: Vector2) -> void:
 
 
 func _on_hover(p: Vector2) -> void:
-	if world.is_placing() and not DisplayServer.is_touchscreen_available():
+	if world.is_placing():
 		world.move_placement(p)
+
+
+func _unhandled_key_input(event: InputEvent) -> void:
+	if event.is_pressed() and event is InputEventKey and event.keycode == KEY_ESCAPE and world and world.is_placing():
+		world.cancel_placement()

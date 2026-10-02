@@ -623,7 +623,7 @@ func _build_place_bar() -> void:
 	root.add_child(_place_bar)
 	var h := HBoxContainer.new()
 	_place_bar.add_child(h)
-	_place_label = UiTheme.label("Tippe auf die Karte, um den Bauplatz zu wählen.", 14)
+	_place_label = UiTheme.label("Klicke auf einen freien Platz.", 14)
 	_place_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_place_label.custom_minimum_size.x = 220
 	_place_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -641,7 +641,7 @@ func _on_placement(active: bool, type: String, valid: bool) -> void:
 	_bottom.get_parent().visible = not active
 	if active:
 		_place_ok.disabled = not valid
-		_place_label.text = "%s: Tippe auf die Karte, um den Bauplatz zu wählen.%s" % [
+		_place_label.text = "%s: Klicke auf einen freien Platz. Am Handy tippen, dann Hier bauen.%s" % [
 			Data.buildings[type].name, " Der Platz passt." if valid else ("\nMuss am Ufer stehen und Platz haben." if Data.buildings[type].get("coast", false) else "\nHier ist kein Platz frei.")]
 	_layout()
 
