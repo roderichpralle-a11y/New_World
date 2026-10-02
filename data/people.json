@@ -12,7 +12,7 @@
   "talent_max": 1.8,
   "talent_noise": 0.35,
 
-  "vit_per_day": 45.0,
+  "vit_per_day": 25.0,
   "vit_start": 70.0,
   "vit_low": 30.0,
   "vit_scurvy": 12.0,
@@ -35,7 +35,7 @@
     "erkaeltung": {"name": "Erkältung", "weight": 5, "days": 0.7, "damage": 14, "work": 0.75, "bed": false, "contagious": true},
     "fieber": {"name": "Fieber", "weight": 2, "days": 1.0, "damage": 55, "work": 0.0, "bed": true, "contagious": true, "deadly": "am Fieber gestorben"},
     "ruhr": {"name": "Ruhr", "weight": 2, "days": 0.8, "damage": 45, "work": 0.0, "bed": true, "contagious": true, "deadly": "an der Ruhr gestorben"},
-    "skorbut": {"name": "Skorbut", "weight": 0, "days": 99, "damage": 22, "work": 0.6, "bed": false, "contagious": false, "deadly": "an Skorbut gestorben", "until_vit": 45}
+    "skorbut": {"name": "Skorbut", "weight": 0, "days": 99, "damage": 9, "work": 0.6, "bed": false, "contagious": false, "deadly": "an Skorbut gestorben", "until_vit": 45}
   },
   "rest_heal_bonus": 1.6,
   "school_xp_per_day": 120.0,

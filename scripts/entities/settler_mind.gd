@@ -246,7 +246,7 @@ func break_length() -> float:
 func _maybe_get_sick(days: float) -> void:
 	if sick != "":
 		return
-	if vit_low_days > 1.0:
+	if vit_low_days > 1.5:
 		_fall_ill("skorbut")
 		return
 	var risk := float(Data.ppl("sick_base_per_day", 0.07)) * lerpf(0.4, 1.8, frailty())
@@ -296,7 +296,8 @@ func _fall_ill(k: String) -> void:
 	s.abort_plan()
 	# Leichte Krankheiten nur in Liste und Infofenster, schwere als Meldung
 	if ill.get("bed", false) or ill.has("deadly"):
-		Game.notify_at(s.world, "%s ist krank: %s." % [s.display_name, ill.name], "herz")
+		var hint := " Es fehlen Vitamine: Beeren, Äpfel oder Kokosnüsse helfen." if k == "skorbut" else ""
+		Game.notify_at(s.world, "%s ist krank: %s.%s" % [s.display_name, ill.name, hint], "herz")
 
 
 func _recover() -> void:
