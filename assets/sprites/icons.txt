@@ -36,3 +36,14 @@ pflug
 schiff
 schwert
 kiste
+fleisch
+felle
+kokos
+pilze
+gold
+boot
+kompass
+schild
+wolf
+eber
+baer

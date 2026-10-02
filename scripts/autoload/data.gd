@@ -11,6 +11,8 @@ var balance: Dictionary = {}
 var names: Dictionary = {}
 var techs: Dictionary = {}
 var tiers: Array = []
+var islands: Dictionary = {}  # Inselarten (Biome)
+var animals: Dictionary = {}
 
 var tex_terrain: Texture2D = preload("res://assets/sprites/terrain.png")
 var tex_objects: Texture2D = preload("res://assets/sprites/objects.png")
@@ -18,6 +20,8 @@ var tex_buildings: Texture2D = preload("res://assets/sprites/buildings.png")
 var tex_icons: Texture2D = preload("res://assets/sprites/icons.png")
 var tex_tools: Texture2D = preload("res://assets/sprites/tools.png")
 var tex_ui: Texture2D = preload("res://assets/sprites/ui.png")
+var tex_objects2: Texture2D = preload("res://assets/sprites/objects2.png")
+var tex_animals: Texture2D = preload("res://assets/sprites/animals.png")
 var font_regular: Font = preload("res://assets/fonts/pixelify-sans-latin-400-normal.woff2")
 var font_bold: Font = preload("res://assets/fonts/pixelify-sans-latin-700-normal.woff2")
 
@@ -42,10 +46,22 @@ const BUILDING_CELLS := {
 	"bakery": [7, 1], "smokehouse": [8, 1], "henhouse": [9, 1], "sawpit": [10, 1],
 	"claypit": [11, 1], "brickworks": [12, 1], "quarry": [13, 1], "charcoal": [14, 1],
 	"mine": [15, 1], "smelter": [16, 1], "smithy": [17, 1], "scriptorium": [18, 1],
-	"library": [19, 1],
+	"library": [19, 1], "shipyard": [20, 1], "tower": [21, 1], "lighthouse": [22, 2], "monument": [24, 1],
 }
+## Etappe 3 in objects2.png: name -> [x, y, w, h, frames]
+const OBJECT2_REGIONS := {
+	"palm0": [0, 0, 32, 48, 1], "palm1": [32, 0, 32, 48, 1], "palm_empty": [64, 0, 32, 48, 1],
+	"cave": [96, 0, 32, 48, 1],
+	"mushrooms": [0, 48, 16, 16, 1], "ore_rock": [16, 48, 16, 16, 1], "gold_rock": [32, 48, 16, 16, 1],
+	"den": [48, 48, 16, 16, 1], "wallow": [64, 48, 16, 16, 1], "carcass": [80, 48, 16, 16, 1],
+	"arrow": [96, 48, 16, 16, 1],
+	"boat": [0, 64, 32, 32, 2],
+}
+## Tiere in animals.png: Zellen 24x24, je Tier eine Zeile (Zeile aus animals.json),
+## Spalten 0-3 Laufen, 4 Angriff.
+const ANIMAL_CELL := 24
 const TOOL_INDEX := {"axe": 0, "pick": 1, "basket": 2, "rod": 3, "hammer": 4, "sickle": 5,
-	"spoon": 6, "book": 7, "shovel": 8}
+	"spoon": 6, "book": 7, "shovel": 8, "spear": 9}
 
 var _icon_index: Dictionary = {}
 var _cache: Dictionary = {}
@@ -62,6 +78,8 @@ func _ready() -> void:
 	techs = _load("techs")
 	tiers = techs.get("_tiers", [])
 	techs.erase("_tiers")
+	islands = _load("islands")
+	animals = _load("animals")
 	var f := FileAccess.open("res://assets/sprites/icons.txt", FileAccess.READ)
 	if f:
 		var i := 0
@@ -95,6 +113,10 @@ func object_tex(name: String, frame: int = 0) -> AtlasTexture:
 		var i: int = BUILDING_CELLS[name][0] + frame
 		at.atlas = tex_buildings
 		at.region = Rect2((i % 8) * 64, (i / 8) * 64, 64, 64)
+	elif OBJECT2_REGIONS.has(name):
+		var r2: Array = OBJECT2_REGIONS[name]
+		at.atlas = tex_objects2
+		at.region = Rect2(r2[0] + r2[2] * frame, r2[1], r2[2], r2[3])
 	else:
 		var r: Array = OBJECT_REGIONS.get(name, [0, 0, 16, 16, 1])
 		at.atlas = tex_objects
@@ -106,6 +128,8 @@ func object_tex(name: String, frame: int = 0) -> AtlasTexture:
 func object_frames(name: String) -> int:
 	if BUILDING_CELLS.has(name):
 		return BUILDING_CELLS[name][1]
+	if OBJECT2_REGIONS.has(name):
+		return OBJECT2_REGIONS[name][4]
 	return OBJECT_REGIONS.get(name, [0, 0, 0, 0, 1])[4]
 
 
@@ -189,3 +213,20 @@ func sorted_tech_ids() -> Array:
 			return int(techs[a].tier) < int(techs[b].tier)
 		return int(techs[a].points) < int(techs[b].points))
 	return ids
+
+
+func animal_tex(type: String, frame: int) -> AtlasTexture:
+	var key := "a:%s:%d" % [type, frame]
+	if _cache.has(key):
+		return _cache[key]
+	var at := AtlasTexture.new()
+	at.atlas = tex_animals
+	var row := int(animals.get(type, {}).get("row", 0))
+	at.region = Rect2(frame * ANIMAL_CELL, row * ANIMAL_CELL, ANIMAL_CELL, ANIMAL_CELL)
+	_cache[key] = at
+	return at
+
+
+## Beruf ist freigeschaltet (manche brauchen eine Forschung).
+func job_unlocked(job: String) -> bool:
+	return Game.is_researched(jobs.get(job, {}).get("requires", ""))

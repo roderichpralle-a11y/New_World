@@ -1,8 +1,9 @@
 {
-  "holz":     {"name": "Holzarbeit"},
-  "stein":    {"name": "Steinarbeit"},
-  "nahrung":  {"name": "Nahrung"},
-  "bauen":    {"name": "Bauen"},
+  "holz": {"name": "Holzarbeit"},
+  "stein": {"name": "Steinarbeit"},
+  "nahrung": {"name": "Nahrung"},
+  "bauen": {"name": "Bauen"},
   "handwerk": {"name": "Handwerk"},
-  "wissen":   {"name": "Wissen"}
+  "wissen": {"name": "Wissen"},
+  "jagd": {"name": "Jagd"}
 }

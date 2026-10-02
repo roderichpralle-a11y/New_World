@@ -12,12 +12,14 @@ func _ready() -> void:
 	camera = GameCamera.new()
 	add_child(camera)
 	camera.make_current()
+	Sea.world_root = self
+	Sea.island_switched.connect(_on_island_switched)
 	var save := Game.load_save()
 	if not save.is_empty():
-		_create_world()
 		Game.apply_save_header(save)
-		world.build_from_save(save)
-	else:
+		Sea.build_from_save(save)
+		world = Game.world
+	if world == null:
 		_new_world()
 	hud = Hud.new()
 	add_child(hud)
@@ -56,6 +58,8 @@ func _maybe_autotest() -> void:
 		_autotest_prod()
 	if args.has("research"):
 		world.settlers[0].set_job("forscher")
+	if args.has("seatest"):
+		_autotest_sea()
 	if args.has("upgrade"):
 		for b in world.buildings.duplicate():
 			if b.type == "huette":
@@ -65,6 +69,8 @@ func _maybe_autotest() -> void:
 	while elapsed < secs:
 		await get_tree().create_timer(1.0, true, false, true).timeout
 		elapsed += 1.0
+		if args.has("seatest"):
+			_autotest_sea_tick(elapsed)
 		if args.has("research") and not Game.has_research_goal():
 			for t in Data.sorted_tech_ids():
 				if Game.tech_state(t) == "available" and Game.start_research(t) == "":
@@ -77,6 +83,12 @@ func _maybe_autotest() -> void:
 				for id in Data.sorted_resource_ids():
 					st.append("%s=%d" % [id, Game.amount(id)])
 				print("   ", " ".join(st), " | Forschung ", Game.research.current, " ", int(Game.tech_progress(Game.research.current)), " erforscht ", Game.research.done.size())
+			if Sea.islands.size() > 1:
+				var isl := []
+				for m in Sea.islands:
+					var w = Sea.worlds.get(int(m.id))
+					isl.append("%s[%s]:%s pop=%d tiere=%d" % [m.name, m.biome, m.state, w.settlers.size() if w else 0, w.animals.size() if w else 0])
+				print("   Inseln: ", ", ".join(isl), " | See: ", Sea.voyages.size(), " Boote: ", Game.amount("boot"), " Fleisch: ", Game.amount("fleisch"), " Felle: ", Game.amount("felle"))
 			var jobs := world.settlers.map(func(s): return "%s:%s:%s:%d" % [s.display_name, s.job, s.activity, int(s.hunger)])
 			print("t=%d Tag %d %s pop=%d/%d holz=%d stein=%d food=%d | %s" % [elapsed, Game.day(), Game.clock_text(),
 				Game.population(), Game.housing_capacity(), Game.amount("holz"), Game.amount("stein"), Game.total_food(), jobs])
@@ -99,6 +111,8 @@ func _maybe_autotest() -> void:
 				"stock":
 					hud._refresh_stock(true)
 					hud._toggle(hud._stock_panel)
+				"sea":
+					hud._open_sea()
 				"build":
 					hud._build_cat = args.get("cat", "nahrung")
 					hud._fill_build_list()
@@ -108,6 +122,9 @@ func _maybe_autotest() -> void:
 				if b.type == args.selectb:
 					Game.select(b)
 					camera.focus(b.position)
+		if args.has("island"):
+			Sea.switch_to(int(args.island))
+			await get_tree().process_frame
 		if args.has("look"):
 			Game.select(null)
 			camera.focus(world.cell_to_pos(world.center))
@@ -135,6 +152,60 @@ func _autotest_build() -> void:
 			world.place_building("feld", cc, false)
 			break
 	world.settlers[1].set_job("baumeister")
+
+
+## Seefahrt-Test: alles erforscht, Werft und Boote da, drei Inseln entdecken und besiedeln.
+func _autotest_sea() -> void:
+	var weak := OS.get_cmdline_user_args().has("--weak=1")
+	for t in Data.techs:
+		if weak and t in ["waffenkunde", "jagdkunst", "befestigung", "pelzkleidung", "goldenes_zeitalter"]:
+			continue
+		if not t in Game.research.done:
+			Game.research.done.append(t)
+	Game._recompute_effects()
+	Game.research_changed.emit()
+	for id in Data.resources:
+		Game.stock[id] = 50
+	Game.stock["boot"] = 6
+	for i in 14:
+		world.spawn_newcomer("f" if i % 2 else "m")
+	for s in world.settlers:
+		s.age = max(s.age, 20.0)
+	var c := world.center
+	for type in (["werft", "grosslager"] if weak else ["werft", "wachturm", "grosslager", "leuchtturm"]):
+		var done := false
+		for rad in range(3, 30):
+			for dy in range(-rad, rad + 1):
+				for dx in range(-rad, rad + 1):
+					var cc := c + Vector2i(dx, dy)
+					if not done and world.can_place(type, cc) and _roomy(type, cc):
+						world.place_building(type, cc, true)
+						done = true
+		print("platziert ", type, " ", done)
+	Game.refresh_effects()
+	print("Erkunden: ", Sea.start_explore(world))
+
+
+var _sea_step := 0
+
+
+func _autotest_sea_tick(elapsed: float) -> void:
+	if Sea.can_explore() == "" and Sea.islands.size() < 4:
+		print("Erkunden: ", Sea.start_explore(Game.world))
+	# Jede entdeckte Insel bekommt vier Siedler, davon zwei Jaeger
+	for m in Sea.islands:
+		if m.state == "discovered" and not Sea.voyages.any(func(v): return int(v.to) == int(m.id)):
+			var home = Sea.worlds.get(0)
+			if home == null:
+				return
+			var adults: Array = home.settlers.filter(func(s): return s.is_adult())
+			if adults.size() < 6:
+				return
+			var group := adults.slice(0, 4)
+			for i in 2:
+				group[i].set_job("jaeger" if Data.job_unlocked("jaeger") else "baumeister")
+			print("Sende nach ", m.name, ": ", Sea.send_settlers(home, int(m.id), group))
+			Game.stock["boot"] = max(Game.amount("boot"), 2)
 
 
 func _roomy(type: String, cc: Vector2i) -> bool:
@@ -200,23 +271,26 @@ func _update_ui_scale() -> void:
 		win.content_scale_size = target
 
 
-func _create_world() -> void:
-	if world:
-		world.queue_free()
-		remove_child(world)
-	world = World.new()
-	world.name = "World"
-	add_child(world)
-	move_child(world, 0)
-	Game.world = world
-
-
 func _new_world() -> void:
 	var seed_value := randi() % 1000000
-	_create_world()
 	Game.reset_state(seed_value)
+	world = Sea.create_world_node(0)
+	world.visible = true
+	Game.world = world
 	world.build_new(seed_value)
 	camera.bounds = Rect2(Vector2(-10, -10) * 16, (world.world_size_px() / 16 + Vector2(20, 20)) * 16)
+
+
+## Eine andere Insel wird angezeigt.
+func _on_island_switched(w) -> void:
+	if world and is_instance_valid(world) and world.placement_changed.is_connected(hud._on_placement):
+		world.placement_changed.disconnect(hud._on_placement)
+	world = w
+	if hud:
+		hud.world = w
+		w.placement_changed.connect(hud._on_placement)
+		hud.on_island_switched()
+	_focus_start()
 
 
 func _focus_start() -> void:
@@ -232,6 +306,7 @@ func _on_new_game() -> void:
 	_new_world()
 	hud.world = world
 	world.placement_changed.connect(hud._on_placement)
+	hud.on_island_switched()
 	_focus_start()
 	Game.set_speed(1)
 	Game.save_game()

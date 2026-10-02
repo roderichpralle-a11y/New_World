@@ -11,6 +11,8 @@ const GRASS := 2
 const OCEAN_MARGIN := 26
 
 var size: int = 64
+var island_id: int = 0
+var biome: String = "heimat"
 var terrain: PackedByteArray
 var astar := AStarGrid2D.new()
 var nodes: Array = []
@@ -19,6 +21,8 @@ var buildings: Array = []
 var building_at: Dictionary = {}
 var settlers: Array = []
 var graves: Array = []  # [Sprite2D, bis_tag]
+var animals: Array = []  # wilde Tiere (Animal)
+var decor: Array = []  # Boote am Strand: [Sprite2D, bis_tag]
 var center: Vector2i
 
 var ground: Node2D  # Felder unter allem
@@ -35,6 +39,7 @@ var _ghost: Node2D
 var _ghost_sprite: Sprite2D
 var _clouds: Array = []
 var _rng := RandomNumberGenerator.new()
+var _den_t: float = 0.0
 
 
 func _ready() -> void:
@@ -47,7 +52,7 @@ func build_new(seed_value: int) -> void:
 	var island := IslandGen.generate(seed_value, size)
 	_build_terrain(island)
 	for n in island.nodes:
-		spawn_node(n.type, n.cell)
+		spawn_node(n.type, n.cell, int(n.get("variant", -1)))
 	# Startsiedlung
 	var fire := place_building("lagerfeuer", center, true)
 	var hut_cell := center + Vector2i(-5, -4)
@@ -66,10 +71,35 @@ func build_new(seed_value: int) -> void:
 	Game.on_population_changed()
 
 
-func build_from_save(d: Dictionary) -> void:
-	size = int(Data.bal("map_size", 64))
-	var island := IslandGen.generate(Game.seed_value, size)
-	var w: Dictionary = d.world
+## Neue Siedlung auf einer entdeckten Insel: Gelaende, Rohstoffe, Tierbauten und ein Lagerfeuer.
+func build_colony(m: Dictionary) -> void:
+	island_id = int(m.id)
+	biome = m.biome
+	size = int(m.size)
+	var island := IslandGen.generate(int(m.seed), size, _gen_opts(m))
+	_build_terrain(island)
+	for n in island.nodes:
+		spawn_node(n.type, n.cell, int(n.get("variant", -1)))
+	place_building("lagerfeuer", center, true)
+	# Jeder Bau startet mit seinen Tieren
+	for n in nodes.duplicate():
+		var a: String = n.def.get("spawns", "")
+		if a != "":
+			for i in int(n.def.get("den_cap", 1)):
+				_spawn_at_den(n)
+
+
+func _gen_opts(m: Dictionary) -> Dictionary:
+	var b: Dictionary = Data.islands.get(m.get("biome", "heimat"), {}).duplicate()
+	b["_dens"] = m.get("dens", [])
+	return {"biome": b}
+
+
+func build_from_save(w: Dictionary, m: Dictionary) -> void:
+	island_id = int(m.id)
+	biome = m.get("biome", "heimat")
+	size = int(m.get("size", Data.bal("map_size", 64)))
+	var island := IslandGen.generate(int(m.seed), size, _gen_opts(m) if biome != "heimat" else {})
 	_build_terrain(island)
 	for n in w.nodes:
 		var node := spawn_node(n[0], Vector2i(int(n[1]), int(n[2])), int(n[5]))
@@ -90,6 +120,8 @@ func build_from_save(d: Dictionary) -> void:
 		spawn_settler(s)
 	for g in w.get("graves", []):
 		_add_grave(cell_to_pos(Vector2i(int(g[0]), int(g[1]))), float(g[2]))
+	for a in w.get("animals", []):
+		spawn_animal(a[0], Vector2i(int(a[1]), int(a[2])), Vector2i(int(a[4]), int(a[5])), float(a[3]))
 	Game.on_population_changed()
 
 
@@ -113,6 +145,8 @@ func _build_terrain(island: Dictionary) -> void:
 		l.tile_set = ts
 		add_child(l)
 		_layers.append(l)
+	# Jede Inselart hat ihren eigenen Grünton
+	_layers[2].modulate = Color(Data.islands.get(biome, {}).get("tint", "#ffffff"))
 	ground = Node2D.new()
 	add_child(ground)
 	entities = Node2D.new()
@@ -326,6 +360,8 @@ func spawn_node(type: String, c: Vector2i, variant: int = -1) -> ResNode:
 
 
 func remove_node(n: ResNode) -> void:
+	if n.def.has("spawns") and n.amount <= 0:
+		Game.notify_at(self, "%s ist ausgeräumt. Hier kommen keine Tiere mehr nach." % n.def.name, "schild")
 	nodes.erase(n)
 	node_at.erase(n.cell)
 	_set_solid(n.cell, building_at.has(n.cell))
@@ -382,16 +418,27 @@ func can_place(type: String, c: Vector2i) -> bool:
 		var e := c + Vector2i(int(def.size[0]) / 2, int(def.size[1]))
 		if not is_walkable(e) or building_at.has(e):
 			return false
+	# Werft und Leuchtturm muessen am Wasser stehen
+	if def.get("coast", false):
+		var near := false
+		for y in range(-2, int(def.size[1]) + 3):
+			for x in range(-2, int(def.size[0]) + 2):
+				if is_water(c + Vector2i(x, y)):
+					near = true
+		if not near:
+			return false
 	return true
 
 
 func on_building_completed(b: Building) -> void:
-	Game.notify("%s ist fertig!" % b.def.name, "hammer")
+	Game.notify_at(self, "%s ist fertig!" % b.def.name, "hammer")
 	spawn_effect("dust", b.position)
 	spawn_effect("dust", b.position + Vector2(-12, -6))
 	spawn_effect("dust", b.position + Vector2(12, -6))
 	if b.housing() > 0:
 		assign_homes()
+	if b.def.has("effects"):
+		Game.refresh_effects()
 	Game.stock_changed.emit()
 	Game.population_changed.emit()
 
@@ -422,6 +469,8 @@ func demolish(b: Building) -> void:
 	for res in refund:
 		Game.add_stock(res, refund[res])
 	assign_homes()
+	if b.def.has("effects"):
+		Game.refresh_effects()
 	Game.population_changed.emit()
 
 
@@ -606,21 +655,7 @@ func unique_name(sex: String, rng: RandomNumberGenerator) -> String:
 func spawn_newcomer(sex: String) -> Settler:
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
-	# Ankunft an einem Strandfeld nahe dem Lager
-	var fire = nearest_storage(center)
-	var origin: Vector2i = fire.cell if fire else center
-	var cands := []
-	for y in size:
-		for x in size:
-			var c := Vector2i(x, y)
-			if terrain_at(c) == SAND and is_walkable(c):
-				cands.append([Vector2(c - origin).length_squared() + rng.randf() * 80.0, c])
-	cands.sort_custom(func(a, b): return a[0] < b[0])
-	var best = null
-	for i in min(12, cands.size()):
-		if not find_path(cands[i][1], origin).is_empty() or not find_path(cands[i][1], origin + Vector2i(0, 1)).is_empty():
-			best = cands[i][1]
-			break
+	var best = beach_near(rng)
 	if best == null:
 		return null
 	var skills := {}
@@ -634,6 +669,43 @@ func spawn_newcomer(sex: String) -> Settler:
 	spawn_effect("chips_fischgrund", s.position)
 	Game.on_population_changed()
 	return s
+
+
+## Strandfeld nahe dem Lager, von dem aus das Lager erreichbar ist.
+func beach_near(rng: RandomNumberGenerator = null):
+	if rng == null:
+		rng = _rng
+	var fire = nearest_storage(center)
+	var origin: Vector2i = fire.cell if fire else center
+	var cands := []
+	for y in size:
+		for x in size:
+			var c := Vector2i(x, y)
+			if terrain_at(c) == SAND and is_walkable(c):
+				cands.append([Vector2(c - origin).length_squared() + rng.randf() * 80.0, c])
+	cands.sort_custom(func(a, b): return a[0] < b[0])
+	for i in min(12, cands.size()):
+		if not find_path(cands[i][1], origin).is_empty() or not find_path(cands[i][1], origin + Vector2i(0, 1)).is_empty():
+			return cands[i][1]
+	return null
+
+
+## Landeplatz fuer ankommende Boote.
+func landing_cell() -> Vector2i:
+	var b = beach_near()
+	return b if b != null else center + Vector2i(0, 2)
+
+
+## Siedler verlaesst die Insel (Schiffsreise).
+func remove_settler(s: Settler) -> void:
+	if not settlers.has(s):
+		return
+	s.abort_plan()
+	settlers.erase(s)
+	if Game.selected == s:
+		Game.select(null)
+	s.queue_free()
+	assign_homes()
 
 
 func kill_settler(s: Settler, reason: String) -> void:
@@ -664,6 +736,15 @@ func spawn_effect(kind: String, p: Vector2) -> void:
 		"chips_fels": [Color("#b8bac6"), Color("#6a6c80")],
 		"chips_busch": [Color("#e8586e"), Color("#5aa852")],
 		"chips_fischgrund": [Color("#c8ecfa"), Color("#6eb8e8")],
+		"chips_palme": [Color("#8a5a36"), Color("#52a03e")],
+		"chips_pilzkreis": [Color("#e05040"), Color("#f0e8d6")],
+		"chips_erzader": [Color("#c06a3a"), Color("#8a8c9e")],
+		"chips_goldader": [Color("#f5d250"), Color("#8a8c9e")],
+		"chips_beute": [Color("#c84a40"), Color("#88583c")],
+		"chips_wolfsbau": [Color("#7e5438"), Color("#4a3428")],
+		"chips_eberbau": [Color("#6e5a40"), Color("#4a3428")],
+		"chips_baerenhoehle": [Color("#8a8c9e"), Color("#4a3428")],
+		"blood": [Color("#c03030"), Color("#ff6a5a")],
 		"leaves": [Color("#62ac52"), Color("#8acb62")],
 		"dust": [Color("#e8d8b0"), Color("#c8b890")],
 		"hearts": [Color("#f06080"), Color("#ffb0c0")],
@@ -671,7 +752,7 @@ func spawn_effect(kind: String, p: Vector2) -> void:
 	if not colors.has(kind):
 		return
 	var cols: Array = colors[kind]
-	var n := 10 if kind in ["leaves", "dust", "hearts"] else 4
+	var n := 10 if kind in ["leaves", "dust", "hearts"] else (6 if kind == "blood" else 4)
 	for i in n:
 		var r := ColorRect.new()
 		var sz := 2.0 if kind != "hearts" else 3.0
@@ -776,6 +857,13 @@ func _process(delta: float) -> void:
 		if Game.time_days > g[1]:
 			g[0].queue_free()
 			graves.remove_at(i)
+	for i in range(decor.size() - 1, -1, -1):
+		var d = decor[i]
+		d[0].frame = int(Time.get_ticks_msec() / 600) % 2
+		if Game.time_days > d[1]:
+			d[0].queue_free()
+			decor.remove_at(i)
+	_process_dens(delta)
 
 
 # ================================================================== Bauen (Platzieren)
@@ -870,6 +958,13 @@ func pick_at(p: Vector2):
 			best = s
 	if best:
 		return best
+	for a in animals:
+		var d: float = (a.position + Vector2(0, -7) - p).length()
+		if d < best_d:
+			best_d = d
+			best = a
+	if best:
+		return best
 	var c := pos_to_cell(p)
 	if building_at.has(c):
 		return building_at[c]
@@ -892,4 +987,196 @@ func serialize() -> Dictionary:
 		"buildings": buildings.map(func(b): return b.serialize()),
 		"settlers": settlers.map(func(s): return s.serialize()),
 		"graves": graves.map(func(g): return [pos_to_cell(g[0].position).x, pos_to_cell(g[0].position).y, g[1]]),
+		"animals": animals.map(func(a): return a.serialize()),
 	}
+
+
+# ================================================================== Seefahrt
+## Ein Boot liegt ein paar Tage am Landeplatz.
+func add_boat_decor(c: Vector2i) -> void:
+	var w = _water_near(c, 4)
+	if w == null:
+		return
+	var sp := Sprite2D.new()
+	sp.texture = Data.tex_objects2
+	sp.region_enabled = true
+	sp.region_rect = Rect2(0, 64, 64, 32)
+	sp.hframes = 2
+	sp.position = cell_to_pos(w) + Vector2(0, -6)
+	entities.add_child(sp)
+	decor.append([sp, Game.time_days + 2.0])
+
+
+func _water_near(c: Vector2i, radius: int):
+	var best = null
+	var best_d := INF
+	for y in range(-radius, radius + 1):
+		for x in range(-radius, radius + 1):
+			var q := c + Vector2i(x, y)
+			if is_water(q) and is_water(q + Vector2i(1, 0)) and is_water(q + Vector2i(-1, 0)):
+				var d := Vector2(x, y).length()
+				if d < best_d:
+					best_d = d
+					best = q
+	return best
+
+
+## Ein Boot legt an der Werft (oder am Strand) ab und segelt aufs Meer hinaus.
+func sail_away() -> void:
+	var start = null
+	for b in buildings:
+		if b.type == "werft" and b.complete:
+			start = _water_near(b.entrance_cell(), 5)
+	if start == null:
+		start = _water_near(landing_cell(), 5)
+	if start == null:
+		return
+	var sp := Sprite2D.new()
+	sp.texture = Data.tex_objects2
+	sp.region_enabled = true
+	sp.region_rect = Rect2(0, 64, 64, 32)
+	sp.hframes = 2
+	sp.position = cell_to_pos(start) + Vector2(0, -6)
+	fx.add_child(sp)
+	var dir := (sp.position - cell_to_pos(center)).normalized()
+	if dir == Vector2.ZERO:
+		dir = Vector2.DOWN
+	var tw := sp.create_tween()
+	tw.tween_property(sp, "position", sp.position + dir * size * T * 0.7, 9.0)
+	tw.parallel().tween_property(sp, "modulate:a", 0.0, 3.0).set_delay(6.0)
+	tw.tween_callback(sp.queue_free)
+
+
+# ================================================================== Wilde Tiere
+func spawn_animal(type: String, c: Vector2i, home: Vector2i, hp: float = -1.0) -> Animal:
+	var a := Animal.new()
+	a.setup(self, type, c, home, hp)
+	entities.add_child(a)
+	animals.append(a)
+	return a
+
+
+func _spawn_at_den(den: ResNode) -> void:
+	for d in [Vector2i(0, 1), Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, -1), Vector2i(1, 1), Vector2i(-1, 1)]:
+		var c: Vector2i = den.cell + d
+		if is_walkable(c):
+			spawn_animal(den.def.spawns, c, den.cell)
+			return
+
+
+## Tierbauten bringen nach und nach neue Tiere hervor, bis sie voll sind.
+func _process_dens(delta: float) -> void:
+	_den_t += delta / float(Data.bal("day_length"))
+	if _den_t < float(Data.bal("den_spawn_interval", 0.3)):
+		return
+	_den_t = 0.0
+	for n in nodes:
+		if not n.def.has("spawns") or n.amount <= 0:
+			continue
+		var count := animals.filter(func(a): return a.home == n.cell).size()
+		if count >= int(n.def.get("den_cap", 1)):
+			continue
+		if _rng.randf() > float(Data.bal("den_spawn_chance", 0.5)):
+			continue
+		if settlers.any(func(s): return s.cell.distance_to(n.cell) < 5.0):
+			continue
+		_spawn_at_den(n)
+
+
+func on_animal_killed(a: Animal, by) -> void:
+	animals.erase(a)
+	if Game.selected == a:
+		Game.select(null)
+	var meat := int(round(float(a.def.get("meat", 3)) * Game.eff("hunt")))
+	var c := a.cell
+	if not is_walkable(c) or node_at.has(c):
+		for d in [Vector2i(0, 1), Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, -1)]:
+			if is_walkable(c + d) and not node_at.has(c + d):
+				c = c + d
+				break
+	if not node_at.has(c) and not building_at.has(c):
+		var n := spawn_node("beute", c)
+		n.amount = meat
+		n.regrow_at = Game.time_days + float(n.def.get("decay_days", 2.0))
+		n.refresh()
+	var f := Game.add_stock("felle", int(a.def.get("felle", 1)))
+	if f > 0:
+		float_text(a.position + Vector2(0, -20), "+%d" % f, "felle")
+	spawn_effect("blood", a.position + Vector2(0, -6))
+	var who := ""
+	if by is Settler:
+		who = " von %s" % by.display_name
+	elif by is Building:
+		who = " vom Wachturm"
+	Game.notify_at(self, "%s wurde%s erlegt." % [a.def.name, who], "fleisch")
+	a.queue_free()
+
+
+func nearest_animal(from: Vector2, max_px: float):
+	var best = null
+	var best_d := max_px
+	for a in animals:
+		var d: float = (a.position - from).length()
+		if d < best_d:
+			best_d = d
+			best = a
+	return best
+
+
+## Tier, das diesem Siedler gerade gefaehrlich wird (greift ihn an oder ist ganz nah).
+func threat_for(s) -> Animal:
+	var r := float(Data.bal("flee_radius", 4.0)) * T
+	var best = null
+	var best_d := INF
+	for a in animals:
+		var d: float = (a.position - s.position).length()
+		if a.target == s and d < r * 2.0:
+			return a
+		if d < r and a.is_hostile() and d < best_d:
+			best_d = d
+			best = a
+	return best
+
+
+## Zuflucht vor Tieren: Haus mit Dach oder Wachturm in der Naehe.
+func nearest_refuge(from: Vector2i):
+	var best = null
+	var best_d := float(Data.bal("refuge_radius", 14))
+	for b in buildings:
+		if not b.complete or b.is_ground():
+			continue
+		if b.housing() <= 0 and not b.def.has("defense") and not b.is_storage():
+			continue
+		if b.type == "lagerfeuer":
+			continue
+		var d := Vector2(b.entrance_cell() - from).length()
+		if d < best_d:
+			best_d = d
+			best = b
+	return best
+
+
+## Das Lagerfeuer haelt wilde Tiere fern.
+func near_fire(p: Vector2) -> bool:
+	for b in buildings:
+		if b.type == "lagerfeuer" and (b.position - p).length() < 3.5 * T:
+			return true
+	return false
+
+
+func fire_building():
+	for b in buildings:
+		if b.type == "lagerfeuer":
+			return b
+	return null
+
+
+func spawn_arrow(from: Vector2, to: Vector2) -> void:
+	var sp := Sprite2D.new()
+	sp.texture = Data.object_tex("arrow")
+	sp.position = from
+	sp.rotation = (to - from).angle()
+	fx.add_child(sp)
+	var tw := sp.create_tween()
+	tw.tween_property(sp, "position", to, clamp((to - from).length() / 260.0, 0.08, 0.4))
+	tw.tween_callback(sp.queue_free)

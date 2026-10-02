@@ -12,9 +12,9 @@ signal game_over
 signal research_changed
 
 const SAVE_PATH := "user://savegame.json"
-const SAVE_VERSION := 1
+const SAVE_VERSION := 2
 
-var world = null  # World
+var world = null  # aktive (sichtbare) Insel, siehe Sea fuer alle Inseln
 var seed_value: int = 0
 var time_days: float = 0.25  # Start am Morgen von Tag 1
 var speed: int = 1
@@ -51,6 +51,7 @@ func reset_state(new_seed: int) -> void:
 	stats = {"births": 0, "deaths": 0, "max_pop": 0}
 	lineage = {}
 	research = {"current": "", "progress": {}, "done": [], "paid": []}
+	Sea.reset(new_seed)
 	_recompute_effects()
 	selected = null
 	is_over = false
@@ -115,26 +116,34 @@ func _process(delta: float) -> void:
 
 
 # ---------------------------------------------------------------- Vorraete
+## Alle Inseln teilen sich die Vorraete; Lagerplatz zaehlt von allen Inseln.
 func storage_capacity() -> int:
 	var cap := int(Data.bal("base_storage"))
-	if world:
-		for b in world.buildings:
+	for w in Sea.all_worlds():
+		for b in w.buildings:
 			if b.complete:
 				cap += int(b.def.get("storage", 0))
 	return int(cap * eff("storage"))
 
 
-func housing_capacity() -> int:
+## Wohnplaetze einer Insel (ohne Angabe: die aktive Insel).
+func housing_capacity(w = null) -> int:
+	if w == null:
+		w = world
 	var cap := 0
-	if world:
-		for b in world.buildings:
+	if w:
+		for b in w.buildings:
 			if b.complete:
 				cap += int(b.def.get("housing", 0))
 	return cap
 
 
+## Alle Siedler auf allen Inseln (ohne die auf See).
 func population() -> int:
-	return world.settlers.size() if world else 0
+	var n := 0
+	for w in Sea.all_worlds():
+		n += w.settlers.size()
+	return n
 
 
 func total_food() -> int:
@@ -202,6 +211,13 @@ func notify(text: String, icon: String = "") -> void:
 	notified.emit(text, icon)
 
 
+## Meldung von einer Insel: bei mehreren Inseln steht der Inselname davor.
+func notify_at(w, text: String, icon: String = "") -> void:
+	if w and w != world and Sea.worlds.size() > 1:
+		text = "%s: %s" % [Sea.island_name(w), text]
+	notify(text, icon)
+
+
 func select(obj) -> void:
 	selected = obj
 	selection_changed.emit(obj)
@@ -209,16 +225,17 @@ func select(obj) -> void:
 
 # ---------------------------------------------------------------- Nachwuchs
 func _try_birth() -> void:
-	if world == null:
+	if total_food() < population() * int(Data.bal("birth_food_per_person")):
 		return
-	var pop := population()
-	if pop >= housing_capacity():
-		return
-	if total_food() < pop * int(Data.bal("birth_food_per_person")):
-		return
+	for w in Sea.all_worlds():
+		if w.settlers.size() < housing_capacity(w):
+			_try_birth_on(w)
+
+
+func _try_birth_on(w) -> void:
 	var couples := []
 	var possible := false
-	var adults: Array = world.settlers.filter(func(s): return s.is_adult())
+	var adults: Array = w.settlers.filter(func(s): return s.is_adult())
 	var max_age := float(Data.bal("fertile_max_age", 34.0))
 	for m in adults:
 		if m.sex != "f" or m.age > max_age:
@@ -229,7 +246,7 @@ func _try_birth() -> void:
 				if time_days >= m.birth_cooldown_until and m.hunger >= 45.0 and f.hunger >= 45.0:
 					couples.append([m, f])
 	if not possible:
-		_try_newcomer(adults)
+		_try_newcomer(w, adults)
 		return
 	if couples.is_empty():
 		return
@@ -237,27 +254,28 @@ func _try_birth() -> void:
 	# Abwechslungsreiche Kost macht Lust auf Familie
 	if food_variety() >= int(Data.bal("variety_min", 3)):
 		chance *= float(Data.bal("variety_birth_bonus", 1.0))
+	chance *= eff("birth")
 	if _rng.randf() > chance:
 		return
 	var pair: Array = couples[_rng.randi() % couples.size()]
 	var mother = pair[0]
 	var father = pair[1]
 	mother.birth_cooldown_until = time_days + float(Data.bal("birth_cooldown"))
-	var child = world.spawn_child(mother, father)
+	var child = w.spawn_child(mother, father)
 	stats.births += 1
-	notify("%s ist geboren! Eltern: %s und %s." % [child.display_name, mother.display_name, father.display_name], "herz")
+	notify_at(w, "%s ist geboren! Eltern: %s und %s." % [child.display_name, mother.display_name, father.display_name], "herz")
 
 
 ## Ohne passendes Paar wird gelegentlich ein Schiffbrüchiger angespült.
-func _try_newcomer(adults: Array) -> void:
+func _try_newcomer(w, adults: Array) -> void:
 	if _rng.randf() > float(Data.bal("newcomer_chance", 0.06)):
 		return
 	var women := adults.filter(func(s): return s.sex == "f").size()
 	var men := adults.size() - women
 	var sex := "m" if men < women else ("f" if women < men else ("f" if _rng.randf() < 0.5 else "m"))
-	var s = world.spawn_newcomer(sex)
+	var s = w.spawn_newcomer(sex)
 	if s:
-		notify("%s ist an den Strand gespült worden und schließt sich euch an!" % s.display_name, "person")
+		notify_at(w, "%s ist an den Strand gespült worden und schließt sich euch an!" % s.display_name, "person")
 
 
 ## Eltern, Geschwister, Großeltern und Kinder bekommen keinen Nachwuchs miteinander.
@@ -285,11 +303,13 @@ func register_lineage(sid: int, parents: Array) -> void:
 func on_settler_died(s, reason: String) -> void:
 	stats.deaths += 1
 	var text := "%s ist %s." % [s.display_name, reason]
-	notify(text, "abriss")
+	notify_at(s.world, text, "abriss")
 	if selected == s:
 		select(null)
 	population_changed.emit()
-	if population() == 0:
+	if s.world and s.world.settlers.is_empty():
+		Sea.island_lost(s.world)
+	if Sea.total_people() == 0:
 		is_over = true
 		set_speed(0)
 		delete_save()
@@ -318,6 +338,19 @@ func _recompute_effects() -> void:
 		var e: Dictionary = Data.techs.get(t, {}).get("effects", {})
 		for k in e:
 			effects[k] = float(effects.get(k, 0.0)) + float(e[k])
+	# Besondere Gebaeude (Leuchtturm, Denkmal) wirken einmal je Art auf alle Inseln
+	var seen := {}
+	for w in Sea.all_worlds():
+		for b in w.buildings:
+			if b.complete and b.def.has("effects") and not seen.has(b.type):
+				seen[b.type] = true
+				for k in b.def.effects:
+					effects[k] = float(effects.get(k, 0.0)) + float(b.def.effects[k])
+
+
+func refresh_effects() -> void:
+	_recompute_effects()
+	stock_changed.emit()
 
 
 func is_researched(t: String) -> bool:
@@ -422,8 +455,8 @@ func save_game() -> void:
 		"stats": stats,
 		"lineage": lineage,
 		"research": research,
-		"world": world.serialize(),
 	}
+	data.merge(Sea.serialize())
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if f:
 		f.store_string(JSON.stringify(data))
@@ -437,7 +470,8 @@ func load_save() -> Dictionary:
 	if f == null:
 		return {}
 	var d = JSON.parse_string(f.get_as_text())
-	if not (d is Dictionary) or int(d.get("version", 0)) != SAVE_VERSION:
+	# Version 1 (eine Insel) wird beim Laden in das neue Format uebernommen
+	if not (d is Dictionary) or not int(d.get("version", 0)) in [1, SAVE_VERSION]:
 		return {}
 	return d
 

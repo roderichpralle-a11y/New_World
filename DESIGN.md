@@ -27,16 +27,17 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
 - **Tag und Nacht**: ein Tag dauert `day_length` Sekunden, die Nacht läuft
   `night_speedup`-mal schneller. Nachts schlafen alle (in ihrer Hütte oder am Feuer).
 - **Lager**: jede Ressource hat dieselbe Obergrenze = Summe `storage` aller Lager.
-- **Verloren**: Stirbt der letzte Siedler, ist die Insel verloren (Spielstand wird gelöscht).
+- **Verloren**: Stirbt auf einer Insel der letzte Siedler, ist sie für immer verloren. Sind alle
+  Inseln verloren und niemand mehr auf See, ist das Spiel vorbei (Spielstand wird gelöscht).
 - Speichern: automatisch alle `autosave_seconds` Sekunden, beim Verlassen und über das Menü
   (`user://savegame.json`, im Browser in IndexedDB).
 
 ## Entwicklungsbaum und Wirtschaft (Etappe 2)
 
-- **Forschung** (`data/techs.json`): 27 Forschungen in 5 Stufen (`_tiers`). Jede hat
+- **Forschung** (`data/techs.json`): 33 Forschungen in 6 Stufen (`_tiers`). Jede hat
   `tier`, `requires` (andere Forschungen), `cost` (Waren, beim ersten Start bezahlt),
-  `points`, `effects`, optional `icon` und `soon` (sichtbar, aber erst in Etappe 3
-  erforschbar: `schiffsbau`, `waffenkunde`). Es läuft immer genau eine Forschung
+  `points`, `effects`, optional `icon` und `soon` (sichtbar, aber noch nicht erforschbar;
+  derzeit von keiner Forschung benutzt). Es läuft immer genau eine Forschung
   (`Game.research = {current, progress, done, paid}`, wird gespeichert).
 - **Forscher** (Beruf, Fähigkeit `wissen`) arbeiten an Gebäuden mit `research`
   {factor, slots}: Lagerfeuer 0.5, Schreibstube 1.0, Bibliothek 1.8. Je Arbeitsgang
@@ -44,7 +45,10 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
   `passive_research_per_day` ohne Forscher.
 - **Effekte** werden aus allen erforschten Forschungen summiert: `Game.eff(key)` =
   1 + Summe, `Game.eff_add(key)` = Summe. Schlüssel: `gather_<rohstoff>`, `work`,
-  `build`, `carry`, `walk`, `storage`, `farm_yield`, `farm_speed`, `life`, `heal`, `research`.
+  `build`, `carry`, `walk`, `storage`, `farm_yield`, `farm_speed`, `life`, `heal`, `research`,
+  ab Etappe 3 auch `weapons`, `hunt`, `tower`, `hunger` (negativ = langsamer hungrig),
+  `ship_speed`, `ship_capacity`, `explore`, `birth`. Gebäude mit `effects` (Leuchtturm, Denkmal)
+  zählen einmal je Art, solange eines fertig auf irgendeiner Insel steht (`Game.refresh_effects`).
 - **Freischalten**: Gebäude mit `requires: <forschung>` sind vorher im Bau-Menü gesperrt.
 - **Werkstätten** (`production` {job, inputs, outputs, time, skill, verb, tool?, smoke?}):
   `job` ist `kueche` (Beruf Koch), `handwerk` (Handwerker) oder `stein` (Steinmetz,
@@ -60,8 +64,47 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
   `variety_birth_bonus`-mal höher.
 - Grafiken der neuen Gebäude liegen in `assets/sprites/buildings.png` (Zellen 64x64,
   `Data.BUILDING_CELLS`), Obstgarten-Kacheln in `objects.png` (`orchard0..3`).
-- Für Etappe 3: `schiffsbau` und `waffenkunde` stehen am Ende des Baums mit `soon: true`.
-  Werft und Wachturm als Gebäude mit `requires` anlegen und `soon` entfernen.
+
+## Seefahrt, neue Inseln und wilde Tiere (Etappe 3)
+
+- **Mehrere Inseln**: Autoload `Sea` hält alle Inseln (`Sea.islands`, Meta-Daten) und für jede
+  besiedelte Insel eine eigene `World` (`Sea.worlds`). Nur die aktive Insel `Game.world` ist
+  sichtbar, die anderen laufen unsichtbar weiter. **Alle Inseln teilen sich die Vorräte**
+  (`Game.stock`, Lagerplatz = alle Lager aller Inseln). Wohnplätze, Nachwuchs und
+  Schiffbrüchige zählen je Insel. Meldungen von anderen Inseln tragen den Inselnamen
+  (`Game.notify_at`).
+- **Werft** (`coast: true`, muss bis 2 Felder ans Wasser): Handwerker bauen Boote (Ware `boot`).
+  **Seekarte** (Knopf „Inseln“, `scripts/ui/sea_panel.gd`): „Neue Insel suchen“ schickt ein Boot
+  los (kommt zurück), „Siedler schicken“ verbraucht ein Boot und bringt bis zu
+  `ship_base_capacity` (+ `ship_capacity`) Siedler hinüber. Mindestens einer bleibt zurück.
+  Reisezeit `voyage_days_base + voyage_days_per_dist * Entfernung` geteilt durch `eff(ship_speed)`.
+- **Inselarten** (`data/islands.json`): `heimat` (Etappe 1, unverändert), `tropen` (Palmeninsel:
+  Kokospalmen, viel Fisch, Wildschweine), `wald` (Waldinsel: Nadelwald, Pilze, Wölfe), `berg`
+  (Felseninsel: Erz- und Goldadern, Bären). Insel 1–3 sind in dieser Reihenfolge, danach
+  zufällig; je weiter draußen, desto mehr Tierbauten (`Sea.make_island`, endlos).
+  Der Generator nimmt den Eintrag als `opts.biome` (Grasgrenze, Rohstoff-Wahrscheinlichkeiten,
+  garantierter Ring um das Lager, `_dens` = Tierbauten). Jede Inselart färbt das Gras (`tint`).
+- **Neue Insel besiedeln**: beim ersten Boot entsteht die World mit Lagerfeuer in der Mitte;
+  die Siedler landen am Strand (`World.landing_cell`), ein Boot liegt kurz am Ufer.
+- **Wilde Tiere** (`data/animals.json`, `scripts/entities/animal.gd`): Wolf, Wildschwein, Bär.
+  Tierbauten sind Rohstoffquellen mit `spawns` und `den_cap`; alle `den_spawn_interval` Tage
+  kommt mit `den_spawn_chance` ein Tier nach (nicht, wenn Siedler danebenstehen). Tiere streifen
+  um ihren Bau (`leash`), greifen sichtbare Siedler in `aggro` (nachts `night_aggro`) Feldern an
+  und verfolgen Angreifer. Wildschweine beißen einmal und lassen dann ab. Am Lagerfeuer
+  (3,5 Felder) und in Gebäuden sind Siedler sicher.
+- **Siedler bei Gefahr**: Jäger kämpfen, alle anderen fliehen ins nächste Haus, Lager oder
+  Wachturm (`refuge_radius`) und verstecken sich, bis die Tiere weg sind, sonst ans Lagerfeuer.
+  Neue Fähigkeit `jagd`. Beruf **Jäger** (braucht Waffenkunde): jagt Tiere in der Nähe, holt
+  Fleisch von erlegten Tieren (`beute`, verdirbt nach `decay_days`) und räumt Bauten aus
+  (gibt Felle, danach kommen keine Tiere mehr nach). Felle kommen beim Erlegen direkt ins Lager.
+- **Wachturm** (`defense` {range, damage, interval}): schießt Pfeile auf Tiere in Reichweite.
+- **Neue Waren**: Fleisch, Kokosnüsse, Pilze (Nahrung), Felle, Gold, Boote.
+- **Stufe VI „Neue Welt“**: Navigation, Jagdkunst, Befestigung, Warme Kleidung, Leuchtfeuer
+  (Leuchtturm: Erkunden doppelt so schnell), Goldenes Zeitalter (Denkmal: mehr Kinder, längeres
+  Leben). Gold gibt es nur auf Felseninseln.
+- Grafiken: `assets/sprites/objects2.png` (`Data.OBJECT2_REGIONS`: Palmen, Höhle, Pilze, Adern,
+  Bauten, Beute, Pfeil, Boot), `animals.png` (Zellen 24x24, Zeile je Tier, Spalten 0–3 Laufen,
+  4 Angriff), Gebäude ab Zelle 20 in `buildings.png`. Gezeichnet von `tools/gen_art_sea.py`.
 
 ## Ordner
 
@@ -70,12 +113,13 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
 | `data/*.json` | Alle Spielwerte (Ressourcen, Rohstoffquellen, Gebäude, Berufe, Balance, Namen) |
 | `scripts/autoload/data.gd` | Lädt JSON, Sprite-Regionen (`OBJECT_REGIONS`), Icons |
 | `scripts/autoload/game.gd` | Zeit, Vorräte, Nachwuchs, Abstammung, Forschung und Effekte, Speichern/Laden |
+| `scripts/autoload/sea.gd` | Inseln, Welten je Insel, Schiffsreisen, Inselwechsel |
 | `scripts/world/island_gen.gd` | Inselgenerator (Seed → Gelände + Rohstoffe) |
 | `scripts/world/world.gd` | Tilemaps, Wegfindung (AStarGrid2D), Entitäten, Bauen, Effekte, Tag/Nacht |
 | `scripts/world/game_camera.gd` | Ziehen, Zoom (Mausrad, zwei Finger), Tippen |
-| `scripts/entities/*.gd` | `Settler` (KI), `Building`, `ResNode` |
-| `scripts/ui/hud.gd`, `ui_theme.gd` | Oberfläche im Code gebaut, Pixel-Theme |
-| `tools/gen_art.py` | Erzeugt alle Grafiken in `assets/sprites/` (Pillow) |
+| `scripts/entities/*.gd` | `Settler` (KI), `Building`, `ResNode`, `Animal` |
+| `scripts/ui/hud.gd`, `ui_theme.gd`, `sea_panel.gd` | Oberfläche im Code gebaut, Pixel-Theme, Seekarte |
+| `tools/gen_art.py`, `gen_art_sea.py` | Erzeugen alle Grafiken in `assets/sprites/` (Pillow) |
 
 ## Koordinaten
 
@@ -96,11 +140,16 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
 - **buildings.json**: `size`, `sprite`, `buildable`, `cost`, `work`, optional `housing`,
   `storage`, `light`, `ground`, `farm` {yield, amount, grow_days, sow_time, harvest_time}.
 - **jobs.json**: `skill`, `tool` (Sprite in tools.png), `targets` (Knotentypen oder
-  `farm`/`construction`).
+  `farm`/`construction`), optional `requires` (Forschung).
+- **islands.json**: Inselarten, siehe Etappe 3. **animals.json**: `hp`, `damage`, `speed`,
+  `aggro`, `night_aggro`, `attack_time`, `meat`, `felle`, `leash`, `row` (Zeile in animals.png).
 - **balance.json**: alle Zahlen für Zeit, Hunger, Nachwuchs, Lager, Karte.
-- **Spielstand**: `{version, seed, time_days, stock, next_id, stats, lineage,
-  world: {nodes: [[type,x,y,amount,regrow_at,variant]], buildings: [...], settlers: [...], graves}}`.
-  Das Gelände wird aus dem Seed neu erzeugt, nur Rohstoffe/Gebäude/Siedler werden gespeichert.
+- **Spielstand** (Version 2): `{version, seed, time_days, stock, next_id, stats, lineage, research,
+  islands: [{id, name, biome, seed, size, pos, state, found_day, dens, world?}], active, voyages}`
+  mit `world: {nodes: [[type,x,y,amount,regrow_at,variant]], buildings: [...], settlers: [...],
+  graves, animals: [[type,x,y,hp,home_x,home_y]]}`. Version 1 (nur `world`) wird beim Laden als
+  Heimatinsel übernommen. Das Gelände wird aus dem Seed neu erzeugt, nur Rohstoffe, Gebäude,
+  Siedler und Tiere werden gespeichert.
 
 ## Erweitern (spätere Etappen)
 
@@ -110,8 +159,9 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
 - Neues Gebäude: Eintrag in `buildings.json` (mit `category` und optional `requires`)
   plus Sprite in `tools/gen_art.py` (`gen_buildings2`, Reihenfolge = `Data.BUILDING_CELLS`).
 - Neue Forschung: Eintrag in `techs.json`; neue Effekt-Schlüssel dort auswerten, wo sie wirken.
-- Weitere Inseln: `IslandGen.generate(seed, size, opts)` ist rein datenbasiert;
-  `World` hält derzeit genau eine Insel.
+- Neue Inselart: Eintrag in `islands.json` und in `Sea.make_island` in die Auswahl nehmen.
+- Neues Tier: Eintrag in `animals.json`, Zeile in `gen_art_sea.gen_animals`, Bau in `nodes.json`
+  mit `spawns`.
 
 ## Testen
 
@@ -119,6 +169,8 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
 godot --headless -- --autotest=120 --scale=10 --build=1     # Simulation mit Bericht
 godot --headless -- --autotest=400 --scale=10 --build=1 --research=1   # forscht automatisch
 godot --headless -- --autotest=60 --scale=10 --prodtest=1  # alle Werkstätten, alles erforscht
+godot --headless -- --autotest=300 --scale=10 --seatest=1  # Werft, drei Inseln entdecken und besiedeln
+#   dazu --weak=1: ohne Waffenkunde (Tiere gefährlicher), Bildschirmfoto: --island=<id>, --panel=sea
 # Bildschirmfoto-Optionen: --panel=research|build|stock, --selectb=<typ>, --look=1
 xvfb-run godot --rendering-driver opengl3 -- --autotest=20 --shot=/tmp/bild.png
 godot --headless --export-release "Web" build/web/index.html
