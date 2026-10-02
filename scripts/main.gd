@@ -118,6 +118,9 @@ func _maybe_autotest() -> void:
 					hud._toggle(hud._stock_panel)
 				"sea":
 					hud._open_sea()
+				"settlers":
+					hud._toggle(hud._settler_panel)
+					hud._refresh_settler_list()
 				"build":
 					hud._build_cat = args.get("cat", "nahrung")
 					hud._fill_build_list()
