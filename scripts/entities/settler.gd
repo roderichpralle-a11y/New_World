@@ -415,7 +415,8 @@ func _plan_work() -> bool:
 			return _plan_farm() or _plan_gather(["busch"])
 		_:
 			var targets: Array = Data.jobs.get(job, {}).get("targets", [])
-			return _plan_gather(targets)
+			# Ist das eigene Lager voll, hilft der Siedler woanders aus
+			return _plan_gather(targets) or _plan_construction() or _plan_free_gather()
 
 
 func _plan_free() -> bool:

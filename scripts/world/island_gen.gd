@@ -141,13 +141,13 @@ static func _place_nodes(terrain: PackedByteArray, size: int, c: Vector2i, rng: 
 			var cell := Vector2i(x, y)
 			var dist := Vector2(cell - c).length()
 			var t := terrain[y * size + x]
-			if dist < 6.0:
+			if dist < 8.0:
 				continue
 			if t == GRASS:
 				var f := forest.get_noise_2d(x, y)
-				if f > 0.12 and rng.randf() < 0.55:
+				if f > 0.22 and rng.randf() < 0.5:
 					add.call("baum", cell)
-				elif rng.randf() < 0.035:
+				elif rng.randf() < 0.025:
 					add.call("baum", cell)
 				elif rng.randf() < 0.03:
 					add.call("busch", cell)

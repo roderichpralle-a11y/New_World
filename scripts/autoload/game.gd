@@ -22,6 +22,7 @@ var next_id: int = 1
 var stats: Dictionary = {"births": 0, "deaths": 0, "max_pop": 0}
 var selected = null
 var is_over: bool = false
+var lineage: Dictionary = {}  # Siedler-ID -> [Eltern-IDs], auch fuer Verstorbene
 
 var _birth_timer: float = 0.0
 var _autosave_timer: float = 0.0
@@ -44,6 +45,7 @@ func reset_state(new_seed: int) -> void:
 		stock[id] = int(Data.bal("start_stock")[id])
 	next_id = 1
 	stats = {"births": 0, "deaths": 0, "max_pop": 0}
+	lineage = {}
 	selected = null
 	is_over = false
 	_last_day = day()
@@ -194,26 +196,66 @@ func _try_birth() -> void:
 		return
 	if total_food() < pop * int(Data.bal("birth_food_per_person")):
 		return
-	var mothers := []
-	var has_father := false
-	for s in world.settlers:
-		if not s.is_adult() or s.hunger < 50.0:
+	var couples := []
+	var possible := false
+	var adults: Array = world.settlers.filter(func(s): return s.is_adult())
+	var max_age := float(Data.bal("fertile_max_age", 34.0))
+	for m in adults:
+		if m.sex != "f" or m.age > max_age:
 			continue
-		if s.sex == "m":
-			has_father = true
-		elif time_days >= s.birth_cooldown_until:
-			mothers.append(s)
-	if not has_father or mothers.is_empty():
+		for f in adults:
+			if f.sex == "m" and f.age <= max_age + 8.0 and not related(m.id, f.id):
+				possible = true
+				if time_days >= m.birth_cooldown_until and m.hunger >= 45.0 and f.hunger >= 45.0:
+					couples.append([m, f])
+	if not possible:
+		_try_newcomer(adults)
+		return
+	if couples.is_empty():
 		return
 	if _rng.randf() > float(Data.bal("birth_chance")):
 		return
-	var mother = mothers[_rng.randi() % mothers.size()]
-	var fathers: Array = world.settlers.filter(func(s): return s.is_adult() and s.sex == "m")
-	var father = fathers[_rng.randi() % fathers.size()]
+	var pair: Array = couples[_rng.randi() % couples.size()]
+	var mother = pair[0]
+	var father = pair[1]
 	mother.birth_cooldown_until = time_days + float(Data.bal("birth_cooldown"))
 	var child = world.spawn_child(mother, father)
 	stats.births += 1
 	notify("%s ist geboren! Eltern: %s und %s." % [child.display_name, mother.display_name, father.display_name], "herz")
+
+
+## Ohne passendes Paar wird gelegentlich ein Schiffbrüchiger angespült.
+func _try_newcomer(adults: Array) -> void:
+	if _rng.randf() > float(Data.bal("newcomer_chance", 0.06)):
+		return
+	var women := adults.filter(func(s): return s.sex == "f").size()
+	var men := adults.size() - women
+	var sex := "m" if men < women else ("f" if women < men else ("f" if _rng.randf() < 0.5 else "m"))
+	var s = world.spawn_newcomer(sex)
+	if s:
+		notify("%s ist an den Strand gespült worden und schließt sich euch an!" % s.display_name, "person")
+
+
+## Eltern, Geschwister, Großeltern und Kinder bekommen keinen Nachwuchs miteinander.
+func related(a: int, b: int) -> bool:
+	var pa: Array = lineage.get(a, [])
+	var pb: Array = lineage.get(b, [])
+	if a in pb or b in pa:
+		return true
+	for p in pa:
+		if p in pb:
+			return true
+		var gp: Array = lineage.get(p, [])
+		if b in gp:
+			return true
+	for p in pb:
+		if a in lineage.get(p, []):
+			return true
+	return false
+
+
+func register_lineage(sid: int, parents: Array) -> void:
+	lineage[sid] = parents.map(func(x): return int(x))
 
 
 func on_settler_died(s, reason: String) -> void:
@@ -250,6 +292,7 @@ func save_game() -> void:
 		"stock": stock,
 		"next_id": next_id,
 		"stats": stats,
+		"lineage": lineage,
 		"world": world.serialize(),
 	}
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
@@ -278,6 +321,10 @@ func apply_save_header(d: Dictionary) -> void:
 		stock[id] = int(d.stock.get(id, 0))
 	next_id = int(d.next_id)
 	stats = d.get("stats", stats)
+	lineage = {}
+	var lin: Dictionary = d.get("lineage", {})
+	for k in lin:
+		register_lineage(int(k), lin[k])
 	is_over = false
 	selected = null
 	_last_day = day()

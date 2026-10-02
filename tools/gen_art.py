@@ -583,11 +583,11 @@ def grave():
     return img
 
 
-def shadow(w=12, h=5):
-    img = new(16, 8)
+def shadow(w=12, h=5, iw=16):
+    img = new(iw, 8)
     for y in range(8):
-        for x in range(16):
-            dx = (x + 0.5 - 8) / (w / 2)
+        for x in range(iw):
+            dx = (x + 0.5 - iw / 2) / (w / 2)
             dy = (y + 0.5 - 4) / (h / 2)
             if dx * dx + dy * dy <= 1:
                 put(img, x, y, (20, 30, 40, 80))
@@ -607,7 +607,7 @@ def gen_objects():
     for i, im in enumerate([rock(True), rock(False), bush(True), bush(False), grave()]):
         atlas.paste(im, (i * 16, 96))
     atlas.paste(shadow(), (80, 96))
-    atlas.paste(shadow(26, 7).resize((32, 8)), (96, 96))
+    atlas.paste(shadow(26, 6, 32), (96, 96))
     # Zeile D (y=112): Lagerfeuer 4 Frames, Fischschwarm 4 Frames
     for f in range(4):
         atlas.paste(campfire(f), (f * 16, 112))

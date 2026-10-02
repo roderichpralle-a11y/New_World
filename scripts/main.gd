@@ -81,19 +81,19 @@ func _maybe_autotest() -> void:
 func _autotest_build() -> void:
 	var c := world.center
 	for off in [Vector2i(3, -4), Vector2i(-2, 4), Vector2i(4, 3)]:
+		var done := false
 		for dy in range(-3, 4):
 			for dx in range(-3, 4):
 				var cc: Vector2i = c + off + Vector2i(dx, dy)
-				if world.can_place("huette", cc):
+				if not done and world.can_place("huette", cc):
 					world.place_building("huette", cc, false)
-					break
-			if false:
-				break
+					done = true
 	for dy in range(-6, 7):
 		var cc := c + Vector2i(-6, dy)
 		if world.can_place("feld", cc):
 			world.place_building("feld", cc, false)
 			break
+	world.settlers[1].set_job("baumeister")
 
 
 func _create_world() -> void:

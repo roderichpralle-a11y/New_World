@@ -1,0 +1,52 @@
+name: Web-Version bauen und veröffentlichen
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+env:
+  GODOT_VERSION: 4.7.2-stable
+  TEMPLATE_DIR: 4.7.2.stable
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Godot und Web-Vorlagen laden
+        run: |
+          base=https://github.com/godotengine/godot/releases/download/$GODOT_VERSION
+          wget -q $base/Godot_v${GODOT_VERSION}_linux.x86_64.zip
+          unzip -q Godot_v${GODOT_VERSION}_linux.x86_64.zip
+          mv Godot_v${GODOT_VERSION}_linux.x86_64 godot-bin
+          wget -q $base/Godot_v${GODOT_VERSION}_export_templates.tpz
+          dest=~/.local/share/godot/export_templates/$TEMPLATE_DIR
+          mkdir -p $dest
+          unzip -qj Godot_v${GODOT_VERSION}_export_templates.tpz \
+            templates/web_nothreads_release.zip templates/web_nothreads_debug.zip templates/version.txt -d $dest
+          rm Godot_v${GODOT_VERSION}_export_templates.tpz Godot_v${GODOT_VERSION}_linux.x86_64.zip
+
+      - name: Exportieren
+        run: |
+          ./godot-bin --headless --import --quit || true
+          mkdir -p build/web
+          ./godot-bin --headless --export-release "Web" build/web/index.html
+          test -f build/web/index.wasm
+          touch build/web/.nojekyll
+
+      - name: Auf gh-pages veröffentlichen
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: build/web
+          force_orphan: true
+          commit_message: Web-Version

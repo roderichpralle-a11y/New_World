@@ -486,6 +486,8 @@ func assign_homes() -> void:
 func spawn_settler(data: Dictionary) -> Settler:
 	var s := Settler.new()
 	s.setup(self, data)
+	if not Game.lineage.has(s.id):
+		Game.register_lineage(s.id, s.parents)
 	entities.add_child(s)
 	settlers.append(s)
 	return s
@@ -495,15 +497,7 @@ func spawn_child(mother, father) -> Settler:
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
 	var sex := "f" if rng.randf() < 0.5 else "m"
-	var pool: Array = Data.names.get(sex, ["Kim"])
-	var used := settlers.map(func(s): return s.display_name)
-	var name: String = pool[rng.randi() % pool.size()]
-	for i in 10:
-		if not name in used:
-			break
-		name = pool[rng.randi() % pool.size()]
-	if name in used:
-		name += " %s" % ["II", "III", "IV", "V"][rng.randi() % 4]
+	var name := unique_name(sex, rng)
 	# Talente: Mischung der Eltern plus ein zufaelliges Talent
 	var skills := {}
 	for sk in Data.skills:
@@ -524,6 +518,50 @@ func spawn_child(mother, father) -> Settler:
 	spawn_effect("hearts", child.position + Vector2(0, -16))
 	Game.on_population_changed()
 	return child
+
+
+func unique_name(sex: String, rng: RandomNumberGenerator) -> String:
+	var pool: Array = Data.names.get(sex, ["Kim"])
+	var used := settlers.map(func(s): return s.display_name)
+	var name: String = pool[rng.randi() % pool.size()]
+	for i in 12:
+		if not name in used:
+			return name
+		name = pool[rng.randi() % pool.size()]
+	return name + " " + ["II", "III", "IV", "V"][rng.randi() % 4]
+
+
+func spawn_newcomer(sex: String) -> Settler:
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	# Ankunft an einem Strandfeld nahe dem Lager
+	var fire = nearest_storage(center)
+	var origin: Vector2i = fire.cell if fire else center
+	var cands := []
+	for y in size:
+		for x in size:
+			var c := Vector2i(x, y)
+			if terrain_at(c) == SAND and is_walkable(c):
+				cands.append([Vector2(c - origin).length_squared() + rng.randf() * 80.0, c])
+	cands.sort_custom(func(a, b): return a[0] < b[0])
+	var best = null
+	for i in min(12, cands.size()):
+		if not find_path(cands[i][1], origin).is_empty() or not find_path(cands[i][1], origin + Vector2i(0, 1)).is_empty():
+			best = cands[i][1]
+			break
+	if best == null:
+		return null
+	var skills := {}
+	for sk in Data.skills:
+		skills[sk] = rng.randi_range(1, 3)
+	var talent: String = Data.skills.keys()[rng.randi() % Data.skills.size()]
+	skills[talent] = rng.randi_range(4, 5)
+	var s := spawn_settler({"name": unique_name(sex, rng), "sex": sex, "age": rng.randf_range(4.0, 12.0),
+		"skills": skills, "job": "frei", "x": best.x, "y": best.y, "hunger": 40.0})
+	assign_homes()
+	spawn_effect("chips_fischgrund", s.position)
+	Game.on_population_changed()
+	return s
 
 
 func kill_settler(s: Settler, reason: String) -> void:
@@ -607,7 +645,7 @@ func float_text(p: Vector2, text: String, icon_res: String) -> void:
 
 
 func warn_storage_full(res: String) -> void:
-	if Game.time_days - _storage_warn_time > 0.25:
+	if Game.time_days - _storage_warn_time > 1.0:
 		_storage_warn_time = Game.time_days
 		Game.notify("Das Lager ist voll (%s). Baue ein Lagerhaus!" % Data.resource_name(res), "haus")
 

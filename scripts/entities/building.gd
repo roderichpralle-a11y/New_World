@@ -60,7 +60,7 @@ func setup(p_world, p_type: String, p_cell: Vector2i, p_complete: bool) -> void:
 		add_child(_light)
 	_bar = Node2D.new()
 	_bar.draw.connect(_draw_bar)
-	_bar.position = Vector2(0, -size.y * 16 - 14)
+	_bar.position = Vector2(0, -size.y * 16 - 22) if not is_ground() else Vector2(0, -size.y * 16 - 4)
 	add_child(_bar)
 	refresh()
 
@@ -216,9 +216,10 @@ func refresh() -> void:
 func _draw_bar() -> void:
 	if complete:
 		return
-	var w := 28.0
-	_bar.draw_rect(Rect2(-w / 2 - 1, -1, w + 2, 5), Color(0.15, 0.1, 0.12))
-	_bar.draw_rect(Rect2(-w / 2, 0, w * build_fraction(), 3), Color(0.98, 0.78, 0.3))
+	var w := 20.0
+	_bar.draw_rect(Rect2(-w / 2 - 1, -1, w + 2, 4), Color(0.16, 0.1, 0.12, 0.85))
+	_bar.draw_rect(Rect2(-w / 2, 0, w, 2), Color(0.45, 0.32, 0.25, 0.9))
+	_bar.draw_rect(Rect2(-w / 2, 0, w * build_fraction(), 2), Color(0.98, 0.78, 0.3))
 
 
 func _process(delta: float) -> void:

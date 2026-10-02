@@ -15,6 +15,8 @@
   "birth_chance": 0.18,
   "birth_cooldown": 1.6,
   "birth_food_per_person": 4,
+  "fertile_max_age": 34.0,
+  "newcomer_chance": 0.03,
   "carry_capacity": 4,
   "walk_speed": 34.0,
   "skill_xp_per_level": 30.0,
