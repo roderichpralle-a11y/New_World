@@ -152,7 +152,11 @@ func build_from_save(w: Dictionary, m: Dictionary) -> void:
 		_den_breed = w.den_breed
 	else:
 		# Aelterer Spielstand: frueher kamen Tiere aus dem Nichts nach, jetzt vermehren sie
-		# sich. Damit jeder Bau ein Paar hat, wird er einmalig aufgefuellt.
+		# sich. Ausgeraeumte Baue kehren zurueck, und jeder Bau wird einmalig aufgefuellt.
+		for n in island.nodes:
+			var c: Vector2i = n.cell
+			if Data.nodes[n.type].has("spawns") and not node_at.has(c) and not building_at.has(c):
+				spawn_node(n.type, c, int(n.get("variant", -1)))
 		for n in nodes.duplicate():
 			if n.def.has("spawns"):
 				var have := animals.filter(func(an): return an.home == n.cell).size()

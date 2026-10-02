@@ -290,7 +290,7 @@ Test: `--season=<0..3>` startet in einer Jahreszeit, Bericht zeigt Jahreszeit un
   islands: [{id, name, biome, seed, size, pos, state, found_day, dens, world?}], active, voyages}`
   mit `world: {stock, nodes: [[type,x,y,amount,regrow_at,variant]], buildings: [...], settlers: [...],
   graves, animals: [[type,x,y,hp,home_x,home_y,age,food]], den_breed}`. Ohne `den_breed` (älterer
-  Spielstand) wird jeder Bau einmalig auf `den_cap` Tiere aufgefüllt. Version 1 (nur `world`) wird beim Laden als
+  Spielstand) kehren ausgeräumte Baue zurück und jeder Bau wird einmalig auf `den_cap` Tiere aufgefüllt. Version 1 (nur `world`) wird beim Laden als
   Heimatinsel übernommen. Version 1 und 2 hatten ein gemeinsames `stock`: das bekommt beim Laden
   die Heimatinsel. Das Gelände wird aus dem Seed neu erzeugt, nur Rohstoffe, Gebäude,
   Siedler und Tiere werden gespeichert.
