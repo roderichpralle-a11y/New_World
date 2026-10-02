@@ -98,6 +98,16 @@ func _maybe_autotest() -> void:
 		_autotest_prod()
 	if args.has("research"):
 		world.settlers[0].set_job("forscher")
+	if args.has("crowd"):
+		# Testhilfe: viele Siedler fuer die Siedlerliste
+		var names := ["Anna", "Ben", "Clara", "Dirk", "Emma", "Finn", "Greta", "Hugo", "Ida", "Karl", "Mia", "Ole", "Paula", "Rudi", "Sina", "Tom"]
+		for i in int(args.crowd):
+			var c: Vector2i = world.settlers[0].cell
+			var s = world.spawn_settler({"name": names[i % names.size()], "sex": "f" if i % 2 else "m",
+				"age": 3.0 + (i * 7) % 40, "max_age": 50.0, "skills": {}, "x": c.x, "y": c.y})
+			s.hunger = float((i * 37) % 100)
+			if s.is_adult():
+				s.set_job(["holzfaeller", "sammler", "frei", "steinmetz", "bauer"][i % 5] if Data.jobs.has("steinmetz") else "frei")
 	if args.has("seatest"):
 		_autotest_sea()
 	if args.has("schooltest"):
@@ -170,6 +180,14 @@ func _maybe_autotest() -> void:
 				"settlers":
 					hud._toggle(hud._settler_panel)
 					hud._refresh_settler_list()
+					if args.has("sfilter"):
+						# Testhilfe: Filter und Sortierung der Siedlerliste
+						hud._settler_head["hunger"].pressed.emit()
+						hud._settler_head["hunger"].pressed.emit()
+						hud._settler_f_hungry.button_pressed = true
+						hud._settler_f_group.select(1)
+						hud._settler_f_group.item_selected.emit(1)
+						print("Siedlerliste: ", hud._settler_count.text)
 				"build":
 					hud._build_cat = args.get("cat", "nahrung")
 					hud._fill_build_list()
