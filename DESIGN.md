@@ -106,6 +106,8 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
   los (kommt zurück), „Siedler schicken“ verbraucht ein Boot und bringt bis zu
   `ship_base_capacity` (+ `ship_capacity`) Siedler hinüber. Mindestens einer bleibt zurück.
   Reisezeit `voyage_days_base + voyage_days_per_dist * Entfernung` geteilt durch `eff(ship_speed)`.
+  Die Karte zoomt (Mausrad, zwei Finger, Knöpfe „-“ „+“ „Alle“, 1x bis 8x um den Zeiger) und
+  lässt sich gezoomt ziehen; ein Klick ohne Ziehen wählt eine Insel. Testhilfe `--panel=sea --seazoom=N`.
 - **Inselarten** (`data/islands.json`): `heimat` (Etappe 1, unverändert), `tropen` (Palmeninsel:
   Kokospalmen, viel Fisch, Wildschweine), `wald` (Waldinsel: Nadelwald, Pilze, Wölfe), `berg`
   (Felseninsel: Erz- und Goldadern, Bären). Insel 1–3 sind in dieser Reihenfolge, danach
