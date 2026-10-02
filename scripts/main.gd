@@ -74,6 +74,14 @@ func _maybe_autotest() -> void:
 	while elapsed < secs:
 		await get_tree().create_timer(1.0, true, false, true).timeout
 		elapsed += 1.0
+		if args.has("upgrade"):
+			# Testhilfe: Schreibstube Stufe fuer Stufe ausbauen, Material nachfuellen
+			for b in world.buildings.duplicate():
+				if b.def.get("base", b.type) == "schreibstube" and b.complete and b.def.has("upgrade"):
+					var nb = world.upgrade_building(b)
+					print("Schreibstube ausgebaut: ", b.type, " -> ", nb.type if nb else "nein")
+			for id in ["holz", "bretter", "stein", "ziegel", "eisen", "werkzeug"]:
+				Game.stock[id] = max(Game.amount(id), 40)
 		if args.has("seatest"):
 			_autotest_sea_tick(elapsed)
 		if args.has("tuttest"):

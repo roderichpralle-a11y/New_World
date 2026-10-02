@@ -2232,34 +2232,82 @@ def smithy():
     return img
 
 
-def scriptorium():
+def scriptorium(level=1):
+    """Schreibstube; Stufe 2 bis 4 werden prachtvoller (Fluegel, Turm, Stein, Gold)."""
     img = new(64, 64)
-    plaster_wall(img, 9, 36, 46, 24)
+    gold = [(200, 150, 50), (230, 190, 70), (250, 226, 130)]
+    if level >= 3:
+        stone_wall(img, 9, 36, 46, 24)
+        plaster_wall(img, 9, 36, 46, 12)
+    else:
+        plaster_wall(img, 9, 36, 46, 24)
     door(img, 28, 46, 8, 14, arch=True)
     window(img, 13, 41, 8, 8)
     window(img, 43, 41, 8, 8)
     tile_roof(img, 8, 12, 48, 26, SLATE)
-    # kleiner Turm mit Glocke
-    for y in range(4, 16):
+    if level >= 4:
+        # Seitenfluegel aus Stein, vor dem Hauptdach
+        for x0 in (0, 53):
+            stone_wall(img, x0, 44, 11, 16)
+            window(img, x0 + 3, 48, 5, 6)
+            tile_roof(img, x0, 36, 11, 9, SLATE, overhang=1)
+    if level >= 3:
+        # goldene Firstkante
+        for x in range(18, 46):
+            put(img, x, 13, gold[1] if x % 2 else gold[0])
+    # Turm mit Glocke, ab Stufe 3 hoeher
+    top = 4
+    for y in range(top, 16):
         for x in range(28, 36):
             put(img, x, y, PLASTER[1] if x < 34 else PLASTER[0])
-    for y in range(7, 12):
+    by = 7
+    for y in range(by, by + 5):
         for x in range(30, 34):
             put(img, x, y, DARK)
-    put(img, 31, 9, (230, 190, 70))
-    put(img, 32, 9, (230, 190, 70))
-    put(img, 31, 10, (200, 150, 50))
-    put(img, 32, 10, (200, 150, 50))
+    put(img, 31, by + 2, gold[1])
+    put(img, 32, by + 2, gold[1])
+    put(img, 31, by + 3, gold[0])
+    put(img, 32, by + 3, gold[0])
+    if level >= 4:
+        # Uhr am Turm
+        for y in range(12, 17):
+            for x in range(29, 35):
+                if (x - 31.5) ** 2 + (y - 14) ** 2 <= 6.5:
+                    put(img, x, y, (250, 246, 236))
+        put(img, 31, 13, DARK)
+        put(img, 31, 14, DARK)
+        put(img, 32, 14, DARK)
+    ry = 0
     for y in range(0, 5):
         for x in range(30 - y, 34 + y):
-            put(img, x, y + 1, SLATE[2] if x < 32 else SLATE[1])
+            put(img, x, y + 1 + ry, (gold[1] if x < 32 else gold[0]) if level >= 3 else (SLATE[2] if x < 32 else SLATE[1]))
+    if level >= 2:
+        # blaue Banner neben der Tuer
+        for bx in ([22, 38] if level >= 3 else [22]):
+            for y in range(40, 50):
+                for x in range(bx, bx + 4):
+                    if y < 49 or x in (bx, bx + 3):
+                        put(img, x, y, (60, 80, 170) if x < bx + 3 else (44, 60, 140))
+            put(img, bx + 1, 43, gold[2])
+            put(img, bx + 2, 43, gold[1])
+        # Buecherkiste und Laterne
+        for y in range(54, 60):
+            for x in range(44, 53):
+                put(img, x, y, WOOD[2] if y > 54 else WOOD[3])
+        for x, c in [(45, (180, 60, 50)), (47, (60, 90, 160)), (49, (70, 140, 80)), (51, (200, 160, 60))]:
+            put(img, x, 53, c)
+            put(img, x, 52, c)
+        for y in range(48, 60):
+            put(img, 12, y, IRON[1])
+        for (x, y) in [(11, 47), (12, 47), (13, 47), (11, 46), (13, 46)]:
+            put(img, x, y, gold[2] if y == 47 else IRON[1])
     # Schild mit Feder
     for y in range(29, 34):
         for x in range(42, 50):
             put(img, x, y, (240, 230, 200))
     for i in range(5):
         put(img, 44 + i, 33 - i, (60, 60, 120))
-    ground_line(img, 9, 55)
+    ground_line(img, 0 if level >= 4 else 9, 64 if level >= 4 else 55)
     add_outline(img)
     return img
 
@@ -2384,7 +2432,7 @@ def gen_buildings2():
     import gen_art_sea
     order = [house_wood(), house_stone(), store_big(), mill(0), mill(1), mill(2), mill(3),
              bakery(), smokehouse(), henhouse(), sawpit(), claypit(), brickworks(), quarry(),
-             charcoal(), mine(), smelter(), smithy(), scriptorium(), library()] + gen_art_sea.extra_buildings() + [school()]
+             charcoal(), mine(), smelter(), smithy(), scriptorium(), library()] + gen_art_sea.extra_buildings() + [school(), scriptorium(2), scriptorium(3), scriptorium(4)]
     atlas = new(512, 64 * ((len(order) + 7) // 8))
     for i, im in enumerate(order):
         atlas.paste(im, ((i % 8) * 64, (i // 8) * 64))
