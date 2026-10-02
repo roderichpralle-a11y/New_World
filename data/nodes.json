@@ -1,26 +1,14 @@
 {
-  "baum": {
-    "name": "Baum", "yield": "holz", "capacity": 5, "work_time": 2.2, "skill": "holz",
-    "terrain": "grass", "solid": true, "regrow_days": 2.5,
-    "sprites": {"full": ["tree0", "tree1", "tree2"], "empty": "stump", "growing": "sapling"},
-    "on_empty": "regrow"
-  },
-  "fels": {
-    "name": "Felsen", "yield": "stein", "capacity": 10, "work_time": 3.0, "skill": "stein",
-    "terrain": "land", "solid": true, "regrow_days": 0,
-    "sprites": {"full": ["rock_big"], "low": "rock_small"},
-    "on_empty": "remove"
-  },
-  "busch": {
-    "name": "Beerenstrauch", "yield": "beeren", "capacity": 4, "work_time": 1.6, "skill": "nahrung",
-    "terrain": "grass", "solid": true, "regrow_days": 1.2,
-    "sprites": {"full": ["bush_full"], "empty": "bush_empty"},
-    "on_empty": "regrow"
-  },
-  "fischgrund": {
-    "name": "Fischgrund", "yield": "fisch", "capacity": 6, "work_time": 3.2, "skill": "nahrung",
-    "terrain": "shore_water", "solid": false, "regrow_days": 0.8,
-    "sprites": {"full": ["fish_anim"], "empty": ""},
-    "on_empty": "regrow"
-  }
+  "baum": {"name": "Baum", "yield": "holz", "capacity": 5, "work_time": 2.2, "skill": "holz", "terrain": "grass", "solid": true, "regrow_days": 2.5, "sprites": {"full": ["tree0", "tree1", "tree2"], "empty": "stump", "growing": "sapling"}, "on_empty": "regrow"},
+  "fels": {"name": "Felsen", "yield": "stein", "capacity": 10, "work_time": 3.0, "skill": "stein", "terrain": "land", "solid": true, "regrow_days": 0, "sprites": {"full": ["rock_big"], "low": "rock_small"}, "on_empty": "remove"},
+  "busch": {"name": "Beerenstrauch", "yield": "beeren", "capacity": 4, "work_time": 1.6, "skill": "nahrung", "terrain": "grass", "solid": true, "regrow_days": 1.2, "sprites": {"full": ["bush_full"], "empty": "bush_empty"}, "on_empty": "regrow"},
+  "fischgrund": {"name": "Fischgrund", "yield": "fisch", "capacity": 6, "work_time": 3.2, "skill": "nahrung", "terrain": "shore_water", "solid": false, "regrow_days": 0.8, "sprites": {"full": ["fish_anim"], "empty": ""}, "on_empty": "regrow"},
+  "palme": {"name": "Kokospalme", "yield": "kokos", "capacity": 4, "work_time": 2.0, "skill": "nahrung", "terrain": "land", "solid": true, "regrow_days": 1.6, "sprites": {"full": ["palm0", "palm1"], "empty": "palm_empty"}, "on_empty": "regrow"},
+  "pilzkreis": {"name": "Pilzkreis", "yield": "pilze", "capacity": 3, "work_time": 1.4, "skill": "nahrung", "terrain": "grass", "solid": false, "regrow_days": 1.0, "sprites": {"full": ["mushrooms"], "empty": ""}, "on_empty": "regrow"},
+  "erzader": {"name": "Erzader", "yield": "erz", "capacity": 8, "work_time": 3.4, "skill": "stein", "terrain": "land", "solid": true, "regrow_days": 0, "sprites": {"full": ["ore_rock"], "low": "rock_small"}, "on_empty": "remove"},
+  "goldader": {"name": "Goldader", "yield": "gold", "capacity": 6, "work_time": 4.0, "skill": "stein", "terrain": "land", "solid": true, "regrow_days": 0, "sprites": {"full": ["gold_rock"], "low": "rock_small"}, "on_empty": "remove"},
+  "wolfsbau": {"name": "Wolfsbau", "yield": "felle", "capacity": 6, "work_time": 3.0, "skill": "jagd", "terrain": "grass", "solid": true, "regrow_days": 0, "spawns": "wolf", "den_cap": 3, "sprites": {"full": ["den"]}, "on_empty": "remove"},
+  "eberbau": {"name": "Wildschweinsuhle", "yield": "felle", "capacity": 5, "work_time": 3.0, "skill": "jagd", "terrain": "grass", "solid": true, "regrow_days": 0, "spawns": "eber", "den_cap": 2, "sprites": {"full": ["wallow"]}, "on_empty": "remove"},
+  "baerenhoehle": {"name": "Bärenhöhle", "yield": "felle", "capacity": 8, "work_time": 3.5, "skill": "jagd", "terrain": "land", "solid": true, "regrow_days": 0, "spawns": "baer", "den_cap": 1, "sprites": {"full": ["cave"]}, "on_empty": "remove"},
+  "beute": {"name": "Erlegtes Tier", "yield": "fleisch", "capacity": 5, "work_time": 1.6, "skill": "jagd", "terrain": "land", "solid": false, "regrow_days": 0, "decay_days": 2.0, "sprites": {"full": ["carcass"]}, "on_empty": "remove"}
 }

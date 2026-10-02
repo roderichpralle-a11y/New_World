@@ -23,7 +23,11 @@
   "skill_xp_per_level": 30.0,
   "skill_max": 10,
   "base_storage": 0,
-  "start_stock": {"holz": 10, "stein": 0, "beeren": 16},
+  "start_stock": {
+    "holz": 10,
+    "stein": 0,
+    "beeren": 16
+  },
   "autosave_seconds": 45.0,
   "map_size": 64,
   "passive_research_per_day": 4.0,
@@ -31,5 +35,16 @@
   "research_per_work": 1.5,
   "research_work_time": 2.5,
   "variety_min": 3,
-  "variety_birth_bonus": 1.5
+  "variety_birth_bonus": 1.5,
+  "den_spawn_interval": 0.3,
+  "den_spawn_chance": 0.5,
+  "ship_base_capacity": 4,
+  "voyage_days_base": 0.25,
+  "voyage_days_per_dist": 0.12,
+  "explore_days_base": 0.4,
+  "explore_days_per_dist": 0.1,
+  "unarmed_damage": 3.0,
+  "hunter_damage": 5.0,
+  "flee_radius": 4.0,
+  "refuge_radius": 14
 }

@@ -99,6 +99,10 @@ func harvest_one() -> int:
 
 
 func _process(delta: float) -> void:
+	# Erlegte Tiere verderben nach ein paar Tagen
+	if def.has("decay_days") and regrow_at >= 0.0 and Game.time_days >= regrow_at:
+		world.remove_node(self)
+		return
 	if amount <= 0 and regrow_at >= 0.0:
 		if Game.time_days >= regrow_at:
 			amount = int(def.capacity)

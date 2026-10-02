@@ -49,6 +49,9 @@ var _follow: bool = false
 var _info_sig: String = ""
 var _updaters: Array = []
 var _research_tick: float = 0.0
+var _sea_panel: SeaPanel
+var _sea_btn: Button
+var _island_label: Label
 
 
 func setup(p_world: World, p_camera: GameCamera) -> void:
@@ -68,6 +71,9 @@ func setup(p_world: World, p_camera: GameCamera) -> void:
 	_build_menu_panel()
 	_build_help_panel()
 	_build_info_panel()
+	_sea_panel = SeaPanel.new()
+	root.add_child(_sea_panel)
+	_sea_panel.setup(self)
 	_build_place_bar()
 	_toasts = VBoxContainer.new()
 	_toasts.position = Vector2(8, 56)
@@ -84,7 +90,9 @@ func setup(p_world: World, p_camera: GameCamera) -> void:
 	Game.speed_changed.connect(_on_speed)
 	Game.game_over.connect(_show_game_over)
 	world.placement_changed.connect(_on_placement)
+	Sea.islands_changed.connect(_update_sea_button)
 	get_viewport().size_changed.connect(_layout)
+	_update_sea_button()
 	_refresh_top()
 	_layout()
 
@@ -133,6 +141,9 @@ func _build_topbar() -> void:
 	_day_label = UiTheme.label("Tag 1", 16)
 	dc.add_child(_day_label)
 	h.add_child(dc)
+	_island_label = UiTheme.label("", 14, Color("#7a4a28"), true)
+	_island_label.visible = false
+	h.add_child(_island_label)
 	_food_label.get_parent().set_meta("is_food", true)
 
 	var sp := PanelContainer.new()
@@ -167,7 +178,15 @@ func _refresh_top() -> void:
 	_food_label.get_parent().tooltip_text = "Nahrung\n" + "\n".join(parts) + "\nLagerplatz je Sorte: %d" % cap
 	var pop := Game.population()
 	_food_label.add_theme_color_override("font_color", UiTheme.BAD if food < pop * 3 else UiTheme.TEXT)
-	_pop_label.text = "%d/%d" % [pop, Game.housing_capacity()]
+	var here: int = world.settlers.size() if world and is_instance_valid(world) else 0
+	_pop_label.text = "%d/%d" % [here, Game.housing_capacity()]
+	var tip := "Bewohner / Wohnplätze auf dieser Insel"
+	if Sea.worlds.size() > 1 or Sea.people_at_sea() > 0:
+		tip += "\nAuf allen Inseln und See: %d" % (pop + Sea.people_at_sea())
+	_pop_label.get_parent().tooltip_text = tip
+	if _island_label:
+		_island_label.visible = Sea.worlds.size() > 1
+		_island_label.text = Sea.island_name(world) if world and is_instance_valid(world) else ""
 
 
 func _on_speed(s: int) -> void:
@@ -196,9 +215,42 @@ func _build_bottom() -> void:
 		_refresh_settler_list()
 		_toggle(_settler_panel))
 	_bottom.add_child(sb)
+	_sea_btn = UiTheme.button("Inseln", "boot", 44)
+	_sea_btn.pressed.connect(_open_sea)
+	_bottom.add_child(_sea_btn)
 	var mb := UiTheme.button("Menü", "menu", 44)
 	mb.pressed.connect(func(): _toggle(_menu_panel))
 	_bottom.add_child(mb)
+
+
+func _open_sea() -> void:
+	_sea_panel.open()
+	if not _sea_panel.visible:
+		_toggle(_sea_panel)
+	_layout()
+
+
+func _update_sea_button() -> void:
+	if _sea_btn == null:
+		return
+	var show := Game.is_researched("schiffsbau") or Sea.islands.size() > 1
+	if _sea_btn.visible != show:
+		_sea_btn.visible = show
+		_layout()
+	_refresh_top()
+
+
+## Nach dem Wechsel auf eine andere Insel.
+func on_island_switched() -> void:
+	for pnl in _panels():
+		if pnl != _sea_panel:
+			pnl.visible = false
+	_info_panel.visible = false
+	_refresh_top()
+	_refresh_settler_list()
+	_update_sea_button()
+	if _sea_panel.visible:
+		_sea_panel.refresh()
 
 
 func _toggle(panel: Control) -> void:
@@ -212,7 +264,7 @@ func _toggle(panel: Control) -> void:
 
 
 func _panels() -> Array:
-	return [_build_panel, _research_panel, _stock_panel, _settler_panel, _menu_panel, _help_panel]
+	return [_build_panel, _research_panel, _stock_panel, _settler_panel, _menu_panel, _help_panel, _sea_panel]
 
 
 func _popup_panel(title: String) -> Array:
@@ -236,7 +288,8 @@ func _popup_panel(title: String) -> Array:
 
 # ================================================================== Bau-Menue
 const BUILD_CATS := [["wohnen", "Wohnen", "haus"], ["nahrung", "Nahrung", "nahrung"],
-	["handwerk", "Handwerk", "hammer"], ["lager", "Lager", "kiste"], ["wissen", "Wissen", "wissen"]]
+	["handwerk", "Handwerk", "hammer"], ["lager", "Lager", "kiste"], ["wissen", "Wissen", "wissen"],
+	["see", "Seefahrt und Schutz", "boot"]]
 
 
 func _build_build_panel() -> void:
@@ -502,6 +555,7 @@ func _on_tech_pressed(tid: String, b: Button, d: Label) -> void:
 
 
 func _on_research_changed() -> void:
+	_update_sea_button()
 	if _research_panel.visible:
 		_fill_research_list()
 	else:
@@ -576,7 +630,7 @@ func _on_placement(active: bool, type: String, valid: bool) -> void:
 	if active:
 		_place_ok.disabled = not valid
 		_place_label.text = "%s: Tippe auf die Karte, um den Bauplatz zu wählen.%s" % [
-			Data.buildings[type].name, " Der Platz passt." if valid else "\nHier ist kein Platz frei."]
+			Data.buildings[type].name, " Der Platz passt." if valid else ("\nMuss am Ufer stehen und Platz haben." if Data.buildings[type].get("coast", false) else "\nHier ist kein Platz frei.")]
 	_layout()
 
 
@@ -679,7 +733,7 @@ Kinder kommen nur zur Welt, wenn es freie Wohnplätze in Hütten gibt und genug 
 Wähle ein Gebäude und einen Bauplatz. Baumeister und freie Siedler bringen das Material und bauen es auf. Hütten und Holzhäuser lassen sich später im Infofenster ausbauen.
 
 [b]Forschung[/b]
-Im Entwicklungsbaum wählst du, was deine Siedler als Nächstes lernen. Forscher denken am Lagerfeuer nach, in Schreibstube und Bibliothek viel schneller. Jede Forschung schaltet neue Gebäude frei oder macht die Arbeit leichter. Fünf Stufen führen von Steinwerkzeugen bis zu Eisen und Schiffsbau.
+Im Entwicklungsbaum wählst du, was deine Siedler als Nächstes lernen. Forscher denken am Lagerfeuer nach, in Schreibstube und Bibliothek viel schneller. Jede Forschung schaltet neue Gebäude frei oder macht die Arbeit leichter. Sechs Stufen führen von Steinwerkzeugen über Eisen und Schiffsbau bis zum Goldenen Zeitalter.
 
 [b]Werkstätten[/b]
 Sägegrube, Mühle, Bäckerei, Ziegelei und Co. verwandeln Rohstoffe in bessere Waren. Köche arbeiten in Mühle, Bäckerei, Räucherei und Hühnerhof, Handwerker in den Werkstätten, Steinmetze in Steinbruch, Lehmgrube und Mine. Tippe oben auf die Vorräte, um alle Waren zu sehen.
@@ -687,8 +741,17 @@ Sägegrube, Mühle, Bäckerei, Ziegelei und Co. verwandeln Rohstoffe in bessere 
 [b]Abwechslung[/b]
 Gibt es mindestens drei Sorten Nahrung im Lager, kommen öfter Kinder zur Welt.
 
+[b]Seefahrt[/b]
+Mit der Forschung Schiffsbau baust du am Ufer eine Werft. Handwerker zimmern dort Boote. Über den Knopf Inseln öffnest du die Seekarte: Ein Boot sucht neue Inseln, und mit "Siedler schicken" bringt ein Boot bis zu vier Siedler hinüber. Alle Inseln teilen sich die Vorräte.
+
+[b]Neue Inseln[/b]
+Palmeninseln haben Kokosnüsse und viel Fisch, Waldinseln Pilze und Holz, Felseninseln Erz und Gold. Gold brauchst du für die höchsten Forschungen. Je weiter draußen, desto mehr wilde Tiere.
+
+[b]Wilde Tiere[/b]
+Wölfe, Wildschweine und Bären leben in Bauten und Höhlen. Siedler fliehen vor ihnen in Häuser, nachts sind Wölfe besonders gefährlich. Mit Waffenkunde werden Siedler zu Jägern und du kannst Wachtürme bauen. Jäger bringen Fleisch und Felle und räumen die Bauten aus, damit keine Tiere mehr nachkommen.
+
 [b]Achtung[/b]
-Stirbt der letzte Siedler, ist die Insel verloren."""
+Stirbt auf einer Insel der letzte Siedler, ist diese Insel für immer verloren. Erst wenn alle Inseln verloren sind, ist das Spiel vorbei. Die Welt ist endlos: Es gibt immer noch eine Insel zu entdecken."""
 
 
 func _build_help_panel() -> void:
@@ -773,6 +836,8 @@ func _info_signature() -> String:
 			int((Game.time_days - o.farm_time) * 20), str(o.occupants), o.paused, o.is_active(), o.prod_blocker()]
 	if o is ResNode:
 		return "n%s|%d|%d" % [o.cell, o.amount, int((o.regrow_at - Game.time_days) * 24)]
+	if o is Animal:
+		return "a%d|%s" % [o.get_instance_id(), o.target != null]
 	return ""
 
 
@@ -790,6 +855,8 @@ func _rebuild_info() -> void:
 		_info_building(o)
 	elif o is ResNode:
 		_info_node(o)
+	elif o is Animal:
+		_info_animal(o)
 
 
 func _info_settler(s: Settler) -> void:
@@ -808,7 +875,7 @@ func _info_settler(s: Settler) -> void:
 		hb.value = s.hunger
 		gb.value = s.health)
 	var home = world.building_by_id(s.home_id)
-	_info_box.add_child(UiTheme.label("Zuhause: %s" % ("Hütte" if home else "keins (schläft draußen)"), 13))
+	_info_box.add_child(UiTheme.label("Zuhause: %s" % (home.def.name if home else "keins (schläft draußen)"), 13))
 	_info_box.add_child(UiTheme.label("Fähigkeiten", 15, UiTheme.TEXT, true))
 	for sk in Data.skills:
 		var lvl := int(s.skill_level(sk))
@@ -833,6 +900,9 @@ func _info_settler(s: Settler) -> void:
 				tip += "\nFähigkeit: %s (Stufe %d)" % [Data.skills[jd.skill].name, int(s.skill_level(jd.skill))]
 			b.tooltip_text = tip
 			var jid: String = j
+			if not Data.job_unlocked(j):
+				b.disabled = true
+				b.tooltip_text = tip + "\nBenötigt Forschung: %s" % Data.techs.get(jd.requires, {}).get("name", "?")
 			b.pressed.connect(func():
 				s.set_job(jid)
 				_rebuild_info())
@@ -1014,8 +1084,37 @@ func _info_node(n: ResNode) -> void:
 		_info_box.add_child(UiTheme.label("Wächst nach: noch %d Std." % max(1, int(ceil(left))), 14))
 	elif n.def.get("on_empty", "") == "remove":
 		_info_box.add_child(UiTheme.label("Wächst nicht nach.", 13))
-	var who := {"baum": "Holzfäller", "fels": "Steinmetz", "busch": "Sammler", "fischgrund": "Fischer"}
-	_info_box.add_child(UiTheme.label("Wird bearbeitet von: %s" % who.get(n.type, "?"), 13))
+	var who := {"baum": "Holzfäller", "fels": "Steinmetz", "busch": "Sammler", "fischgrund": "Fischer",
+		"palme": "Sammler", "pilzkreis": "Sammler", "erzader": "Steinmetz", "goldader": "Steinmetz", "beute": "Jäger"}
+	if n.def.has("spawns"):
+		var an: Dictionary = Data.animals[n.def.spawns]
+		var l := UiTheme.label("Hier leben bis zu %d: %s. Jäger können den Bau ausräumen, dann kommen keine Tiere mehr nach." % [int(n.def.get("den_cap", 1)), an.name], 13, UiTheme.BAD)
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_info_box.add_child(l)
+	else:
+		_info_box.add_child(UiTheme.label("Wird bearbeitet von: %s" % who.get(n.type, "?"), 13))
+	if n.def.has("decay_days") and n.regrow_at >= 0.0:
+		_info_box.add_child(UiTheme.label("Verdirbt in %d Std." % max(1, int(ceil((n.regrow_at - Game.time_days) * 24.0))), 13))
+
+
+func _info_animal(a: Animal) -> void:
+	_info_head(a.def.name)
+	var hb := _bar_row("Kraft", a.hp / a.max_hp() * 100.0, UiTheme.BAD)
+	var st := UiTheme.label("", 14, Color("#6a4a30"))
+	_info_box.add_child(st)
+	var upd := func():
+		if not is_instance_valid(a):
+			return
+		hb.value = a.hp / a.max_hp() * 100.0
+		st.text = ("Greift %s an!" % a.target.display_name) if a.target and is_instance_valid(a.target) else "Streift umher."
+	upd.call()
+	_updaters.append(upd)
+	var t := "Gefährlich! Biss: %d Schaden. Siedler fliehen in Häuser. Jäger (Forschung Waffenkunde) und Wachtürme wehren die Tiere ab. Erlegt gibt es Fleisch und Felle." % int(a.def.damage)
+	if float(a.def.aggro) < 3.0:
+		t = "Greift nur an, wenn man ihm zu nahe kommt. Biss: %d Schaden. Jäger und Wachtürme erlegen es für Fleisch und Felle." % int(a.def.damage)
+	var l := UiTheme.label(t, 13)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_info_box.add_child(l)
 
 
 # ================================================================== Meldungen
@@ -1103,11 +1202,11 @@ func _show_game_over() -> void:
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 10)
 	p.add_child(v)
-	var t := UiTheme.label("Die Insel ist verloren", 30, UiTheme.BAD, true)
+	var t := UiTheme.label("Alle Inseln sind verloren" if Sea.islands.size() > 1 else "Die Insel ist verloren", 30, UiTheme.BAD, true)
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(t)
-	var s := UiTheme.label("Deine Siedlung hielt %d Tage durch.\nGeburten: %d   Höchste Bevölkerung: %d" % [
-		Game.day(), int(Game.stats.births), int(Game.stats.max_pop)], 15)
+	var s := UiTheme.label("Deine Siedlung hielt %d Tage durch.\nGeburten: %d   Höchste Bevölkerung: %d   Entdeckte Inseln: %d" % [
+		Game.day(), int(Game.stats.births), int(Game.stats.max_pop), Sea.islands.size() - 1], 15)
 	s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(s)
 	var ng := UiTheme.button("Neue Insel besiedeln", "sonne", 50)

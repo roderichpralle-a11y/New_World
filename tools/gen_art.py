@@ -804,7 +804,8 @@ def gen_settlers():
 # ------------------------------------------------------------------ Werkzeuge
 def tools():
     """tools.png: 16x16 Werkzeuge in der Hand: Axt, Spitzhacke, Korb, Angel, Hammer, Sichel."""
-    atlas = new(144, 16)
+    import gen_art_sea
+    atlas = new(160, 16)
     axe = new(16, 16)
     for i in range(10):
         put(axe, 3 + i, 13 - i, WOOD[2])
@@ -846,7 +847,7 @@ def tools():
     for a in range(200, 360, 12):
         put(sickle, int(10 + math.cos(math.radians(a)) * 4), int(6 + math.sin(math.radians(a)) * 4), STONE[4])
     add_outline(sickle)
-    for i, im in enumerate([axe, pick, basket, rod, hammer, sickle] + tools2()):
+    for i, im in enumerate([axe, pick, basket, rod, hammer, sickle] + tools2() + [gen_art_sea.spear()]):
         atlas.paste(im, (i * 16, 0))
     atlas.save(os.path.join(OUT, "tools.png"))
 
@@ -1521,6 +1522,9 @@ ICONS.update({
 
 
 def gen_icons():
+    import gen_art_sea
+    for k, v in gen_art_sea.ICONS_SEA.items():
+        ICONS.setdefault(k, v)
     names = list(ICONS.keys())
     atlas = new(16 * len(names), 16)
     for i, n in enumerate(names):
@@ -1562,7 +1566,7 @@ def ui_panel():
 
 def preview():
     """Vorschaubild zur Kontrolle (nicht im Spiel benutzt)."""
-    files = ["terrain.png", "objects.png", "buildings.png", "icons.png", "tools.png", "ui.png",
+    files = ["terrain.png", "objects.png", "objects2.png", "animals.png", "buildings.png", "icons.png", "tools.png", "ui.png",
              "settler_fixed.png", "settler_skin.png", "settler_hair_0.png", "settler_hair_1.png",
              "settler_hair_2.png", "settler_shirt.png", "settler_pants.png"]
     ims = [Image.open(os.path.join(OUT, f)) for f in files]
@@ -2326,9 +2330,10 @@ def orchard_tile(stage):
 
 def gen_buildings2():
     """buildings.png: Zellen 64x64, 8 je Zeile (Reihenfolge = Data.BUILDING_CELLS)."""
+    import gen_art_sea
     order = [house_wood(), house_stone(), store_big(), mill(0), mill(1), mill(2), mill(3),
              bakery(), smokehouse(), henhouse(), sawpit(), claypit(), brickworks(), quarry(),
-             charcoal(), mine(), smelter(), smithy(), scriptorium(), library()]
+             charcoal(), mine(), smelter(), smithy(), scriptorium(), library()] + gen_art_sea.extra_buildings()
     atlas = new(512, 64 * ((len(order) + 7) // 8))
     for i, im in enumerate(order):
         atlas.paste(im, ((i % 8) * 64, (i // 8) * 64))
@@ -2371,6 +2376,9 @@ if __name__ == "__main__":
     gen_terrain()
     gen_objects()
     gen_buildings2()
+    import gen_art_sea
+    gen_art_sea.gen_objects2()
+    gen_art_sea.gen_animals()
     gen_settlers()
     tools()
     gen_icons()

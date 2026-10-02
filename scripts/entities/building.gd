@@ -306,6 +306,13 @@ func _process(delta: float) -> void:
 	if type == "lagerfeuer":
 		_anim_t += delta
 		_sprite.texture = Data.object_tex("campfire", int(_anim_t * 8.0) % 4)
+	elif complete and _sprite and not def.has("production") and Data.object_frames(def.sprite) > 1:
+		# Leuchtturm: das Feuer kreist nachts
+		_anim_t += delta
+		var lit: bool = world.night_factor() > 0.3
+		_sprite.texture = Data.object_tex(def.sprite, (int(_anim_t * 2.0) % 2) if lit else 0)
+	if complete and def.has("defense") and not world.animals.is_empty():
+		_defend(delta)
 	if _light:
 		var target: float = world.night_factor() if complete else 0.0
 		var flicker := 1.0 + (sin(_anim_t * 13.0) * 0.06 + sin(_anim_t * 7.3) * 0.05 if type == "lagerfeuer" else 0.0)
@@ -322,6 +329,25 @@ func _process(delta: float) -> void:
 
 
 var _last_stage := -1
+var _shot_t: float = 0.0
+
+
+## Wachturm: schiesst Pfeile auf das naechste Tier in Reichweite.
+func _defend(delta: float) -> void:
+	_shot_t -= delta
+	if _shot_t > 0.0:
+		return
+	var d: Dictionary = def.defense
+	var tower_bonus := Game.eff_add("tower")
+	var rng := float(d.range) * 16.0 * (1.0 + tower_bonus * 0.5)
+	var an = world.nearest_animal(position + Vector2(0, -8), rng)
+	if an == null:
+		_shot_t = 0.3
+		return
+	_shot_t = float(d.interval)
+	var from := position + Vector2(0, -34)
+	world.spawn_arrow(from, an.position + Vector2(0, -6))
+	an.take_damage(float(d.damage) * Game.eff("tower"), self)
 
 
 func serialize() -> Dictionary:

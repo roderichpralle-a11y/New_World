@@ -47,6 +47,10 @@ var _think_cooldown: float = 0.0
 var _reserved = null  # ResNode oder Building, das reserviert ist
 var _incoming: Array = []  # [Building, res, n] fuer Materiallieferungen
 var _rng := RandomNumberGenerator.new()
+var _danger_t: float = 0.0
+var _attack_t: float = 0.0
+var _hurt: float = 0.0
+var _hiding = null  # Gebaeude, in dem sich der Siedler vor Tieren versteckt
 
 var _body: Node2D
 var _layers: Dictionary = {}
@@ -185,8 +189,10 @@ func best_job() -> String:
 	var best := "frei"
 	var best_v := 1.5
 	var map := {"holz": "holzfaeller", "stein": "steinmetz", "nahrung": "sammler", "bauen": "baumeister",
-		"handwerk": "handwerker", "wissen": "forscher"}
+		"handwerk": "handwerker", "wissen": "forscher", "jagd": "jaeger"}
 	for sk in map:
+		if not Data.job_unlocked(map[sk]):
+			continue
 		if skill_level(sk) > best_v:
 			best_v = skill_level(sk)
 			best = map[sk]
@@ -212,6 +218,8 @@ func _process(delta: float) -> void:
 	_needs(days)
 	if not is_instance_valid(self) or is_queued_for_deletion():
 		return
+	if not world.animals.is_empty():
+		_check_danger(delta)
 	if _plan.is_empty():
 		_think_cooldown -= delta
 		if _think_cooldown <= 0.0:
@@ -225,7 +233,7 @@ func _needs(days: float) -> void:
 	var f := 1.0 if is_adult() else float(Data.bal("child_hunger_factor"))
 	if sleeping:
 		f *= 0.6
-	hunger = max(0.0, hunger - float(Data.bal("hunger_per_day")) * days * f)
+	hunger = max(0.0, hunger - float(Data.bal("hunger_per_day")) * Game.eff("hunger") * days * f)
 	if hunger <= 0.0:
 		health -= float(Data.bal("starve_damage_per_day")) * days
 	elif hunger > 30.0:
@@ -274,6 +282,9 @@ func _think() -> void:
 
 
 func abort_plan() -> void:
+	if _hiding != null:
+		_hiding = null
+		visible = true
 	_plan.clear()
 	_path = PackedVector2Array()
 	_working = false
@@ -435,9 +446,14 @@ func _plan_work() -> bool:
 		"baumeister":
 			return _plan_construction() or _plan_free_gather()
 		"bauer":
-			return _plan_farm() or _plan_gather(["busch"])
+			return _plan_farm() or _plan_gather(["busch", "palme", "pilzkreis"])
 		"forscher":
 			return _plan_research() or _plan_free_gather()
+		"jaeger":
+			if Data.job_unlocked("jaeger"):
+				if _plan_hunt() or _plan_gather(["beute", "wolfsbau", "eberbau", "baerenhoehle"]):
+					return true
+			return _plan_free_gather()
 		_:
 			var targets: Array = Data.jobs.get(job, {}).get("targets", [])
 			# Ist das eigene Lager voll, hilft der Siedler woanders aus
@@ -453,7 +469,7 @@ func _plan_free() -> bool:
 func _plan_free_gather() -> bool:
 	var pop: int = max(1, Game.population())
 	if Game.total_food() < pop * 10:
-		if _plan_farm() or _plan_gather(["busch", "fischgrund"]):
+		if _plan_farm() or _plan_gather(["beute", "busch", "palme", "pilzkreis", "fischgrund"]):
 			return true
 	# Was am knappsten ist (Holz wird doppelt gewichtet, weil es ueberall gebraucht wird)
 	var wood := Game.amount("holz") / 2.0
@@ -462,7 +478,7 @@ func _plan_free_gather() -> bool:
 	for t in order:
 		if _plan_gather([t]):
 			return true
-	return _plan_gather(["busch", "fischgrund"])
+	return _plan_gather(["busch", "palme", "pilzkreis", "fischgrund"])
 
 
 func _plan_gather(types: Array) -> bool:
@@ -503,12 +519,16 @@ func _plan_gather(types: Array) -> bool:
 
 
 func _tool_for_node(t: String) -> String:
-	return {"baum": "axe", "fels": "pick", "busch": "basket", "fischgrund": "rod"}.get(t, "")
+	return {"baum": "axe", "fels": "pick", "busch": "basket", "fischgrund": "rod", "palme": "basket",
+		"pilzkreis": "basket", "erzader": "pick", "goldader": "pick", "beute": "spear", "wolfsbau": "shovel",
+		"eberbau": "shovel", "baerenhoehle": "pick"}.get(t, "")
 
 
 func _verb(t: String) -> String:
 	return {"baum": "Fällt einen Baum", "fels": "Schlägt Steine", "busch": "Pflückt Beeren",
-		"fischgrund": "Angelt"}.get(t, "Arbeitet")
+		"fischgrund": "Angelt", "palme": "Pflückt Kokosnüsse", "pilzkreis": "Sammelt Pilze",
+		"erzader": "Schlägt Erz", "goldader": "Schürft Gold", "beute": "Zerlegt die Beute",
+		"wolfsbau": "Räumt den Bau aus", "eberbau": "Räumt den Bau aus", "baerenhoehle": "Räumt die Höhle aus"}.get(t, "Arbeitet")
 
 
 func _do_harvest(node) -> void:
@@ -762,19 +782,7 @@ func _run_action(delta: float) -> void:
 				cell = a.cell
 				_plan.pop_front()
 				return
-			var target: Vector2 = _path[_path_i]
-			var spd := float(Data.bal("walk_speed")) * Game.eff("walk") * (1.0 if is_adult() else 0.85)
-			if hunger <= 0.0:
-				spd *= 0.6
-			var to := target - position
-			var step := spd * delta
-			if to.length() <= step:
-				position = target
-				cell = world.pos_to_cell(target)
-				_path_i += 1
-			else:
-				position += to.normalized() * step
-			_face(to)
+			_walk(delta, 1.3 if a.get("flee", false) else 1.0)
 		"work":
 			_moving = false
 			if not a.get("started", false):
@@ -797,6 +805,170 @@ func _run_action(delta: float) -> void:
 			a.t = float(a.t) - delta
 			if a.t <= 0.0:
 				_plan.pop_front()
+		"hunt":
+			_run_hunt(a, delta)
+		"hide":
+			_run_hide(a, delta)
+
+
+func _walk(delta: float, mult: float = 1.0) -> void:
+	if _path_i >= _path.size():
+		return
+	var target: Vector2 = _path[_path_i]
+	var spd := float(Data.bal("walk_speed")) * Game.eff("walk") * (1.0 if is_adult() else 0.85) * mult
+	if hunger <= 0.0:
+		spd *= 0.6
+	var to := target - position
+	var step := spd * delta
+	if to.length() <= step:
+		position = target
+		cell = world.pos_to_cell(target)
+		_path_i += 1
+	else:
+		position += to.normalized() * step
+	_face(to)
+
+
+# ------------------------------------------------------------------ Gefahr und Jagd
+func is_armed() -> bool:
+	return job == "jaeger" and Data.job_unlocked("jaeger")
+
+
+func attack_damage() -> float:
+	var d := float(Data.bal("unarmed_damage", 3.0))
+	if is_armed():
+		d = float(Data.bal("hunter_damage", 5.0)) + skill_level("jagd") * Game.eff("hunt")
+	return d * Game.eff("weapons")
+
+
+func _can_fight() -> bool:
+	return is_adult() and is_armed() and health > 30.0
+
+
+## Prueft regelmaessig, ob ein Tier droht: Jaeger kaempfen, alle anderen fliehen ins naechste Haus.
+func _check_danger(delta: float) -> void:
+	_danger_t -= delta
+	if _danger_t > 0.0 or not visible:
+		return
+	_danger_t = 0.3
+	var an = world.threat_for(self)
+	if an == null:
+		return
+	if not _plan.is_empty():
+		var cur: Dictionary = _plan[0]
+		if cur.a == "hunt" and cur.target == an:
+			return
+		if cur.get("flee", false) and cur.a != "hunt":
+			return
+	if sleeping:
+		_wake_up()
+	abort_plan()
+	if _can_fight():
+		_plan.append({"a": "hunt", "target": an, "start": cell})
+		activity = "Kämpft gegen: %s" % an.def.name
+		return
+	var r = world.nearest_refuge(cell)
+	if r and not world.find_path(cell, r.entrance_cell()).is_empty():
+		_plan.append({"a": "move", "cell": r.entrance_cell(), "flee": true})
+		_plan.append({"a": "hide", "b": r, "flee": true})
+		activity = "Flieht vor: %s" % an.def.name
+		return
+	# Kein Haus in der Naehe: ans Lagerfeuer, das haelt die Tiere fern
+	var fire = world.fire_building()
+	if fire and Vector2(fire.cell - cell).length() < 20.0:
+		var spot = world.find_approach(cell, [fire.cell], true)
+		if spot != null:
+			_plan.append({"a": "move", "cell": spot, "flee": true})
+			_plan.append({"a": "wait", "t": 4.0, "flee": true})
+			activity = "Flieht ans Lagerfeuer vor: %s" % an.def.name
+			return
+	var away: Vector2 = (position - an.position).normalized()
+	for i in 6:
+		var c := cell + Vector2i(roundi(away.x * 6 + _rng.randi_range(-2, 2)), roundi(away.y * 6 + _rng.randi_range(-2, 2)))
+		if world.is_walkable(c):
+			_plan.append({"a": "move", "cell": c, "flee": true})
+			activity = "Rennt weg!"
+			return
+
+
+func _plan_hunt() -> bool:
+	if health < 55.0 or Game.is_night():
+		return false
+	var an = world.nearest_animal(position, 24.0 * 16.0)
+	if an == null:
+		return false
+	_plan.append({"a": "hunt", "target": an, "start": cell})
+	activity = "Jagt: %s" % an.def.name
+	return true
+
+
+func _run_hunt(a: Dictionary, delta: float) -> void:
+	var an = a.target
+	if not is_instance_valid(an) or an.dead or (health < 25.0 and not a.get("flee", false)) \
+			or Vector2(cell - a.start).length() > 26.0:
+		_working = false
+		_plan.pop_front()
+		return
+	var to: Vector2 = an.position - position
+	if to.length() <= 14.0:
+		_moving = false
+		_working = is_armed()
+		_cur_tool = "spear"
+		_face(to)
+		_attack_t -= delta
+		if _attack_t <= 0.0:
+			_attack_t = 1.0
+			an.take_damage(attack_damage(), self)
+			gain_xp("jagd", 0.6)
+		return
+	_working = false
+	_moving = true
+	a.repath = float(a.get("repath", 0.0)) - delta
+	if a.repath <= 0.0 or _path_i >= _path.size():
+		a.repath = 0.4
+		_path = world.find_path(cell, an.cell)
+		_path_i = 1
+		if _path.is_empty():
+			_plan.pop_front()
+			return
+	_walk(delta, 1.1)
+
+
+func _run_hide(a: Dictionary, delta: float) -> void:
+	var b = a.b
+	if not is_instance_valid(b) or not b.complete:
+		abort_plan()
+		return
+	if not a.get("started", false):
+		a.started = true
+		a.t = 0.0
+		_hiding = b
+		visible = false
+		_moving = false
+		_working = false
+		activity = "Versteckt sich in: %s" % b.def.name
+	a.t = float(a.t) + delta
+	if a.t < 2.0:
+		return
+	a.t = 0.0
+	for an in world.animals:
+		if an.is_hostile() and (an.position - b.position).length() < 7.0 * 16.0:
+			return
+	_hiding = null
+	visible = true
+	_plan.pop_front()
+
+
+func take_damage(n: float, by) -> void:
+	if not world.settlers.has(self):
+		return
+	health -= n
+	_hurt = 0.2
+	_danger_t = 0.0
+	world.spawn_effect("blood", position + Vector2(0, -8))
+	if health <= 0.0:
+		var who: String = by.def.get("by", "von einem Tier") if by is Animal else "von einem Tier"
+		world.kill_settler(self, "%s getötet worden" % who)
 
 
 func _face(v: Vector2) -> void:
@@ -833,6 +1005,8 @@ func _animate(delta: float) -> void:
 		_body.position.y = -abs(swing) * 0.8 if not sleeping else _body.position.y
 	elif not sleeping:
 		_body.position.y = 0
+	_hurt -= delta
+	_body.modulate = Color(1, 0.5, 0.5) if _hurt > 0.0 else Color.WHITE
 	_carry_icon.visible = carry_n > 0 and not sleeping
 	if _carry_icon.visible:
 		_carry_icon.texture = Data.icon(Data.resources.get(carry_res, {}).get("icon", carry_res))

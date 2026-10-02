@@ -2,3 +2,4 @@
 build/
 tools/preview/
 *.tmp
+tools/__pycache__/

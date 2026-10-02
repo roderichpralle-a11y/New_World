@@ -1,0 +1,41 @@
+{
+  "heimat": {
+    "name": "Heimatinsel", "desc": "Hier hat alles angefangen.",
+    "size": [64, 64], "grass_level": 0.32, "tint": "#ffffff",
+    "dense": "baum", "dense_threshold": 0.22, "dense_chance": 0.5,
+    "grass": [["baum", 0.025], ["busch", 0.03], ["fels", 0.015]],
+    "sand": [["fels", 0.025]], "fish": 0.07,
+    "ring": [["busch", 4, 6.5, 10.0, true], ["baum", 8, 7.0, 12.0, true], ["fels", 3, 7.0, 13.0, false]],
+    "dens": [], "special": []
+  },
+  "tropen": {
+    "name": "Palmeninsel", "desc": "Weißer Strand und Kokospalmen. Nur ein paar Wildschweine wühlen im Unterholz.",
+    "names": ["Kokosriff", "Sonnenbucht", "Palmenstrand", "Muschelinsel", "Papageienkap", "Korallenbank", "Lagunenland"],
+    "size": [44, 52], "grass_level": 0.42, "tint": "#fff4b8", "tree_variant": 1,
+    "dense": "palme", "dense_threshold": 0.18, "dense_chance": 0.35,
+    "grass": [["baum", 0.015], ["busch", 0.035], ["fels", 0.01]],
+    "sand": [["palme", 0.04], ["fels", 0.012]], "fish": 0.11,
+    "ring": [["palme", 4, 6.0, 10.0, false], ["baum", 5, 7.0, 12.0, true], ["busch", 3, 6.5, 10.0, true], ["fels", 3, 7.0, 13.0, false]],
+    "dens": [["eberbau", 1, 2]], "special": ["kokos", "fisch"]
+  },
+  "wald": {
+    "name": "Waldinsel", "desc": "Dichte Nadelwälder voller Pilze. Wölfe streifen durch die Nacht.",
+    "names": ["Wolfsforst", "Nebelwald", "Tannenhain", "Dämmerholz", "Moosgrund", "Eulenwald", "Farnheim"],
+    "size": [52, 60], "grass_level": 0.26, "tint": "#a4c4a4", "tree_variant": 2,
+    "dense": "baum", "dense_threshold": 0.05, "dense_chance": 0.55,
+    "grass": [["pilzkreis", 0.03], ["busch", 0.02], ["baum", 0.04], ["fels", 0.012]],
+    "sand": [["fels", 0.02]], "fish": 0.06,
+    "ring": [["baum", 8, 7.0, 12.0, true], ["pilzkreis", 3, 6.5, 11.0, true], ["busch", 2, 6.5, 10.0, true], ["fels", 3, 7.0, 13.0, false]],
+    "dens": [["wolfsbau", 2, 3], ["eberbau", 0, 1]], "special": ["pilze", "holz", "felle"]
+  },
+  "berg": {
+    "name": "Felseninsel", "desc": "Karge Felsen voller Erz und Gold. In den Höhlen schlafen Bären.",
+    "names": ["Goldfels", "Bärenklippe", "Erzkuppe", "Granitkap", "Adlerhorst", "Donnerberg", "Silberküste"],
+    "size": [46, 56], "grass_level": 0.38, "tint": "#c8c4a8", "tree_variant": 2,
+    "dense": "fels", "dense_threshold": 0.3, "dense_chance": 0.3,
+    "grass": [["baum", 0.03], ["erzader", 0.025], ["goldader", 0.012], ["busch", 0.02], ["fels", 0.03]],
+    "sand": [["fels", 0.05], ["erzader", 0.012]], "fish": 0.06,
+    "ring": [["baum", 6, 7.0, 12.0, true], ["busch", 3, 6.5, 10.0, true], ["erzader", 3, 8.0, 14.0, false], ["goldader", 2, 9.0, 15.0, false]],
+    "dens": [["baerenhoehle", 1, 2], ["wolfsbau", 0, 1]], "special": ["gold", "erz", "stein"]
+  }
+}

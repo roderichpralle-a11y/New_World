@@ -1,12 +1,13 @@
 {
-  "frei":        {"name": "Frei",        "desc": "Hilft dort, wo es gerade nötig ist.", "skill": "", "tool": "", "targets": []},
-  "holzfaeller": {"name": "Holzfäller",  "desc": "Fällt Bäume und bringt Holz.",       "skill": "holz",    "tool": "axe",    "targets": ["baum"]},
-  "steinmetz":   {"name": "Steinmetz",   "desc": "Schlägt Steine aus Felsen, arbeitet in Steinbruch, Lehmgrube und Mine.", "skill": "stein", "tool": "pick", "targets": ["prod:stein", "fels"]},
-  "sammler":     {"name": "Sammler",     "desc": "Pflückt Beeren von Sträuchern.",     "skill": "nahrung", "tool": "basket", "targets": ["busch"]},
-  "fischer":     {"name": "Fischer",     "desc": "Angelt an Fischgründen am Ufer.",    "skill": "nahrung", "tool": "rod",    "targets": ["fischgrund"]},
-  "bauer":       {"name": "Bauer",       "desc": "Bestellt Getreidefelder und Obstgärten.", "skill": "nahrung", "tool": "sickle", "targets": ["farm"]},
-  "koch":        {"name": "Koch",        "desc": "Arbeitet in Mühle, Bäckerei, Räucherei und Hühnerhof.", "skill": "nahrung", "tool": "spoon", "targets": ["prod:kueche"]},
-  "handwerker":  {"name": "Handwerker",  "desc": "Arbeitet in Sägegrube, Ziegelei, Köhlerei, Schmelze und Schmiede.", "skill": "handwerk", "tool": "hammer", "targets": ["prod:handwerk"]},
-  "baumeister":  {"name": "Baumeister",  "desc": "Bringt Material und errichtet Gebäude.", "skill": "bauen", "tool": "hammer", "targets": ["construction"]},
-  "forscher":    {"name": "Forscher",    "desc": "Forscht am Lagerfeuer oder in Schreibstube und Bibliothek.", "skill": "wissen", "tool": "book", "targets": ["research"]}
+  "frei": {"name": "Frei", "desc": "Hilft dort, wo es gerade nötig ist.", "skill": "", "tool": "", "targets": []},
+  "holzfaeller": {"name": "Holzfäller", "desc": "Fällt Bäume und bringt Holz.", "skill": "holz", "tool": "axe", "targets": ["baum"]},
+  "steinmetz": {"name": "Steinmetz", "desc": "Schlägt Steine, Erz und Gold aus Felsen, arbeitet in Steinbruch, Lehmgrube und Mine.", "skill": "stein", "tool": "pick", "targets": ["prod:stein", "fels", "erzader", "goldader"]},
+  "sammler": {"name": "Sammler", "desc": "Pflückt Beeren, Kokosnüsse und Pilze.", "skill": "nahrung", "tool": "basket", "targets": ["busch", "palme", "pilzkreis"]},
+  "fischer": {"name": "Fischer", "desc": "Angelt an Fischgründen am Ufer.", "skill": "nahrung", "tool": "rod", "targets": ["fischgrund"]},
+  "bauer": {"name": "Bauer", "desc": "Bestellt Getreidefelder und Obstgärten.", "skill": "nahrung", "tool": "sickle", "targets": ["farm"]},
+  "koch": {"name": "Koch", "desc": "Arbeitet in Mühle, Bäckerei, Räucherei und Hühnerhof.", "skill": "nahrung", "tool": "spoon", "targets": ["prod:kueche"]},
+  "handwerker": {"name": "Handwerker", "desc": "Arbeitet in Sägegrube, Ziegelei, Köhlerei, Schmelze, Schmiede und Werft.", "skill": "handwerk", "tool": "hammer", "targets": ["prod:handwerk"]},
+  "baumeister": {"name": "Baumeister", "desc": "Bringt Material und errichtet Gebäude.", "skill": "bauen", "tool": "hammer", "targets": ["construction"]},
+  "forscher": {"name": "Forscher", "desc": "Forscht am Lagerfeuer oder in Schreibstube und Bibliothek.", "skill": "wissen", "tool": "book", "targets": ["research"]},
+  "jaeger": {"name": "Jäger", "desc": "Jagt wilde Tiere, bringt Fleisch und Felle und räumt Tierbauten aus.", "skill": "jagd", "tool": "spear", "targets": ["hunt", "beute", "wolfsbau", "eberbau", "baerenhoehle"], "requires": "waffenkunde"}
 }
