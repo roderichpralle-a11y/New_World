@@ -26,12 +26,20 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
 - **Alter**: Siedler sterben zwischen `old_age_min` und `old_age_max` Tagen.
 - **Tag und Nacht**: ein Tag dauert `day_length` Sekunden, die Nacht läuft
   `night_speedup`-mal (5) schneller. Nachts schlafen alle (in ihrer Hütte oder am Feuer).
-- **Lager**: jede Ressource hat dieselbe Obergrenze = Summe `storage` aller fertigen Lager
-  (auch Lagerfeuer, auf allen Inseln) mal Forschungsbonus `storage`. Durchgesetzt in
-  `Game.add_stock` (alles, was ins Lager kommt, läuft darüber). `Game.storage_breakdown()`
-  zeigt die Summe im Lager-Fenster und im Info-Fenster eines Lagers, damit niemand
-  die +80 eines Lagerhauses für die Gesamtgrenze hält. Waren über der Grenze (z. B. nach
-  Abriss eines Lagers oder aus alten Spielständen) bleiben erhalten, wachsen aber nicht weiter.
+- **Lager**: Lager haben Stauraum (`storage` in buildings.json: Lagerfeuer 200, Lagerhaus
+  400, Großes Lager 1000, mal Forschungsbonus `storage`), jede Ware eine Größe (`size` in
+  resources.json, `Data.good_size`; Boote 0 = brauchen keinen Lagerraum). Belegt ist Menge
+  mal Größe. Der Spieler legt im Lager-Fenster je Ware eine Höchstmenge fest
+  (`Game.store_limits`, fehlt = "frei"); diese Menge ist reserviert, freie Waren teilen sich den
+  Rest. `Game.space_for(id)` sagt, wie viel noch passt; alles, was ins Lager kommt, läuft über
+  `Game.add_stock`. Sammler, Bauern und Werkstätten arbeiten nicht, wenn für ihre Ware kein
+  Platz ist. Eine Höchstmenge lässt sich nur so hoch setzen, wie Raum da ist
+  (`Game.max_limit`). Liegt nach dem Herabsetzen mehr da, kann der Überschuss weggeworfen werden
+  (`Game.discard_excess`), sonst bleibt er liegen und die Ware wächst nicht weiter. Alte
+  Spielstände ohne `store_limits` laden mit allen Waren auf "frei".
+  Die Funktionen nehmen schon eine Insel `w` an und lesen Vorrat und Grenzen über
+  `Game._stock_of(w)` / `Game._limits_of(w)`; für getrennte Inselvorräte ändern sich nur diese
+  und `storage_volume(w)`.
 - **Abliefern**: Träger wählen mit `World.delivery_storage` unter allen Lagern, die höchstens
   `delivery_spread` Zellen weiter weg sind als das nächste, das mit den wenigsten
   Ablieferungen je Lagerplatz. So bleibt auch das Lagerfeuer neben einem Lagerhaus in Gebrauch.

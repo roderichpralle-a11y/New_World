@@ -943,7 +943,7 @@ func float_text(p: Vector2, text: String, icon_res: String) -> void:
 func warn_storage_full(res: String) -> void:
 	if Game.time_days - _storage_warn_time > 1.0:
 		_storage_warn_time = Game.time_days
-		Game.notify("Das Lager ist voll (%s). Baue ein Lagerhaus!" % Data.resource_name(res), "haus")
+		Game.notify("Kein Platz mehr für %s. Baue ein Lager oder stelle im Lager mehr Platz dafür ein." % Data.resource_name(res), "haus")
 
 
 # ================================================================== Tag und Nacht
