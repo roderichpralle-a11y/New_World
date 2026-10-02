@@ -642,6 +642,13 @@ func _on_placement(active: bool, type: String, valid: bool) -> void:
 	_bottom.get_parent().visible = not active
 	if active:
 		_place_ok.disabled = not valid
+		var moving: bool = world.moving_building() != null
+		_place_ok.text = "Hier hinstellen" if moving else "Hier bauen"
+		if moving:
+			_place_label.text = "%s verschieben: Klicke auf den neuen Platz. Am Handy tippen, dann Hier hinstellen.%s" % [
+				Data.buildings[type].name, " Der Platz passt." if valid else ("\nMuss am Ufer stehen und Platz haben." if Data.buildings[type].get("coast", false) else "\nHier ist kein Platz frei.")]
+			_layout()
+			return
 		_place_label.text = "%s: Klicke auf einen freien Platz. Am Handy tippen, dann Hier bauen.%s" % [
 			Data.buildings[type].name, " Der Platz passt." if valid else ("\nMuss am Ufer stehen und Platz haben." if Data.buildings[type].get("coast", false) else "\nHier ist kein Platz frei.")]
 	_layout()
@@ -1131,6 +1138,10 @@ func _info_building(b: Building) -> void:
 		_info_research(b)
 	if b.def.has("upgrade"):
 		_info_upgrade(b)
+	var mv := UiTheme.button("Verschieben", "hammer", 36)
+	mv.tooltip_text = "Stellt das Gebäude an einen anderen Platz. Vorräte, Bewohner und Baufortschritt ziehen mit."
+	mv.pressed.connect(func(): world.start_move(b))
+	_info_box.add_child(mv)
 	if b.type != "lagerfeuer":
 		var dm := UiTheme.button("Abreißen" if not _demolish_armed else "Wirklich abreißen?", "abriss", 36)
 		dm.pressed.connect(func():
