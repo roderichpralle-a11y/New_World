@@ -59,6 +59,7 @@ var goal_card: GoalCard
 func setup(p_world: World, p_camera: GameCamera) -> void:
 	world = p_world
 	camera = p_camera
+	camera.wheel_blocked = func(): return _panels().any(func(pn): return pn != null and pn.visible)
 	root = Control.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
