@@ -21,6 +21,8 @@ var _multi := false
 var _pinch_mid := Vector2.ZERO
 var _vel := Vector2.ZERO  # Schwung nach dem Loslassen (Weltpixel je Sekunde)
 var _last_move_us: int = 0
+## Liefert true, solange ein Menue offen ist: dann zoomt das Mausrad die Karte nicht.
+var wheel_blocked: Callable = func(): return false
 
 
 func _ready() -> void:
@@ -74,10 +76,12 @@ func _unhandled_input(event: InputEvent) -> void:
 				if Time.get_ticks_usec() - _last_move_us > 80000:
 					_vel = Vector2.ZERO
 				_dragging = false
-		elif mb.pressed and mb.button_index == MOUSE_BUTTON_WHEEL_UP:
-			_zoom_at(zoom.x * 1.15, mb.position)
-		elif mb.pressed and mb.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			_zoom_at(zoom.x / 1.15, mb.position)
+		elif mb.pressed and mb.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
+			# Offenes Menue oder Maus ueber einem Fenster: das Rad gehoert der Oberflaeche,
+			# auch wenn eine Liste schon am Ende ist.
+			if wheel_blocked.call() or get_viewport().gui_get_hovered_control() != null:
+				return
+			_zoom_at(zoom.x * (1.15 if mb.button_index == MOUSE_BUTTON_WHEEL_UP else 1.0 / 1.15), mb.position)
 	elif event is InputEventMouseMotion:
 		var mm := event as InputEventMouseMotion
 		if _dragging and not _multi:
