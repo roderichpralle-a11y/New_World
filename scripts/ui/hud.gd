@@ -756,8 +756,8 @@ func _on_placement(active: bool, type: String, valid: bool) -> void:
 # ================================================================== Siedlerliste
 const DIM := Color("#6e5a50")
 ## Sortierbare Spalten: Schluessel, Text, Breite (0 = dehnbar; breit / schmal)
-const SETTLER_COLS := [["name", "Name", 0, 0], ["age", "Alter", 62, 56], ["act", "Tätigkeit", 0, -1],
-	["job", "Beruf", 150, 104], ["hunger", "Satt", 130, 64]]
+const SETTLER_COLS := [["name", "Name", 0, 0], ["age", "Alter", 62, 40], ["act", "Tätigkeit", 0, -1],
+	["job", "Beruf", 150, 84], ["hunger", "Satt", 120, 44], ["mood", "Laune", 120, 44]]
 var _settler_scroll: ScrollContainer
 var _settler_updaters: Array = []
 var _settler_tick: float = 0.0
@@ -767,6 +767,7 @@ var _settler_desc: bool = true
 var _settler_f_job: OptionButton
 var _settler_f_group: OptionButton
 var _settler_f_hungry: CheckBox
+var _settler_f_sick: CheckBox
 var _settler_f_island: OptionButton
 var _settler_count: Label
 var _settler_narrow: bool = false
@@ -795,6 +796,13 @@ func _build_settler_panel() -> void:
 	_settler_f_hungry.add_theme_font_size_override("font_size", 15)
 	_settler_f_hungry.toggled.connect(func(_on): _refresh_settler_list())
 	fr.add_child(_settler_f_hungry)
+	_settler_f_sick = CheckBox.new()
+	_settler_f_sick.text = "Nur Kranke"
+	_settler_f_sick.focus_mode = Control.FOCUS_NONE
+	_settler_f_sick.custom_minimum_size.y = 40
+	_settler_f_sick.add_theme_font_size_override("font_size", 15)
+	_settler_f_sick.toggled.connect(func(_on): _refresh_settler_list())
+	fr.add_child(_settler_f_sick)
 	v.add_child(fr)
 	_settler_count = UiTheme.label("", 13, DIM)
 	_settler_count.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -824,7 +832,7 @@ func _build_settler_panel() -> void:
 					_settler_desc = not _settler_desc
 				else:
 					_settler_sort = key
-					_settler_desc = key in ["age", "hunger"]
+					_settler_desc = key in ["age", "hunger", "mood"]
 				_refresh_settler_list())
 		head.add_child(b)
 		_settler_head[key] = b
@@ -867,6 +875,8 @@ func _size_settler_panel(avail_h: float = -1.0) -> void:
 		var cw: int = col[3] if _settler_narrow else col[2]
 		b.visible = cw >= 0
 		b.custom_minimum_size.x = max(cw, 40)
+		b.add_theme_font_size_override("font_size", 12 if _settler_narrow else 14)
+		b.add_theme_constant_override("h_separation", 0)
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL if cw == 0 else Control.SIZE_FILL
 		if col[0] == "act":
 			b.size_flags_stretch_ratio = 1.4
@@ -945,6 +955,8 @@ func _refresh_settler_list() -> void:
 			return false
 		if _settler_f_hungry.button_pressed and s.hunger >= 30.0:
 			return false
+		if _settler_f_sick.button_pressed and s.mind.sick == "":
+			return false
 		return true)
 	var key := _settler_sort
 	var desc := _settler_desc
@@ -961,6 +973,9 @@ func _refresh_settler_list() -> void:
 			"hunger":
 				va = a.hunger
 				vb = b.hunger
+			"mood":
+				va = a.mind.mood
+				vb = b.mind.mood
 			_:
 				va = a.age
 				vb = b.age
@@ -971,7 +986,10 @@ func _refresh_settler_list() -> void:
 	for col in SETTLER_COLS:
 		var b: Button = _settler_head[col[0]]
 		b.text = col[1] + ((" ▼" if _settler_desc else " ▲") if col[0] == _settler_sort else "")
-	_settler_count.text = "%d von %d Siedlern. Spaltenkopf antippen sortiert. Satt zeigt, wie voll der Magen ist; rot heißt Hunger." % [list.size(), pool.size()]
+	var stage := SettlerMind.comfort_stage()
+	var sick_n := pool.filter(func(x): return x.mind.sick != "").size()
+	_settler_count.text = "%d von %d Siedlern%s. Lebensstil: %s. Spaltenkopf antippen sortiert. Satt zeigt, wie voll der Magen ist; rot heißt Hunger oder krank." % [
+		list.size(), pool.size(), (", %d krank" % sick_n) if sick_n > 0 else "", stage[0]]
 	if list.is_empty():
 		_settler_list.add_child(UiTheme.label("Niemand passt zu dieser Auswahl." if not pool.is_empty() else "Auf dieser Insel lebt niemand.", 14))
 	var narrow := _settler_narrow
@@ -1050,6 +1068,19 @@ func _refresh_settler_list() -> void:
 		hb.custom_minimum_size.x = 0
 		sat.add_child(hb)
 		h.add_child(sat)
+		# Laune, rot bei Krankheit
+		var md := VBoxContainer.new()
+		md.custom_minimum_size.x = SETTLER_COLS[5][3] if narrow else SETTLER_COLS[5][2]
+		md.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		md.add_theme_constant_override("separation", 1)
+		var ml := UiTheme.label("", 12)
+		ml.clip_text = true
+		md.add_child(ml)
+		var mbar := UiTheme.bar(Color("#e070a0"), 8)
+		mbar.custom_minimum_size.x = 0
+		md.add_child(mbar)
+		h.add_child(md)
+		var mfill: StyleBoxFlat = mbar.get_theme_stylebox("fill")
 		var fill: StyleBoxFlat = hb.get_theme_stylebox("fill")
 		var upd := func():
 			if not is_instance_valid(sref) or not is_instance_valid(nb):
@@ -1061,6 +1092,15 @@ func _refresh_settler_list() -> void:
 			var hungry: bool = sref.hunger < 30.0
 			fill.bg_color = Color("#d04a3a") if hungry else Color("#e0a040")
 			pl.text = "%d%%" % int(round(sref.hunger)) + (" Hunger!" if hungry and not narrow else "")
+			var m: SettlerMind = sref.mind
+			mbar.value = m.mood
+			mfill.bg_color = Color("#d04a3a") if m.sick != "" else Color("#e070a0")
+			if m.sick != "":
+				ml.text = "krank" if narrow else "krank: %s" % m.illness_name()
+				ml.add_theme_color_override("font_color", Color("#c03a2a"))
+			else:
+				ml.text = "%d%%" % int(round(m.mood)) if narrow else m.mood_text()
+				ml.remove_theme_color_override("font_color")
 		upd.call()
 		_settler_updaters.append(upd)
 		_settler_list.add_child(h)
@@ -1153,6 +1193,18 @@ Lautstärke von Musik und Geräuschen stellst du im Menü ein.
 
 [b]Siedler[/b]
 Jeder Siedler hat eigene Fähigkeiten. Gib ihnen im Infofenster einen Beruf, der zu ihren Stärken passt. Mit Übung werden sie besser. Freie Siedler helfen dort, wo es nötig ist.
+
+[b]Charakter[/b]
+Jeder Siedler ist anders: klug oder einfältig, robust oder kränklich, fleißig oder gemütlich, Frohnatur oder Griesgram. Dazu hat jeder Begabungen (im Infofenster mit + markiert): darin lernt er schneller. Kluge lernen und forschen schneller. Kinder erben einen Teil ihres Charakters von den Eltern und lernen in der Schule viel, vor allem in ihren Begabungen.
+
+[b]Gesundheit[/b]
+Siedler werden krank: Erkältung macht langsamer, bei Fieber und Ruhr liegen sie im Bett und können sterben. Kränkliche, Alte, Kinder, Hungrige, Frierende und wer draußen schläft erkranken leichter, Kranke stecken andere an. Vitamine aus Beeren, Äpfeln und Kokosnüssen schützen; wer lange keine bekommt, bekommt Skorbut. Heilkunde lässt Kranke schneller gesund werden.
+
+[b]Laune und Arbeitskraft[/b]
+Satt, gesund, abwechslungsreiches Essen und ein schönes Zuhause machen gute Laune, Hunger, Krankheit, Kälte und Trauer schlechte. Gut gelaunte Siedler arbeiten schneller und bekommen eher Kinder. Die Arbeitskraft im Infofenster zeigt, wie schnell ein Siedler gerade arbeitet.
+
+[b]Freizeit[/b]
+Am Anfang kennen die Siedler nur Arbeit. Je weiter deine Siedlung entwickelt ist (siehe Lebensstil in der Siedlerliste), desto mehr Freizeit wollen sie: am Feuer plaudern, am Strand spazieren, mit Kindern spielen oder lesen. Bekommen sie keine, sind sie überarbeitet und schlecht gelaunt. In einer Hungersnot arbeiten alle durch.
 
 [b]Nahrung[/b]
 Siedler essen am Lagerfeuer. Ohne Nahrung werden sie schwach und verhungern. Beeren wachsen nach, Fische auch, und Getreidefelder bringen viel Ertrag.
@@ -1317,18 +1369,59 @@ func _info_settler(s: Settler) -> void:
 	var act := UiTheme.label(s.activity, 14, Color("#6a4a30"))
 	act.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_info_box.add_child(act)
+	var m: SettlerMind = s.mind
+	var ch := UiTheme.label("", 13)
+	ch.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var tal := m.best_talents().map(func(k): return Data.skills[k].name)
+	ch.text = "Charakter: %s" % m.character_text() + ("\nBegabt für: %s" % ", ".join(tal) if not tal.is_empty() else "")
+	_info_box.add_child(ch)
+	var ill := UiTheme.label("", 14, Color("#c03a2a"), true)
+	ill.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_info_box.add_child(ill)
 	var hb := _bar_row("Sättigung", s.hunger, Color("#e0a040"))
 	var gb := _bar_row("Gesundheit", s.health, UiTheme.GOOD)
+	var vb := _bar_row("Vitamine", m.vit, Color("#7ac040"))
+	var mb := _bar_row("Laune", m.mood, Color("#e070a0"))
+	var rb: ProgressBar = null
+	if s.is_adult() and m.leisure_share() > 0.0:
+		rb = _bar_row("Erholung", m.rest, Color("#60b0d0"))
+	var wp := UiTheme.label("", 14, UiTheme.TEXT, true)
+	_info_box.add_child(wp)
+	var why := UiTheme.label("", 12, DIM)
+	why.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_info_box.add_child(why)
 	_updaters.append(func():
 		act.text = s.activity
 		hb.value = s.hunger
-		gb.value = s.health)
+		gb.value = s.health
+		vb.value = m.vit
+		mb.value = m.mood
+		if rb:
+			rb.value = m.rest
+		ill.visible = m.sick != ""
+		ill.text = "Krank: %s%s" % [m.illness_name(), " (muss liegen)" if m.needs_bed() else ""]
+		wp.text = "Laune: %s · Arbeitskraft %d %%" % [m.mood_text(), int(round(m.work_power() * 100.0))] if s.is_adult() \
+			else "Laune: %s" % m.mood_text()
+		var rs: Array = m.reasons.duplicate()
+		rs.sort_custom(func(a, b): return absf(a[1]) > absf(b[1]))
+		var lines := []
+		for x in rs.slice(0, 4):
+			lines.append("%s %s" % ["+" if x[1] > 0 else "−", x[0]])
+		why.text = "\n".join(lines)
+		why.visible = not lines.is_empty())
 	var home = world.building_by_id(s.home_id)
 	_info_box.add_child(UiTheme.label("Zuhause: %s" % (home.def.name if home else "keins (schläft draußen)"), 13))
-	_info_box.add_child(UiTheme.label("Fähigkeiten", 15, UiTheme.TEXT, true))
+	_info_box.add_child(UiTheme.label("Eigenschaften", 15, UiTheme.TEXT, true))
+	var tdefs: Dictionary = Data.ppl("traits", {})
+	for k in SettlerMind.TRAITS:
+		var v := m.trait_value(k)
+		_bar_row("%s %d" % [tdefs[k].name, int(round(v))], v * 10.0, Color("#b08ad8"))
+	_info_box.add_child(UiTheme.label("Fähigkeiten (+ = begabt)", 15, UiTheme.TEXT, true))
 	for sk in Data.skills:
 		var lvl := int(s.skill_level(sk))
-		_bar_row("%s %d" % [Data.skills[sk].name, lvl], lvl * 10.0, Color("#5a8ad8"))
+		var t := float(m.talents.get(sk, 1.0))
+		var stars := " ++" if t >= 1.6 else (" +" if t >= 1.3 else "")
+		_bar_row("%s %d%s" % [Data.skills[sk].name, lvl, stars], lvl * 10.0, Color("#5a8ad8"))
 	if not s.is_adult():
 		_info_box.add_child(UiTheme.label("Kinder arbeiten noch nicht.", 13))
 	else:

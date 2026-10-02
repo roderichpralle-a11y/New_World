@@ -76,10 +76,14 @@ func build_new(seed_value: int) -> void:
 	var hut := place_building("huette", hut_cell, true)
 	var lena := spawn_settler({"name": "Lena", "sex": "f", "age": 20.0, "max_age": 46.0,
 		"skills": {"nahrung": 4, "bauen": 3, "holz": 1, "stein": 1}, "job": "sammler",
+		"traits": {"iq": 7.0, "konst": 7.0, "fleiss": 6.0, "gemuet": 7.5},
+		"talents": {"nahrung": 1.4, "bauen": 1.2, "wissen": 1.3, "holz": 0.8, "stein": 0.7, "handwerk": 1.0, "jagd": 0.8},
 		"look": {"skin": "#f2c9a0", "hair": "#a8642e", "style": 1, "shirt": "#d65f4f", "pants": "#5a4a7a"},
 		"x": center.x + 1, "y": center.y + 1})
 	var jonas := spawn_settler({"name": "Jonas", "sex": "m", "age": 21.0, "max_age": 44.0,
 		"skills": {"holz": 4, "stein": 3, "nahrung": 1, "bauen": 2}, "job": "holzfaeller",
+		"traits": {"iq": 5.0, "konst": 8.0, "fleiss": 8.0, "gemuet": 5.0},
+		"talents": {"holz": 1.5, "stein": 1.3, "handwerk": 1.4, "jagd": 1.2, "nahrung": 0.8, "bauen": 1.0, "wissen": 0.7},
 		"look": {"skin": "#e0ac7e", "hair": "#3a2a22", "style": 0, "shirt": "#4f8fd6", "pants": "#4a5a3a"},
 		"x": center.x - 1, "y": center.y + 1})
 	lena.home_id = hut.id
@@ -776,13 +780,11 @@ func spawn_child(mother, father) -> Settler:
 	rng.randomize()
 	var sex := "f" if rng.randf() < 0.5 else "m"
 	var name := unique_name(sex, rng)
-	# Talente: Mischung der Eltern plus ein zufaelliges Talent
+	# Charakter und Begabungen teils von den Eltern; Faehigkeiten wachsen mit Spiel und Schule
+	var mind := SettlerMind.inherit(rng, mother.mind, father.mind)
 	var skills := {}
 	for sk in Data.skills:
-		var avg: float = (mother.skill_level(sk) + father.skill_level(sk)) / 2.0
-		skills[sk] = clamp(roundi(1.0 + (avg - 1.0) * 0.35 + rng.randf_range(-0.5, 1.0)), 1, 4)
-	var talent: String = Data.skills.keys()[rng.randi() % Data.skills.size()]
-	skills[talent] = min(int(skills[talent]) + 2, 5)
+		skills[sk] = clampi(roundi(1.0 + (float(mind.talents[sk]) - 1.0) * 1.5 + rng.randf_range(-0.3, 0.6)), 1, 3)
 	var look := Settler.random_look(rng)
 	look.skin = (mother if rng.randf() < 0.5 else father).look.skin
 	look.hair = (mother if rng.randf() < 0.5 else father).look.hair
@@ -791,7 +793,7 @@ func spawn_child(mother, father) -> Settler:
 	if home and home.complete and is_walkable(home.entrance_cell()):
 		c = home.entrance_cell()
 	var child := spawn_settler({"name": name, "sex": sex, "age": 0.0, "skills": skills, "job": "frei",
-		"look": look, "x": c.x, "y": c.y, "parents": [mother.id, father.id], "hunger": 80.0})
+		"look": look, "mind": mind, "x": c.x, "y": c.y, "parents": [mother.id, father.id], "hunger": 80.0})
 	assign_homes()
 	spawn_effect("hearts", child.position + Vector2(0, -16))
 	Game.on_population_changed()
@@ -815,13 +817,12 @@ func spawn_newcomer(sex: String) -> Settler:
 	var best = beach_near(rng)
 	if best == null:
 		return null
+	var mind := SettlerMind.roll(rng)
 	var skills := {}
 	for sk in Data.skills:
-		skills[sk] = rng.randi_range(1, 3)
-	var talent: String = Data.skills.keys()[rng.randi() % Data.skills.size()]
-	skills[talent] = rng.randi_range(4, 5)
+		skills[sk] = clampi(roundi(1.0 + (float(mind.talents[sk]) - 0.8) * 3.0 + rng.randf_range(0.0, 1.0)), 1, 5)
 	var s := spawn_settler({"name": unique_name(sex, rng), "sex": sex, "age": rng.randf_range(4.0, 12.0),
-		"skills": skills, "job": "frei", "x": best.x, "y": best.y, "hunger": 40.0})
+		"skills": skills, "mind": mind, "job": "frei", "x": best.x, "y": best.y, "hunger": 40.0})
 	assign_homes()
 	spawn_effect("chips_fischgrund", s.position)
 	Game.on_population_changed()
@@ -870,6 +871,9 @@ func kill_settler(s: Settler, reason: String) -> void:
 		return
 	s.abort_plan()
 	settlers.erase(s)
+	# Die Familie trauert, die anderen auf der Insel ein wenig
+	for o in settlers:
+		o.mind.on_relative_died(s.display_name, SettlerMind.is_close(o.id, s.id))
 	_add_grave(s.position, Game.time_days + 3.0)
 	s.queue_free()
 	assign_homes()
