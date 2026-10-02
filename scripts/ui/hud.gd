@@ -647,22 +647,58 @@ func _on_placement(active: bool, type: String, valid: bool) -> void:
 
 
 # ================================================================== Siedlerliste
+var _settler_scroll: ScrollContainer
+var _settler_updaters: Array = []
+var _settler_tick: float = 0.0
+var _settler_head: Array = []  # Spaltenueberschriften
+
+
 func _build_settler_panel() -> void:
 	var r := _popup_panel("Siedler")
 	_settler_panel = r[0]
 	var v: VBoxContainer = r[1]
-	var scroll := ScrollContainer.new()
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.custom_minimum_size = Vector2(350, 280)
-	v.add_child(scroll)
+	var legend := UiTheme.label("Der Balken zeigt, wie satt ein Siedler ist. Wird er rot, hungert der Siedler und braucht bald etwas zu essen.", 13, Color("#6e5a50"))
+	legend.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	legend.custom_minimum_size.x = 280
+	v.add_child(legend)
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 8)
+	for col in ["Name (Alter) und was er gerade tut", "Beruf", "Satt"]:
+		var l := UiTheme.label(col, 13, Color("#6e5a50"), true)
+		l.clip_text = true
+		head.add_child(l)
+		_settler_head.append(l)
+	_settler_head[0].size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_settler_head[0].custom_minimum_size.x = 60
+	v.add_child(head)
+	_settler_scroll = ScrollContainer.new()
+	_settler_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_settler_scroll.custom_minimum_size = Vector2(560, 420)
+	v.add_child(_settler_scroll)
 	_settler_list = VBoxContainer.new()
 	_settler_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(_settler_list)
+	_settler_list.add_theme_constant_override("separation", 6)
+	_settler_scroll.add_child(_settler_list)
+
+
+## Groesse passt sich dem Bildschirm an: am PC gross, am Handy so breit wie moeglich.
+func _size_settler_panel() -> void:
+	if _settler_scroll == null:
+		return
+	var vs := get_viewport().get_visible_rect().size
+	_settler_scroll.custom_minimum_size = Vector2(
+		clampf(vs.x - 40.0, 300.0, 700.0), clampf(vs.y - 400.0, 160.0, 520.0))
+	var narrow := _settler_scroll.custom_minimum_size.x < 460.0
+	_settler_head[0].text = "Name (Alter)" if narrow else "Name (Alter) und was er gerade tut"
+	_settler_head[1].custom_minimum_size.x = 110 if narrow else 150
+	_settler_head[2].custom_minimum_size.x = 80 if narrow else 130
 
 
 func _refresh_settler_list() -> void:
 	if _settler_list == null or not _settler_panel.visible:
 		return
+	_size_settler_panel()
+	_settler_updaters.clear()
 	for c in _settler_list.get_children():
 		_settler_list.remove_child(c)
 		c.queue_free()
@@ -670,19 +706,20 @@ func _refresh_settler_list() -> void:
 	list.sort_custom(func(a, b): return a.age > b.age)
 	if list.is_empty():
 		_settler_list.add_child(UiTheme.label("Auf dieser Insel lebt niemand.", 14))
+	var narrow := _settler_scroll.custom_minimum_size.x < 460.0
 	for s in list:
 		var h := HBoxContainer.new()
-		h.add_theme_constant_override("separation", 6)
+		h.add_theme_constant_override("separation", 8)
 		var sref = s
 		# Name antippen: Siedler zeigen
 		var nb := Button.new()
 		nb.focus_mode = Control.FOCUS_NONE
-		nb.text = "%s (%d)" % [s.display_name, int(s.age)]
 		nb.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		nb.custom_minimum_size = Vector2(130, 40)
+		nb.custom_minimum_size = Vector2(120, 48)
 		nb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		nb.add_theme_font_size_override("font_size", 14)
-		nb.tooltip_text = "Zeigen"
+		nb.clip_text = true
+		nb.add_theme_font_size_override("font_size", 15)
+		nb.tooltip_text = "Auf der Karte zeigen"
 		nb.pressed.connect(func():
 			_settler_panel.visible = false
 			Game.select(sref)
@@ -692,9 +729,10 @@ func _refresh_settler_list() -> void:
 			# Beruf direkt in der Liste waehlen
 			var ob := OptionButton.new()
 			ob.focus_mode = Control.FOCUS_NONE
-			ob.custom_minimum_size = Vector2(130, 40)
-			ob.add_theme_font_size_override("font_size", 14)
-			ob.get_popup().add_theme_font_size_override("font_size", 15)
+			ob.custom_minimum_size = Vector2(110 if narrow else 150, 44)
+			ob.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			ob.add_theme_font_size_override("font_size", 15)
+			ob.get_popup().add_theme_font_size_override("font_size", 16)
 			var ids := []
 			for j in Data.jobs:
 				if not Data.job_unlocked(j) and j != s.job:
@@ -709,16 +747,47 @@ func _refresh_settler_list() -> void:
 				Game.player_action.emit("job", ids[i]))
 			h.add_child(ob)
 		else:
-			var kl := UiTheme.label("Kind", 14)
-			kl.custom_minimum_size.x = 130
+			var kl := UiTheme.label("Kind", 15, Color("#6e5a50"))
+			kl.custom_minimum_size.x = 110 if narrow else 150
 			h.add_child(kl)
-		var hb := UiTheme.bar(Color("#e0a040"), 8)
-		hb.value = s.hunger
-		hb.tooltip_text = "Sättigung"
-		hb.custom_minimum_size.x = 50
-		hb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		h.add_child(hb)
+		# Saettigung: Balken mit Prozentzahl
+		var sat := VBoxContainer.new()
+		sat.custom_minimum_size.x = 80 if narrow else 130
+		sat.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		sat.add_theme_constant_override("separation", 2)
+		sat.tooltip_text = "Wie satt der Siedler ist"
+		var pl := UiTheme.label("", 13)
+		sat.add_child(pl)
+		var hb := UiTheme.bar(Color("#e0a040"), 12)
+		hb.custom_minimum_size.x = 0
+		sat.add_child(hb)
+		h.add_child(sat)
+		var fill: StyleBoxFlat = hb.get_theme_stylebox("fill")
+		var upd := func():
+			if not is_instance_valid(sref) or not is_instance_valid(nb):
+				return
+			nb.text = "%s (%d)\n%s" % [sref.display_name, int(sref.age), sref.activity]
+			hb.value = sref.hunger
+			var hungry: bool = sref.hunger < 30.0
+			fill.bg_color = Color("#d04a3a") if hungry else Color("#e0a040")
+			pl.text = ("Satt %d%%" if not narrow else "%d%%") % int(round(sref.hunger))
+			if hungry:
+				pl.text += " Hunger!" if not narrow else "!"
+		upd.call()
+		_settler_updaters.append(upd)
 		_settler_list.add_child(h)
+	call_deferred("_layout")
+
+
+func _tick_settler_list(delta: float) -> void:
+	if _settler_panel == null or not _settler_panel.visible:
+		return
+	_settler_tick -= delta
+	if _settler_tick > 0.0:
+		return
+	_settler_tick = 1.0
+	for u in _settler_updaters:
+		u.call()
 
 
 # ================================================================== Menue / Hilfe
@@ -1391,6 +1460,7 @@ func _layout() -> void:
 		goal_card.set_deferred("size", Vector2(gw, 0))
 		if goal_card.visible:
 			_toasts.position.y = max(top_h, goal_card.position.y + goal_card.size.y) + 6
+	_size_settler_panel()
 	for pnl in _panels():
 		pnl.reset_size()
 		pnl.size.x = min(pnl.size.x, vs.x - 12)
@@ -1407,6 +1477,7 @@ func _layout() -> void:
 func _process(delta: float) -> void:
 	if root == null:
 		return
+	_tick_settler_list(delta)
 	_day_label.text = "Tag %d  %s" % [Game.day(), Game.clock_text()]
 	_day_icon.texture = Data.icon("mond" if Game.is_night() else "sonne")
 	_research_tick -= delta
