@@ -106,6 +106,25 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
   Bauten, Beute, Pfeil, Boot), `animals.png` (Zellen 24x24, Zeile je Tier, Spalten 0–3 Laufen,
   4 Angriff), Gebäude ab Zelle 20 in `buildings.png`. Gezeichnet von `tools/gen_art_sea.py`.
 
+## Feinschliff (Etappe 4)
+
+- **Ton** (Autoload `Sound`, `scripts/autoload/sound.gd`): drei Musikstücke (`tag` Heimatinsel,
+  `nacht`, `insel` fremde Inseln) mit Überblendung, das Stück läuft an der alten Stelle weiter.
+  Meeresrauschen mit Vögeln (Tag) oder Grillen (Nacht). Effekte über `Sound.play(name)`,
+  `Sound.play_on(name, world)` (nur sichtbare Insel) und `Sound.play_at(name, world, pos)`
+  (nur im Bild, leiser am Rand). Jeder Knopf klickt (Meta `silent` schaltet das ab).
+  Busse `Musik` und `Effekte`, Lautstärken im Menü, gespeichert in `user://settings.cfg`.
+  Alle Klänge erzeugt `tools/gen_audio.py` (Ausgabe `assets/audio/`). Gebäude können mit
+  `sound` einen eigenen Werkstatt-Klang haben, Tiere mit `sound` ihren Ruf.
+- **Einführung und Ziele** (`data/goals.json`, `scripts/ui/goal_card.gd`): sieben Schritte mit
+  Zeigerpfeil, danach feste Ziele mit Belohnungen und endlos erzeugte Ziele (Bevölkerung, Inseln,
+  Geburten). Zustand `Game.goals {tut, ms}` im Spielstand; ältere Spielstände überspringen die
+  Einführung und holen erreichte Ziele still nach. `Game.player_action(kind, what)` meldet
+  Spieleraktionen. Statistik `kills` zählt erlegte Tiere.
+- **Handy**: Karte gleitet nach dem Wischen nach, zwei Finger zoomen und schieben, größerer
+  Fangradius beim Tippen, schmale Leiste mit Symbol über Text, gewählte Objekte rücken über das
+  Infofenster, Vollbild-Knopf im Menü.
+
 ## Ordner
 
 | Pfad | Inhalt |
@@ -169,6 +188,7 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
 godot --headless -- --autotest=120 --scale=10 --build=1     # Simulation mit Bericht
 godot --headless -- --autotest=400 --scale=10 --build=1 --research=1   # forscht automatisch
 godot --headless -- --autotest=60 --scale=10 --prodtest=1  # alle Werkstätten, alles erforscht
+godot --headless -- --autotest=120 --scale=10 --tuttest=1  # spielt die Einführung durch
 godot --headless -- --autotest=300 --scale=10 --seatest=1  # Werft, drei Inseln entdecken und besiedeln
 #   dazu --weak=1: ohne Waffenkunde (Tiere gefährlicher), Bildschirmfoto: --island=<id>, --panel=sea
 # Bildschirmfoto-Optionen: --panel=research|build|stock, --selectb=<typ>, --look=1
