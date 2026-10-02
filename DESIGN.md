@@ -14,7 +14,7 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
   Baumeister. Freie Siedler bauen zuerst, sammeln dann Nahrung wenn knapp, sonst das
   knappste Material. Spezialisten helfen aus, wenn ihr Rohstoff voll ist.
 - **Hunger** 0–100 (100 = satt), sinkt um `hunger_per_day`. Unter `eat_below` gehen
-  Siedler zum nächsten Lager essen (je Einheit `nutrition` Punkte). Bei 0 sinkt die
+  Siedler zum nächsten Lager essen (je Einheit `nutrition` Punkte, siehe „Nahrung, Vitamine“). Bei 0 sinkt die
   Gesundheit, bei 0 Gesundheit stirbt der Siedler. Kinder essen die Hälfte.
 - **Nachwuchs**: nur wenn Wohnplätze frei sind (Hütten), Nahrung ≥
   `birth_food_per_person * Bevölkerung`, ein nicht verwandtes Paar existiert (Eltern,
@@ -25,8 +25,25 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
   Siedler angespült (`newcomer_chance`), damit eine Familie nicht ausstirbt.
 - **Alter**: Siedler sterben zwischen `old_age_min` und `old_age_max` Tagen.
 - **Tag und Nacht**: ein Tag dauert `day_length` Sekunden, die Nacht läuft
-  `night_speedup`-mal (5) schneller. Nachts schlafen alle (in ihrer Hütte oder am Feuer).
-- **Lager**: jede Ressource hat dieselbe Obergrenze = Summe `storage` aller Lager.
+  `night_speedup`-mal (5) schneller. Wann die Nacht beginnt, hängt von der Jahreszeit ab. Nachts schlafen alle (in ihrer Hütte oder am Feuer).
+- **Lager**: Lager haben Stauraum (`storage` in buildings.json: Lagerfeuer 200, Lagerhaus
+  400, Großes Lager 1000, mal Forschungsbonus `storage`), jede Ware eine Größe (`size` in
+  resources.json, `Data.good_size`; Boote 0 = brauchen keinen Lagerraum). Belegt ist Menge
+  mal Größe. Der Spieler legt im Lager-Fenster je Ware eine Höchstmenge fest
+  (`Game.store_limits`, fehlt = "frei"); diese Menge ist reserviert, freie Waren teilen sich den
+  Rest. `Game.space_for(id)` sagt, wie viel noch passt; alles, was ins Lager kommt, läuft über
+  `Game.add_stock`. Sammler, Bauern und Werkstätten arbeiten nicht, wenn für ihre Ware kein
+  Platz ist. Eine Höchstmenge lässt sich nur so hoch setzen, wie Raum da ist
+  (`Game.max_limit`). Liegt nach dem Herabsetzen mehr da, kann der Überschuss weggeworfen werden
+  (`Game.discard_excess`), sonst bleibt er liegen und die Ware wächst nicht weiter. Alte
+  Spielstände ohne `store_limits` laden mit allen Waren auf "frei".
+  Die Funktionen nehmen schon eine Insel `w` an und lesen Vorrat und Grenzen über
+  `Game._stock_of(w)` / `Game._limits_of(w)`; für getrennte Inselvorräte ändern sich nur diese
+  und `storage_volume(w)`.
+- **Abliefern**: Träger wählen mit `World.delivery_storage` unter allen Lagern, die höchstens
+  `delivery_spread` Zellen weiter weg sind als das nächste, das mit den wenigsten
+  Ablieferungen je Lagerplatz. So bleibt auch das Lagerfeuer neben einem Lagerhaus in Gebrauch.
+  Abstände zählen zur nächsten Zelle des Gebäudes (`Building.dist_sq`).
 - **Verloren**: Stirbt auf einer Insel der letzte Siedler, ist sie für immer verloren. Sind alle
   Inseln verloren und niemand mehr auf See, ist das Spiel vorbei (Spielstand wird gelöscht).
 - Speichern: automatisch alle `autosave_seconds` Sekunden, beim Verlassen und über das Menü
@@ -80,8 +97,12 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
 
 - **Mehrere Inseln**: Autoload `Sea` hält alle Inseln (`Sea.islands`, Meta-Daten) und für jede
   besiedelte Insel eine eigene `World` (`Sea.worlds`). Nur die aktive Insel `Game.world` ist
-  sichtbar, die anderen laufen unsichtbar weiter. **Alle Inseln teilen sich die Vorräte**
-  (`Game.stock`, Lagerplatz = alle Lager aller Inseln). Wohnplätze, Nachwuchs und
+  sichtbar, die anderen laufen unsichtbar weiter. **Jede Insel hat ihr eigenes Lager**
+  (`World.stock`; Lagerplatz zählt nur die Lager dieser Insel). Alle Lager-Funktionen in `Game`
+  (`amount`, `add_stock`, `take_stock`, `space_for`, `can_afford`, `storage_capacity`,
+  `total_food`, `eat_one`, `food_variety`) nehmen als letzten Parameter die Insel; ohne Angabe gilt
+  die aktive Insel. Siedler und Gebäude geben immer ihre eigene `world` mit. Forschungskosten
+  zahlt die aktive Insel, Ziele zählen `Game.amount_all` über alle Inseln. Wohnplätze, Nachwuchs und
   Schiffbrüchige zählen je Insel. Meldungen von anderen Inseln tragen den Inselnamen
   (`Game.notify_at`).
 - **Werft** (`coast: true`, muss bis 2 Felder ans Wasser): Handwerker bauen Boote (Ware `boot`).
@@ -89,6 +110,8 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
   los (kommt zurück), „Siedler schicken“ verbraucht ein Boot und bringt bis zu
   `ship_base_capacity` (+ `ship_capacity`) Siedler hinüber. Mindestens einer bleibt zurück.
   Reisezeit `voyage_days_base + voyage_days_per_dist * Entfernung` geteilt durch `eff(ship_speed)`.
+  Die Karte zoomt (Mausrad, zwei Finger, Knöpfe „-“ „+“ „Alle“, 1x bis 8x um den Zeiger) und
+  lässt sich gezoomt ziehen; ein Klick ohne Ziehen wählt eine Insel. Testhilfe `--panel=sea --seazoom=N`.
 - **Inselarten** (`data/islands.json`): `heimat` (Etappe 1, unverändert), `tropen` (Palmeninsel:
   Kokospalmen, viel Fisch, Wildschweine), `wald` (Waldinsel: Nadelwald, Pilze, Wölfe), `berg`
   (Felseninsel: Erz- und Goldadern, Bären). Insel 1–3 sind in dieser Reihenfolge, danach
@@ -150,6 +173,80 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
   Fangradius beim Tippen, schmale Leiste mit Symbol über Text, gewählte Objekte rücken über das
   Infofenster, Vollbild-Knopf im Menü.
 
+## Jahreszeiten
+
+Autoload `Seasons` (`scripts/autoload/seasons.gd`), alle Zahlen in `data/seasons.json` (Listen immer
+Frühling, Sommer, Herbst, Winter). Eine Jahreszeit dauert `season_days` = 3 Tage, ein Jahr 12 Tage.
+Spielbeginn (Tag 1) ist Frühling; die Jahreszeit folgt nur aus `Game.time_days`, also ohne eigenen
+Spielstand-Eintrag (alte Spielstände landen einfach in der passenden Jahreszeit).
+
+- **Abfragen für andere Teile**: `Seasons.season()` (0–3, Konstanten `Seasons.SPRING..WINTER`),
+  `is_winter()`, `year()`, `day_in_season()`, `season_name()`, `season_progress()`, Signal
+  `season_changed(season)`. `Seasons.dt_days` = in diesem Frame vergangene Spieltage.
+- **Anzeige**: Symbol und „Frühling 2/3“ oben in der Leiste (schmal nur das Symbol); Tippen zeigt,
+  was die Jahreszeit bewirkt. Beim Wechsel eine Meldung, am letzten Herbsttag eine Wintervorwarnung
+  mit dem Holzbedarf.
+- **Wachstum** (`growth` je Knoten- oder Feldtyp, sonst `_default`): Faktor auf das Nachwachsen von
+  Rohstoffquellen und das Reifen der Felder. Umgesetzt durch Verschieben von `regrow_at` bzw.
+  `farm_time` um `dt_days * (1 - Faktor)`, das Speicherformat bleibt gleich. Winter 0 (nichts wächst),
+  Herbst etwa halb so schnell, Bäume im Frühling am schnellsten, Beeren im Sommer, Pilze im Herbst.
+- **Tiere vermehren sich nur im Frühling**: baut der Tier-Faden auf `Seasons.season() == Seasons.SPRING`.
+- **Für andere Systeme**: `Seasons.season_mod(key)` (`mods`: `sickness`, `mood`, Standard 1.0),
+  `Seasons.is_warm(world)`.
+- **Heizen**: je Siedler und Tag `heat_wood_per_settler` Holz (Herbst 0,3, Winter 1) aus dem Lager.
+  Fehlt Holz, frieren die Siedler der Insel (`Seasons.cold`): Hunger x`cold_hunger`, Arbeit
+  x`cold_work`.
+
+Fünf weitere Jahreszeit-Mechaniken:
+
+1. **Tageslänge**: `night_start`/`night_end` je Jahreszeit (`Seasons.night_start()`), Sommertage lang,
+   Wintertage kurz. `Game.is_night()` und das Licht der Welt richten sich danach.
+2. **Feldbau-Kalender und Frost**: Getreide wird nur im Frühling und Sommer gesät (`sow_seasons`);
+   zu Winterbeginn erfriert, was noch auf den Feldern wächst (`frost_kills`). Reifes Korn bleibt.
+   Sträucher und Pilze verlieren zu Winterbeginn ihre Früchte (`winter_bare`).
+3. **Verderb**: frische Nahrung (`perishable`) verdirbt anteilig je Tag (`spoil_per_day`, Sommer 8 %,
+   Winter 0). Brot, Räucherfisch, Getreide, Kokos halten. Erlegtes verdirbt im Sommer schneller und
+   hält im Winter länger (`decay`). Morgens meldet das Spiel, was verdorben ist.
+4. **Schnee und Winterkälte**: im Winter Bauen x0,7 (gefrorener Boden), Laufen x0,85, Hunger x1,15;
+   Fischgründe erholen sich unter Eis kaum. Schnee färbt Boden und Bäume weiß (Shader
+   `assets/shaders/season.gdshader`, Materialien je Insel in `World._update_season_look`, nicht auf
+   Palmeninseln: `snow_biomes`), es schneit (Partikel im Autoload).
+5. **Herbststürme**: Schiffsreisen und Erkundung dauern im Herbst x1,4, im Winter x1,2, im Sommer
+   x0,9 (`Seasons.sail_mult()`, gilt beim Ablegen).
+
+Herbstlaub: Laubbäume und Büsche färben sich im Herbst orange (gleicher Shader), Laub fällt. Grafiken
+der Symbole und Partikel: `tools/gen_art_seasons.py` → `assets/sprites/seasons.png`.
+Test: `--season=<0..3>` startet in einer Jahreszeit, Bericht zeigt Jahreszeit und Holz.
+
+## Nahrung, Vitamine und Gleichgewicht
+
+Ziel: eine Insel ist am Anfang schwer im Gleichgewicht zu halten, läuft aber stabil weiter, wenn sie
+einmal aufgebaut ist. Dafür gilt:
+
+- **Zwei Werte je Speise** (`resources.json`): `nutrition` = Sättigung, `vitamins` = Vitamine.
+  Obst und Beeren sättigen wenig, haben aber viele Vitamine; Brot, Räucherfisch, Fleisch sättigen
+  lange, haben kaum Vitamine. Rohes Getreide sättigt schlecht (10), Brot sehr gut (42).
+  Abfragen: `Data.food_satiety(id)`, `Data.food_vitamins(id)`.
+- **Siedler**: `hunger` (Sättigung 0–100, sinkt um `hunger_per_day` = 75), `vitamins` (0–100,
+  sinkt um `vitamins_per_day` = 30), `meals` (letzte 12 Speise-IDs, gespeichert). Beim Essen
+  (`Game.eat_food(prefer_vitamins, w)`) greift ein Siedler unter `vitamin_target` zum
+  vitaminreichsten, sonst zum sättigendsten im Lager seiner Insel. `Game.eaten` zählt alles.
+- **Mangel**: unter `vitamin_low` sinkt die Gesundheit um bis zu `deficiency_damage_per_day`, Meldung
+  „fehlen Vitamine“, Tod „an Mangelernährung“. `Settler.condition_factor()` (in `work_factor`):
+  Hunger < 25 → x`hungry_work_factor`, Vitaminmangel → x`deficiency_work_factor`. Andere Systeme
+  (Charaktere, Gesundheit) multiplizieren dort dazu.
+- **Notessen**: ist das Lager der Insel leer (oder voll mit anderem), essen sehr hungrige Siedler
+  direkt am Strauch, an Palme, Pilzkreis oder Fischgrund (`_plan_forage`).
+- **Knappe Natur** (`nodes.json`): Sammeln, Fischen, Holz und Stein dauern 2–4x so lange wie
+  früher, Sträucher tragen 3 Beeren und wachsen in 2,5 Tagen nach, Fischgründe 6 Fische in 1,5 Tagen.
+  Ein Sammler ernährt so etwa 1,5 Erwachsene, die wilde Natur einer Startinsel etwa 15. Wer mehr
+  Siedler will, braucht Felder mit Mühle und Bäckerei (ein Feld mit Brotkette ≈ 2 Erwachsene) und
+  Obstgärten für Vitamine.
+- **Messen**: `--jobs=sammler,fischer,...` vergibt feste Berufe (fehlende Siedler werden erzeugt),
+  `--nofruit=1` entfernt Sträucher, Palmen und Pilze (Vitaminmangel testen), `--nodestat=1` zeigt
+  Vorrat und Nachwachsen der Nahrungsquellen. Der Bericht zeigt je Siedler Sättigung/Vitamine/Gesundheit
+  und alles Gegessene.
+
 ## Ordner
 
 | Pfad | Inhalt |
@@ -157,6 +254,7 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
 | `data/*.json` | Alle Spielwerte (Ressourcen, Rohstoffquellen, Gebäude, Berufe, Balance, Namen) |
 | `scripts/autoload/data.gd` | Lädt JSON, Sprite-Regionen (`OBJECT_REGIONS`), Icons |
 | `scripts/autoload/game.gd` | Zeit, Vorräte, Nachwuchs, Abstammung, Forschung und Effekte, Speichern/Laden |
+| `scripts/autoload/seasons.gd` | Jahreszeiten: Kalender, Wachstum, Heizen, Verderb, Frost, Schnee |
 | `scripts/autoload/sea.gd` | Inseln, Welten je Insel, Schiffsreisen, Inselwechsel |
 | `scripts/world/island_gen.gd` | Inselgenerator (Seed → Gelände + Rohstoffe) |
 | `scripts/world/world.gd` | Tilemaps, Wegfindung (AStarGrid2D), Entitäten, Bauen, Effekte, Tag/Nacht |
@@ -176,7 +274,7 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
 
 ## Datenformate
 
-- **resources.json**: `{id: {name, icon, category: "material"|"food", nutrition?, order}}`.
+- **resources.json**: `{id: {name, icon, category: "material"|"food", nutrition?, vitamins?, size, order}}`.
   Alles mit `category: food` wird gegessen.
 - **nodes.json**: Rohstoffquellen. `yield`, `capacity`, `work_time`, `skill`, `terrain`
   (`grass`, `land`, `shore_water`), `solid`, `regrow_days`, `on_empty` (`regrow`|`remove`),
@@ -188,11 +286,12 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
 - **islands.json**: Inselarten, siehe Etappe 3. **animals.json**: `hp`, `damage`, `speed`,
   `aggro`, `night_aggro`, `attack_time`, `meat`, `felle`, `leash`, `row` (Zeile in animals.png).
 - **balance.json**: alle Zahlen für Zeit, Hunger, Nachwuchs, Lager, Karte.
-- **Spielstand** (Version 2): `{version, seed, time_days, stock, next_id, stats, lineage, research,
+- **Spielstand** (Version 3): `{version, seed, time_days, next_id, stats, lineage, research,
   islands: [{id, name, biome, seed, size, pos, state, found_day, dens, world?}], active, voyages}`
-  mit `world: {nodes: [[type,x,y,amount,regrow_at,variant]], buildings: [...], settlers: [...],
+  mit `world: {stock, nodes: [[type,x,y,amount,regrow_at,variant]], buildings: [...], settlers: [...],
   graves, animals: [[type,x,y,hp,home_x,home_y]]}`. Version 1 (nur `world`) wird beim Laden als
-  Heimatinsel übernommen. Das Gelände wird aus dem Seed neu erzeugt, nur Rohstoffe, Gebäude,
+  Heimatinsel übernommen. Version 1 und 2 hatten ein gemeinsames `stock`: das bekommt beim Laden
+  die Heimatinsel. Das Gelände wird aus dem Seed neu erzeugt, nur Rohstoffe, Gebäude,
   Siedler und Tiere werden gespeichert.
 
 ## Erweitern (spätere Etappen)
@@ -215,6 +314,7 @@ godot --headless -- --autotest=400 --scale=10 --build=1 --research=1   # forscht
 godot --headless -- --autotest=60 --scale=10 --prodtest=1  # alle Werkstätten, alles erforscht
 godot --headless -- --autotest=120 --scale=10 --tuttest=1  # spielt die Einführung durch
 godot --headless -- --autotest=150 --scale=10 --schooltest=1  # Steinhaus und Schule: Geburten, Schulkinder
+godot --headless -- --autotest=230 --scale=10 --build=1   # ein ganzes Jahr, Bericht mit Jahreszeit und Holz
 godot --headless -- --autotest=300 --scale=10 --seatest=1  # Werft, drei Inseln entdecken und besiedeln
 #   dazu --weak=1: ohne Waffenkunde (Tiere gefährlicher), Bildschirmfoto: --island=<id>, --panel=sea
 # Bildschirmfoto-Optionen: --panel=research|build|stock, --selectb=<typ>, --look=1

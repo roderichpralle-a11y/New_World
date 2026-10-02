@@ -166,7 +166,7 @@ func progress(g: Dictionary) -> Array:
 		"births":
 			return [int(Game.stats.get("births", 0)), n]
 		"stock":
-			return [Game.amount(what), n]
+			return [Game.amount_all(what), n]
 	return [0, 1]
 
 
