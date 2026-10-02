@@ -159,6 +159,8 @@ func _maybe_autotest() -> void:
 				Game.population(), Game.housing_capacity(), Game.amount("holz"), Game.amount("stein"), Game.total_food(), jobs])
 		if Game.is_over:
 			break
+	if args.has("storetest"):
+		_autotest_store()
 	if args.has("shot"):
 		Engine.time_scale = 1.0
 		if args.has("night"):
@@ -266,6 +268,7 @@ func _autotest_sea() -> void:
 			Game.research.done.append(t)
 	Game._recompute_effects()
 	Game.research_changed.emit()
+	Data.balance["base_storage"] = 4000  # Testlauf: genug Stauraum fuer die Testvorraete
 	for id in Data.resources:
 		world.stock[id] = 50
 	world.stock["boot"] = 6
@@ -308,6 +311,32 @@ func _autotest_sea_tick(elapsed: float) -> void:
 				group[i].set_job("jaeger" if Data.job_unlocked("jaeger") else "baumeister")
 			print("Sende nach ", m.name, ": ", Sea.send_settlers(home, int(m.id), group))
 			home.stock["boot"] = max(Game.amount("boot", home), 2)
+
+
+## Prueft Stauraum, Hoechstmengen und Wegwerfen.
+func _autotest_store() -> void:
+	var ok := func(cond: bool, what: String):
+		print("   Lager ", "OK  " if cond else "FEHLER ", what)
+	for id in Data.resources:
+		world.stock[id] = 0
+	world.store_limits = {}
+	var vol := Game.storage_volume()
+	print("   Lager Stauraum ", vol)
+	ok.call(Game.space_for("holz") == vol / 2, "Holz frei: %d" % Game.space_for("holz"))
+	ok.call(Game.space_for("bretter") == vol / 3, "Bretter frei: %d" % Game.space_for("bretter"))
+	ok.call(Game.set_limit("holz", 40) == 40, "Holz auf 40")
+	ok.call(Game.space_for("beeren") == vol - 80, "Beeren nach Reservierung: %d" % Game.space_for("beeren"))
+	ok.call(Game.add_stock("holz", 100) == 40, "Holz nur bis 40 eingelagert")
+	ok.call(Game.set_limit("stein", 100000) == (vol - 80) / 2, "Stein hoechstens Restraum: %d" % Game.limit_of("stein"))
+	ok.call(Game.space_for("beeren") == 0, "Beeren ohne Platz")
+	ok.call(Game.add_stock("beeren", 5) == 0, "Beeren abgewiesen")
+	Game.set_limit("holz", 10)
+	ok.call(Game.excess("holz") == 30, "Ueberschuss 30")
+	ok.call(Game.discard_excess("holz") == 30 and Game.amount("holz") == 10, "weggeworfen, 10 bleiben")
+	ok.call(Game.space_for("boot") > 1000, "Boote ohne Lagerraum")
+	Game.set_limit("stein", -1)
+	ok.call(Game.space_for("beeren") == vol - 20, "Stein frei, Beeren wieder Platz: %d" % Game.space_for("beeren"))
+	world.store_limits = {}
 
 
 ## Spielt die Einfuehrung durch, wie es ein Spieler tun wuerde.
@@ -364,6 +393,7 @@ func _autotest_school() -> void:
 						world.place_building(type, cc, true)
 						done = true
 		print("platziert ", type, " ", done)
+	Data.balance["base_storage"] = 4000  # Testlauf: genug Stauraum fuer die Testvorraete
 	for id in ["beeren", "fisch", "brot", "aepfel", "holz"]:
 		world.stock[id] = 150
 	world.assign_homes()
@@ -398,6 +428,7 @@ func _autotest_prod() -> void:
 						done = true
 		print("platziert ", type, " ", done)
 	world.place_building("grosslager", c + Vector2i(-8, 6), true) if world.can_place("grosslager", c + Vector2i(-8, 6)) else null
+	Data.balance["base_storage"] = 4000  # Testlauf: genug Stauraum fuer die Testvorraete
 	for id in Data.resources:
 		world.stock[id] = 40
 	for i in 8:

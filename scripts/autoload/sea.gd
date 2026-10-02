@@ -349,7 +349,9 @@ func build_from_save(d: Dictionary) -> void:
 		if not heir.had_stock:
 			for id in Game.stock:
 				heir.stock[id] = int(heir.stock.get(id, 0)) + int(Game.stock[id])
+			heir.store_limits = Game.store_limits.duplicate()
 	Game.stock = {}
+	Game.store_limits = {}
 	var active := int(d.get("active", 0))
 	if not worlds.has(active) and not worlds.is_empty():
 		active = int(worlds.keys()[0])

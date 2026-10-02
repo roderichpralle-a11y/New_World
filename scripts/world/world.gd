@@ -25,6 +25,7 @@ var animals: Array = []  # wilde Tiere (Animal)
 var decor: Array = []  # Boote am Strand: [Sprite2D, bis_tag]
 var center: Vector2i
 var stock: Dictionary = {}  # Lager dieser Insel (Ware -> Menge), siehe Game.amount
+var store_limits: Dictionary = {}  # Hoechstmengen je Ware auf dieser Insel (fehlt = frei)
 var had_stock: bool = false  # Spielstand hatte ein eigenes Inselllager (ab Version 3)
 
 var ground: Node2D  # Felder unter allem
@@ -114,6 +115,10 @@ func build_from_save(w: Dictionary, m: Dictionary) -> void:
 	for id in w.get("stock", {}):
 		if Data.resources.has(id):
 			stock[id] = int(w.stock[id])
+	store_limits = {}
+	for id in w.get("store_limits", {}):
+		if Data.resources.has(id):
+			store_limits[id] = int(w.store_limits[id])
 	for n in w.nodes:
 		var node := spawn_node(n[0], Vector2i(int(n[1]), int(n[2])), int(n[5]))
 		node.amount = int(n[3])
@@ -509,10 +514,31 @@ func nearest_storage(from: Vector2i):
 	for b in buildings:
 		if not b.is_storage():
 			continue
-		var d := Vector2(b.cell - from).length_squared()
+		var d: float = b.dist_sq(from)
 		if d < best_d:
 			best_d = d
 			best = b
+	return best
+
+
+## Lager zum Abliefern: unter allen Lagern, die kaum weiter weg sind als das
+## naechste, das mit den wenigsten Ablieferungen im Verhaeltnis zu seinem Platz.
+## So bekommt auch das Lagerfeuer weiter Waren, wenn ein Lagerhaus daneben steht.
+func delivery_storage(from: Vector2i):
+	var near = nearest_storage(from)
+	if near == null:
+		return null
+	var reach := sqrt(near.dist_sq(from)) + float(Data.bal("delivery_spread", 6))
+	var best = near
+	var best_score := INF
+	for b in buildings:
+		if not b.is_storage() or b.dist_sq(from) > reach * reach:
+			continue
+		var score: float = float(b.deliveries) / maxf(1.0, float(b.def.storage))
+		if score < best_score:
+			best_score = score
+			best = b
+	best.deliveries += 1
 	return best
 
 
@@ -932,7 +958,7 @@ func float_text(p: Vector2, text: String, icon_res: String) -> void:
 func warn_storage_full(res: String) -> void:
 	if Game.time_days - _storage_warn_time > 1.0:
 		_storage_warn_time = Game.time_days
-		Game.notify("Das Lager ist voll (%s). Baue ein Lagerhaus!" % Data.resource_name(res), "haus")
+		Game.notify("Kein Platz mehr für %s. Baue ein Lager oder stelle im Lager mehr Platz dafür ein." % Data.resource_name(res), "haus")
 
 
 # ================================================================== Tag und Nacht
@@ -1129,6 +1155,7 @@ func pick_at(p: Vector2, radius: float = 12.0):
 func serialize() -> Dictionary:
 	return {
 		"stock": stock,
+		"store_limits": store_limits,
 		"nodes": nodes.map(func(n): return n.serialize()),
 		"buildings": buildings.map(func(b): return b.serialize()),
 		"settlers": settlers.map(func(s): return s.serialize()),
