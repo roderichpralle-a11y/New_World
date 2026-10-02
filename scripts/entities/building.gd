@@ -17,6 +17,7 @@ var reserved_by: int = 0
 var occupants: Array = []  # Siedler-IDs, die hier arbeiten (Produktion, Forschung)
 var paused: bool = false
 var active_until: float = 0.0  # Echtzeit, bis zu der die Werkstatt als "in Betrieb" gilt
+var deliveries: int = 0  # Ablieferungen an dieses Lager (nur zur Verteilung, nicht gespeichert)
 var world
 
 var _sprite: Sprite2D
@@ -109,6 +110,13 @@ func is_storage() -> bool:
 	return complete and def.get("storage", 0) > 0
 
 
+## Abstand in Zellen (zum Quadrat) von einer Zelle zur naechsten Zelle des Gebaeudes.
+func dist_sq(from: Vector2i) -> float:
+	var nx: int = clamp(from.x, cell.x, cell.x + size.x - 1)
+	var ny: int = clamp(from.y, cell.y, cell.y + size.y - 1)
+	return Vector2(Vector2i(nx, ny) - from).length_squared()
+
+
 func housing() -> int:
 	return int(def.get("housing", 0)) if complete else 0
 
@@ -197,7 +205,7 @@ func farm_task() -> String:
 	if not complete or not def.has("farm"):
 		return ""
 	if farm_state == "fallow":
-		return "sow"
+		return "sow" if Seasons.can_sow(type) else ""
 	if farm_state == "ripe":
 		return "harvest"
 	return ""
@@ -232,11 +240,11 @@ func prod_blocker() -> String:
 	if paused:
 		return "angehalten"
 	for res in p.get("inputs", {}):
-		if Game.amount(res) < int(p.inputs[res]):
+		if Game.amount(res, world) < int(p.inputs[res]):
 			return "Es fehlt %s" % Data.resource_name(res)
 	var any_space := false
 	for res in p.get("outputs", {}):
-		if Game.space_for(res) > 0:
+		if Game.space_for(res, world) > 0:
 			any_space = true
 	if not any_space:
 		return "Das Lager ist voll"
@@ -249,7 +257,7 @@ func take_inputs() -> bool:
 		return false
 	var p := prod_def()
 	for res in p.get("inputs", {}):
-		Game.take_stock(res, int(p.inputs[res]))
+		Game.take_stock(res, int(p.inputs[res]), world)
 	return true
 
 
@@ -320,6 +328,8 @@ func _process(delta: float) -> void:
 		_light.energy = target * (0.75 if type == "lagerfeuer" else 0.45) * flicker
 		_light.visible = _light.energy > 0.02
 	if is_ground() and complete and farm_state == "growing":
+		# Jahreszeit: im Winter steht das Wachstum still, im Sommer geht es schneller
+		farm_time += Seasons.dt_days * (1.0 - Seasons.growth(type))
 		if Game.time_days - farm_time >= grow_days():
 			farm_state = "ripe"
 			refresh()

@@ -234,6 +234,7 @@ func _needs(days: float) -> void:
 	var f := 1.0 if is_adult() else float(Data.bal("child_hunger_factor"))
 	if sleeping:
 		f *= 0.6
+	f *= Seasons.hunger_mult(world)  # Winter und Kälte zehren
 	hunger = max(0.0, hunger - float(Data.bal("hunger_per_day")) * Game.eff("hunger") * days * f)
 	if hunger <= 0.0:
 		health -= float(Data.bal("starve_damage_per_day")) * days
@@ -270,7 +271,7 @@ func _think() -> void:
 		if _plan_deliver():
 			return
 	# 2. Essen
-	if hunger < float(Data.bal("eat_below")) and Game.total_food() > 0:
+	if hunger < float(Data.bal("eat_below")) and Game.total_food(world) > 0:
 		if _plan_eat():
 			return
 	# 3. Schlafen
@@ -335,7 +336,7 @@ func carry_capacity() -> int:
 
 ## Arbeitstempo fuer eine Faehigkeit inklusive Forschungsboni.
 func work_factor(sk: String, bonus: String = "") -> float:
-	var f := skill_factor(sk) * Game.eff("work")
+	var f := skill_factor(sk) * Game.eff("work") * Seasons.work_mult(world)
 	if bonus != "":
 		f *= Game.eff(bonus)
 	return f
@@ -351,7 +352,7 @@ func _push_move_to(target_cells: Array, adjacent: bool = true) -> bool:
 
 
 func _plan_deliver() -> bool:
-	var st = world.nearest_storage(cell)
+	var st = world.delivery_storage(cell)
 	if st == null:
 		return false
 	if not _push_move_to(st.cells()):
@@ -364,7 +365,7 @@ func _plan_deliver() -> bool:
 func _do_deliver() -> void:
 	if carry_n <= 0:
 		return
-	var added := Game.add_stock(carry_res, carry_n)
+	var added := Game.add_stock(carry_res, carry_n, world)
 	if added > 0:
 		world.float_text(position + Vector2(0, -26), "+%d" % added, carry_res)
 	if added < carry_n:
@@ -387,7 +388,7 @@ func _plan_eat() -> bool:
 func _do_eat() -> void:
 	var eaten := 0
 	while hunger < float(Data.bal("eat_until")):
-		var n := Game.eat_one()
+		var n := Game.eat_one(world)
 		if n <= 0.0:
 			break
 		hunger = min(100.0, hunger + n)
@@ -480,12 +481,12 @@ func _plan_free() -> bool:
 
 func _plan_free_gather() -> bool:
 	var pop: int = max(1, Game.population())
-	if Game.total_food() < pop * 10:
+	if Game.total_food(world) < pop * 10:
 		if _plan_farm() or _plan_gather(["beute", "busch", "palme", "pilzkreis", "fischgrund"]):
 			return true
 	# Was am knappsten ist (Holz wird doppelt gewichtet, weil es ueberall gebraucht wird)
-	var wood := Game.amount("holz") / 2.0
-	var stone := float(Game.amount("stein"))
+	var wood := Game.amount("holz", world) / 2.0
+	var stone := float(Game.amount("stein", world))
 	var order := ["baum", "fels"] if wood <= stone else ["fels", "baum"]
 	for t in order:
 		if _plan_gather([t]):
@@ -508,7 +509,7 @@ func _plan_gather(types: Array) -> bool:
 				return true
 			continue
 		var res: String = Data.nodes.get(t, {}).get("yield", "")
-		if res != "" and Game.space_for(res) <= 0:
+		if res != "" and Game.space_for(res, world) <= 0:
 			continue
 		var node = world.find_node_for(t, cell, id)
 		if node == null:
@@ -569,7 +570,7 @@ func _do_harvest(node) -> void:
 
 func _plan_deliver_after() -> void:
 	_release()
-	var st = world.nearest_storage(cell)
+	var st = world.delivery_storage(cell)
 	if st and _push_move_to(st.cells()):
 		_plan.append({"a": "work", "t": 0.4, "act": "Liefert ab", "done": _do_deliver})
 		activity = "Bringt %s zum Lager" % Data.resource_name(carry_res)
@@ -581,7 +582,7 @@ func _plan_farm() -> bool:
 		return false
 	var task: String = field.farm_task()
 	var fd: Dictionary = field.farm_def()
-	if task == "harvest" and Game.space_for(fd.yield) <= 0:
+	if task == "harvest" and Game.space_for(fd.yield, world) <= 0:
 		return false
 	var target: Vector2i = field.cells()[_rng.randi() % field.cells().size()]
 	if not _push_move_to([target], false):
@@ -628,7 +629,7 @@ func _plan_construction() -> bool:
 	for site in sites:
 		var need: Dictionary = site.remaining_cost()
 		for res in need:
-			var n: int = min(min(int(need[res]), Game.amount(res)), carry_capacity() + 2)
+			var n: int = min(min(int(need[res]), Game.amount(res, world)), carry_capacity() + 2)
 			if n <= 0:
 				continue
 			var st = world.nearest_storage(cell)
@@ -652,7 +653,7 @@ func _plan_construction() -> bool:
 func _do_pickup(site, res: String, n: int) -> void:
 	if carry_n > 0:
 		_do_deliver()
-	var got := Game.take_stock(res, n)
+	var got := Game.take_stock(res, n, world)
 	# Reservierung anpassen
 	for inc in _incoming:
 		if inc[0] == site and inc[1] == res:
@@ -680,7 +681,7 @@ func _do_site_deliver(site) -> void:
 func _do_build(site) -> void:
 	if not is_instance_valid(site) or site.complete:
 		return
-	site.add_work(1.5 * work_factor("bauen", "build"))
+	site.add_work(1.5 * work_factor("bauen", "build") * Seasons.build_mult())
 	gain_xp("bauen", 0.5)
 	world.spawn_effect("dust", site.position + Vector2(_rng.randf_range(-12, 12), -4))
 	Sound.play_at("hammer", world, site.position)
@@ -731,7 +732,7 @@ func _do_produce(b) -> void:
 			first = false
 		else:
 			# Nebenprodukte gehen direkt ins Lager
-			Game.add_stock(res, n)
+			Game.add_stock(res, n, world)
 	world.spawn_effect("dust", b.position + Vector2(_rng.randf_range(-8, 8), -4))
 	Sound.play_at(String(b.def.get("sound", "hammer")), world, b.position)
 	_plan_deliver_after()
@@ -830,6 +831,7 @@ func _walk(delta: float, mult: float = 1.0) -> void:
 		return
 	var target: Vector2 = _path[_path_i]
 	var spd := float(Data.bal("walk_speed")) * Game.eff("walk") * (1.0 if is_adult() else 0.85) * mult
+	spd *= Seasons.walk_mult()  # Schnee
 	if hunger <= 0.0:
 		spd *= 0.6
 	var to := target - position

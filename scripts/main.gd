@@ -92,6 +92,9 @@ func _maybe_autotest() -> void:
 	Game.set_speed(1)
 	Engine.time_scale = scale
 	Game.notified.connect(func(t, _i): print("[Tag %d %s] %s" % [Game.day(), Game.clock_text(), t]))
+	if args.has("season"):
+		# Testhilfe: Start in einer Jahreszeit (0 Frühling .. 3 Winter)
+		Seasons.jump_to_season(int(args.season))
 	if args.has("build"):
 		_autotest_build()
 	if args.has("prodtest"):
@@ -130,7 +133,7 @@ func _maybe_autotest() -> void:
 					var nb = world.upgrade_building(b)
 					print("Schreibstube ausgebaut: ", b.type, " -> ", nb.type if nb else "nein")
 			for id in ["holz", "bretter", "stein", "ziegel", "eisen", "werkzeug"]:
-				Game.stock[id] = max(Game.amount(id), 40)
+				world.stock[id] = max(Game.amount(id), 40)
 		if args.has("seatest"):
 			_autotest_sea_tick(elapsed)
 		if args.has("tuttest"):
@@ -151,15 +154,19 @@ func _maybe_autotest() -> void:
 				var isl := []
 				for m in Sea.islands:
 					var w = Sea.worlds.get(int(m.id))
-					isl.append("%s[%s]:%s pop=%d tiere=%d" % [m.name, m.biome, m.state, w.settlers.size() if w else 0, w.animals.size() if w else 0])
+					isl.append("%s[%s]:%s pop=%d tiere=%d holz=%d essen=%d" % [m.name, m.biome, m.state, w.settlers.size() if w else 0, w.animals.size() if w else 0,
+						Game.amount("holz", w) if w else 0, Game.total_food(w) if w else 0])
 				if args.has("wildlife"):
 					_report_wildlife()
 				print("   Inseln: ", ", ".join(isl), " | See: ", Sea.voyages.size(), " Boote: ", Game.amount("boot"), " Fleisch: ", Game.amount("fleisch"), " Felle: ", Game.amount("felle"))
 			var jobs := world.settlers.map(func(s): return "%s:%s:%s:%d" % [s.display_name, s.job, s.activity, int(s.hunger)])
+			print("   %s, Jahr %d: Holz %d, frierend %d Inseln" % [Seasons.short_text(), Seasons.year(), Game.amount("holz"), Seasons.cold.size()])
 			print("t=%d Tag %d %s pop=%d/%d holz=%d stein=%d food=%d | %s" % [elapsed, Game.day(), Game.clock_text(),
 				Game.population(), Game.housing_capacity(), Game.amount("holz"), Game.amount("stein"), Game.total_food(), jobs])
 		if Game.is_over:
 			break
+	if args.has("storetest"):
+		_autotest_store()
 	if args.has("shot"):
 		Engine.time_scale = 1.0
 		if args.has("night"):
@@ -179,6 +186,24 @@ func _maybe_autotest() -> void:
 					hud._toggle(hud._stock_panel)
 				"sea":
 					hud._open_sea()
+					if args.has("seazoom"):
+						# Testhilfe: Mausrad ueber der Karte, dann ein Stueck ziehen
+						var sp = hud._sea_panel
+						await get_tree().process_frame
+						for i in int(args.seazoom):
+							var w := InputEventMouseButton.new()
+							w.button_index = MOUSE_BUTTON_WHEEL_UP
+							w.pressed = true
+							w.position = sp._map.size * Vector2(0.3, 0.5)
+							sp._on_map_input(w)
+						var drag := InputEventMouseMotion.new()
+						sp._pressed = true
+						drag.position = Vector2(100, 100)
+						drag.relative = Vector2(30, 0)
+						sp._on_map_input(drag)
+						sp._on_map_input(drag)
+						sp._pressed = false
+						print("Seekarte Zoom: ", sp._zoom, " Verschiebung: ", sp._pan)
 				"settlers":
 					hud._toggle(hud._settler_panel)
 					hud._refresh_settler_list()
@@ -271,9 +296,10 @@ func _autotest_sea() -> void:
 			Game.research.done.append(t)
 	Game._recompute_effects()
 	Game.research_changed.emit()
+	Data.balance["base_storage"] = 4000  # Testlauf: genug Stauraum fuer die Testvorraete
 	for id in Data.resources:
-		Game.stock[id] = 50
-	Game.stock["boot"] = 6
+		world.stock[id] = 50
+	world.stock["boot"] = 6
 	for i in 14:
 		world.spawn_newcomer("f" if i % 2 else "m")
 	for s in world.settlers:
@@ -312,7 +338,33 @@ func _autotest_sea_tick(elapsed: float) -> void:
 			for i in 2:
 				group[i].set_job("jaeger" if Data.job_unlocked("jaeger") else "baumeister")
 			print("Sende nach ", m.name, ": ", Sea.send_settlers(home, int(m.id), group))
-			Game.stock["boot"] = max(Game.amount("boot"), 2)
+			home.stock["boot"] = max(Game.amount("boot", home), 2)
+
+
+## Prueft Stauraum, Hoechstmengen und Wegwerfen.
+func _autotest_store() -> void:
+	var ok := func(cond: bool, what: String):
+		print("   Lager ", "OK  " if cond else "FEHLER ", what)
+	for id in Data.resources:
+		world.stock[id] = 0
+	world.store_limits = {}
+	var vol := Game.storage_volume()
+	print("   Lager Stauraum ", vol)
+	ok.call(Game.space_for("holz") == vol / 2, "Holz frei: %d" % Game.space_for("holz"))
+	ok.call(Game.space_for("bretter") == vol / 3, "Bretter frei: %d" % Game.space_for("bretter"))
+	ok.call(Game.set_limit("holz", 40) == 40, "Holz auf 40")
+	ok.call(Game.space_for("beeren") == vol - 80, "Beeren nach Reservierung: %d" % Game.space_for("beeren"))
+	ok.call(Game.add_stock("holz", 100) == 40, "Holz nur bis 40 eingelagert")
+	ok.call(Game.set_limit("stein", 100000) == (vol - 80) / 2, "Stein hoechstens Restraum: %d" % Game.limit_of("stein"))
+	ok.call(Game.space_for("beeren") == 0, "Beeren ohne Platz")
+	ok.call(Game.add_stock("beeren", 5) == 0, "Beeren abgewiesen")
+	Game.set_limit("holz", 10)
+	ok.call(Game.excess("holz") == 30, "Ueberschuss 30")
+	ok.call(Game.discard_excess("holz") == 30 and Game.amount("holz") == 10, "weggeworfen, 10 bleiben")
+	ok.call(Game.space_for("boot") > 1000, "Boote ohne Lagerraum")
+	Game.set_limit("stein", -1)
+	ok.call(Game.space_for("beeren") == vol - 20, "Stein frei, Beeren wieder Platz: %d" % Game.space_for("beeren"))
+	world.store_limits = {}
 
 
 ## Spielt die Einfuehrung durch, wie es ein Spieler tun wuerde.
@@ -369,8 +421,9 @@ func _autotest_school() -> void:
 						world.place_building(type, cc, true)
 						done = true
 		print("platziert ", type, " ", done)
+	Data.balance["base_storage"] = 4000  # Testlauf: genug Stauraum fuer die Testvorraete
 	for id in ["beeren", "fisch", "brot", "aepfel", "holz"]:
-		Game.stock[id] = 150
+		world.stock[id] = 150
 	world.assign_homes()
 	for s in world.settlers:
 		var h = world.building_by_id(s.home_id)
@@ -403,8 +456,9 @@ func _autotest_prod() -> void:
 						done = true
 		print("platziert ", type, " ", done)
 	world.place_building("grosslager", c + Vector2i(-8, 6), true) if world.can_place("grosslager", c + Vector2i(-8, 6)) else null
+	Data.balance["base_storage"] = 4000  # Testlauf: genug Stauraum fuer die Testvorraete
 	for id in Data.resources:
-		Game.stock[id] = 40
+		world.stock[id] = 40
 	for i in 8:
 		world.spawn_newcomer("f" if i % 2 else "m")
 	var jobs := ["koch", "koch", "handwerker", "handwerker", "steinmetz", "forscher", "forscher", "holzfaeller", "bauer", "fischer"]

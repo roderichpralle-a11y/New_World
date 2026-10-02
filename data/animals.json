@@ -2,7 +2,7 @@
   "wolf": {"name": "Wolf", "plural": "Wölfe", "plural_dat": "Wölfen", "by": "von einem Wolf", "hp": 34, "damage": 9, "speed": 44, "aggro": 4.5, "night_aggro": 8, "attack_time": 1.0, "meat": 3, "felle": 1, "leash": 12, "row": 0, "sound": "heulen",
     "food": {"baum": false, "beute": true}, "food_name": "Wild im Wald und Aas", "food_per_animal": 6, "litter": [1, 3], "den_max": 6, "adult_days": 2.0},
   "eber": {"name": "Wildschwein", "plural": "Wildschweine", "plural_dat": "Wildschweinen", "by": "von einem Wildschwein", "hp": 46, "damage": 11, "speed": 36, "aggro": 1.6, "night_aggro": 1.6, "attack_time": 1.2, "meat": 5, "felle": 1, "leash": 9, "row": 1, "sound": "grunzen",
-    "food": {"busch": true, "pilzkreis": true, "palme": true}, "food_name": "Beeren, Pilze und Kokosnüsse", "food_per_animal": 2, "litter": [2, 4], "den_max": 7, "adult_days": 1.5},
+    "food": {"busch": true, "pilzkreis": true, "palme": true}, "winter_food": ["baum"], "food_name": "Beeren, Pilze und Kokosnüsse, im Winter Eicheln und Wurzeln", "food_per_animal": 2, "litter": [2, 4], "den_max": 7, "adult_days": 1.5},
   "baer": {"name": "Bär", "plural": "Bären", "plural_dat": "Bären", "by": "von einem Bären", "hp": 110, "damage": 20, "speed": 30, "aggro": 4, "night_aggro": 4, "attack_time": 1.6, "meat": 8, "felle": 2, "leash": 10, "row": 2, "sound": "knurren",
-    "food": {"busch": true, "pilzkreis": true, "beute": true, "baum": false}, "food_name": "Beeren, Pilze, Aas und Kleintiere", "food_per_animal": 4, "roam": 14, "litter": [1, 2], "den_max": 4, "adult_days": 3.0}
+    "food": {"busch": true, "pilzkreis": true, "beute": true, "baum": false}, "hibernate": true, "food_name": "Beeren, Pilze, Aas und Kleintiere", "food_per_animal": 4, "roam": 14, "litter": [1, 2], "den_max": 4, "adult_days": 3.0}
 }

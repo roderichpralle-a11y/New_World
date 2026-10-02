@@ -24,11 +24,18 @@ var graves: Array = []  # [Sprite2D, bis_tag]
 var animals: Array = []  # wilde Tiere (Animal)
 var decor: Array = []  # Boote am Strand: [Sprite2D, bis_tag]
 var center: Vector2i
+var stock: Dictionary = {}  # Lager dieser Insel (Ware -> Menge), siehe Game.amount
+var store_limits: Dictionary = {}  # Hoechstmengen je Ware auf dieser Insel (fehlt = frei)
+var had_stock: bool = false  # Spielstand hatte ein eigenes Inselllager (ab Version 3)
 
 var ground: Node2D  # Felder unter allem
 var entities: Node2D  # y-sortiert
 var fx: Node2D
 var day_tint: CanvasModulate
+## Jahreszeit-Shader (Schnee, Herbstlaub): Boden, Laubbäume und Büsche, Nadelbäume
+var _mat_ground: ShaderMaterial
+var _mat_leaf: ShaderMaterial
+var _mat_needle: ShaderMaterial
 
 var _layers: Array = []
 var _unreachable: Dictionary = {}
@@ -55,6 +62,9 @@ func _ready() -> void:
 # ================================================================== Aufbau
 func build_new(seed_value: int) -> void:
 	size = int(Data.bal("map_size", 64))
+	stock = {}
+	for id in Data.bal("start_stock", {}):
+		stock[id] = int(Data.bal("start_stock")[id])
 	var island := IslandGen.generate(seed_value, size)
 	_build_terrain(island)
 	for n in island.nodes:
@@ -107,6 +117,15 @@ func build_from_save(w: Dictionary, m: Dictionary) -> void:
 	size = int(m.get("size", Data.bal("map_size", 64)))
 	var island := IslandGen.generate(int(m.seed), size, _gen_opts(m) if biome != "heimat" else {})
 	_build_terrain(island)
+	stock = {}
+	had_stock = w.has("stock")
+	for id in w.get("stock", {}):
+		if Data.resources.has(id):
+			stock[id] = int(w.stock[id])
+	store_limits = {}
+	for id in w.get("store_limits", {}):
+		if Data.resources.has(id):
+			store_limits[id] = int(w.store_limits[id])
 	for n in w.nodes:
 		var node := spawn_node(n[0], Vector2i(int(n[1]), int(n[2])), int(n[5]))
 		node.amount = int(n[3])
@@ -164,6 +183,8 @@ func _build_terrain(island: Dictionary) -> void:
 		_layers.append(l)
 	# Jede Inselart hat ihren eigenen Grünton
 	_layers[2].modulate = Color(Data.islands.get(biome, {}).get("tint", "#ffffff"))
+	_make_season_materials()
+	_layers[2].material = _mat_ground
 	ground = Node2D.new()
 	add_child(ground)
 	entities = Node2D.new()
@@ -489,7 +510,7 @@ func demolish(b: Building) -> void:
 	spawn_effect("dust", b.position)
 	b.queue_free()
 	for res in refund:
-		Game.add_stock(res, refund[res])
+		Game.add_stock(res, refund[res], self)
 	assign_homes()
 	if b.def.has("effects"):
 		Game.refresh_effects()
@@ -511,10 +532,31 @@ func nearest_storage(from: Vector2i):
 	for b in buildings:
 		if not b.is_storage():
 			continue
-		var d := Vector2(b.cell - from).length_squared()
+		var d: float = b.dist_sq(from)
 		if d < best_d:
 			best_d = d
 			best = b
+	return best
+
+
+## Lager zum Abliefern: unter allen Lagern, die kaum weiter weg sind als das
+## naechste, das mit den wenigsten Ablieferungen im Verhaeltnis zu seinem Platz.
+## So bekommt auch das Lagerfeuer weiter Waren, wenn ein Lagerhaus daneben steht.
+func delivery_storage(from: Vector2i):
+	var near = nearest_storage(from)
+	if near == null:
+		return null
+	var reach := sqrt(near.dist_sq(from)) + float(Data.bal("delivery_spread", 6))
+	var best = near
+	var best_score := INF
+	for b in buildings:
+		if not b.is_storage() or b.dist_sq(from) > reach * reach:
+			continue
+		var score: float = float(b.deliveries) / maxf(1.0, float(b.def.storage))
+		if score < best_score:
+			best_score = score
+			best = b
+	best.deliveries += 1
 	return best
 
 
@@ -538,7 +580,7 @@ func find_workshop(kind: String, from: Vector2i, sid: int):
 			continue
 		var scarce := INF
 		for res in b.prod_def().get("outputs", {}):
-			scarce = min(scarce, float(Game.amount(res)))
+			scarce = min(scarce, float(Game.amount(res, self)))
 		var score := scarce * 4.0 + Vector2(b.cell - from).length()
 		if score < best_score:
 			best_score = score
@@ -934,15 +976,15 @@ func float_text(p: Vector2, text: String, icon_res: String) -> void:
 func warn_storage_full(res: String) -> void:
 	if Game.time_days - _storage_warn_time > 1.0:
 		_storage_warn_time = Game.time_days
-		Game.notify("Das Lager ist voll (%s). Baue ein Lagerhaus!" % Data.resource_name(res), "haus")
+		Game.notify("Kein Platz mehr für %s. Baue ein Lager oder stelle im Lager mehr Platz dafür ein." % Data.resource_name(res), "haus")
 
 
 # ================================================================== Tag und Nacht
 func night_factor() -> float:
 	var t := Game.time_of_day()
 	# 0 am Tag, 1 in der Nacht, weiche Uebergaenge in Daemmerung
-	var ns := float(Data.bal("night_start"))
-	var ne := float(Data.bal("night_end"))
+	var ns := Seasons.night_start()
+	var ne := Seasons.night_end()
 	if t >= ns - 0.06 and t < ns:
 		return (t - (ns - 0.06)) / 0.06
 	if t >= ns or t < ne:
@@ -965,6 +1007,7 @@ func _process(delta: float) -> void:
 		var is_evening := t > 0.5
 		c = day_col.lerp(dusk if is_evening else Color(0.9, 0.85, 1.0), clamp(nf * 2.0, 0.0, 1.0)).lerp(night, clamp(nf * 2.0 - 1.0, 0.0, 1.0))
 	day_tint.color = c
+	_update_season_look()
 	for cl in _clouds:
 		cl.position.x += delta * 6.0
 		if cl.position.x > size * T + 300:
@@ -982,6 +1025,40 @@ func _process(delta: float) -> void:
 			d[0].queue_free()
 			decor.remove_at(i)
 	_process_dens(delta)
+
+
+# ================================================================== Jahreszeiten (Aussehen)
+func _make_season_materials() -> void:
+	var sh: Shader = preload("res://assets/shaders/season.gdshader")
+	_mat_ground = ShaderMaterial.new()
+	_mat_ground.shader = sh
+	_mat_leaf = ShaderMaterial.new()
+	_mat_leaf.shader = sh
+	_mat_needle = ShaderMaterial.new()
+	_mat_needle.shader = sh
+
+
+## Material für eine Rohstoffquelle: Laub färbt sich, auf allen Bäumen liegt Schnee.
+func season_material(type: String, sprite: String) -> Material:
+	if _mat_leaf == null:
+		return null
+	if type == "busch" or (type == "baum" and sprite != "tree2"):
+		return _mat_leaf
+	if type == "baum":
+		return _mat_needle
+	return null
+
+
+func _update_season_look() -> void:
+	if _mat_ground == null:
+		return
+	# Auf Palmeninseln fällt kein Schnee
+	var snow := Seasons.snow_amount() * float(Seasons.cfg.get("snow_biomes", {}).get(biome, 1.0))
+	var autumn := Seasons.autumn_amount()
+	_mat_ground.set_shader_parameter("snow", snow * 0.85)
+	_mat_leaf.set_shader_parameter("snow", snow * 0.7)
+	_mat_leaf.set_shader_parameter("autumn", autumn)
+	_mat_needle.set_shader_parameter("snow", snow * 0.5)
 
 
 # ================================================================== Bauen (Platzieren)
@@ -1070,7 +1147,7 @@ func confirm_placement() -> bool:
 	Sound.play("platzieren")
 	Game.player_action.emit("place", b.type)
 	spawn_effect("dust", b.position)
-	if not Game.can_afford(b.def.cost):
+	if not Game.can_afford(b.def.cost, self):
 		Game.notify("Baustelle angelegt. Es fehlt noch Material.", "hammer")
 	var has_builder := settlers.any(func(s): return s.is_adult() and (s.job == "baumeister" or s.job == "frei"))
 	if not has_builder:
@@ -1106,6 +1183,8 @@ func pick_at(p: Vector2, radius: float = 12.0):
 	if best:
 		return best
 	for a in animals:
+		if not a.visible:
+			continue
 		var d: float = (a.position + Vector2(0, -7) - p).length()
 		if d < best_d:
 			best_d = d
@@ -1130,6 +1209,8 @@ func pick_at(p: Vector2, radius: float = 12.0):
 # ================================================================== Speichern
 func serialize() -> Dictionary:
 	return {
+		"stock": stock,
+		"store_limits": store_limits,
 		"nodes": nodes.map(func(n): return n.serialize()),
 		"buildings": buildings.map(func(b): return b.serialize()),
 		"settlers": settlers.map(func(s): return s.serialize()),
@@ -1237,7 +1318,10 @@ func is_huntable(a) -> bool:
 
 
 func animal_can_eat(n, type: String) -> bool:
-	return Data.animals[type].food.has(n.type) and n.amount > 0 and float(_grazed.get(n.cell, -1.0)) <= Game.time_days
+	var def: Dictionary = Data.animals[type]
+	if not def.food.has(n.type) and not (n.type in def.get("winter_food", []) and Seasons.is_winter()):
+		return false
+	return n.amount > 0 and float(_grazed.get(n.cell, -1.0)) <= Game.time_days
 
 
 ## Naechste Futterquelle fuer ein Tier, im Umkreis seines Baus (hungrig weiter).
@@ -1259,7 +1343,7 @@ func find_animal_food(a):
 
 func animal_eats(a, n) -> void:
 	_grazed[n.cell] = Game.time_days + float(Data.bal("animal_graze_days", 1.0))
-	if Data.animals[a.type].food.get(n.type, false):
+	if Data.animals[a.type].food.get(n.type, false) and n.type != "baum":
 		n.harvest_one()
 
 
@@ -1280,15 +1364,14 @@ func den_capacity(den) -> int:
 	return min(int(def.get("den_max", 6)), int(den_food(den) / float(def.get("food_per_animal", 3))))
 
 
-## Jahreszeit: 1 = Fruehling, 0 = andere Jahreszeit, -1 = es gibt (noch) keine Jahreszeiten.
+## Jahreszeit: 1 = Fruehling, 0 = andere Jahreszeit, -1 = keine Jahreszeiten (dann alle
+## `animal_breed_days` Tage).
 func _spring() -> int:
-	if Game.has_method("season"):
-		return 1 if String(Game.season()) == "fruehling" else 0
-	return -1
+	return 1 if Seasons.season() == Seasons.SPRING else 0
 
 
-## Tiere bekommen Junge (im Fruehling, ohne Jahreszeiten alle `animal_breed_days` Tage),
-## wenn am Bau ein sattes Paar lebt und das Futter fuer mehr Tiere reicht.
+## Tiere bekommen im Fruehling einmal Junge, wenn am Bau ein sattes Paar lebt und das
+## Futter fuer mehr Tiere reicht.
 func _process_dens(delta: float) -> void:
 	_den_t += delta / float(Data.bal("day_length"))
 	if _den_t < float(Data.bal("animal_tick_days", 0.1)):
@@ -1396,7 +1479,7 @@ func on_animal_killed(a: Animal, by) -> void:
 		n.amount = meat
 		n.regrow_at = Game.time_days + float(n.def.get("decay_days", 2.0))
 		n.refresh()
-	var f := Game.add_stock("felle", int(a.def.get("felle", 1)))
+	var f := Game.add_stock("felle", int(a.def.get("felle", 1)), self)
 	if f > 0:
 		float_text(a.position + Vector2(0, -20), "+%d" % f, "felle")
 	spawn_effect("blood", a.position + Vector2(0, -6))
@@ -1432,6 +1515,8 @@ func threat_for(s) -> Animal:
 	var best = null
 	var best_d := INF
 	for a in animals:
+		if not a.visible:
+			continue
 		var d: float = (a.position - s.position).length()
 		if a.target == s and d < r * 2.0:
 			return a

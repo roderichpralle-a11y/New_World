@@ -15,6 +15,8 @@ var _food_label: Label
 var _pop_label: Label
 var _day_label: Label
 var _day_icon: TextureRect
+var _season_icon: TextureRect
+var _season_label: Label
 var _speed_btns: Array = []
 var _bottom: HBoxContainer
 var _build_panel: PanelContainer
@@ -149,6 +151,24 @@ func _build_topbar() -> void:
 	_day_label = UiTheme.label("Tag 1", 16)
 	dc.add_child(_day_label)
 	h.add_child(dc)
+	# Jahreszeit: Tippen zeigt, was sie bewirkt
+	var sc := HBoxContainer.new()
+	sc.add_theme_constant_override("separation", 3)
+	sc.mouse_filter = Control.MOUSE_FILTER_STOP
+	sc.tooltip_text = "Jahreszeit (Tag in der Jahreszeit). Tippen: was sie bewirkt"
+	sc.gui_input.connect(func(ev):
+		if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
+			sc.accept_event()
+			Sound.play("klick")
+			Game.notify("Jahr %d, %s Tag %d von %d. %s" % [Seasons.year(), Seasons.season_name(),
+				Seasons.day_in_season(), int(Seasons.season_days()), Seasons.effects_text()], ""))
+	_season_icon = UiTheme.icon_rect(Seasons.icon(), 18)
+	_season_icon.mouse_filter = Control.MOUSE_FILTER_PASS
+	sc.add_child(_season_icon)
+	_season_label = UiTheme.label("", 16)
+	_season_label.mouse_filter = Control.MOUSE_FILTER_PASS
+	sc.add_child(_season_label)
+	h.add_child(sc)
 	_island_label = UiTheme.label("", 14, Color("#7a4a28"), true)
 	_island_label.visible = false
 	h.add_child(_island_label)
@@ -173,17 +193,17 @@ func _build_topbar() -> void:
 
 
 func _refresh_top() -> void:
-	var cap := Game.storage_capacity()
 	for id in _res_labels:
+		var room := Game.space_for(id)
 		_res_labels[id].text = "%d" % Game.amount(id)
-		_res_labels[id].add_theme_color_override("font_color", UiTheme.BAD if Game.amount(id) >= cap else UiTheme.TEXT)
-		_res_labels[id].get_parent().tooltip_text = "%s: %d / %d (Lagerplatz)" % [Data.resource_name(id), Game.amount(id), cap]
+		_res_labels[id].add_theme_color_override("font_color", UiTheme.BAD if room <= 0 else UiTheme.TEXT)
+		_res_labels[id].get_parent().tooltip_text = "%s: %d, Platz für %d weitere" % [Data.resource_name(id), Game.amount(id), room]
 	var food := Game.total_food()
 	_food_label.text = "%d" % food
 	var parts := []
 	for id in Data.food_ids():
 		parts.append("%s: %d" % [Data.resource_name(id), Game.amount(id)])
-	_food_label.get_parent().tooltip_text = "Nahrung\n" + "\n".join(parts) + "\nLagerplatz je Sorte: %d" % cap
+	_food_label.get_parent().tooltip_text = "Nahrung\n" + "\n".join(parts) + "\nStauraum: %d von %d belegt" % [Game.used_volume(), Game.storage_volume()]
 	var pop := Game.population()
 	_food_label.add_theme_color_override("font_color", UiTheme.BAD if food < pop * 3 else UiTheme.TEXT)
 	var here: int = world.settlers.size() if world and is_instance_valid(world) else 0
@@ -578,16 +598,16 @@ func _on_research_changed() -> void:
 
 # ================================================================== Vorraete
 func _build_stock_panel() -> void:
-	var r := _popup_panel("Vorräte")
+	var r := _popup_panel("Lager")
 	_stock_panel = r[0]
 	var v: VBoxContainer = r[1]
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.custom_minimum_size = Vector2(340, 250)
+	scroll.custom_minimum_size = Vector2(min(440.0, get_viewport().get_visible_rect().size.x - 40.0), 300)
 	v.add_child(scroll)
 	_stock_grid = GridContainer.new()
-	_stock_grid.columns = 2
-	_stock_grid.add_theme_constant_override("h_separation", 16)
+	_stock_grid.columns = 1
+	_stock_grid.add_theme_constant_override("v_separation", 2)
 	_stock_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(_stock_grid)
 
@@ -598,24 +618,103 @@ func _refresh_stock(force: bool = false) -> void:
 	for c in _stock_grid.get_children():
 		_stock_grid.remove_child(c)
 		c.queue_free()
-	var cap := Game.storage_capacity()
+	var vol := Game.storage_volume()
+	var used := Game.used_volume()
+	var head := UiTheme.label("Stauraum: %d von %d belegt, %d für feste Mengen reserviert" % [used, vol, Game.reserved_volume()], 13)
+	head.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_stock_grid.add_child(head)
+	var bar := UiTheme.bar(UiTheme.BAD if used >= vol else UiTheme.GOOD)
+	bar.value = 100.0 * used / max(1, vol)
+	_stock_grid.add_child(bar)
+	var hint := UiTheme.label("Lege mit − und + fest, wie viel von einer Ware gelagert wird. „×2“ ist der Raum, den ein Stück braucht. „frei“ heißt: die Ware nimmt sich freien Platz, solange welcher da ist. Ist kein Platz mehr, sammeln die Siedler diese Ware nicht mehr.", 12, UiTheme.TEXT)
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hint.modulate.a = 0.8
+	_stock_grid.add_child(hint)
 	for id in Data.sorted_resource_ids():
-		var h := HBoxContainer.new()
-		h.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		h.add_child(UiTheme.icon_rect(Data.res_icon(id), 18))
-		var n := UiTheme.label(Data.resource_name(id), 14)
-		n.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		h.add_child(n)
-		var a := Game.amount(id)
-		h.add_child(UiTheme.label("%d" % a, 14, UiTheme.BAD if a >= cap else UiTheme.TEXT, true))
-		h.modulate.a = 1.0 if a > 0 else 0.55
-		_stock_grid.add_child(h)
-	var info := UiTheme.label("Platz je Ware: %d" % cap, 13)
-	_stock_grid.add_child(info)
+		_stock_grid.add_child(_stock_row(id))
 	var food := UiTheme.label("Nahrungssorten: %d" % Game.food_variety(), 13)
 	food.tooltip_text = "Ab %d Sorten im Lager kommen öfter Kinder zur Welt." % int(Data.bal("variety_min", 3))
 	food.mouse_filter = Control.MOUSE_FILTER_PASS
 	_stock_grid.add_child(food)
+
+
+func _stock_row(id: String) -> Control:
+	var h := HBoxContainer.new()
+	h.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h.add_child(UiTheme.icon_rect(Data.res_icon(id), 18))
+	var size := Data.good_size(id)
+	var n := UiTheme.label(Data.resource_name(id), 14)
+	n.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	n.tooltip_text = "Größe: %d Raum je Stück" % size if size > 0 else "Braucht keinen Lagerraum."
+	n.mouse_filter = Control.MOUSE_FILTER_PASS
+	h.add_child(n)
+	var a := Game.amount(id)
+	var full := size > 0 and Game.space_for(id) <= 0
+	var al := UiTheme.label("%d" % a, 14, UiTheme.BAD if full else UiTheme.TEXT, true)
+	al.custom_minimum_size.x = 36
+	al.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	h.add_child(al)
+	h.modulate.a = 1.0 if a > 0 or Game.limit_of(id) >= 0 else 0.6
+	if size <= 0:
+		var x := UiTheme.label("ohne Lagerraum", 12)
+		x.custom_minimum_size.x = 150
+		h.add_child(x)
+		return h
+	var sl := UiTheme.label("×%d" % size, 12)
+	sl.tooltip_text = "Größe: %d Raum je Stück" % size
+	sl.mouse_filter = Control.MOUSE_FILTER_PASS
+	sl.custom_minimum_size.x = 24
+	h.add_child(sl)
+	var lim := Game.limit_of(id)
+	var minus := UiTheme.button("−", "", 30)
+	minus.tooltip_text = "Weniger lagern"
+	minus.pressed.connect(func():
+		var cur := Game.limit_of(id)
+		if cur < 0:
+			Game.set_limit(id, ceili(Game.amount(id) / 10.0) * 10)
+		else:
+			Game.set_limit(id, max(0, cur - 10))
+		_refresh_stock(true))
+	h.add_child(minus)
+	var ll := UiTheme.label("frei" if lim < 0 else "%d" % lim, 14)
+	ll.custom_minimum_size.x = 38
+	ll.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	ll.tooltip_text = "Höchstens so viel wird gelagert." if lim >= 0 else "Keine feste Menge: nimmt freien Platz."
+	ll.mouse_filter = Control.MOUSE_FILTER_PASS
+	h.add_child(ll)
+	var plus := UiTheme.button("+", "", 30)
+	plus.tooltip_text = "Mehr lagern"
+	plus.disabled = lim >= 0 and lim >= Game.max_limit(id)
+	plus.pressed.connect(func():
+		var cur := Game.limit_of(id)
+		var base: int = ceili(Game.amount(id) / 10.0) * 10 if cur < 0 else cur
+		var got := Game.set_limit(id, base + 10)
+		if got < base + 10:
+			toast("Der Stauraum ist ausgeschöpft.", "kiste")
+		_refresh_stock(true))
+	h.add_child(plus)
+	var ex := Game.excess(id)
+	if ex > 0:
+		var d := UiTheme.button("%d weg" % ex, "", 30)
+		d.tooltip_text = "Überschuss wegwerfen. Er ist dann verloren."
+		d.add_theme_color_override("font_color", UiTheme.BAD)
+		d.pressed.connect(func():
+			var k := Game.discard_excess(id)
+			toast("%d %s weggeworfen." % [k, Data.resource_name(id)], "abriss")
+			_refresh_stock(true))
+		h.add_child(d)
+	elif lim >= 0:
+		var f := UiTheme.button("frei", "", 30)
+		f.tooltip_text = "Feste Menge aufheben"
+		f.pressed.connect(func():
+			Game.set_limit(id, -1)
+			_refresh_stock(true))
+		h.add_child(f)
+	else:
+		var sp := Control.new()
+		sp.custom_minimum_size.x = 30
+		h.add_child(sp)
+	return h
 
 
 func _build_place_bar() -> void:
@@ -1070,6 +1169,9 @@ Im Entwicklungsbaum wählst du, was deine Siedler als Nächstes lernen. Forscher
 [b]Werkstätten[/b]
 Sägegrube, Mühle, Bäckerei, Ziegelei und Co. verwandeln Rohstoffe in bessere Waren. Köche arbeiten in Mühle, Bäckerei, Räucherei und Hühnerhof, Handwerker in den Werkstätten, Steinmetze in Steinbruch, Lehmgrube und Mine. Tippe oben auf die Vorräte, um alle Waren zu sehen.
 
+[b]Lager[/b]
+Jedes Lager hat Stauraum: das Lagerfeuer 200, ein Lagerhaus 400, ein Großes Lager 1000. Große Waren brauchen mehr Raum als kleine, ein Brett 3, Holz und Stein 2, Beeren 1. Tippe oben auf die Vorräte oder im Lager auf "Lager einstellen" und lege mit − und + fest, wie viel von jeder Ware gelagert wird. Diese Menge ist dann für die Ware reserviert. Waren auf "frei" teilen sich den restlichen Raum. Ist für eine Ware kein Platz mehr, sammeln die Siedler sie nicht mehr. Hast du zu viel von einer Ware, kannst du den Überschuss wegwerfen; er ist dann verloren.
+
 [b]Abwechslung[/b]
 Gibt es mindestens drei Sorten Nahrung im Lager, kommen öfter Kinder zur Welt.
 
@@ -1180,7 +1282,7 @@ func _info_signature() -> String:
 		return "s%d|%s|%s|%d|%s|%s" % [o.id, o.job, o.is_adult(), o.home_id, str(o.skills), _follow]
 	if o is Building:
 		return "b%d|%s|%s|%s|%d|%d|%s|%s|%s|%s" % [o.id, o.complete, o.farm_state, str(o.delivered), int(o.build_fraction() * 50),
-			int((Game.time_days - o.farm_time) * 20), str(o.occupants), o.paused, o.is_active(), o.prod_blocker()]
+			int((Game.time_days - o.farm_time) * 20), str(o.occupants), o.paused, o.is_active(), o.prod_blocker()] + "|%d" % Seasons.season()
 	if o is ResNode:
 		return "n%s|%d|%d" % [o.cell, o.amount, int((o.regrow_at - Game.time_days) * 24)]
 	if o is Animal:
@@ -1302,10 +1404,24 @@ func _info_building(b: Building) -> void:
 			upd.call()
 			_updaters.append(upd)
 		if b.def.get("storage", 0) > 0:
-			_info_box.add_child(UiTheme.label("Lagerplatz: +%d je Sorte" % int(b.def.storage), 14))
+			_info_box.add_child(UiTheme.label("Stauraum dieses Lagers: %d" % Game.building_volume(b.def), 14))
+			var tot := UiTheme.label("Alle Lager dieser Insel: %d von %d belegt" % [Game.used_volume(), Game.storage_volume()], 13)
+			tot.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			_info_box.add_child(tot)
+			var sb := UiTheme.button("Lager einstellen", "kiste", 36)
+			sb.pressed.connect(func():
+				_refresh_stock(true)
+				_toggle(_stock_panel))
+			_info_box.add_child(sb)
 		if b.is_ground() and b.def.has("farm"):
 			var st := {"fallow": "Wartet auf den Bauern", "growing": "Wächst", "ripe": "Erntereif!"}
-			_info_box.add_child(UiTheme.label(st.get(b.farm_state, ""), 14))
+			if b.farm_state == "fallow" and not Seasons.can_sow(b.type):
+				st.fallow = "Ruht bis zum Frühling (Aussaat nur im Frühling und Sommer)"
+			var fl := UiTheme.label(st.get(b.farm_state, ""), 14)
+			fl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			_info_box.add_child(fl)
+			if b.farm_state == "growing" and Seasons.growth(b.type) <= 0.0:
+				_info_box.add_child(UiTheme.label("Im Winter wächst nichts.", 13, UiTheme.BAD))
 			if b.farm_state == "growing":
 				var frac: float = (Game.time_days - b.farm_time) / b.grow_days()
 				_bar_row("Wachstum", frac * 100.0, UiTheme.GOOD)
@@ -1660,6 +1776,8 @@ func _layout() -> void:
 	var sp: Control = root.get_node("SpeedPanel")
 	sp.reset_size()
 	var top_h := 50.0
+	# Schmal: Jahreszeit nur als Symbol
+	_season_label.visible = not (portrait or vs.x < 760)
 	if portrait or vs.x < 760:
 		sp.position = Vector2(vs.x - sp.size.x - 6, 54)
 		top_h = 100.0
@@ -1696,6 +1814,8 @@ func _process(delta: float) -> void:
 	_tick_settler_list(delta)
 	_day_label.text = "Tag %d  %s" % [Game.day(), Game.clock_text()]
 	_day_icon.texture = Data.icon("mond" if Game.is_night() else "sonne")
+	_season_icon.texture = Seasons.icon()
+	_season_label.text = Seasons.short_text()
 	_research_tick -= delta
 	if _research_tick <= 0.0:
 		_research_tick = 0.5

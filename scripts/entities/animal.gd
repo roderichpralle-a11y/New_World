@@ -81,13 +81,18 @@ func is_hungry() -> bool:
 
 
 func is_scared() -> bool:
-	return _scared > 0.0
+	return _scared > 0.0 or not visible
+
+
+## Baeren halten im Winter Winterruhe in ihrer Hoehle.
+func _hibernates() -> bool:
+	return def.get("hibernate", false) and Seasons.is_winter()
 
 
 ## Greift von sich aus an (Wolf, Baer) oder nur, wenn man ihm zu nahe kommt.
 ## Jungtiere und fliehende Tiere sind harmlos.
 func is_hostile() -> bool:
-	if not is_adult() or _scared > 0.0:
+	if not is_adult() or _scared > 0.0 or not visible:
 		return false
 	return target != null or _provoked > 0.0 or float(def.aggro) >= 3.0
 
@@ -103,6 +108,8 @@ func _aggro_px() -> float:
 
 ## Satt, hungrig oder am Verhungern, fuer das Infofenster.
 func state_text() -> String:
+	if _hibernates():
+		return "Hält Winterruhe in der Höhle." if not visible else "Zieht sich für den Winter in die Höhle zurück."
 	if _scared > 0.0:
 		return "Verwundet, flieht in den Bau."
 	if target and is_instance_valid(target):
@@ -128,6 +135,14 @@ func _process(delta: float) -> void:
 	_attack_anim -= delta
 	_scared -= delta
 	_think -= delta
+	if _hibernates():
+		_hibernate(delta)
+		_animate(delta)
+		return
+	if not visible:
+		# Aufgewacht: nach dem Winter hungrig
+		visible = true
+		food = min(food, 0.3)
 	if not _needs(delta / float(Data.bal("day_length"))):
 		return
 	if _think <= 0.0:
@@ -141,6 +156,28 @@ func _process(delta: float) -> void:
 	else:
 		_wander(delta)
 	_animate(delta)
+
+
+func _hibernate(delta: float) -> void:
+	target = null
+	_eat_node = null
+	_moving = false
+	if not visible:
+		age += delta / float(Data.bal("day_length"))
+		return
+	if Vector2(cell - home).length() <= 1.5:
+		visible = false
+		hp = max_hp()
+		if Game.selected == self:
+			Game.select(null)
+		return
+	if _path_i >= _path.size():
+		_path = world.find_path(cell, home + Vector2i(0, 1))
+		_path_i = 1
+		if _path.size() <= 1:
+			visible = false
+			return
+	_step(delta, float(def.speed) * 0.5)
 
 
 ## Altern, Hunger, Heilen. Liefert false, wenn das Tier verhungert ist.
