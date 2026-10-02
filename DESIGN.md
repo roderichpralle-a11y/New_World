@@ -26,7 +26,16 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
 - **Alter**: Siedler sterben zwischen `old_age_min` und `old_age_max` Tagen.
 - **Tag und Nacht**: ein Tag dauert `day_length` Sekunden, die Nacht läuft
   `night_speedup`-mal (5) schneller. Nachts schlafen alle (in ihrer Hütte oder am Feuer).
-- **Lager**: jede Ressource hat dieselbe Obergrenze = Summe `storage` aller Lager.
+- **Lager**: jede Ressource hat dieselbe Obergrenze = Summe `storage` aller fertigen Lager
+  (auch Lagerfeuer, auf allen Inseln) mal Forschungsbonus `storage`. Durchgesetzt in
+  `Game.add_stock` (alles, was ins Lager kommt, läuft darüber). `Game.storage_breakdown()`
+  zeigt die Summe im Lager-Fenster und im Info-Fenster eines Lagers, damit niemand
+  die +80 eines Lagerhauses für die Gesamtgrenze hält. Waren über der Grenze (z. B. nach
+  Abriss eines Lagers oder aus alten Spielständen) bleiben erhalten, wachsen aber nicht weiter.
+- **Abliefern**: Träger wählen mit `World.delivery_storage` unter allen Lagern, die höchstens
+  `delivery_spread` Zellen weiter weg sind als das nächste, das mit den wenigsten
+  Ablieferungen je Lagerplatz. So bleibt auch das Lagerfeuer neben einem Lagerhaus in Gebrauch.
+  Abstände zählen zur nächsten Zelle des Gebäudes (`Building.dist_sq`).
 - **Verloren**: Stirbt auf einer Insel der letzte Siedler, ist sie für immer verloren. Sind alle
   Inseln verloren und niemand mehr auf See, ist das Spiel vorbei (Spielstand wird gelöscht).
 - Speichern: automatisch alle `autosave_seconds` Sekunden, beim Verlassen und über das Menü

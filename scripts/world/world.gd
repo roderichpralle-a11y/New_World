@@ -492,10 +492,31 @@ func nearest_storage(from: Vector2i):
 	for b in buildings:
 		if not b.is_storage():
 			continue
-		var d := Vector2(b.cell - from).length_squared()
+		var d: float = b.dist_sq(from)
 		if d < best_d:
 			best_d = d
 			best = b
+	return best
+
+
+## Lager zum Abliefern: unter allen Lagern, die kaum weiter weg sind als das
+## naechste, das mit den wenigsten Ablieferungen im Verhaeltnis zu seinem Platz.
+## So bekommt auch das Lagerfeuer weiter Waren, wenn ein Lagerhaus daneben steht.
+func delivery_storage(from: Vector2i):
+	var near = nearest_storage(from)
+	if near == null:
+		return null
+	var reach := sqrt(near.dist_sq(from)) + float(Data.bal("delivery_spread", 6))
+	var best = near
+	var best_score := INF
+	for b in buildings:
+		if not b.is_storage() or b.dist_sq(from) > reach * reach:
+			continue
+		var score: float = float(b.deliveries) / maxf(1.0, float(b.def.storage))
+		if score < best_score:
+			best_score = score
+			best = b
+	best.deliveries += 1
 	return best
 
 

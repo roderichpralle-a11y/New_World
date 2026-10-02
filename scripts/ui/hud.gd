@@ -177,7 +177,7 @@ func _refresh_top() -> void:
 	for id in _res_labels:
 		_res_labels[id].text = "%d" % Game.amount(id)
 		_res_labels[id].add_theme_color_override("font_color", UiTheme.BAD if Game.amount(id) >= cap else UiTheme.TEXT)
-		_res_labels[id].get_parent().tooltip_text = "%s: %d / %d (Lagerplatz)" % [Data.resource_name(id), Game.amount(id), cap]
+		_res_labels[id].get_parent().tooltip_text = "%s: %d / %d (Lagerplatz aller Lager zusammen)" % [Data.resource_name(id), Game.amount(id), cap]
 	var food := Game.total_food()
 	_food_label.text = "%d" % food
 	var parts := []
@@ -610,7 +610,8 @@ func _refresh_stock(force: bool = false) -> void:
 		h.add_child(UiTheme.label("%d" % a, 14, UiTheme.BAD if a >= cap else UiTheme.TEXT, true))
 		h.modulate.a = 1.0 if a > 0 else 0.55
 		_stock_grid.add_child(h)
-	var info := UiTheme.label("Platz je Ware: %d" % cap, 13)
+	var info := UiTheme.label("Platz je Ware: %s" % Game.storage_breakdown(), 13)
+	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_stock_grid.add_child(info)
 	var food := UiTheme.label("Nahrungssorten: %d" % Game.food_variety(), 13)
 	food.tooltip_text = "Ab %d Sorten im Lager kommen öfter Kinder zur Welt." % int(Data.bal("variety_min", 3))
@@ -1114,7 +1115,10 @@ func _info_building(b: Building) -> void:
 			upd.call()
 			_updaters.append(upd)
 		if b.def.get("storage", 0) > 0:
-			_info_box.add_child(UiTheme.label("Lagerplatz: +%d je Sorte" % int(b.def.storage), 14))
+			_info_box.add_child(UiTheme.label("Dieses Lager: +%d je Sorte" % int(int(b.def.storage) * Game.eff("storage")), 14))
+			var tot := UiTheme.label("Alle Lager zusammen: %s" % Game.storage_breakdown(), 13)
+			tot.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			_info_box.add_child(tot)
 		if b.is_ground() and b.def.has("farm"):
 			var st := {"fallow": "Wartet auf den Bauern", "growing": "Wächst", "ripe": "Erntereif!"}
 			_info_box.add_child(UiTheme.label(st.get(b.farm_state, ""), 14))

@@ -131,6 +131,32 @@ func storage_capacity() -> int:
 	return int(cap * eff("storage"))
 
 
+## Woraus sich der Lagerplatz zusammensetzt, als kurzer Text fuer die Anzeige,
+## z. B. "Lagerfeuer 60 + 2 × Lagerhaus 80 = 220 je Sorte".
+func storage_breakdown() -> String:
+	var counts := {}
+	var order := []
+	for w in Sea.all_worlds():
+		for b in w.buildings:
+			if b.complete and int(b.def.get("storage", 0)) > 0:
+				if not counts.has(b.type):
+					counts[b.type] = 0
+					order.append(b.type)
+				counts[b.type] += 1
+	var parts := []
+	var base := int(Data.bal("base_storage"))
+	if base > 0:
+		parts.append("Grundplatz %d" % base)
+	for t in order:
+		var def: Dictionary = Data.buildings[t]
+		var n: int = counts[t]
+		parts.append(("%d × " % n if n > 1 else "") + "%s %d" % [def.name, int(def.storage)])
+	var txt := " + ".join(parts)
+	if eff("storage") != 1.0:
+		txt = "(%s) + %d %% Forschung" % [txt, roundi((eff("storage") - 1.0) * 100.0)]
+	return "%s = %d je Sorte" % [txt, storage_capacity()]
+
+
 ## Wohnplaetze einer Insel (ohne Angabe: die aktive Insel).
 func housing_capacity(w = null) -> int:
 	if w == null:
