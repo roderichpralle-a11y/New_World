@@ -9,9 +9,12 @@ var jobs: Dictionary = {}
 var skills: Dictionary = {}
 var balance: Dictionary = {}
 var names: Dictionary = {}
+var techs: Dictionary = {}
+var tiers: Array = []
 
 var tex_terrain: Texture2D = preload("res://assets/sprites/terrain.png")
 var tex_objects: Texture2D = preload("res://assets/sprites/objects.png")
+var tex_buildings: Texture2D = preload("res://assets/sprites/buildings.png")
 var tex_icons: Texture2D = preload("res://assets/sprites/icons.png")
 var tex_tools: Texture2D = preload("res://assets/sprites/tools.png")
 var tex_ui: Texture2D = preload("res://assets/sprites/ui.png")
@@ -29,8 +32,20 @@ const OBJECT_REGIONS := {
 	"campfire": [0, 112, 16, 16, 4], "fish_anim": [64, 112, 16, 16, 4],
 	"field0": [0, 128, 16, 16, 1], "field1": [16, 128, 16, 16, 1],
 	"field2": [32, 128, 16, 16, 1], "field3": [48, 128, 16, 16, 1],
+	"orchard0": [64, 128, 16, 16, 1], "orchard1": [80, 128, 16, 16, 1],
+	"orchard2": [96, 128, 16, 16, 1], "orchard3": [112, 128, 16, 16, 1],
 }
-const TOOL_INDEX := {"axe": 0, "pick": 1, "basket": 2, "rod": 3, "hammer": 4, "sickle": 5}
+## Gebaeude aus Etappe 2 in buildings.png: Zellen 64x64, 8 je Zeile.
+## Name -> [Zellindex, Frames]. Das Gebaeude steht unten mittig (Boden 4 px ueber Zellrand).
+const BUILDING_CELLS := {
+	"house_wood": [0, 1], "house_stone": [1, 1], "store_big": [2, 1], "mill": [3, 4],
+	"bakery": [7, 1], "smokehouse": [8, 1], "henhouse": [9, 1], "sawpit": [10, 1],
+	"claypit": [11, 1], "brickworks": [12, 1], "quarry": [13, 1], "charcoal": [14, 1],
+	"mine": [15, 1], "smelter": [16, 1], "smithy": [17, 1], "scriptorium": [18, 1],
+	"library": [19, 1],
+}
+const TOOL_INDEX := {"axe": 0, "pick": 1, "basket": 2, "rod": 3, "hammer": 4, "sickle": 5,
+	"spoon": 6, "book": 7, "shovel": 8}
 
 var _icon_index: Dictionary = {}
 var _cache: Dictionary = {}
@@ -44,6 +59,9 @@ func _ready() -> void:
 	skills = _load("skills")
 	balance = _load("balance")
 	names = _load("names")
+	techs = _load("techs")
+	tiers = techs.get("_tiers", [])
+	techs.erase("_tiers")
 	var f := FileAccess.open("res://assets/sprites/icons.txt", FileAccess.READ)
 	if f:
 		var i := 0
@@ -72,15 +90,22 @@ func object_tex(name: String, frame: int = 0) -> AtlasTexture:
 	var key := "o:%s:%d" % [name, frame]
 	if _cache.has(key):
 		return _cache[key]
-	var r: Array = OBJECT_REGIONS.get(name, [0, 0, 16, 16, 1])
 	var at := AtlasTexture.new()
-	at.atlas = tex_objects
-	at.region = Rect2(r[0] + r[2] * frame, r[1], r[2], r[3])
+	if BUILDING_CELLS.has(name):
+		var i: int = BUILDING_CELLS[name][0] + frame
+		at.atlas = tex_buildings
+		at.region = Rect2((i % 8) * 64, (i / 8) * 64, 64, 64)
+	else:
+		var r: Array = OBJECT_REGIONS.get(name, [0, 0, 16, 16, 1])
+		at.atlas = tex_objects
+		at.region = Rect2(r[0] + r[2] * frame, r[1], r[2], r[3])
 	_cache[key] = at
 	return at
 
 
 func object_frames(name: String) -> int:
+	if BUILDING_CELLS.has(name):
+		return BUILDING_CELLS[name][1]
 	return OBJECT_REGIONS.get(name, [0, 0, 0, 0, 1])[4]
 
 
@@ -122,4 +147,45 @@ func food_ids() -> Array:
 func sorted_resource_ids() -> Array:
 	var ids := resources.keys()
 	ids.sort_custom(func(a, b): return resources[a].get("order", 0) < resources[b].get("order", 0))
+	return ids
+
+
+func res_icon(id: String) -> AtlasTexture:
+	return icon(resources.get(id, {}).get("icon", id))
+
+
+## Bild fuer ein Gebaeude im Menue (Felder zeigen eine reife Kachel).
+func building_tex(type: String) -> AtlasTexture:
+	var def: Dictionary = buildings.get(type, {})
+	if def.has("farm"):
+		return object_tex("%s3" % def.farm.get("tiles", "field"))
+	return object_tex(def.get("sprite", "hut"))
+
+
+## Gebaeude, die eine Forschung freischaltet.
+func tech_unlocks(tech: String) -> Array:
+	var out := []
+	for b in buildings:
+		if buildings[b].get("requires", "") == tech:
+			out.append(b)
+	return out
+
+
+## Bild fuer eine Forschung: eigenes Icon oder das erste freigeschaltete Gebaeude.
+func tech_tex(tech: String) -> Texture2D:
+	var def: Dictionary = techs.get(tech, {})
+	if def.has("icon"):
+		return icon(def.icon)
+	var u := tech_unlocks(tech)
+	if not u.is_empty():
+		return building_tex(u[0])
+	return icon("wissen")
+
+
+func sorted_tech_ids() -> Array:
+	var ids := techs.keys()
+	ids.sort_custom(func(a, b):
+		if int(techs[a].tier) != int(techs[b].tier):
+			return int(techs[a].tier) < int(techs[b].tier)
+		return int(techs[a].points) < int(techs[b].points))
 	return ids

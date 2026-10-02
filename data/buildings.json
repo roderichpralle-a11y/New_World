@@ -1,23 +1,131 @@
 {
   "lagerfeuer": {
-    "name": "Lagerfeuer", "desc": "Herz der Siedlung. Hier wird gelagert, gegessen und gewärmt.",
-    "size": [1, 1], "sprite": "campfire", "buildable": false,
-    "storage": 60, "light": true, "work": 0, "cost": {}
+    "name": "Lagerfeuer", "desc": "Herz der Siedlung. Hier wird gelagert, gegessen und gewärmt. Forscher denken hier nach, solange es keine Schreibstube gibt.",
+    "size": [1, 1], "sprite": "campfire", "buildable": false, "category": "lager",
+    "storage": 60, "light": true, "work": 0, "cost": {},
+    "research": {"factor": 0.5, "slots": 2}
   },
   "huette": {
-    "name": "Hütte", "desc": "Wohnraum für 2 Siedler. Mehr Hütten bedeuten mehr Nachwuchs.",
-    "size": [3, 2], "sprite": "hut", "buildable": true,
-    "housing": 2, "work": 18, "cost": {"holz": 12}, "light": true
+    "name": "Hütte", "desc": "Wohnraum für 2 Siedler. Mehr Wohnraum bedeutet mehr Nachwuchs.",
+    "size": [3, 2], "sprite": "hut", "buildable": true, "category": "wohnen",
+    "housing": 2, "work": 18, "cost": {"holz": 12}, "light": true, "upgrade": "holzhaus"
+  },
+  "holzhaus": {
+    "name": "Holzhaus", "desc": "Ein solides Haus aus Brettern für 4 Siedler. Hütten lassen sich dazu ausbauen.",
+    "size": [3, 2], "sprite": "house_wood", "buildable": true, "category": "wohnen", "requires": "zimmerei",
+    "housing": 4, "work": 30, "cost": {"holz": 8, "bretter": 12}, "light": true, "upgrade": "steinhaus"
+  },
+  "steinhaus": {
+    "name": "Steinhaus", "desc": "Ein großes Haus mit Ziegeldach für 6 Siedler.",
+    "size": [3, 2], "sprite": "house_stone", "buildable": true, "category": "wohnen", "requires": "maurerei",
+    "housing": 6, "work": 44, "cost": {"bretter": 8, "stein": 12, "ziegel": 16}, "light": true
   },
   "lager": {
     "name": "Lagerhaus", "desc": "Mehr Platz für Vorräte und ein zweiter Ablageplatz.",
-    "size": [3, 2], "sprite": "storehouse", "buildable": true,
+    "size": [3, 2], "sprite": "storehouse", "buildable": true, "category": "lager",
     "storage": 80, "work": 26, "cost": {"holz": 16, "stein": 8}
+  },
+  "grosslager": {
+    "name": "Großes Lager", "desc": "Ein steinerner Speicher mit viel Platz für alle Waren.",
+    "size": [4, 2], "sprite": "store_big", "buildable": true, "category": "lager", "requires": "maurerei",
+    "storage": 200, "work": 40, "cost": {"bretter": 16, "stein": 10, "ziegel": 14}
   },
   "feld": {
     "name": "Getreidefeld", "desc": "Ein Bauer sät und erntet hier regelmäßig Getreide.",
-    "size": [2, 2], "sprite": "field", "buildable": true, "ground": true,
+    "size": [2, 2], "sprite": "field", "buildable": true, "ground": true, "category": "nahrung",
     "work": 6, "cost": {"holz": 4},
-    "farm": {"yield": "weizen", "amount": 12, "grow_days": 1.0, "sow_time": 3.0, "harvest_time": 1.2}
+    "farm": {"yield": "weizen", "amount": 12, "grow_days": 1.0, "sow_time": 3.0, "harvest_time": 1.2, "tiles": "field",
+      "sow_verb": "Sät Getreide", "harvest_verb": "Erntet Getreide"}
+  },
+  "obstgarten": {
+    "name": "Obstgarten", "desc": "Apfelbäume, die ein Bauer pflegt. Wächst langsamer als Getreide, bringt aber viel Obst.",
+    "size": [2, 2], "sprite": "orchard", "buildable": true, "ground": true, "category": "nahrung", "requires": "gartenbau",
+    "work": 10, "cost": {"holz": 8},
+    "farm": {"yield": "aepfel", "amount": 20, "grow_days": 2.2, "sow_time": 4.0, "harvest_time": 1.5, "tiles": "orchard",
+      "sow_verb": "Pflegt die Apfelbäume", "harvest_verb": "Pflückt Äpfel"}
+  },
+  "muehle": {
+    "name": "Windmühle", "desc": "Mahlt Getreide zu Mehl für die Bäckerei.",
+    "size": [2, 2], "sprite": "mill", "buildable": true, "category": "nahrung", "requires": "muehlenbau",
+    "work": 30, "cost": {"holz": 10, "bretter": 10, "stein": 6},
+    "production": {"job": "kueche", "inputs": {"weizen": 3}, "outputs": {"mehl": 3}, "time": 4.0, "skill": "nahrung", "verb": "Mahlt Getreide"}
+  },
+  "baeckerei": {
+    "name": "Bäckerei", "desc": "Backt aus Mehl nahrhaftes Brot.",
+    "size": [3, 2], "sprite": "bakery", "buildable": true, "category": "nahrung", "requires": "backkunst",
+    "work": 34, "cost": {"bretter": 10, "stein": 8, "ziegel": 6}, "light": true,
+    "production": {"job": "kueche", "inputs": {"mehl": 2, "holz": 1}, "outputs": {"brot": 3}, "time": 5.0, "skill": "nahrung", "verb": "Backt Brot", "smoke": [10, -40]}
+  },
+  "raeucherei": {
+    "name": "Räucherei", "desc": "Räuchert Fisch, damit er viel länger satt macht.",
+    "size": [2, 2], "sprite": "smokehouse", "buildable": true, "category": "nahrung", "requires": "raeuchern",
+    "work": 22, "cost": {"holz": 12, "stein": 6},
+    "production": {"job": "kueche", "inputs": {"fisch": 2, "holz": 1}, "outputs": {"raeucherfisch": 2}, "time": 4.0, "skill": "nahrung", "verb": "Räuchert Fisch", "smoke": [0, -34]}
+  },
+  "huehnerhof": {
+    "name": "Hühnerhof", "desc": "Hühner werden mit Getreide gefüttert und legen Eier.",
+    "size": [3, 2], "sprite": "henhouse", "buildable": true, "category": "nahrung", "requires": "tierhaltung",
+    "work": 24, "cost": {"holz": 10, "bretter": 8},
+    "production": {"job": "kueche", "inputs": {"weizen": 1}, "outputs": {"eier": 2}, "time": 5.0, "skill": "nahrung", "verb": "Füttert die Hühner"}
+  },
+  "saegegrube": {
+    "name": "Sägegrube", "desc": "Hier wird Holz zu Brettern zersägt.",
+    "size": [2, 2], "sprite": "sawpit", "buildable": true, "category": "handwerk", "requires": "holzbearbeitung",
+    "work": 20, "cost": {"holz": 14, "stein": 4},
+    "production": {"job": "handwerk", "inputs": {"holz": 3}, "outputs": {"bretter": 2}, "time": 4.0, "skill": "handwerk", "verb": "Sägt Bretter"}
+  },
+  "lehmgrube": {
+    "name": "Lehmgrube", "desc": "Ein Steinmetz sticht hier Lehm für Ziegel.",
+    "size": [2, 2], "sprite": "claypit", "buildable": true, "category": "handwerk", "requires": "toepferei",
+    "work": 14, "cost": {"holz": 8},
+    "production": {"job": "stein", "inputs": {}, "outputs": {"lehm": 2}, "time": 4.0, "skill": "stein", "verb": "Sticht Lehm", "tool": "shovel"}
+  },
+  "ziegelei": {
+    "name": "Ziegelei", "desc": "Brennt Lehm im Ofen zu festen Ziegeln.",
+    "size": [3, 2], "sprite": "brickworks", "buildable": true, "category": "handwerk", "requires": "toepferei",
+    "work": 28, "cost": {"holz": 10, "stein": 12, "bretter": 4},
+    "production": {"job": "handwerk", "inputs": {"lehm": 2, "holz": 1}, "outputs": {"ziegel": 2}, "time": 5.0, "skill": "handwerk", "verb": "Brennt Ziegel", "smoke": [14, -40]}
+  },
+  "steinbruch": {
+    "name": "Steinbruch", "desc": "Liefert endlos Stein, auch wenn die Felsen der Insel verbraucht sind.",
+    "size": [2, 2], "sprite": "quarry", "buildable": true, "category": "handwerk", "requires": "steinbruch",
+    "work": 20, "cost": {"holz": 16, "bretter": 4},
+    "production": {"job": "stein", "inputs": {}, "outputs": {"stein": 2}, "time": 5.0, "skill": "stein", "verb": "Bricht Stein", "tool": "pick"}
+  },
+  "koehlerei": {
+    "name": "Köhlerei", "desc": "Ein Meiler verwandelt Holz in heiße Holzkohle.",
+    "size": [2, 2], "sprite": "charcoal", "buildable": true, "category": "handwerk", "requires": "koehlerei",
+    "work": 20, "cost": {"holz": 10, "stein": 8, "lehm": 6},
+    "production": {"job": "handwerk", "inputs": {"holz": 4}, "outputs": {"kohle": 2}, "time": 6.0, "skill": "handwerk", "verb": "Brennt Kohle", "smoke": [0, -26]}
+  },
+  "mine": {
+    "name": "Erzmine", "desc": "Ein Stollen in den Fels. Liefert Erz und etwas Stein.",
+    "size": [2, 2], "sprite": "mine", "buildable": true, "category": "handwerk", "requires": "bergbau",
+    "work": 30, "cost": {"bretter": 12, "stein": 6},
+    "production": {"job": "stein", "inputs": {}, "outputs": {"erz": 2, "stein": 1}, "time": 6.0, "skill": "stein", "verb": "Hackt Erz", "tool": "pick"}
+  },
+  "schmelze": {
+    "name": "Schmelzofen", "desc": "Schmilzt Erz mit Kohle zu Eisen.",
+    "size": [2, 2], "sprite": "smelter", "buildable": true, "category": "handwerk", "requires": "eisenverhuettung",
+    "work": 34, "cost": {"stein": 16, "ziegel": 12}, "light": true,
+    "production": {"job": "handwerk", "inputs": {"erz": 2, "kohle": 2}, "outputs": {"eisen": 1}, "time": 6.0, "skill": "handwerk", "verb": "Schmilzt Eisen", "smoke": [6, -46]}
+  },
+  "schmiede": {
+    "name": "Schmiede", "desc": "Schmiedet aus Eisen und Brettern gute Werkzeuge.",
+    "size": [3, 2], "sprite": "smithy", "buildable": true, "category": "handwerk", "requires": "schmiedekunst",
+    "work": 36, "cost": {"stein": 10, "ziegel": 10, "bretter": 10}, "light": true,
+    "production": {"job": "handwerk", "inputs": {"eisen": 1, "bretter": 1}, "outputs": {"werkzeug": 2}, "time": 6.0, "skill": "handwerk", "verb": "Schmiedet Werkzeug", "smoke": [14, -42]}
+  },
+  "schreibstube": {
+    "name": "Schreibstube", "desc": "Hier forschen zwei Forscher doppelt so schnell wie am Lagerfeuer.",
+    "size": [3, 2], "sprite": "scriptorium", "buildable": true, "category": "wissen", "requires": "schrift",
+    "work": 26, "cost": {"holz": 16, "stein": 8}, "light": true,
+    "research": {"factor": 1.0, "slots": 2}
+  },
+  "bibliothek": {
+    "name": "Bibliothek", "desc": "Das Haus des Wissens: drei Forscher arbeiten hier fast doppelt so schnell wie in der Schreibstube.",
+    "size": [3, 2], "sprite": "library", "buildable": true, "category": "wissen", "requires": "gelehrsamkeit",
+    "work": 46, "cost": {"bretter": 16, "ziegel": 18, "stein": 10}, "light": true,
+    "research": {"factor": 1.8, "slots": 3}
   }
 }

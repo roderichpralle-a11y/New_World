@@ -9,6 +9,7 @@ signal day_started(day: int)
 signal selection_changed(obj)
 signal speed_changed(speed: int)
 signal game_over
+signal research_changed
 
 const SAVE_PATH := "user://savegame.json"
 const SAVE_VERSION := 1
@@ -23,6 +24,9 @@ var stats: Dictionary = {"births": 0, "deaths": 0, "max_pop": 0}
 var selected = null
 var is_over: bool = false
 var lineage: Dictionary = {}  # Siedler-ID -> [Eltern-IDs], auch fuer Verstorbene
+## Forschung: aktuelles Ziel, Fortschritt je Forschung, erforschte und bezahlte Forschungen
+var research: Dictionary = {"current": "", "progress": {}, "done": [], "paid": []}
+var effects: Dictionary = {}  # Summe aller Forschungs-Effekte, z. B. {"build": 0.2}
 
 var _birth_timer: float = 0.0
 var _autosave_timer: float = 0.0
@@ -46,10 +50,13 @@ func reset_state(new_seed: int) -> void:
 	next_id = 1
 	stats = {"births": 0, "deaths": 0, "max_pop": 0}
 	lineage = {}
+	research = {"current": "", "progress": {}, "done": [], "paid": []}
+	_recompute_effects()
 	selected = null
 	is_over = false
 	_last_day = day()
 	set_speed(1)
+	research_changed.emit()
 
 
 func new_id() -> int:
@@ -94,6 +101,8 @@ func _process(delta: float) -> void:
 			_last_day = day()
 			day_started.emit(_last_day)
 			notify("Tag %d beginnt." % _last_day, "sonne")
+		# Geschichten am Lagerfeuer: ein kleines bisschen Forschung kommt immer voran
+		add_research(float(Data.bal("passive_research_per_day", 0.0)) * delta * mult / float(Data.bal("day_length")), false)
 		_birth_timer += delta / float(Data.bal("day_length"))
 		if _birth_timer >= float(Data.bal("birth_check_interval")):
 			_birth_timer = 0.0
@@ -112,7 +121,7 @@ func storage_capacity() -> int:
 		for b in world.buildings:
 			if b.complete:
 				cap += int(b.def.get("storage", 0))
-	return cap
+	return int(cap * eff("storage"))
 
 
 func housing_capacity() -> int:
@@ -180,6 +189,15 @@ func eat_one() -> float:
 	return float(Data.resources[best].get("nutrition", 20))
 
 
+## Anzahl der Nahrungssorten, die gerade im Lager sind.
+func food_variety() -> int:
+	var n := 0
+	for id in Data.food_ids():
+		if amount(id) > 0:
+			n += 1
+	return n
+
+
 func notify(text: String, icon: String = "") -> void:
 	notified.emit(text, icon)
 
@@ -215,7 +233,11 @@ func _try_birth() -> void:
 		return
 	if couples.is_empty():
 		return
-	if _rng.randf() > float(Data.bal("birth_chance")):
+	var chance := float(Data.bal("birth_chance"))
+	# Abwechslungsreiche Kost macht Lust auf Familie
+	if food_variety() >= int(Data.bal("variety_min", 3)):
+		chance *= float(Data.bal("variety_birth_bonus", 1.0))
+	if _rng.randf() > chance:
 		return
 	var pair: Array = couples[_rng.randi() % couples.size()]
 	var mother = pair[0]
@@ -279,6 +301,110 @@ func on_population_changed() -> void:
 	population_changed.emit()
 
 
+# ---------------------------------------------------------------- Forschung
+## Effekt als Faktor (1 + Summe), z. B. eff("build") = 1.6
+func eff(key: String) -> float:
+	return 1.0 + float(effects.get(key, 0.0))
+
+
+## Effekt als Zuschlag, z. B. eff_add("carry") = 5
+func eff_add(key: String) -> float:
+	return float(effects.get(key, 0.0))
+
+
+func _recompute_effects() -> void:
+	effects = {}
+	for t in research.done:
+		var e: Dictionary = Data.techs.get(t, {}).get("effects", {})
+		for k in e:
+			effects[k] = float(effects.get(k, 0.0)) + float(e[k])
+
+
+func is_researched(t: String) -> bool:
+	return t == "" or t in research.done
+
+
+## "done", "current", "available", "locked" oder "soon"
+func tech_state(t: String) -> String:
+	if t in research.done:
+		return "done"
+	var def: Dictionary = Data.techs.get(t, {})
+	if def.get("soon", false):
+		return "soon"
+	if research.current == t:
+		return "current"
+	for r in def.get("requires", []):
+		if not r in research.done:
+			return "locked"
+	return "available"
+
+
+func is_unlocked(building_type: String) -> bool:
+	return is_researched(Data.buildings.get(building_type, {}).get("requires", ""))
+
+
+func tech_progress(t: String) -> float:
+	return float(research.progress.get(t, 0.0))
+
+
+func tech_points(t: String) -> float:
+	return float(Data.techs.get(t, {}).get("points", 1)) * float(Data.bal("research_cost_factor", 1.0))
+
+
+## Startet (oder wechselt zu) einer Forschung. Die Kosten werden beim ersten Start bezahlt.
+## Liefert "" bei Erfolg, sonst den Grund.
+func start_research(t: String) -> String:
+	var st := tech_state(t)
+	if st == "current":
+		return ""
+	if st != "available":
+		return "Diese Forschung ist noch nicht möglich."
+	if not t in research.paid:
+		var cost: Dictionary = Data.techs[t].get("cost", {})
+		if not can_afford(cost):
+			var miss := []
+			for id in cost:
+				if amount(id) < int(cost[id]):
+					miss.append("%d %s" % [int(cost[id]) - amount(id), Data.resource_name(id)])
+			return "Es fehlt noch: " + ", ".join(miss)
+		for id in cost:
+			take_stock(id, int(cost[id]))
+		research.paid.append(t)
+	research.current = t
+	research_changed.emit()
+	return ""
+
+
+func has_research_goal() -> bool:
+	return research.current != ""
+
+
+## Forschungspunkte gutschreiben (von Forschern oder passiv).
+func add_research(points: float, apply_bonus: bool = true) -> void:
+	var t: String = research.current
+	if t == "" or points <= 0.0:
+		return
+	if apply_bonus:
+		points *= eff("research")
+	research.progress[t] = tech_progress(t) + points
+	if tech_progress(t) >= tech_points(t):
+		_finish_research(t)
+
+
+func _finish_research(t: String) -> void:
+	research.progress.erase(t)
+	research.done.append(t)
+	research.current = ""
+	_recompute_effects()
+	var unlocks := Data.tech_unlocks(t).map(func(b): return Data.buildings[b].name)
+	var text := "Erforscht: %s!" % Data.techs[t].name
+	if not unlocks.is_empty():
+		text += " Neu zu bauen: " + ", ".join(unlocks) + "."
+	notify(text, "wissen")
+	research_changed.emit()
+	stock_changed.emit()
+
+
 # ---------------------------------------------------------------- Speichern
 func has_save() -> bool:
 	return FileAccess.file_exists(SAVE_PATH)
@@ -295,6 +421,7 @@ func save_game() -> void:
 		"next_id": next_id,
 		"stats": stats,
 		"lineage": lineage,
+		"research": research,
 		"world": world.serialize(),
 	}
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
@@ -327,6 +454,17 @@ func apply_save_header(d: Dictionary) -> void:
 	var lin: Dictionary = d.get("lineage", {})
 	for k in lin:
 		register_lineage(int(k), lin[k])
+	var r: Dictionary = d.get("research", {})
+	research = {
+		"current": str(r.get("current", "")),
+		"progress": r.get("progress", {}),
+		"done": Array(r.get("done", [])).filter(func(x): return Data.techs.has(x)),
+		"paid": Array(r.get("paid", [])),
+	}
+	if not Data.techs.has(research.current):
+		research.current = ""
+	_recompute_effects()
+	research_changed.emit()
 	is_over = false
 	selected = null
 	_last_day = day()

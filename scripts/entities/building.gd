@@ -14,6 +14,9 @@ var incoming: Dictionary = {}  # von Baumeistern unterwegs
 var farm_state: String = "fallow"  # fallow, growing, ripe
 var farm_time: float = 0.0  # Spielzeit der Aussaat
 var reserved_by: int = 0
+var occupants: Array = []  # Siedler-IDs, die hier arbeiten (Produktion, Forschung)
+var paused: bool = false
+var active_until: float = 0.0  # Echtzeit, bis zu der die Werkstatt als "in Betrieb" gilt
 var world
 
 var _sprite: Sprite2D
@@ -170,8 +173,12 @@ func farm_stage() -> int:
 		return 0
 	if farm_state == "ripe":
 		return 3
-	var t := (Game.time_days - farm_time) / float(farm_def().grow_days)
+	var t := (Game.time_days - farm_time) / grow_days()
 	return 1 if t < 0.5 else 2
+
+
+func grow_days() -> float:
+	return float(farm_def().get("grow_days", 1.0)) / Game.eff("farm_speed")
 
 
 func sow() -> void:
@@ -183,11 +190,11 @@ func sow() -> void:
 func harvest() -> int:
 	farm_state = "fallow"
 	refresh()
-	return int(farm_def().amount)
+	return int(round(float(farm_def().amount) * Game.eff("farm_yield")))
 
 
 func farm_task() -> String:
-	if not complete:
+	if not complete or not def.has("farm"):
 		return ""
 	if farm_state == "fallow":
 		return "sow"
@@ -196,12 +203,71 @@ func farm_task() -> String:
 	return ""
 
 
+# ---------------------------------------------------------------- Werkstatt / Forschung
+func prod_def() -> Dictionary:
+	return def.get("production", {})
+
+
+func research_def() -> Dictionary:
+	return def.get("research", {})
+
+
+func slots() -> int:
+	if def.has("research"):
+		return int(research_def().get("slots", 1))
+	if def.has("production"):
+		return int(prod_def().get("slots", 1))
+	return 0
+
+
+func free_slots() -> int:
+	return slots() - occupants.size()
+
+
+## Warum die Werkstatt gerade nicht arbeiten kann ("" = alles bereit).
+func prod_blocker() -> String:
+	var p := prod_def()
+	if p.is_empty() or not complete:
+		return "nicht fertig"
+	if paused:
+		return "angehalten"
+	for res in p.get("inputs", {}):
+		if Game.amount(res) < int(p.inputs[res]):
+			return "Es fehlt %s" % Data.resource_name(res)
+	var any_space := false
+	for res in p.get("outputs", {}):
+		if Game.space_for(res) > 0:
+			any_space = true
+	if not any_space:
+		return "Das Lager ist voll"
+	return ""
+
+
+## Nimmt die Rohstoffe fuer einen Arbeitsgang aus dem Lager.
+func take_inputs() -> bool:
+	if prod_blocker() != "":
+		return false
+	var p := prod_def()
+	for res in p.get("inputs", {}):
+		Game.take_stock(res, int(p.inputs[res]))
+	return true
+
+
+func mark_active(seconds: float) -> void:
+	active_until = Time.get_ticks_msec() / 1000.0 + seconds
+
+
+func is_active() -> bool:
+	return Time.get_ticks_msec() / 1000.0 < active_until
+
+
 # ---------------------------------------------------------------- Darstellung
 func refresh() -> void:
 	if is_ground():
 		var stage := farm_stage() if complete else 0
+		var tiles: String = farm_def().get("tiles", "field")
 		for t in _tiles:
-			t.texture = Data.object_tex("field%d" % stage)
+			t.texture = Data.object_tex("%s%d" % [tiles, stage])
 			t.modulate = Color(1, 1, 1, 1.0 if complete else 0.55)
 	else:
 		var name: String = def.sprite if complete else "construction"
@@ -222,7 +288,21 @@ func _draw_bar() -> void:
 	_bar.draw_rect(Rect2(-w / 2, 0, w * build_fraction(), 2), Color(0.98, 0.78, 0.3))
 
 
+var _smoke_t: float = 0.0
+
+
 func _process(delta: float) -> void:
+	if complete and _sprite and is_active():
+		var frames := Data.object_frames(def.sprite)
+		if frames > 1:
+			_anim_t += delta
+			_sprite.texture = Data.object_tex(def.sprite, int(_anim_t * 5.0) % frames)
+		if prod_def().has("smoke"):
+			_smoke_t -= delta
+			if _smoke_t <= 0.0:
+				_smoke_t = 0.45
+				var o: Array = prod_def().smoke
+				world.spawn_smoke(position + Vector2(float(o[0]), float(o[1])))
 	if type == "lagerfeuer":
 		_anim_t += delta
 		_sprite.texture = Data.object_tex("campfire", int(_anim_t * 8.0) % 4)
@@ -233,7 +313,7 @@ func _process(delta: float) -> void:
 		_light.energy = target * (0.75 if type == "lagerfeuer" else 0.45) * flicker
 		_light.visible = _light.energy > 0.02
 	if is_ground() and complete and farm_state == "growing":
-		if Game.time_days - farm_time >= float(farm_def().grow_days):
+		if Game.time_days - farm_time >= grow_days():
 			farm_state = "ripe"
 			refresh()
 		elif farm_stage() != _last_stage:
@@ -248,5 +328,5 @@ func serialize() -> Dictionary:
 	return {
 		"id": id, "type": type, "x": cell.x, "y": cell.y, "complete": complete,
 		"progress": progress, "delivered": delivered,
-		"farm_state": farm_state, "farm_time": farm_time,
+		"farm_state": farm_state, "farm_time": farm_time, "paused": paused,
 	}

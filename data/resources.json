@@ -1,7 +1,19 @@
 {
-  "holz":   {"name": "Holz",     "icon": "holz",   "category": "material", "order": 0},
-  "stein":  {"name": "Stein",    "icon": "stein",  "category": "material", "order": 1},
-  "beeren": {"name": "Beeren",   "icon": "beeren", "category": "food", "nutrition": 22, "order": 10},
-  "fisch":  {"name": "Fisch",    "icon": "fisch",  "category": "food", "nutrition": 34, "order": 11},
-  "weizen": {"name": "Getreide", "icon": "weizen", "category": "food", "nutrition": 26, "order": 12}
+  "holz":     {"name": "Holz",        "icon": "holz",     "category": "material", "order": 0},
+  "stein":    {"name": "Stein",       "icon": "stein",    "category": "material", "order": 1},
+  "bretter":  {"name": "Bretter",     "icon": "bretter",  "category": "material", "order": 2},
+  "lehm":     {"name": "Lehm",        "icon": "lehm",     "category": "material", "order": 3},
+  "ziegel":   {"name": "Ziegel",      "icon": "ziegel",   "category": "material", "order": 4},
+  "kohle":    {"name": "Kohle",       "icon": "kohle",    "category": "material", "order": 5},
+  "erz":      {"name": "Erz",         "icon": "erz",      "category": "material", "order": 6},
+  "eisen":    {"name": "Eisen",       "icon": "eisen",    "category": "material", "order": 7},
+  "werkzeug": {"name": "Werkzeug",    "icon": "werkzeug", "category": "material", "order": 8},
+  "mehl":     {"name": "Mehl",        "icon": "mehl",     "category": "material", "order": 9},
+  "beeren":   {"name": "Beeren",      "icon": "beeren",   "category": "food", "nutrition": 22, "order": 10},
+  "fisch":    {"name": "Fisch",       "icon": "fisch",    "category": "food", "nutrition": 34, "order": 11},
+  "weizen":   {"name": "Getreide",    "icon": "weizen",   "category": "food", "nutrition": 26, "order": 12},
+  "aepfel":   {"name": "Äpfel",       "icon": "aepfel",   "category": "food", "nutrition": 26, "order": 13},
+  "eier":     {"name": "Eier",        "icon": "eier",     "category": "food", "nutrition": 30, "order": 14},
+  "raeucherfisch": {"name": "Räucherfisch", "icon": "raeucherfisch", "category": "food", "nutrition": 52, "order": 15},
+  "brot":     {"name": "Brot",        "icon": "brot",     "category": "food", "nutrition": 48, "order": 16}
 }
