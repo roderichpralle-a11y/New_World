@@ -1,0 +1,38 @@
+{
+  "_doc": "Einführung (tutorial) und Ziele (milestones, danach endlos erzeugt). check.type: selected_settler, action, building (n, any = auch Baustellen), housing, pop, techs, tier, tech, variety, islands_found, islands_settled, kills, births, speed, stock. point: build, research, settlers, speed, settler, info.",
+  "tutorial": [
+    {"id": "t_select", "text": "Tippe auf einen Siedler.", "hint": "Lena und Jonas sind deine ersten Siedler. Tippe auf einen der beiden, um seine Fähigkeiten zu sehen.", "check": {"type": "selected_settler"}, "point": "settler"},
+    {"id": "t_job", "text": "Gib ihm einen Beruf.", "hint": "Im Infofenster wählst du den Beruf. Er sollte zu einer starken Fähigkeit passen. Freie Siedler helfen dort, wo es gerade nötig ist.", "check": {"type": "action", "kind": "job"}, "point": "info"},
+    {"id": "t_hut", "text": "Baue eine zweite Hütte.", "hint": "Tippe auf Bauen, wähle die Hütte und tippe auf einen freien Platz auf der Wiese. Mit Hier bauen legst du die Baustelle an.", "check": {"type": "building", "what": "huette", "n": 2, "any": true}, "point": "build"},
+    {"id": "t_hut_done", "text": "Warte, bis die Hütte steht.", "hint": "Freie Siedler und Baumeister bringen Holz zur Baustelle und bauen. Fehlt Holz, mache jemanden zum Holzfäller. Neue Wohnplätze bringen Nachwuchs.", "check": {"type": "housing", "n": 4}},
+    {"id": "t_field", "text": "Lege ein Getreidefeld an.", "hint": "Unter Bauen findest du bei Nahrung das Feld. Ein Bauer sät und erntet dort viel Getreide, das lange satt macht.", "check": {"type": "building", "what": "feld", "n": 1, "any": true}, "point": "build"},
+    {"id": "t_research", "text": "Wähle eine Forschung.", "hint": "Im Entwicklungsbaum lernen deine Siedler neue Werkzeuge und Gebäude. Steinwerkzeuge ist ein guter Anfang. Forscher machen es schneller.", "check": {"type": "research_active"}, "point": "research"},
+    {"id": "t_speed", "text": "Lass die Zeit schneller laufen.", "hint": "Oben rechts stellst du Pause, normal und dreifaches Tempo ein. Das Spiel speichert von selbst.", "check": {"type": "speed", "n": 3}, "point": "speed"}
+  ],
+  "milestones": [
+    {"id": "m_pop5", "text": "Wachse auf 5 Siedler.", "check": {"type": "pop", "n": 5}, "reward": {"beeren": 10, "holz": 10}},
+    {"id": "m_lager", "text": "Baue ein Lager.", "hint": "Ein Lager gibt mehr Platz für Vorräte und kürzere Wege.", "check": {"type": "building", "what": "lager", "n": 1}, "reward": {"stein": 8}},
+    {"id": "m_tech3", "text": "Erforsche 3 Dinge.", "check": {"type": "techs", "n": 3}, "reward": {"holz": 15}},
+    {"id": "m_food3", "text": "Lagere 3 Sorten Nahrung.", "hint": "Abwechslung auf dem Teller bringt öfter Nachwuchs. Beeren, Fisch und Getreide sind ein guter Anfang.", "check": {"type": "variety", "n": 3}, "reward": {"fisch": 10}},
+    {"id": "m_pop8", "text": "Wachse auf 8 Siedler.", "check": {"type": "pop", "n": 8}, "reward": {"holz": 20, "stein": 10}},
+    {"id": "m_schreib", "text": "Baue eine Schreibstube.", "hint": "Forscher kommen dort doppelt so schnell voran wie am Lagerfeuer.", "check": {"type": "building", "what": "schreibstube", "n": 1}, "reward": {"bretter": 10}},
+    {"id": "m_holzhaus", "text": "Baue ein Holzhaus.", "hint": "Tippe auf eine Hütte und baue sie aus, oder baue ein neues Holzhaus. Vier Siedler finden darin Platz.", "check": {"type": "building", "what": "holzhaus", "n": 1}, "reward": {"bretter": 10}},
+    {"id": "m_tier3", "text": "Erreiche Forschungsstufe III.", "check": {"type": "tier", "n": 3}, "reward": {"ziegel": 10}},
+    {"id": "m_pop12", "text": "Wachse auf 12 Siedler.", "check": {"type": "pop", "n": 12}, "reward": {"weizen": 15, "holz": 15}},
+    {"id": "m_births10", "text": "Feiere 10 Geburten.", "check": {"type": "births", "n": 10}, "reward": {"beeren": 20}},
+    {"id": "m_brot", "text": "Backe 10 Brote.", "hint": "Mühle und Bäckerei machen aus Getreide sättigendes Brot.", "check": {"type": "stock", "what": "brot", "n": 10}, "reward": {"bretter": 12, "ziegel": 8}},
+    {"id": "m_tier5", "text": "Erreiche Forschungsstufe V.", "check": {"type": "tier", "n": 5}, "reward": {"werkzeug": 4}},
+    {"id": "m_pop18", "text": "Wachse auf 18 Siedler.", "check": {"type": "pop", "n": 18}, "reward": {"eisen": 6}},
+    {"id": "m_werft", "text": "Baue eine Werft.", "hint": "Nach der Forschung Schiffsbau steht die Werft am Ufer. Handwerker zimmern dort Boote.", "check": {"type": "building", "what": "werft", "n": 1}, "reward": {"bretter": 15}},
+    {"id": "m_found1", "text": "Entdecke eine neue Insel.", "hint": "Öffne die Seekarte über Inseln und schicke ein Boot los.", "check": {"type": "islands_found", "n": 1}, "reward": {"boot": 1}},
+    {"id": "m_settle2", "text": "Besiedle eine zweite Insel.", "hint": "Auf der Seekarte bringt Siedler schicken bis zu vier Siedler hinüber.", "check": {"type": "islands_settled", "n": 2}, "reward": {"werkzeug": 4, "holz": 20}},
+    {"id": "m_kills5", "text": "Erlege 5 wilde Tiere.", "hint": "Jäger und Wachtürme schützen deine Siedler. Erlegte Tiere bringen Fleisch und Felle.", "check": {"type": "kills", "n": 5}, "reward": {"eisen": 6}},
+    {"id": "m_pop25", "text": "Wachse auf 25 Siedler.", "check": {"type": "pop", "n": 25}, "reward": {"brot": 15}},
+    {"id": "m_steinhaus", "text": "Baue ein Steinhaus.", "check": {"type": "building", "what": "steinhaus", "n": 1}, "reward": {"ziegel": 15}},
+    {"id": "m_gold", "text": "Sammle 10 Gold.", "hint": "Gold gibt es in den Adern der Felseninseln.", "check": {"type": "stock", "what": "gold", "n": 10}, "reward": {"werkzeug": 4}},
+    {"id": "m_settle3", "text": "Lebe auf 3 Inseln zugleich.", "check": {"type": "islands_settled", "n": 3}, "reward": {"boot": 1, "eisen": 8}},
+    {"id": "m_alltech", "text": "Erforsche den ganzen Baum.", "check": {"type": "techs", "n": 33}, "reward": {"gold": 6}},
+    {"id": "m_denkmal", "text": "Errichte das goldene Denkmal.", "hint": "Das Denkmal krönt das Goldene Zeitalter: mehr Kinder und ein längeres Leben.", "check": {"type": "building", "what": "denkmal", "n": 1}, "reward": {"brot": 20, "fleisch": 10}},
+    {"id": "m_pop40", "text": "Wachse auf 40 Siedler.", "check": {"type": "pop", "n": 40}, "reward": {"werkzeug": 6, "eisen": 6}}
+  ]
+}

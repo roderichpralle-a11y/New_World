@@ -115,6 +115,7 @@ func _choose_target() -> void:
 	target = best
 	if target:
 		_path = PackedVector2Array()
+		Sound.play_at(String(def.get("sound", "knurren")), world, position, 0.08)
 
 
 func _chase(delta: float) -> void:
@@ -192,6 +193,7 @@ func take_damage(n: float, by) -> void:
 		return
 	hp -= n
 	_hurt = 0.18
+	Sound.play_at("treffer", world, position)
 	_provoked = 14.0
 	if by is Settler and is_instance_valid(by):
 		target = by

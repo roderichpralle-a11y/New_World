@@ -10,6 +10,8 @@ signal selection_changed(obj)
 signal speed_changed(speed: int)
 signal game_over
 signal research_changed
+## Spieler hat etwas getan (fuer die Einfuehrung), z. B. ("job", "holzfaeller")
+signal player_action(kind: String, what: String)
 
 const SAVE_PATH := "user://savegame.json"
 const SAVE_VERSION := 2
@@ -26,6 +28,8 @@ var is_over: bool = false
 var lineage: Dictionary = {}  # Siedler-ID -> [Eltern-IDs], auch fuer Verstorbene
 ## Forschung: aktuelles Ziel, Fortschritt je Forschung, erforschte und bezahlte Forschungen
 var research: Dictionary = {"current": "", "progress": {}, "done": [], "paid": []}
+## Einfuehrung und Ziele: Schritt der Einfuehrung (tut), Index des Ziels (ms)
+var goals: Dictionary = {"tut": 0, "ms": 0}
 var effects: Dictionary = {}  # Summe aller Forschungs-Effekte, z. B. {"build": 0.2}
 
 var _birth_timer: float = 0.0
@@ -51,6 +55,7 @@ func reset_state(new_seed: int) -> void:
 	stats = {"births": 0, "deaths": 0, "max_pop": 0}
 	lineage = {}
 	research = {"current": "", "progress": {}, "done": [], "paid": []}
+	goals = {"tut": 0, "ms": 0}
 	Sea.reset(new_seed)
 	_recompute_effects()
 	selected = null
@@ -263,6 +268,7 @@ func _try_birth_on(w) -> void:
 	mother.birth_cooldown_until = time_days + float(Data.bal("birth_cooldown"))
 	var child = w.spawn_child(mother, father)
 	stats.births += 1
+	Sound.play_on("geburt", w)
 	notify_at(w, "%s ist geboren! Eltern: %s und %s." % [child.display_name, mother.display_name, father.display_name], "herz")
 
 
@@ -276,6 +282,7 @@ func _try_newcomer(w, adults: Array) -> void:
 	var s = w.spawn_newcomer(sex)
 	if s:
 		notify_at(w, "%s ist an den Strand gespült worden und schließt sich euch an!" % s.display_name, "person")
+		Sound.play_on("glocke", w)
 
 
 ## Eltern, Geschwister, Großeltern und Kinder bekommen keinen Nachwuchs miteinander.
@@ -304,6 +311,7 @@ func on_settler_died(s, reason: String) -> void:
 	stats.deaths += 1
 	var text := "%s ist %s." % [s.display_name, reason]
 	notify_at(s.world, text, "abriss")
+	Sound.play_on("tod", s.world)
 	if selected == s:
 		select(null)
 	population_changed.emit()
@@ -434,6 +442,7 @@ func _finish_research(t: String) -> void:
 	if not unlocks.is_empty():
 		text += " Neu zu bauen: " + ", ".join(unlocks) + "."
 	notify(text, "wissen")
+	Sound.play("forschung")
 	research_changed.emit()
 	stock_changed.emit()
 
@@ -455,6 +464,7 @@ func save_game() -> void:
 		"stats": stats,
 		"lineage": lineage,
 		"research": research,
+		"goals": goals,
 	}
 	data.merge(Sea.serialize())
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
@@ -497,6 +507,12 @@ func apply_save_header(d: Dictionary) -> void:
 	}
 	if not Data.techs.has(research.current):
 		research.current = ""
+	# Aeltere Spielstaende kennen keine Ziele: Einfuehrung ueberspringen, erreichte Ziele nachholen
+	var g = d.get("goals", null)
+	if g is Dictionary:
+		goals = {"tut": int(g.get("tut", 0)), "ms": int(g.get("ms", 0))}
+	else:
+		goals = {"tut": 999, "ms": 0, "catchup": true}
 	_recompute_effects()
 	research_changed.emit()
 	is_over = false

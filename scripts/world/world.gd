@@ -432,6 +432,7 @@ func can_place(type: String, c: Vector2i) -> bool:
 
 func on_building_completed(b: Building) -> void:
 	Game.notify_at(self, "%s ist fertig!" % b.def.name, "hammer")
+	Sound.play_on("fertig", self)
 	spawn_effect("dust", b.position)
 	spawn_effect("dust", b.position + Vector2(-12, -6))
 	spawn_effect("dust", b.position + Vector2(12, -6))
@@ -730,6 +731,11 @@ func _add_grave(p: Vector2, until: float) -> void:
 
 
 # ================================================================== Effekte
+## Geraeusch beim Abbauen je Rohstoffquelle
+const CHIP_SOUNDS := {"baum": "axt", "palme": "axt", "fels": "stein", "erzader": "stein", "goldader": "stein",
+	"busch": "pfluecken", "pilzkreis": "pfluecken", "fischgrund": "platsch"}
+
+
 func spawn_effect(kind: String, p: Vector2) -> void:
 	var colors := {
 		"chips_baum": [Color("#c49a5c"), Color("#7a4e32")],
@@ -751,6 +757,8 @@ func spawn_effect(kind: String, p: Vector2) -> void:
 	}
 	if not colors.has(kind):
 		return
+	if kind.begins_with("chips_"):
+		Sound.play_at(CHIP_SOUNDS.get(kind.trim_prefix("chips_"), "treffer"), self, p)
 	var cols: Array = colors[kind]
 	var n := 10 if kind in ["leaves", "dust", "hearts"] else (6 if kind == "blood" else 4)
 	for i in n:
@@ -923,8 +931,11 @@ func _draw_ghost() -> void:
 
 func confirm_placement() -> bool:
 	if _placing == "" or not can_place(_placing, _ghost_cell):
+		Sound.play("fehler")
 		return false
 	var b := place_building(_placing, _ghost_cell, false)
+	Sound.play("platzieren")
+	Game.player_action.emit("place", b.type)
 	spawn_effect("dust", b.position)
 	if not Game.can_afford(b.def.cost):
 		Game.notify("Baustelle angelegt. Es fehlt noch Material.", "hammer")
@@ -946,9 +957,9 @@ func is_placing() -> bool:
 
 
 # ================================================================== Auswahl
-func pick_at(p: Vector2):
+func pick_at(p: Vector2, radius: float = 12.0):
 	var best = null
-	var best_d := 12.0
+	var best_d := radius
 	for s in settlers:
 		if not s.visible:
 			continue
@@ -1085,6 +1096,7 @@ func _process_dens(delta: float) -> void:
 
 func on_animal_killed(a: Animal, by) -> void:
 	animals.erase(a)
+	Game.stats["kills"] = int(Game.stats.get("kills", 0)) + 1
 	if Game.selected == a:
 		Game.select(null)
 	var meat := int(round(float(a.def.get("meat", 3)) * Game.eff("hunt")))
@@ -1174,6 +1186,7 @@ func fire_building():
 func spawn_arrow(from: Vector2, to: Vector2) -> void:
 	var sp := Sprite2D.new()
 	sp.texture = Data.object_tex("arrow")
+	Sound.play_at("pfeil", self, from)
 	sp.position = from
 	sp.rotation = (to - from).angle()
 	fx.add_child(sp)

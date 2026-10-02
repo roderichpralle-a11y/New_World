@@ -47,3 +47,9 @@ schild
 wolf
 eber
 baer
+musik
+glocke
+vollbild
+ziel
+haken
+zeiger
