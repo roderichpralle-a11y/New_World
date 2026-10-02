@@ -187,10 +187,16 @@ func _needs(days: float) -> bool:
 	if is_adult() and not was_adult:
 		_sprite.scale = Vector2.ONE
 		_shadow.scale *= 1.0 / 0.7
-	food = max(0.0, food - float(Data.bal("animal_hunger_per_day", 0.5)) * days)
+	var hunger := float(Data.bal("animal_hunger_per_day", 0.5))
+	if Seasons.is_winter():
+		hunger *= float(Data.bal("animal_winter_hunger", 0.6))
+	food = max(0.0, food - hunger * days)
 	if food <= 0.0:
 		hp -= float(Data.bal("animal_starve_per_day", 0.45)) * float(def.hp) * days
-		if hp <= 0.0:
+		# Die letzten zwei einer Art magern ab, verhungern aber nicht
+		if hp <= max_hp() * 0.1 and world.is_protected(self) and is_adult():
+			hp = max_hp() * 0.1
+		elif hp <= 0.0:
 			dead = true
 			world.on_animal_starved(self)
 			return false

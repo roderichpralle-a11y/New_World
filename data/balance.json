@@ -39,6 +39,7 @@
   "variety_birth_bonus": 1.5,
   "animal_tick_days": 0.1,
   "animal_hunger_per_day": 0.5,
+  "animal_winter_hunger": 0.6,
   "animal_starve_per_day": 0.45,
   "animal_heal_per_day": 0.6,
   "animal_food_radius": 10,
