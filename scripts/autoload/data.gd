@@ -48,6 +48,7 @@ const BUILDING_CELLS := {
 	"claypit": [11, 1], "brickworks": [12, 1], "quarry": [13, 1], "charcoal": [14, 1],
 	"mine": [15, 1], "smelter": [16, 1], "smithy": [17, 1], "scriptorium": [18, 1],
 	"library": [19, 1], "shipyard": [20, 1], "tower": [21, 1], "lighthouse": [22, 2], "monument": [24, 1],
+	"school": [25, 1],
 }
 ## Etappe 3 in objects2.png: name -> [x, y, w, h, frames]
 const OBJECT2_REGIONS := {

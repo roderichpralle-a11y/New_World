@@ -801,7 +801,7 @@ Jeder Siedler hat eigene Fähigkeiten. Gib ihnen im Infofenster einen Beruf, der
 Siedler essen am Lagerfeuer. Ohne Nahrung werden sie schwach und verhungern. Beeren wachsen nach, Fische auch, und Getreidefelder bringen viel Ertrag.
 
 [b]Nachwuchs[/b]
-Kinder kommen nur zur Welt, wenn es freie Wohnplätze in Hütten gibt und genug Nahrung im Lager ist. Kinder werden nach 3 Tagen erwachsen. Niemand lebt ewig, also sorge rechtzeitig für Nachwuchs.
+Kinder kommen nur zur Welt, wenn es freie Wohnplätze in Hütten gibt und genug Nahrung im Lager ist. In Holzhäusern kommen 40 % öfter Kinder zur Welt, in Steinhäusern 80 %. Kinder werden nach 3 Tagen erwachsen, mit einer Schule (Forschung Unterricht) doppelt so schnell. Niemand lebt ewig, also sorge rechtzeitig für Nachwuchs.
 
 [b]Bauen[/b]
 Wähle ein Gebäude und einen Bauplatz. Baumeister und freie Siedler bringen das Material und bauen es auf. Hütten und Holzhäuser lassen sich später im Infofenster ausbauen.
@@ -1028,10 +1028,21 @@ func _info_building(b: Building) -> void:
 		if b.housing() > 0:
 			var names := b.residents().map(func(s): return s.display_name)
 			_info_box.add_child(UiTheme.label("Bewohner: %d / %d" % [names.size(), b.housing()], 14))
+			var bb := float(b.def.get("birth_bonus", 1.0))
+			if bb > 1.0:
+				_info_box.add_child(UiTheme.label("Kinder: %d %% öfter als in der Hütte" % roundi((bb - 1.0) * 100.0), 13, UiTheme.GOOD))
 			if not names.is_empty():
 				var l := UiTheme.label(", ".join(names), 13)
 				l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 				_info_box.add_child(l)
+		if b.def.has("school"):
+			var sl := UiTheme.label("", 14)
+			_info_box.add_child(sl)
+			var upd := func():
+				var n := world.settlers.filter(func(s): return not s.is_adult() and world.school_of(s) == b).size()
+				sl.text = "Schulkinder: %d / %d" % [n, int(b.def.school.get("slots", 8))]
+			upd.call()
+			_updaters.append(upd)
 		if b.def.get("storage", 0) > 0:
 			_info_box.add_child(UiTheme.label("Lagerplatz: +%d je Sorte" % int(b.def.storage), 14))
 		if b.is_ground() and b.def.has("farm"):
@@ -1160,6 +1171,8 @@ func _info_upgrade(b: Building) -> void:
 		h.add_child(UiTheme.label(str(int(td.cost[res])), 13, UiTheme.TEXT if Game.amount(res) >= int(td.cost[res]) else UiTheme.BAD))
 	_info_box.add_child(h)
 	_info_box.add_child(UiTheme.label("Platz für %d statt %d Siedler." % [int(td.get("housing", 0)), int(b.def.get("housing", 0))], 12))
+	if float(td.get("birth_bonus", 1.0)) > float(b.def.get("birth_bonus", 1.0)):
+		_info_box.add_child(UiTheme.label("Dort kommen mehr Kinder zur Welt.", 12, UiTheme.GOOD))
 
 
 func _info_node(n: ResNode) -> void:

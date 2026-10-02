@@ -240,7 +240,12 @@ func _needs(days: float) -> void:
 	elif hunger > 30.0:
 		health = min(100.0, health + float(Data.bal("heal_per_day")) * Game.eff("heal") * days)
 	var was_adult := is_adult()
-	age += days
+	var grow := 1.0
+	if not was_adult:
+		var sc = world.school_of(self)
+		if sc:
+			grow = float(sc.def.school.get("growth", 1.0))
+	age += days * grow
 	if not was_adult and is_adult():
 		job = "frei"
 		Game.notify("%s ist erwachsen und kann jetzt arbeiten." % display_name, "person")
@@ -274,7 +279,11 @@ func _think() -> void:
 		return
 	# 4. Kinder spielen
 	if not is_adult():
-		_plan_wander(5, "Spielt")
+		var sc = world.school_of(self)
+		if sc:
+			_plan_wander(3, "Lernt in der Schule", sc.entrance_cell())
+		else:
+			_plan_wander(5, "Spielt")
 		return
 	# 5. Arbeit
 	if _plan_work():
@@ -424,10 +433,12 @@ func _wake_up() -> void:
 	_zzz.visible = false
 
 
-func _plan_wander(radius: int, text: String) -> void:
+func _plan_wander(radius: int, text: String, at = null) -> void:
 	var anchor: Vector2i = cell
 	var st = world.nearest_storage(cell)
-	if st:
+	if at != null:
+		anchor = at
+	elif st:
 		anchor = st.cell
 	for i in 6:
 		var c := anchor + Vector2i(_rng.randi_range(-radius, radius), _rng.randi_range(-radius, radius))
