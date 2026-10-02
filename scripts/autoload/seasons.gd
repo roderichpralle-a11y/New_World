@@ -181,6 +181,18 @@ func sail_mult() -> float:
 	return _val("sail")
 
 
+## Allgemeiner Jahreszeit-Faktor für andere Systeme (`mods` in seasons.json), z. B.
+## "sickness" (Krankheitsrisiko) oder "mood" (Laune). Unbekannte Schlüssel: 1.0.
+func season_mod(key: String) -> float:
+	var arr = cfg.get("mods", {}).get(key, null)
+	return float(arr[season()]) if arr is Array and arr.size() == 4 else 1.0
+
+
+## Ist es auf dieser Insel warm genug? false, wenn Heizholz fehlt (gilt im Herbst und Winter).
+func is_warm(w) -> bool:
+	return not cold.has(w)
+
+
 ## Holzbedarf pro Siedler und Tag.
 func heat_per_settler(s: int = -1) -> float:
 	return _val("heat_wood_per_settler", s, 0.0)
