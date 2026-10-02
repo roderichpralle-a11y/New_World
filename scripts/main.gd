@@ -77,6 +77,7 @@ func _maybe_autotest() -> void:
 		await RenderingServer.frame_post_draw
 		get_viewport().get_texture().get_image().save_png(args.shot)
 		print("Screenshot: ", args.shot)
+	Game.save_game()
 	get_tree().quit()
 
 

@@ -724,8 +724,10 @@ func _update_ghost() -> void:
 	if _ghost_sprite.visible:
 		var r: Vector2 = _ghost_sprite.texture.region.size
 		_ghost_sprite.offset = Vector2(-r.x / 2.0, -r.y + 4)
+	var ok := can_place(_placing, _ghost_cell)
+	_ghost_sprite.modulate = Color(1, 1, 1, 0.7) if ok else Color(1, 0.45, 0.4, 0.7)
 	_ghost.queue_redraw()
-	placement_changed.emit(true, _placing, can_place(_placing, _ghost_cell))
+	placement_changed.emit(true, _placing, ok)
 
 
 func _draw_ghost() -> void:
@@ -734,7 +736,7 @@ func _draw_ghost() -> void:
 	var def: Dictionary = Data.buildings[_placing]
 	var sz := Vector2i(int(def.size[0]), int(def.size[1]))
 	var ok := can_place(_placing, _ghost_cell)
-	var col := Color(0.4, 1.0, 0.5, 0.35) if ok else Color(1.0, 0.3, 0.3, 0.4)
+	var col := Color(0.4, 1.0, 0.5, 0.45) if ok else Color(1.0, 0.25, 0.25, 0.55)
 	var origin := Vector2(-sz.x * 8, -sz.y * 16)
 	for y in sz.y:
 		for x in sz.x:

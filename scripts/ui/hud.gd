@@ -209,7 +209,7 @@ func _build_build_panel() -> void:
 	var v: VBoxContainer = r[1]
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.custom_minimum_size = Vector2(340, 250)
+	scroll.custom_minimum_size = Vector2(355, 230)
 	v.add_child(scroll)
 	var list := VBoxContainer.new()
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -220,7 +220,7 @@ func _build_build_panel() -> void:
 			continue
 		var b := Button.new()
 		b.focus_mode = Control.FOCUS_NONE
-		b.custom_minimum_size = Vector2(320, 64)
+		b.custom_minimum_size = Vector2(335, 64)
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var h := HBoxContainer.new()
 		h.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -239,7 +239,7 @@ func _build_build_panel() -> void:
 		tv.add_child(UiTheme.label(def.name, 16, UiTheme.TEXT, true))
 		var d := UiTheme.label(def.desc, 12)
 		d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		d.custom_minimum_size.x = 200
+		d.custom_minimum_size.x = 190
 		tv.add_child(d)
 		var cost := HBoxContainer.new()
 		cost.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -278,8 +278,8 @@ func _on_placement(active: bool, type: String, valid: bool) -> void:
 	_bottom.get_parent().visible = not active
 	if active:
 		_place_ok.disabled = not valid
-		_place_label.text = "%s: Karte antippen oder ziehen, um den Platz zu wählen.%s" % [
-			Data.buildings[type].name, "" if valid else "\nHier ist kein Platz frei."]
+		_place_label.text = "%s: Tippe auf die Karte, um den Bauplatz zu wählen.%s" % [
+			Data.buildings[type].name, " Der Platz passt." if valid else "\nHier ist kein Platz frei."]
 	_layout()
 
 
