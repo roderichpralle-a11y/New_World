@@ -1,0 +1,23 @@
+{
+  "lagerfeuer": {
+    "name": "Lagerfeuer", "desc": "Herz der Siedlung. Hier wird gelagert, gegessen und gewärmt.",
+    "size": [1, 1], "sprite": "campfire", "buildable": false,
+    "storage": 60, "light": true, "work": 0, "cost": {}
+  },
+  "huette": {
+    "name": "Hütte", "desc": "Wohnraum für 2 Siedler. Mehr Hütten bedeuten mehr Nachwuchs.",
+    "size": [3, 2], "sprite": "hut", "buildable": true,
+    "housing": 2, "work": 18, "cost": {"holz": 12}, "light": true
+  },
+  "lager": {
+    "name": "Lagerhaus", "desc": "Mehr Platz für Vorräte und ein zweiter Ablageplatz.",
+    "size": [3, 2], "sprite": "storehouse", "buildable": true,
+    "storage": 80, "work": 26, "cost": {"holz": 16, "stein": 8}
+  },
+  "feld": {
+    "name": "Getreidefeld", "desc": "Ein Bauer sät und erntet hier regelmäßig Getreide.",
+    "size": [2, 2], "sprite": "field", "buildable": true, "ground": true,
+    "work": 6, "cost": {"holz": 4},
+    "farm": {"yield": "weizen", "amount": 12, "grow_days": 1.0, "sow_time": 3.0, "harvest_time": 1.2}
+  }
+}

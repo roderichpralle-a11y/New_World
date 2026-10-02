@@ -1,0 +1,17 @@
+holz
+stein
+beeren
+fisch
+weizen
+nahrung
+person
+haus
+hammer
+herz
+sonne
+mond
+pause
+play
+schnell
+menu
+abriss

@@ -1,0 +1,6 @@
+{
+  "holz":    {"name": "Holzarbeit"},
+  "stein":   {"name": "Steinarbeit"},
+  "nahrung": {"name": "Nahrung"},
+  "bauen":   {"name": "Bauen"}
+}

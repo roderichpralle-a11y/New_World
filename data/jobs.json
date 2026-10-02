@@ -1,0 +1,9 @@
+{
+  "frei":        {"name": "Frei",        "desc": "Hilft dort, wo es gerade nötig ist.", "skill": "", "tool": "", "targets": []},
+  "holzfaeller": {"name": "Holzfäller",  "desc": "Fällt Bäume und bringt Holz.",       "skill": "holz",    "tool": "axe",    "targets": ["baum"]},
+  "steinmetz":   {"name": "Steinmetz",   "desc": "Schlägt Steine aus Felsen.",         "skill": "stein",   "tool": "pick",   "targets": ["fels"]},
+  "sammler":     {"name": "Sammler",     "desc": "Pflückt Beeren von Sträuchern.",     "skill": "nahrung", "tool": "basket", "targets": ["busch"]},
+  "fischer":     {"name": "Fischer",     "desc": "Angelt an Fischgründen am Ufer.",    "skill": "nahrung", "tool": "rod",    "targets": ["fischgrund"]},
+  "bauer":       {"name": "Bauer",       "desc": "Bestellt die Getreidefelder.",       "skill": "nahrung", "tool": "sickle", "targets": ["farm"]},
+  "baumeister":  {"name": "Baumeister",  "desc": "Bringt Material und errichtet Gebäude.", "skill": "bauen", "tool": "hammer", "targets": ["construction"]}
+}

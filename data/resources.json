@@ -1,0 +1,7 @@
+{
+  "holz":   {"name": "Holz",     "icon": "holz",   "category": "material", "order": 0},
+  "stein":  {"name": "Stein",    "icon": "stein",  "category": "material", "order": 1},
+  "beeren": {"name": "Beeren",   "icon": "beeren", "category": "food", "nutrition": 22, "order": 10},
+  "fisch":  {"name": "Fisch",    "icon": "fisch",  "category": "food", "nutrition": 34, "order": 11},
+  "weizen": {"name": "Getreide", "icon": "weizen", "category": "food", "nutrition": 26, "order": 12}
+}
