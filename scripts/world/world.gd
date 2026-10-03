@@ -474,6 +474,8 @@ func on_building_completed(b: Building) -> void:
 		assign_homes()
 	if b.def.has("effects"):
 		Game.refresh_effects()
+	if b.def.has("harbor"):
+		sync_ships()
 	Game.stock_changed.emit()
 	Game.population_changed.emit()
 
@@ -501,6 +503,8 @@ func demolish(b: Building) -> void:
 		Game.select(null)
 	spawn_effect("dust", b.position)
 	b.queue_free()
+	if b.def.has("harbor"):
+		sync_ships.call_deferred()
 	for res in refund:
 		Game.add_stock(res, refund[res], self)
 	assign_homes()
@@ -1286,18 +1290,14 @@ func harbor_cell() -> Vector2i:
 ## Zeigt die Schiffe, die gerade bei dieser Insel liegen, im Wasser vor den Haefen.
 func sync_ships() -> void:
 	var here: Array = Sea.ships_at(island_id)
-	var ids := here.map(func(sh): return int(sh.id))
+	# Immer neu verteilen: Haefen koennen dazugekommen oder verschoben worden sein
 	for id in _ship_nodes.keys():
-		if not id in ids:
-			_ship_nodes[id].queue_free()
-			_ship_nodes.erase(id)
+		_ship_nodes[id].queue_free()
+	_ship_nodes.clear()
 	var taken := []
-	for id in _ship_nodes:
-		taken.append(pos_to_cell(_ship_nodes[id].position))
+	here.sort_custom(func(a, b): return int(Sea.ship_def(a).get("size", 1)) > int(Sea.ship_def(b).get("size", 1)))
 	for sh in here:
 		var id := int(sh.id)
-		if _ship_nodes.has(id):
-			continue
 		var spot = _ship_spot(taken)
 		if spot == null:
 			continue
@@ -1309,10 +1309,9 @@ func sync_ships() -> void:
 
 
 func _ship_spot(taken: Array):
-	var anchors := []
-	for b in buildings:
-		if b.complete and b.def.has("harbor"):
-			anchors.append(b.entrance_cell())
+	var hs := buildings.filter(func(b): return b.complete and b.def.has("harbor"))
+	hs.sort_custom(func(a, b): return int(a.def.harbor.get("level", 1)) > int(b.def.harbor.get("level", 1)))
+	var anchors := hs.map(func(b): return b.entrance_cell())
 	anchors.append(landing_cell())
 	for a in anchors:
 		var best = null

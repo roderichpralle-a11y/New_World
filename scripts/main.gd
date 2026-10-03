@@ -235,6 +235,10 @@ func _maybe_autotest() -> void:
 					hud._build_cat = args.get("cat", "nahrung")
 					hud._fill_build_list()
 					hud._toggle(hud._build_panel)
+		if args.has("shipcam") and not world._ship_nodes.is_empty():
+			var spn = world._ship_nodes.values()[0]
+			print("Schiffe im Bild: ", world._ship_nodes.size(), " Hafen ", world.harbor_cell(), " Schiff ", world.pos_to_cell(spn.position))
+			camera.focus(spn.position)
 		if args.has("selectb"):
 			for b in world.buildings:
 				if b.type == args.selectb:
@@ -339,7 +343,7 @@ func _autotest_sea_tick(elapsed: float) -> void:
 			home_w.spawn_newcomer("m")
 		home_w.stock["kogge"] = 1
 		Sea._ship_tick_all()
-		var kg := Sea.ships[-1]
+		var kg: Dictionary = Sea.ships[-1]
 		Sea.hire_sailor(kg)
 		Sea.hire_sailor(kg)
 		kg.route = [{"island": 0, "load": {"holz": 80, "bretter": 10}}, {"island": int(col_w.island_id), "load": {"fisch": 20}}]
