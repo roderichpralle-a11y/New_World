@@ -208,9 +208,21 @@ func situation(w) -> Dictionary:
 			predators += 1
 	var farms: int = w.buildings.filter(func(b): return b.complete and b.def.has("farm")).size()
 	var vit_low: int = w.settlers.filter(func(s): return s.mind.vit < float(Data.ppl("vit_low", 30.0))).size()
+	# Wie viel Essen sollte im Lager sein? Ein Erwachsener isst etwa 3 am Tag. Vor und im Winter
+	# wächst kaum etwas nach, dann braucht es einen Vorrat bis zum Frühling.
+	var eaters: float = adults.size() + kids * 0.5
+	var reserve := 6.0
+	match season:
+		Seasons.SUMMER:
+			reserve += 6.0
+		Seasons.AUTUMN:
+			reserve += 9.0
+		Seasons.WINTER:
+			reserve += 3.0 * dleft
 	return {
 		"pop": pop, "adults": adults.size(), "kids": kids, "food": food,
 		"food_head": float(food) / pop, "season": season, "heat": heat,
+		"food_target": maxf(10.0, eaters * reserve), "food_ratio": float(food) / maxf(10.0, eaters * reserve),
 		"wood": Game.amount("holz", w), "stone": Game.amount("stein", w),
 		"wood_target": 25.0 + heat + need_wood, "stone_target": 15.0 + need_stone,
 		"sites": sites.size(), "housing": Game.housing_capacity(w), "predators": predators,
@@ -225,14 +237,14 @@ func situation_scores(w, sit: Dictionary = {}) -> Dictionary:
 		sit = situation(w)
 	var wood_def := clampf(1.0 - float(sit.wood) / maxf(1.0, float(sit.wood_target)), 0.0, 1.0)
 	var sc := {}
-	sc["nahrung"] = clampf((10.0 - float(sit.food_head)) / 10.0, 0.0, 1.0) * 1.3 + (0.2 if int(sit.vit_low) > 0 else 0.0)
+	sc["nahrung"] = clampf(1.0 - float(sit.food_ratio), 0.0, 1.0) * 1.3 + (0.2 if int(sit.vit_low) > 0 else 0.0)
 	match int(sit.season):
 		Seasons.SPRING:
 			sc["winter"] = 0.0
 		Seasons.SUMMER:
-			sc["winter"] = 0.25 + wood_def * 0.8
+			sc["winter"] = 0.25 + wood_def * 0.8 + clampf(1.0 - float(sit.food_ratio), 0.0, 1.0) * 0.4
 		Seasons.AUTUMN:
-			sc["winter"] = 0.45 + wood_def
+			sc["winter"] = 0.45 + wood_def + clampf(1.0 - float(sit.food_ratio), 0.0, 1.0) * 0.4
 		_:
 			sc["winter"] = wood_def * 1.1
 	var crowded: bool = int(sit.pop) >= int(sit.housing) - 1
@@ -254,7 +266,7 @@ func situation_scores(w, sit: Dictionary = {}) -> Dictionary:
 func desired_jobs(w, sit: Dictionary) -> Dictionary:
 	var want := {}
 	var eaters: float = float(sit.adults) + float(sit.kids) * 0.5
-	var f := lerpf(1.5, 0.6, clampf(float(sit.food_head) / 25.0, 0.0, 1.0))
+	var f := clampf(1.6 - 0.7 * float(sit.food_ratio), 0.6, 1.6)
 	var food_n := eaters / float(cfg("gatherer_feeds", 1.5)) * f
 	# Wo gibt es Nahrung? Felder, Fischgründe, Sträucher (im Winter kahl)
 	var fish := 0
@@ -324,7 +336,7 @@ func job_slots(w, sit: Dictionary, avail: int) -> Dictionary:
 	for j in slots:
 		used += int(slots[j])
 	var spare := avail - used
-	if float(sit.food_head) < 15.0:
+	if float(sit.food_ratio) < 1.5:
 		for j in ["bauer", "fischer", "sammler"]:
 			while spare > 0 and float(slots.get(j, 0)) < float(_caps.get(j, 0.0)) * (1.0 if j == "bauer" else 0.7):
 				slots[j] = int(slots.get(j, 0)) + 1
@@ -444,6 +456,8 @@ func _why_job(w, j: String, sit: Dictionary) -> String:
 		"sammler", "fischer", "bauer":
 			if float(sit.food_head) < 5.0:
 				return "Das Essen wird knapp (%d je Kopf)." % int(sit.food_head)
+			if int(sit.season) in [Seasons.SUMMER, Seasons.AUTUMN] and float(sit.food_ratio) < 1.0:
+				return "Wir brauchen Vorrat für den Winter (%d von %d)." % [int(sit.food), int(sit.food_target)]
 			return "Wir brauchen jeden Tag Essen."
 		"koch":
 			return "Die Küche macht haltbares, sättigendes Essen."
@@ -942,7 +956,8 @@ func _choose_building(w, sit: Dictionary) -> Dictionary:
 				cands.append({"type": t, "why": "Die Häuser sind voll (%d Siedler, %d Plätze)." % [int(sit.pop), int(sit.housing)], "cat": "wohnen"})
 				break
 	# Lager: wenn es voll wird
-	if float(sit.storage_full) > 0.85:
+	# (Nicht, wenn das Lager nur voller Holz und Stein im Überfluss ist)
+	if float(sit.storage_full) > 0.85 and float(sit.wood) < float(sit.wood_target) * 3.0 and float(sit.stone) < float(sit.stone_target) * 5.0:
 		var t := "grosslager" if Game.is_unlocked("grosslager") and Game.can_afford(Data.buildings.grosslager.cost, w) else "lager"
 		if Game.can_afford(Data.buildings[t].cost, w):
 			cands.append({"type": t, "why": "Das Lager ist fast voll.", "cat": "lager"})
@@ -1071,6 +1086,11 @@ func choose_research(strat: String, w) -> String:
 				v += 2.5
 		if Game.can_afford(def.get("cost", {}), w):
 			v += 1.5
+		# Mehr Siedler brauchen Felder, Mühle und Bäckerei: Nahrungsbauten sind immer wichtig
+		if w.settlers.size() >= 5:
+			for b in Data.buildings:
+				if Data.buildings[b].get("requires", "") == t and Data.buildings[b].get("category", "") == "nahrung":
+					v += 2.0
 		if v > best_v:
 			best_v = v
 			best = t
