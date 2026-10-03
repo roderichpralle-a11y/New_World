@@ -901,8 +901,8 @@ func _plan_buildings(w) -> void:
 		return
 	var sit := situation(w)
 	# Essen geht vor: fehlen Felder, legt der Rat sofort eines an (kostet wenig)
-	if int(sit.season) in [Seasons.SPRING, Seasons.SUMMER] and float(sit.food_head) < 20.0 \
-			and _count(w, ["feld", "obstgarten"]) < ceili(int(sit.pop) / 3.0) and Game.can_afford(Data.buildings.feld.cost, w):
+	if int(sit.season) in [Seasons.SPRING, Seasons.SUMMER] \
+			and _count(w, ["feld", "obstgarten"]) < ceili(int(sit.pop) / 2.5) and Game.can_afford(Data.buildings.feld.cost, w):
 		var t := "feld"
 		if Game.is_unlocked("obstgarten") and _count(w, ["obstgarten"]) * 3 < _count(w, ["feld"]) and int(sit.vit_low) > 0:
 			t = "obstgarten"
@@ -1090,7 +1090,7 @@ func choose_research(strat: String, w) -> String:
 		if w.settlers.size() >= 5:
 			for b in Data.buildings:
 				if Data.buildings[b].get("requires", "") == t and Data.buildings[b].get("category", "") == "nahrung":
-					v += 2.0
+					v += 3.0
 		if v > best_v:
 			best_v = v
 			best = t
