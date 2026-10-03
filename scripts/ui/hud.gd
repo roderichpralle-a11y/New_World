@@ -202,7 +202,7 @@ func _refresh_top() -> void:
 	_food_label.text = "%d" % food
 	var parts := []
 	for id in Data.food_ids():
-		parts.append("%s: %d" % [Data.resource_name(id), Game.amount(id)])
+		parts.append("%s: %d  (sättigt %d, Vitamine %d)" % [Data.resource_name(id), Game.amount(id), int(Data.food_satiety(id)), int(Data.food_vitamins(id))])
 	_food_label.get_parent().tooltip_text = "Nahrung\n" + "\n".join(parts) + "\nStauraum: %d von %d belegt" % [Game.used_volume(), Game.storage_volume()]
 	var pop := Game.population()
 	_food_label.add_theme_color_override("font_color", UiTheme.BAD if food < pop * 3 else UiTheme.TEXT)
@@ -1207,7 +1207,8 @@ Satt, gesund, abwechslungsreiches Essen und ein schönes Zuhause machen gute Lau
 Am Anfang kennen die Siedler nur Arbeit. Je weiter deine Siedlung entwickelt ist (siehe Lebensstil in der Siedlerliste), desto mehr Freizeit wollen sie: am Feuer plaudern, am Strand spazieren, mit Kindern spielen oder lesen. Bekommen sie keine, sind sie überarbeitet und schlecht gelaunt. In einer Hungersnot arbeiten alle durch.
 
 [b]Nahrung[/b]
-Siedler essen am Lagerfeuer. Ohne Nahrung werden sie schwach und verhungern. Beeren wachsen nach, Fische auch, und Getreidefelder bringen viel Ertrag.
+Siedler essen am Lagerfeuer. Jede Speise sättigt unterschiedlich stark und bringt unterschiedlich viele Vitamine: Beeren, Äpfel und Kokosnüsse machen kaum satt, sind aber voller Vitamine. Brot, Räucherfisch und Fleisch machen lange satt, haben aber kaum Vitamine. Rohes Getreide sättigt schlecht, erst Mühle und Bäckerei machen daraus gutes Brot.
+Wer hungert, arbeitet langsamer und verhungert schließlich. Wer zu wenig Vitamine bekommt, arbeitet ebenfalls langsamer, wird leichter krank und bekommt Skorbut. Sorge also für satt machende Speisen und für Obst. Im Fenster eines Siedlers siehst du seine Vitamine. Ist das Lager leer, essen Hungrige direkt am Strauch oder am Ufer. Sammelplätze sind schnell leer gepflückt und wachsen nur langsam nach.
 
 [b]Nachwuchs[/b]
 Kinder kommen nur zur Welt, wenn es freie Wohnplätze in Hütten gibt und genug Nahrung im Lager ist. In Holzhäusern kommen 40 % öfter Kinder zur Welt, in Steinhäusern 80 %. Kinder werden nach 3 Tagen erwachsen, mit einer Schule (Forschung Unterricht) doppelt so schnell. Niemand lebt ewig, also sorge rechtzeitig für Nachwuchs.

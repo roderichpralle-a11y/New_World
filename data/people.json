@@ -16,10 +16,6 @@
   "vit_start": 70.0,
   "vit_low": 30.0,
   "vit_scurvy": 12.0,
-  "default_vitamins": {
-    "beeren": 26, "aepfel": 30, "kokos": 18, "pilze": 14, "weizen": 4, "brot": 4,
-    "fisch": 8, "raeucherfisch": 4, "eier": 8, "fleisch": 6
-  },
   "diet_memory": 8,
 
   "sick_base_per_day": 0.07,

@@ -166,10 +166,7 @@ func leisure_share() -> float:
 
 # ================================================================== Essen
 func vitamins_of(food: String) -> float:
-	var r: Dictionary = Data.resources.get(food, {})
-	if r.has("vitamins"):
-		return float(r.vitamins)
-	return float(Data.ppl("default_vitamins", {}).get(food, 6))
+	return Data.food_vitamins(food)  # einzige Quelle: resources.json
 
 
 ## Wird nach jeder Mahlzeit gerufen (Sorte, optional Vitamine aus dem Ernaehrungsmodell).

@@ -245,3 +245,13 @@ func animal_tex(type: String, frame: int) -> AtlasTexture:
 ## Beruf ist freigeschaltet (manche brauchen eine Forschung).
 func job_unlocked(job: String) -> bool:
 	return Game.is_researched(jobs.get(job, {}).get("requires", ""))
+
+
+## Saettigung einer Speise (Punkte auf der Satt-Leiste, 0-100).
+func food_satiety(id: String) -> float:
+	return float(resources.get(id, {}).get("nutrition", 0.0))
+
+
+## Vitamine einer Speise (Punkte auf der Vitamin-Leiste, 0-100).
+func food_vitamins(id: String) -> float:
+	return float(resources.get(id, {}).get("vitamins", 0.0))
