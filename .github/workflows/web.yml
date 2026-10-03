@@ -1,9 +1,9 @@
 name: Web-Version bauen und veröffentlichen
 
-# main -> Spiel unter /, Testzweig -> Testversion unter /test/ (eigener Spielstand)
+# main -> Spiel unter /, Testzweig -> Testversion unter /test/, KI-Zweig -> KI-Version unter /ki/ (je eigener Spielstand)
 on:
   push:
-    branches: [main, claude/entwicklungsbaum-x33t1h]
+    branches: [main, claude/entwicklungsbaum-x33t1h, claude/ki-variante-oexba8]
   workflow_dispatch:
 
 permissions:
@@ -49,6 +49,6 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: build/web
-          destination_dir: ${{ github.ref_name == 'main' && '.' || 'test' }}
+          destination_dir: ${{ github.ref_name == 'main' && '.' || (github.ref_name == 'claude/ki-variante-oexba8' && 'ki' || 'test') }}
           keep_files: true
           commit_message: Web-Version (${{ github.ref_name }})

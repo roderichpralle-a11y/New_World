@@ -204,6 +204,8 @@ func _maybe_autotest() -> void:
 							e[2] = minf(e[2], n.regrow_at - Game.time_days)
 						ns[n.type] = e
 				print("   Knoten [Anzahl, Vorrat, naechstes Nachwachsen in Tagen]: ", ns)
+			if args.has("kitest"):
+				_report_society(args.get("kiauto", ""))
 			print("   %s, Jahr %d: Holz %d, frierend %d Inseln" % [Seasons.short_text(), Seasons.year(), Game.amount("holz"), Seasons.cold.size()])
 			print("t=%d Tag %d %s pop=%d/%d holz=%d stein=%d food=%d | %s" % [elapsed, Game.day(), Game.clock_text(),
 				Game.population(), Game.housing_capacity(), Game.amount("holz"), Game.amount("stein"), Game.total_food(), jobs])
@@ -266,6 +268,13 @@ func _maybe_autotest() -> void:
 						sp._on_map_input(drag)
 						sp._pressed = false
 						print("Seekarte Zoom: ", sp._zoom, " Verschiebung: ", sp._pan)
+				"rat", "debatte":
+					hud._open_council()
+					if args.panel == "debatte":
+						Society.start_debate(world, "wissen")
+						Society.argue("lage")
+						hud._council_panel._view = "debatte"
+						hud._council_panel.refresh()
 				"settlers":
 					hud._toggle(hud._settler_panel)
 					hud._refresh_settler_list()
@@ -310,6 +319,42 @@ func _maybe_autotest() -> void:
 		print("Screenshot: ", args.shot)
 	Game.save_game()
 	get_tree().quit()
+
+
+## KI-Variante: Strategie, Vertrauen, Häuser und offene Anliegen je Insel.
+## --kiauto=ja|nein|rede|befehl beantwortet alle Anliegen automatisch.
+func _report_society(auto: String) -> void:
+	for w in Sea.all_worlds():
+		var st: Dictionary = Society.state(w)
+		var hs := []
+		for h in Society.households.get(int(w.island_id), []):
+			hs.append("%s(%d,%s)" % [h.name, h.size, h.domain])
+		print("   KI %s: Strategie %s, Vertrauen %d, Rat: %s | Häuser: %s" % [Sea.island_name(w), st.strategy, int(st.trust),
+			Society.tally_text(st.votes), ", ".join(hs)])
+		var counts := {}
+		for s in w.settlers:
+			counts[s.job] = int(counts.get(s.job, 0)) + 1
+		print("   Berufe: ", counts, " Laune: ", w.settlers.map(func(s): return int(s.mind.mood)))
+	for r in Society.requests.duplicate():
+		print("   Anliegen: ", r.title, " | ", r.text)
+		if auto == "ja" or (auto == "rede" and r.kind != "strategie"):
+			print("     -> ja: ", Society.answer(int(r.id), "ja"))
+		elif auto == "nein":
+			print("     -> nein: ", Society.answer(int(r.id), "nein"))
+		elif auto == "rede" and r.kind == "strategie":
+			var w2 = Sea.worlds.get(int(r.isl))
+			Society.start_debate(w2, "wissen", int(r.id))
+			for a in Society.arguments():
+				if Society.debate.done:
+					break
+				Society.argue(a[0])
+			for l in Society.debate.lines:
+				print("     %s: %s" % l)
+			if not Society.debate.won:
+				Society.command(w2, "wissen")
+				print("     -> bestimmt")
+		elif auto == "befehl" and r.kind == "strategie":
+			Society.command(Sea.worlds.get(int(r.isl)), "bauen")
 
 
 ## Charakter-Test: taeglicher Bericht ueber Laune, Krankheit, Vitamine und Arbeitskraft.

@@ -364,6 +364,50 @@ neues Zeitalter meldet `_finish_research` es. Im Forschungsmenü steht über jed
 - **Grafik**: `tools/gen_art_ages.py` (Gebäude ab Zelle 35 in buildings.png, Symbole `ICONS_AGES`).
 - **Test**: `--prodtest=1 --ages=1` baut nur die Gebäude der neuen Zeitalter.
 
+## KI-Variante (Siedler denken selbst, Inselrat, Herrscher)
+
+Eigene Ausgabe unter `/New_World/ki/` (Zweig `claude/ki-variante-oexba8`, Workflow legt ihn nach
+`gh-pages/ki`). Erkennung in `Game._detect_test_build`: Webadresse mit `/ki/` (lokal `--kimode=1`) setzt
+`Game.is_ki_build` und `Society.enabled`, speichert in `user://savegame_ki.json` (kopiert beim ersten Start
+den normalen Spielstand) und lässt die Einführung weg. Ohne `/ki/` tut `Society` nichts, das normale
+Spiel bleibt unverändert. Der letzte Stand vor der KI-Variante liegt im Zweig `version-1.0`.
+
+Autoload `Society` (`scripts/autoload/society.gd`), alle Zahlen in `data/society.json`:
+- **Denken** (`_think`, alle `think_days` je Insel): `situation(w)` sammelt Lage (Essen je Kopf,
+  Heizholz bis zum Frühling, Baustellen, Raubtiere, Felder ...). `desired_jobs` rechnet, wie viele
+  Arbeiter jeder Beruf bräuchte (ein Sammler ernährt `gatherer_feeds` Esser), `job_slots` gewichtet mit
+  der Strategie und passt auf die verfügbaren Siedler an (Seeleute, Kranke im Bett und vom Herrscher
+  Bestimmte zählen nicht). Offene Plätze füllt, wer frei ist oder aus einem überbesetzten Beruf kommt,
+  nach `preference` (Begabung, Können, Gewohnheit, Absprache des Hauses, Lieblingsberuf). Höchstens
+  `max_changes_per_think` Wechsel, jeder Siedler höchstens alle `change_cooldown_days`. `thoughts[id]`
+  ist der Gedanke im Infofenster. Das KI-Zentrum (`AiJobs`) ist in dieser Variante aus.
+- **Häuser** (`_make_households`): Bewohner eines Hauses (`home_id`, ohne Haus „Am Lagerfeuer“) mit
+  einem Sprecher (bleibt, solange er dort wohnt). Die Häuser teilen sich die Bereiche `DOMAINS` nach
+  Bedarf und Begabung, das gibt Vorrang bei der Berufswahl. Kranke im Bett heilen schneller, wenn
+  jemand im Haus sie pflegt (`care_heal_bonus`).
+- **Inselrat** (`_council`, alle `council_days`): jeder Sprecher stimmt nach `opinion` (Lage aus
+  `situation_scores` plus eigene Sicht: Hunger im Haus, enges Haus, Klugheit, Fleiß, Gemüt, Gesundheit)
+  für eine Strategie aus `strategies`. Gleichstand behält die alte. Eine neue Mehrheit wird ein Anliegen.
+- **Anliegen** (`requests`, `add_request`, je Insel und Art nur eines, danach Pause): `strategie`, `bau`
+  (große Bauten über `small_build_cost`; kleine baut der Rat selbst, `_plan_buildings` und `find_spot`),
+  `forschung` (Insel mit den meisten Siedlern, `choose_research` nach Strategie), `fest`, `freizeit`,
+  `ueberstunden`, `hilfe` (eine reiche Insel schickt ein freies Schiff mit Essen oder Holz). Antwort über
+  `answer(id, "ja"|"nein")`; nach `request_days` entscheidet der Rat bei Strategie, Bau, Forschung und
+  Überstunden selbst, sonst sinkt das Vertrauen leicht.
+- **Herrscher**: Vertrauen je Insel 0–100 (`trust`), wirkt auf Laune und Überzeugungskraft.
+  `start_debate(w, strategie)` → `argue("lage"|"gemeinwohl"|"fest"|"freizeit")`: jedes Argument gibt je
+  Sprecher Kraft (Lage nur, wenn sie wirklich dafür spricht, mal Klugheit; Gemeinwohl mal Gemüt;
+  Versprechen für alle) mal Vertrauen; überzeugt ist, wessen Kraft seinen Widerstand (Abstand seiner
+  Lieblingsstrategie) erreicht. Mehrheit = neue Strategie, Versprechen werden eingelöst. `command`
+  setzt durch (Vertrauen −12, zwei Tage schlechte Laune). `order_job` (Beruf im Infofenster) gilt einen Tag.
+- **Wirkungen**: `Society.work_mult(w)` in `Settler.work_factor` (Fest, Freizeit, Überstunden),
+  `Society.mood_reasons(s)` in `SettlerMind._update_mood`, `Society.on_attack` aus `Settler.take_damage`.
+- **Oberfläche**: Knopf „Rat (n)“ und `scripts/ui/council_panel.gd` (Inselreiter, Strategie, Vertrauen,
+  Anliegen als Karten, Abstimmung, Häuser, Chronik, Diskussion). Spielanleitung beginnt mit `HELP_KI`.
+- **Spielstand**: `society` {isl, requests, next_req, orders, welcomed}; fehlt er, startet alles neu.
+- **Test**: `--kimode=1 --kitest=1 [--kiauto=ja|nein|rede|befehl] [--crowd=10]`, Bildschirmfoto
+  `--panel=rat` bzw. `--panel=debatte`.
+
 ## Testversion
 
 Pushes auf den Zweig `claude/entwicklungsbaum-x33t1h` landen unter `/New_World/test/`, main unter `/`
@@ -380,6 +424,7 @@ Pushes auf den Zweig `claude/entwicklungsbaum-x33t1h` landen unter `/New_World/t
 | `scripts/autoload/game.gd` | Zeit, Vorräte, Nachwuchs, Abstammung, Forschung und Effekte, Speichern/Laden |
 | `scripts/autoload/seasons.gd` | Jahreszeiten: Kalender, Wachstum, Heizen, Verderb, Frost, Schnee |
 | `scripts/autoload/sea.gd` | Inseln, Welten je Insel, Schiffsreisen, Inselwechsel |
+| `scripts/autoload/society.gd` | KI-Variante: Siedler denken selbst, Häuser, Inselrat, Anliegen an den Herrscher |
 | `scripts/world/island_gen.gd` | Inselgenerator (Seed → Gelände + Rohstoffe) |
 | `scripts/world/world.gd` | Tilemaps, Wegfindung (AStarGrid2D), Entitäten, Bauen, Effekte, Tag/Nacht |
 | `scripts/world/game_camera.gd` | Ziehen, Zoom (Mausrad, zwei Finger), Tippen |

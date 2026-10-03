@@ -18,6 +18,7 @@ Game="*res://scripts/autoload/game.gd"
 Sea="*res://scripts/autoload/sea.gd"
 Sound="*res://scripts/autoload/sound.gd"
 Seasons="*res://scripts/autoload/seasons.gd"
+Society="*res://scripts/autoload/society.gd"
 
 [display]
 

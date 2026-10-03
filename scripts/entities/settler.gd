@@ -375,7 +375,7 @@ func carry_capacity() -> int:
 ## Arbeitstempo fuer eine Faehigkeit inklusive Forschungsboni.
 func work_factor(sk: String, bonus: String = "") -> float:
 	var f := skill_factor(sk) * Game.eff("work") * Seasons.work_mult(world) * mind.work_power() \
-		* float(Data.bal("work_pace", 1.0))
+		* float(Data.bal("work_pace", 1.0)) * Society.work_mult(world)
 	if bonus != "":
 		f *= Game.eff(bonus)
 	return f
@@ -1155,6 +1155,7 @@ func take_damage(n: float, by) -> void:
 		return
 	health -= n
 	_hurt = 0.2
+	Society.on_attack(world)
 	Sound.play_at("autsch", world, position)
 	_danger_t = 0.0
 	world.spawn_effect("blood", position + Vector2(0, -8))

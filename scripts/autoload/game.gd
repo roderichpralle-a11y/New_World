@@ -18,6 +18,8 @@ const LIVE_SAVE_PATH := "user://savegame.json"
 ## übernimmt sie eine Kopie des normalen Spielstands; der normale bleibt unberührt.
 var SAVE_PATH := LIVE_SAVE_PATH
 var is_test_build := false
+## KI-Variante (Webadresse mit /ki/): Siedler steuern sich selbst, Inselrat, Herrscher (Society).
+var is_ki_build := false
 const SAVE_VERSION := 3
 
 var world = null  # aktive (sichtbare) Insel, siehe Sea fuer alle Inseln
@@ -58,6 +60,16 @@ func _detect_test_build() -> void:
 		path = str(JavaScriptBridge.eval("window.location.pathname", true))
 	if "--testbuild" in OS.get_cmdline_user_args():
 		path = "/test/"
+	if "--kimode" in OS.get_cmdline_user_args() or "--kimode=1" in OS.get_cmdline_user_args():
+		path = "/ki/"
+	if "/ki/" in path:
+		# KI-Variante: eigener Spielstand, übernimmt beim ersten Start eine Kopie des normalen
+		is_ki_build = true
+		Society.enabled = true
+		SAVE_PATH = "user://savegame_ki.json"
+		if not FileAccess.file_exists(SAVE_PATH) and FileAccess.file_exists(LIVE_SAVE_PATH):
+			DirAccess.copy_absolute(LIVE_SAVE_PATH, SAVE_PATH)
+		return
 	if not "/test/" in path:
 		return
 	is_test_build = true
@@ -68,6 +80,7 @@ func _detect_test_build() -> void:
 
 func reset_state(new_seed: int) -> void:
 	seed_value = new_seed
+	Society.reset()
 	time_days = 0.25
 	stock = {}
 	store_limits = {}
@@ -76,6 +89,8 @@ func reset_state(new_seed: int) -> void:
 	lineage = {}
 	research = {"current": "", "progress": {}, "done": [], "paid": []}
 	goals = {"tut": 0, "ms": 0}
+	if is_ki_build:
+		goals.tut = 999  # KI-Variante: keine Einführung mit Berufe-Vergeben, der Rat erklärt sich selbst
 	Sea.reset(new_seed)
 	_recompute_effects()
 	selected = null
@@ -134,7 +149,7 @@ func _process(delta: float) -> void:
 		# KI-Steuerung (KI-Zentrum): freie Siedler auf fehlende Berufe verteilen
 		if time_days >= _ai_next:
 			_ai_next = time_days + 0.25
-			if eff_add("ai_jobs") > 0.0:
+			if eff_add("ai_jobs") > 0.0 and not Society.enabled:
 				for w in Sea.all_worlds():
 					AiJobs.tick(w)
 		# Geschichten am Lagerfeuer: ein kleines bisschen Forschung kommt immer voran
@@ -662,6 +677,8 @@ func save_game() -> void:
 		"goals": goals,
 	}
 	data.merge(Sea.serialize())
+	if Society.enabled:
+		data["society"] = Society.serialize()
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if f:
 		f.store_string(JSON.stringify(data))
@@ -716,6 +733,7 @@ func apply_save_header(d: Dictionary) -> void:
 		goals = {"tut": int(g.get("tut", 0)), "ms": int(g.get("ms", 0))}
 	else:
 		goals = {"tut": 999, "ms": 0, "catchup": true}
+	Society.load_from(d.get("society", {}))
 	_recompute_effects()
 	research_changed.emit()
 	is_over = false

@@ -53,6 +53,8 @@ var _updaters: Array = []
 var _research_tick: float = 0.0
 var _sea_panel: SeaPanel
 var _sea_btn: Button
+var _council_panel: CouncilPanel
+var _council_btn: Button
 var _island_label: Label
 var _build_btn: Button
 var goal_card: GoalCard
@@ -82,6 +84,10 @@ func setup(p_world: World, p_camera: GameCamera) -> void:
 	_sea_panel = SeaPanel.new()
 	root.add_child(_sea_panel)
 	_sea_panel.setup(self)
+	_council_panel = CouncilPanel.new()
+	root.add_child(_council_panel)
+	_council_panel.setup(self)
+	Society.changed.connect(_update_council_button)
 	_build_place_bar()
 	_toasts = VBoxContainer.new()
 	_toasts.position = Vector2(8, 56)
@@ -249,6 +255,11 @@ func _build_bottom() -> void:
 	_sea_btn = UiTheme.button("Inseln", "boot", 44)
 	_sea_btn.pressed.connect(_open_sea)
 	_bottom.add_child(_sea_btn)
+	_council_btn = UiTheme.button("Rat", "glocke", 44)
+	_council_btn.tooltip_text = "Rat der Inseln: Anliegen, Abstimmungen, Diskussion"
+	_council_btn.pressed.connect(_open_council)
+	_council_btn.visible = Society.enabled
+	_bottom.add_child(_council_btn)
 	var mb := UiTheme.button("Menü", "menu", 44)
 	mb.pressed.connect(func(): _toggle(_menu_panel))
 	_bottom.add_child(mb)
@@ -259,6 +270,21 @@ func _open_sea() -> void:
 	if not _sea_panel.visible:
 		_toggle(_sea_panel)
 	_layout()
+
+
+func _open_council() -> void:
+	_council_panel.open()
+	if not _council_panel.visible:
+		_toggle(_council_panel)
+	_layout()
+
+
+func _update_council_button() -> void:
+	if _council_btn == null:
+		return
+	var n := Society.requests.size()
+	_council_btn.text = "Rat (%d)" % n if n > 0 else "Rat"
+	_council_btn.visible = Society.enabled
 
 
 func _update_sea_button() -> void:
@@ -295,7 +321,7 @@ func _toggle(panel: Control) -> void:
 
 
 func _panels() -> Array:
-	return [_build_panel, _research_panel, _stock_panel, _settler_panel, _menu_panel, _help_panel, _sea_panel]
+	return [_build_panel, _research_panel, _stock_panel, _settler_panel, _menu_panel, _help_panel, _sea_panel, _council_panel]
 
 
 func _popup_panel(title: String) -> Array:
@@ -1212,6 +1238,14 @@ func _volume_row(text: String, icon_name: String, value: float, on_change: Calla
 	return h
 
 
+const HELP_KI := """[b]KI-Version: Du bist der Herrscher[/b]
+Deine Siedler denken selbst. Jeder wählt seine Arbeit nach dem, was gerade fehlt, und nach dem, was er gut kann. Was er denkt, steht im Infofenster.
+Die Bewohner eines Hauses halten zusammen: sie sprechen sich mit den anderen Häusern ab, wer sich um Nahrung, Holz und Stein, Bauen, Forschung oder Schutz kümmert, und pflegen Kranke im Haus.
+Jedes Haus schickt einen Sprecher in den [b]Inselrat[/b]. Alle zwei Tage stimmt der Rat über die Strategie ab: Nahrung sichern, Vorrat für den Winter, Wachsen, Bauen, Wissen, Schutz oder Seefahrt. Danach richten sich Berufe, Bauten und Forschung.
+Unter [b]Rat[/b] findest du die Anliegen der Inseln: neue Strategien, große Bauten, Forschung, Feste, mehr Freizeit, Überstunden, Hilfe von anderen Inseln. Du kannst zustimmen, ablehnen, mit Argumenten diskutieren oder bestimmen. Bestimmen kostet Vertrauen und drückt die Laune. Ohne Antwort entscheidet der Rat nach einem Tag selbst.
+Du kannst weiter selbst bauen, forschen und Schiffe schicken. Gibst du einem Siedler einen Beruf, gilt dein Befehl einen Tag lang.
+
+"""
 const HELP_TEXT := """[b]Ziel[/b]
 Führe deine kleine Siedlung durch die Generationen. Sorge für Nahrung, baue Hütten und lass deine Insel wachsen.
 
@@ -1286,7 +1320,7 @@ func _build_help_panel() -> void:
 	var v: VBoxContainer = r[1]
 	var rt := RichTextLabel.new()
 	rt.bbcode_enabled = true
-	rt.text = HELP_TEXT
+	rt.text = (HELP_KI + HELP_TEXT) if Society.enabled else HELP_TEXT
 	rt.custom_minimum_size = Vector2(360, 300)
 	rt.scroll_active = true
 	v.add_child(rt)
@@ -1451,6 +1485,16 @@ func _info_settler(s: Settler) -> void:
 		why.visible = not lines.is_empty())
 	var home = world.building_by_id(s.home_id)
 	_info_box.add_child(UiTheme.label("Zuhause: %s" % (home.def.name if home else "keins (schläft draußen)"), 13))
+	if Society.enabled:
+		var th := UiTheme.label("", 13, Color("#2a5a9a"))
+		th.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_info_box.add_child(th)
+		var upd := func():
+			var hh: Dictionary = Society.household_of(s)
+			var sp: String = " Sprecher im Inselrat." if not hh.is_empty() and hh.speaker == s else ""
+			th.text = "Denkt: %s%s" % [Society.thoughts.get(s.id, "Überlegt noch, was zu tun ist."), sp]
+		upd.call()
+		_updaters.append(upd)
 	_info_box.add_child(UiTheme.label("Eigenschaften", 15, UiTheme.TEXT, true))
 	var tdefs: Dictionary = Data.ppl("traits", {})
 	for k in SettlerMind.TRAITS:
@@ -1466,6 +1510,10 @@ func _info_settler(s: Settler) -> void:
 		_info_box.add_child(UiTheme.label("Kinder arbeiten noch nicht.", 13))
 	else:
 		_info_box.add_child(UiTheme.label("Beruf", 15, UiTheme.TEXT, true))
+		if Society.enabled:
+			var nl := UiTheme.label("Die Siedler wählen ihre Arbeit selbst. Bestimmst du einen Beruf, gilt dein Befehl einen Tag lang.", 12, DIM)
+			nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			_info_box.add_child(nl)
 		var grid := GridContainer.new()
 		grid.columns = 2
 		grid.add_theme_constant_override("h_separation", 4)
@@ -1487,6 +1535,7 @@ func _info_settler(s: Settler) -> void:
 				b.tooltip_text = tip + "\nBenötigt Forschung: %s" % Data.techs.get(jd.requires, {}).get("name", "?")
 			b.pressed.connect(func():
 				s.set_job(jid)
+				Society.order_job(s)
 				Game.player_action.emit("job", jid)
 				_rebuild_info())
 			grid.add_child(b)
@@ -1863,6 +1912,10 @@ func show_title(has_save: bool) -> void:
 	var st := UiTheme.label("Zwei Siedler. Eine Insel. Viele Generationen.", 15)
 	st.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(st)
+	if Game.is_ki_build:
+		var kb := UiTheme.label("KI-Version mit eigenem Spielstand: Die Siedler denken selbst,\njede Insel hat einen Rat, du bist der Herrscher.\nDein normales Spiel bleibt unverändert.", 14, Color("#2a5a9a"), true)
+		kb.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		v.add_child(kb)
 	if Game.is_test_build:
 		var tb := UiTheme.label("Testversion mit eigenem Spielstand.\nDein normales Spiel bleibt unverändert.", 14, Color("#c03a2a"), true)
 		tb.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

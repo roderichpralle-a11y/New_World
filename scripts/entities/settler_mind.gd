@@ -400,6 +400,8 @@ func _update_mood(days: float) -> void:
 		r.append([("Freut sich über: %s" if sm > 0.0 else "Leidet unter: %s") % Seasons.season_name(), sm * 60.0])
 	if not Seasons.is_warm(s.world):
 		r.append(["Friert (kein Heizholz)", -15.0])
+	# KI-Variante: Vertrauen in den Herrscher, Feste, Überstunden
+	r.append_array(Society.mood_reasons(s))
 	var target := base
 	for x in r:
 		target += float(x[1])
