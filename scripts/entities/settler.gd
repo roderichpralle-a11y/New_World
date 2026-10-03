@@ -374,7 +374,8 @@ func carry_capacity() -> int:
 
 ## Arbeitstempo fuer eine Faehigkeit inklusive Forschungsboni.
 func work_factor(sk: String, bonus: String = "") -> float:
-	var f := skill_factor(sk) * Game.eff("work") * Seasons.work_mult(world) * mind.work_power()
+	var f := skill_factor(sk) * Game.eff("work") * Seasons.work_mult(world) * mind.work_power() \
+		* float(Data.bal("work_pace", 1.0))
 	if bonus != "":
 		f *= Game.eff(bonus)
 	return f
@@ -928,7 +929,7 @@ func _do_research(b) -> void:
 	if not is_instance_valid(b) or not b.complete:
 		return
 	var pts := float(Data.bal("research_per_work", 1.0)) * float(b.research_def().get("factor", 1.0)) * skill_factor("wissen") \
-		* mind.research_factor() * mind.work_power()
+		* mind.research_factor() * mind.work_power() * float(Data.bal("work_pace", 1.0))
 	Game.add_research(pts)
 	gain_xp("wissen", 0.5)
 	b.mark_active(3.0)
