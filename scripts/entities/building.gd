@@ -352,7 +352,7 @@ func _process(delta: float) -> void:
 		_anim_t += 0.0 if type == "lagerfeuer" else delta
 		_light.energy = target * (0.75 if type == "lagerfeuer" else 0.45) * flicker
 		_light.visible = _light.energy > 0.02
-	if is_ground() and complete and farm_state == "growing":
+	if (is_ground() or def.has("farm")) and complete and farm_state == "growing":
 		# Jahreszeit: im Winter steht das Wachstum still, im Sommer geht es schneller
 		farm_time += Seasons.dt_days * (1.0 - Seasons.growth(type))
 		if Game.time_days - farm_time >= grow_days():

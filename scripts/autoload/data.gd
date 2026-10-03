@@ -11,6 +11,7 @@ var balance: Dictionary = {}
 var names: Dictionary = {}
 var techs: Dictionary = {}
 var tiers: Array = []
+var ages: Array = []  # Zeitalter: {name, tiers, desc}, siehe techs.json "_ages"
 var islands: Dictionary = {}  # Inselarten (Biome)
 var ships: Dictionary = {}  # Schiffsarten (data/ships.json)
 var animals: Dictionary = {}
@@ -52,6 +53,11 @@ const BUILDING_CELLS := {
 	"library": [19, 1], "shipyard": [20, 1], "tower": [21, 1], "lighthouse": [22, 2], "monument": [24, 1],
 	"school": [25, 1], "scriptorium2": [26, 1], "scriptorium3": [27, 1], "scriptorium4": [28, 1],
 	"jetty": [29, 1], "harbor": [30, 1], "harbor_big": [31, 1], "quay_wood": [32, 1], "quay_ore": [33, 1], "quay_food": [34, 1],
+	# Zeitalter (tools/gen_art_ages.py)
+	"glassworks": [35, 1], "papermill": [36, 1], "university": [37, 1], "steelworks": [38, 1],
+	"factory": [39, 1], "cannery": [40, 1], "tenement": [41, 1], "powerplant": [42, 1],
+	"greenhouse": [43, 1], "apartment": [44, 1], "electronics": [45, 1], "solarpark": [46, 1],
+	"lab": [47, 1], "ai_center": [48, 1], "fusion": [49, 1], "future_city": [50, 1],
 }
 ## Etappe 3 in objects2.png: name -> [x, y, w, h, frames]
 const OBJECT2_REGIONS := {
@@ -84,6 +90,8 @@ func _ready() -> void:
 	techs = _load("techs")
 	tiers = techs.get("_tiers", [])
 	techs.erase("_tiers")
+	ages = techs.get("_ages", [])
+	techs.erase("_ages")
 	islands = _load("islands")
 	ships = _load("ships")
 	goals = _load("goals")
@@ -215,6 +223,19 @@ func tech_unlocks(tech: String) -> Array:
 
 
 ## Bild fuer eine Forschung: eigenes Icon oder das erste freigeschaltete Gebaeude.
+## Index (0..) des Zeitalters, zu dem eine Forschungsstufe gehoert.
+func age_of_tier(tier: int) -> int:
+	for i in ages.size():
+		for x in ages[i].tiers:
+			if int(x) == tier:
+				return i
+	return maxi(0, ages.size() - 1)
+
+
+func age_name(i: int) -> String:
+	return String(ages[i].name) if i >= 0 and i < ages.size() else ""
+
+
 func tech_tex(tech: String) -> Texture2D:
 	var def: Dictionary = techs.get(tech, {})
 	if def.has("icon"):

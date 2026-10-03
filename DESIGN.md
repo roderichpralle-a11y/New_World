@@ -339,6 +339,38 @@ einmal aufgebaut ist. Dafür gilt:
   Vorrat und Nachwachsen der Nahrungsquellen. Der Bericht zeigt je Siedler Sättigung/Vitamine/Gesundheit
   und alles Gegessene.
 
+## Zeitalter
+
+`techs.json` hat neben `_tiers` (16 Stufennamen) die Liste `_ages`: acht Zeitalter mit je zwei Stufen
+(Steinzeit 1–2, Antike 3–4, Mittelalter 5–6, Renaissance 7–8, Industrialisierung 9–10, Moderne 11–12,
+Informationszeitalter 13–14, Zukunft 15–16). `Data.age_of_tier(tier)`, `Data.age_name(i)`,
+`Game.current_age()` = spätestes Zeitalter mit mindestens einer erforschten Sache. Beim Eintritt in ein
+neues Zeitalter meldet `_finish_research` es. Im Forschungsmenü steht über jedem Zeitalter eine
+Überschrift; Zeitalter jenseits des nächsten zeigen nur die Überschrift (`_age_header`).
+
+- **Neue Waren**: Glas, Papier, Stahl, Maschinen, Strom (Größe 0), Elektronik, Konserven (Nahrung 30/8,
+  verdirbt nicht). **Neue Werkstätten** (Handwerker): Glashütte, Papiermühle, Stahlwerk, Fabrik,
+  Kraftwerk, Elektronikwerk, Solarpark und Fusionsreaktor (ohne Rohstoffe); Konservenfabrik (Koch).
+  **Forschung**: Universität x3,5, Forschungslabor x6, KI-Zentrum x10 (je 4 Plätze). **Wohnen**:
+  Mietshaus 10, Wohnblock 16. **Gewächshaus**: Farm als Gebäude (nicht `ground`), wächst ganzjährig
+  (`seasons.json` growth `gewaechshaus`), der Bauer arbeitet am Eingang. **Zukunftsstadt**: Denkmal
+  des letzten Zeitalters.
+- **Neue Wirkungen**: `production` (Tempo aller Werkstätten, in `Settler.work_factor(..., "production")`),
+  `spoil` (Kühltechnik −0,75 auf den Verderb in `Seasons._spoil`), `ai_jobs` (KI-Zentrum).
+- **KI-Steuerung** (`scripts/world/ai_jobs.gd`, `AiJobs.tick(w)` alle 0,25 Tage aus `Game._process`):
+  steht ein KI-Zentrum, bekommt je Insel und Runde ein freier Siedler den Beruf, der am meisten fehlt
+  (Nahrung unter 6 je Siedler, Baustellen, leere Werkstätten, Holz/Stein knapp, freie Forschungsplätze);
+  bei Hungersnot wird auch ein Arbeiter aus Werkstatt oder Forschung zur Nahrung geholt.
+- **Grafik**: `tools/gen_art_ages.py` (Gebäude ab Zelle 35 in buildings.png, Symbole `ICONS_AGES`).
+- **Test**: `--prodtest=1 --ages=1` baut nur die Gebäude der neuen Zeitalter.
+
+## Testversion
+
+Pushes auf den Zweig `claude/entwicklungsbaum-x33t1h` landen unter `/New_World/test/`, main unter `/`
+(Workflow mit `destination_dir` und `keep_files`). Die Testversion speichert in
+`user://savegame_test.json` und kopiert beim ersten Start den normalen Spielstand
+(`Game._detect_test_build`, lokal `--testbuild`). Der Titel zeigt „Testversion“.
+
 ## Ordner
 
 | Pfad | Inhalt |

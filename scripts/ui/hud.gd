@@ -453,6 +453,7 @@ func _update_research_head() -> void:
 	var cur: String = Game.research.current
 	var n := _forscher_count()
 	var who := "Keine Forscher! Gib einem Siedler den Beruf Forscher." if n == 0 else "Forscher: %d" % n
+	who = "Zeitalter: %s. %s" % [Data.age_name(Game.current_age()), who]
 	if cur == "":
 		_research_label.text = "Wähle eine Forschung aus. %s" % who
 		_research_bar.value = 0
@@ -467,7 +468,7 @@ func _update_research_head() -> void:
 	_research_btn.text = label
 
 
-const ROMAN := ["I", "II", "III", "IV", "V", "VI", "VII"]
+const ROMAN := ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI"]
 
 
 func _fill_research_list() -> void:
@@ -477,8 +478,16 @@ func _fill_research_list() -> void:
 		c.queue_free()
 	_update_research_head()
 	var tier := 0
+	var age := -1
+	var cur_age := Game.current_age()
 	for t in Data.sorted_tech_ids():
 		var def: Dictionary = Data.techs[t]
+		var a := Data.age_of_tier(int(def.tier))
+		if a != age:
+			age = a
+			_research_list.add_child(_age_header(a, cur_age))
+		if a > cur_age + 1:
+			continue  # spaetere Zeitalter bleiben ein Geheimnis
 		if int(def.tier) != tier:
 			tier = int(def.tier)
 			var name: String = Data.tiers[tier - 1] if tier - 1 < Data.tiers.size() else ""
@@ -487,6 +496,28 @@ func _fill_research_list() -> void:
 		_research_list.add_child(_tech_row(t))
 	await get_tree().process_frame
 	_research_scroll.scroll_vertical = keep
+
+
+## Ueberschrift eines Zeitalters im Entwicklungsbaum; spaetere Zeitalter nur angedeutet.
+func _age_header(a: int, cur_age: int) -> Control:
+	var box := HBoxContainer.new()
+	box.add_theme_constant_override("separation", 8)
+	box.add_child(UiTheme.icon_rect(Data.icon("zeitalter"), 28))
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 0)
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	box.add_child(v)
+	var state := "jetzt" if a == cur_age else ("erreicht" if a < cur_age else ("als Nächstes" if a == cur_age + 1 else "noch unbekannt"))
+	var col := Color("#2f6a3a") if a == cur_age else (Color("#7a4a28") if a <= cur_age + 1 else Color("#8a7a6a"))
+	var tl := UiTheme.label("Zeitalter %d: %s (%s)" % [a + 1, Data.age_name(a), state], 16, col, true)
+	tl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	tl.custom_minimum_size.x = 200
+	v.add_child(tl)
+	var d := UiTheme.label(Data.ages[a].get("desc", "") if a <= cur_age + 1 else "Erreiche erst das Zeitalter %s." % Data.age_name(a - 1), 12, col)
+	d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	d.custom_minimum_size.x = 200
+	v.add_child(d)
+	return box
 
 
 ## Hoehe einer Listenzeile, damit der umbrechende Text hineinpasst.
@@ -1219,7 +1250,10 @@ Kinder kommen nur zur Welt, wenn es freie Wohnplätze in Hütten gibt und genug 
 Wähle ein Gebäude und einen Bauplatz. Baumeister und freie Siedler bringen das Material und bauen es auf. Hütten und Holzhäuser lassen sich später im Infofenster ausbauen.
 
 [b]Forschung[/b]
-Im Entwicklungsbaum wählst du, was deine Siedler als Nächstes lernen. Forscher denken am Lagerfeuer nach, in Schreibstube und Bibliothek viel schneller. Jede Forschung schaltet neue Gebäude frei oder macht die Arbeit leichter. Sechs Stufen führen von Steinwerkzeugen über Eisen und Schiffsbau bis zum Goldenen Zeitalter.
+Im Entwicklungsbaum wählst du, was deine Siedler als Nächstes lernen. Forscher denken am Lagerfeuer nach, in Schreibstube und Bibliothek viel schneller. Jede Forschung schaltet neue Gebäude frei oder macht die Arbeit leichter. Acht Zeitalter mit sechzehn Stufen führen durch die Geschichte der Menschheit: Steinzeit, Antike, Mittelalter, Renaissance, Industrialisierung, Moderne, Informationszeitalter und Zukunft. Universität, Forschungslabor und KI-Zentrum forschen immer schneller. Spätere Zeitalter siehst du erst, wenn das vorige erreicht ist.
+
+[b]Neue Zeitalter[/b]
+Glas, Papier, Stahl, Maschinen, Strom und Elektronik entstehen in neuen Werkstätten. Kraftwerk, Solarpark und Fusionsreaktor liefern Strom, den Elektronikwerk und KI-Zentrum brauchen. Mietshäuser und Wohnblöcke bieten viel Wohnraum, Gewächshäuser tragen auch im Winter. Steht ein KI-Zentrum, verteilt die künstliche Intelligenz freie Siedler auf die Berufe, die gerade fehlen. Die Zukunftsstadt ist das Ziel aller Zeitalter.
 
 [b]Werkstätten[/b]
 Sägegrube, Mühle, Bäckerei, Ziegelei und Co. verwandeln Rohstoffe in bessere Waren. Köche arbeiten in Mühle, Bäckerei, Räucherei und Hühnerhof, Handwerker in den Werkstätten, Steinmetze in Steinbruch, Lehmgrube und Mine. Tippe oben auf die Vorräte, um alle Waren zu sehen.
@@ -1512,7 +1546,7 @@ func _info_building(b: Building) -> void:
 				_refresh_stock(true)
 				_toggle(_stock_panel))
 			_info_box.add_child(sb)
-		if b.is_ground() and b.def.has("farm"):
+		if b.def.has("farm"):
 			var st := {"fallow": "Wartet auf den Bauern", "growing": "Wächst", "ripe": "Erntereif!"}
 			if b.farm_state == "fallow" and not Seasons.can_sow(b.type):
 				st.fallow = "Ruht bis zum Frühling (Aussaat nur im Frühling und Sommer)"

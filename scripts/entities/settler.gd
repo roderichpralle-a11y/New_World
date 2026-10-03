@@ -736,8 +736,13 @@ func _plan_farm() -> bool:
 	var fd: Dictionary = field.farm_def()
 	if task == "harvest" and Game.space_for(fd.yield, world) <= 0:
 		return false
-	var target: Vector2i = field.cells()[_rng.randi() % field.cells().size()]
-	if not _push_move_to([target], false):
+	if field.is_ground():
+		var target: Vector2i = field.cells()[_rng.randi() % field.cells().size()]
+		if not _push_move_to([target], false):
+			return false
+	elif not _push_move_to([field.entrance_cell()], false) and not _push_move_to(field.cells()):
+		# Gewaechshaus: steht als Gebaeude, gearbeitet wird am Eingang
+		world.mark_unreachable(field)
 		return false
 	_reserve(field)
 	if task == "sow":
@@ -854,7 +859,7 @@ func _plan_production(kind: String) -> bool:
 	var p: Dictionary = b.prod_def()
 	var tool_name: String = p.get("tool", Data.jobs.get(job, {}).get("tool", "hammer"))
 	_plan.append({"a": "work", "t": 0.3, "act": "Holt Rohstoffe", "done": _do_take_inputs.bind(b)})
-	_plan.append({"a": "work", "t": float(p.time) / work_factor(p.get("skill", "handwerk")), "act": p.get("verb", "Arbeitet"),
+	_plan.append({"a": "work", "t": float(p.time) / work_factor(p.get("skill", "handwerk"), "production"), "act": p.get("verb", "Arbeitet"),
 		"tool": tool_name, "face": b.position, "done": _do_produce.bind(b)})
 	activity = "%s (%s)" % [p.get("verb", "Arbeitet"), b.def.name]
 	return true
@@ -866,7 +871,7 @@ func _do_take_inputs(b) -> void:
 		return
 	if carry_n > 0:
 		_do_deliver()
-	b.mark_active(float(b.prod_def().time) / work_factor(b.prod_def().get("skill", "handwerk")) + 0.5)
+	b.mark_active(float(b.prod_def().time) / work_factor(b.prod_def().get("skill", "handwerk"), "production") + 0.5)
 
 
 func _do_produce(b) -> void:
