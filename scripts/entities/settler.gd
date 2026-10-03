@@ -18,6 +18,8 @@ var sex: String = "m"
 var age: float = 18.0
 var max_age: float = 40.0
 var hunger: float = 90.0
+## Vitamine 0-100: sinken jeden Tag, Obst und Beeren fuellen sie auf. Unter
+## vitamin_low werden Siedler schwach und krank (siehe _needs).
 var health: float = 100.0
 var skills: Dictionary = {}
 var skill_xp: Dictionary = {}
@@ -303,6 +305,10 @@ func _think() -> void:
 	if hunger < float(Data.bal("eat_below")) and Game.total_food(world) > 0:
 		if _plan_eat():
 			return
+	# 2b. Nichts im Lager (oder Lager voll): Hungrige essen direkt am Strauch oder Ufer
+	if hunger < float(Data.bal("eat_below")) * 0.6 and Game.total_food(world) <= 0 and not Game.is_night():
+		if _plan_forage():
+			return
 	# 3. Schlafen
 	if Game.is_night():
 		_plan_sleep()
@@ -419,24 +425,55 @@ func _plan_eat() -> bool:
 
 func _do_eat() -> void:
 	var eaten := 0
-	while hunger < float(Data.bal("eat_until")):
-		# Rueckgabe: Naehrwert (float) oder {id, satiety, vitamins} aus dem Ernaehrungsmodell
-		var info = Game.eat_one(world)
-		var n := 0.0
-		if info is Dictionary:
-			if info.is_empty():
-				break
-			n = float(info.get("satiety", info.get("nutrition", 0.0)))
-			mind.on_meal(String(info.get("id", "")), info.get("vitamins"))
-		else:
-			n = float(info)
-			if n > 0.0:
-				mind.on_meal(Game.last_eaten)
-		if n <= 0.0:
+	while hunger < float(Data.bal("eat_until")) and eaten < 8:
+		# Fehlen Vitamine, greift der Siedler zu Obst und Beeren, sonst zum Saettigendsten
+		var id := Game.eat_food(mind.vit < float(Data.bal("vitamin_target", 70.0)), world)
+		if id == "":
 			break
-		hunger = min(100.0, hunger + n)
+		hunger = min(100.0, hunger + Data.food_satiety(id))
+		mind.on_meal(id, Data.food_vitamins(id))
 		eaten += 1
 	if eaten > 0:
+		world.float_text(position + Vector2(0, -26), "Mahlzeit", "nahrung")
+
+
+const FORAGE_NODES := ["busch", "pilzkreis", "palme", "fischgrund"]
+
+## Ist das Lager leer, isst ein hungriger Siedler gleich dort, wo es etwas gibt.
+func _plan_forage() -> bool:
+	var best = null
+	var best_d := INF
+	for t in FORAGE_NODES:
+		var n = world.find_node_for(t, cell, id)
+		if n and Vector2(n.cell - cell).length_squared() < best_d:
+			best = n
+			best_d = Vector2(n.cell - cell).length_squared()
+	if best == null:
+		return false
+	var adjacent: bool = best.is_solid() or world.is_water(best.cell)
+	if not _push_move_to([best.cell], adjacent):
+		world.mark_unreachable(best)
+		return false
+	_reserve(best)
+	_plan.append({"a": "work", "t": float(best.def.work_time) / work_factor(best.def.skill), "act": "Isst unterwegs",
+		"tool": _tool_for_node(best.type), "face": best.position, "done": _do_forage.bind(best)})
+	activity = "Sucht sich etwas zu essen"
+	return true
+
+
+func _do_forage(node) -> void:
+	if not is_instance_valid(node) or not node.is_available():
+		return
+	var res: String = node.def.yield
+	if node.harvest_one() <= 0:
+		return
+	hunger = min(100.0, hunger + Data.food_satiety(res))
+	mind.on_meal(res, Data.food_vitamins(res))
+	Game.eaten[res] = int(Game.eaten.get(res, 0)) + 1
+	if hunger < float(Data.bal("eat_until")) and node.is_available() and not Game.is_night():
+		_plan.push_front({"a": "work", "t": float(node.def.work_time) / work_factor(node.def.skill), "act": "Isst unterwegs",
+			"tool": _cur_tool, "face": node.position, "done": _do_forage.bind(node)})
+	else:
 		world.float_text(position + Vector2(0, -26), "Mahlzeit", "nahrung")
 
 

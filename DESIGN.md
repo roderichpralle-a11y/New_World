@@ -14,7 +14,7 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
   Baumeister. Freie Siedler bauen zuerst, sammeln dann Nahrung wenn knapp, sonst das
   knappste Material. Spezialisten helfen aus, wenn ihr Rohstoff voll ist.
 - **Hunger** 0–100 (100 = satt), sinkt um `hunger_per_day`. Unter `eat_below` gehen
-  Siedler zum nächsten Lager essen (je Einheit `nutrition` Punkte). Bei 0 sinkt die
+  Siedler zum nächsten Lager essen (je Einheit `nutrition` Punkte, siehe „Nahrung, Vitamine“). Bei 0 sinkt die
   Gesundheit, bei 0 Gesundheit stirbt der Siedler. Kinder essen die Hälfte.
 - **Nachwuchs**: nur wenn Wohnplätze frei sind (Hütten), Nahrung ≥
   `birth_food_per_person * Bevölkerung`, ein nicht verwandtes Paar existiert (Eltern,
@@ -283,11 +283,10 @@ Spielstände würfeln die Werte reproduzierbar aus der Siedler-ID).
   1–3 nach Begabung und lernen beim Spielen (`play_xp_per_day`), in der Schule viel mehr
   (`school_xp_per_day`), jeweils mal Begabung. Lena und Jonas haben feste Werte (`World.build_new`).
 - **Vitamine** `vit` 0–100, sinken `vit_per_day`. Jede Mahlzeit gibt `vitamins` der Sorte
-  (aus `resources.json`, sonst `default_vitamins`). Unter `vit_low` doppeltes Krankheitsrisiko,
+  (nur aus `resources.json`). Unter `vit_low` doppeltes Krankheitsrisiko,
   länger als 1 Tag unter `vit_scurvy` → Skorbut (heilt erst ab `until_vit`). Speiseplan: letzte
   `diet_memory` Sorten (`meals`) für die Laune. Schnittstelle zum Essen: `Settler._do_eat` nimmt von
-  `Game.eat_one(world)` einen Nährwert (Sorte über `Game.last_eaten`) oder ein Dictionary
-  `{id, satiety, vitamins}` und ruft `mind.on_meal(id, vitamins)`.
+  `Game.eat_food(...)` die Sorte und ruft `mind.on_meal(id, vitamins)` (siehe „Nahrung, Vitamine“).
 - **Krankheiten** (`illnesses`): Erkältung (langsamer), Fieber und Ruhr (`bed`: liegen zu Hause oder am
   Feuer, tödlich möglich), Skorbut. Risiko je Tag `sick_base_per_day` × Gebrechlichkeit × Kind/Alt ×
   Hunger × Vitaminmangel × draußen schlafen × `Seasons.season_mod("sickness")` × Kälte
@@ -312,6 +311,33 @@ Spielstände würfeln die Werte reproduzierbar aus der Siedler-ID).
   Arbeitskraft, wichtigste Gründe, Eigenschaften, Fähigkeiten mit + für Begabung), Siedlerliste
   (Spalte Laune, rot bei Krankheit, Filter „Nur Kranke“, Lebensstil im Zähler).
 - Test: `--chartest=1` (täglicher Bericht), `--comfort=<n>` (n Forschungen erledigt), `--sick=<n>`.
+
+## Nahrung, Vitamine und Gleichgewicht
+
+Ziel: eine Insel ist am Anfang schwer im Gleichgewicht zu halten, läuft aber stabil weiter, wenn sie
+einmal aufgebaut ist. Dafür gilt:
+
+- **Zwei Werte je Speise** (`resources.json`): `nutrition` = Sättigung, `vitamins` = Vitamine.
+  Obst und Beeren sättigen wenig, haben aber viele Vitamine; Brot, Räucherfisch, Fleisch sättigen
+  lange, haben kaum Vitamine. Rohes Getreide sättigt schlecht (10), Brot sehr gut (42).
+  Abfragen: `Data.food_satiety(id)`, `Data.food_vitamins(id)`.
+- **Siedler**: `hunger` (Sättigung 0–100, sinkt um `hunger_per_day` = 75). Vitamine, Speiseplan,
+  Skorbut und Arbeitskraft gehören zum Charakter-Modell (`settler.mind.vit`, `mind.meals`, siehe
+  „Charaktere der Siedler“). Beim Essen (`Game.eat_food(prefer_vitamins, w)`) greift ein Siedler unter
+  `vitamin_target` (balance.json) zum vitaminreichsten, sonst zum sättigendsten im Lager seiner
+  Insel, und meldet die Mahlzeit mit `mind.on_meal(id, Data.food_vitamins(id))`. `Game.eaten` zählt
+  alles, `Game.last_eaten` ist die letzte Sorte.
+- **Notessen**: ist das Lager der Insel leer (oder voll mit anderem), essen sehr hungrige Siedler
+  direkt am Strauch, an Palme, Pilzkreis oder Fischgrund (`_plan_forage`).
+- **Knappe Natur** (`nodes.json`): Sammeln, Fischen, Holz und Stein dauern 2–4x so lange wie
+  früher, Sträucher tragen 3 Beeren und wachsen in 2,5 Tagen nach, Fischgründe 6 Fische in 1,5 Tagen.
+  Ein Sammler ernährt so etwa 1,5 Erwachsene, die wilde Natur einer Startinsel etwa 15. Wer mehr
+  Siedler will, braucht Felder mit Mühle und Bäckerei (ein Feld mit Brotkette ≈ 2 Erwachsene) und
+  Obstgärten für Vitamine.
+- **Messen**: `--jobs=sammler,fischer,...` vergibt feste Berufe (fehlende Siedler werden erzeugt),
+  `--nofruit=1` entfernt Sträucher, Palmen und Pilze (Vitaminmangel testen), `--nodestat=1` zeigt
+  Vorrat und Nachwachsen der Nahrungsquellen. Der Bericht zeigt je Siedler Sättigung/Vitamine/Gesundheit
+  und alles Gegessene.
 
 ## Ordner
 
@@ -340,7 +366,7 @@ Spielstände würfeln die Werte reproduzierbar aus der Siedler-ID).
 
 ## Datenformate
 
-- **resources.json**: `{id: {name, icon, category: "material"|"food", nutrition?, order}}`.
+- **resources.json**: `{id: {name, icon, category: "material"|"food", nutrition?, vitamins?, size, order}}`.
   Alles mit `category: food` wird gegessen.
 - **nodes.json**: Rohstoffquellen. `yield`, `capacity`, `work_time`, `skill`, `terrain`
   (`grass`, `land`, `shore_water`), `solid`, `regrow_days`, `on_empty` (`regrow`|`remove`),

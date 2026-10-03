@@ -101,6 +101,23 @@ func _maybe_autotest() -> void:
 		_autotest_prod()
 	if args.has("research"):
 		world.settlers[0].set_job("forscher")
+	if args.has("jobs"):
+		# Ertragsmessung: Berufe fest vergeben, Knotenzahl ausgeben
+		var js: PackedStringArray = args.jobs.split(",")
+		for i in js.size():
+			if i >= world.settlers.size():
+				var c: Vector2i = world.settlers[0].cell
+				world.spawn_settler({"name": "Test%d" % i, "sex": "f" if i % 2 else "m", "age": 20.0, "max_age": 60.0, "skills": {}, "x": c.x, "y": c.y})
+			world.settlers[i].set_job(js[i])
+		if args.has("nofruit"):
+			for n in world.nodes.duplicate():
+				if n.type in ["busch", "palme", "pilzkreis"]:
+					world.remove_node(n)
+			Game.stock.erase("beeren")
+		var counts := {}
+		for n in world.nodes:
+			counts[n.type] = counts.get(n.type, 0) + 1
+		print("Knoten: ", counts)
 	if args.has("crowd"):
 		# Testhilfe: viele Siedler fuer die Siedlerliste
 		var names := ["Anna", "Ben", "Clara", "Dirk", "Emma", "Finn", "Greta", "Hugo", "Ida", "Karl", "Mia", "Ole", "Paula", "Rudi", "Sina", "Tom"]
@@ -172,7 +189,20 @@ func _maybe_autotest() -> void:
 				if args.has("wildlife"):
 					_report_wildlife()
 				print("   Inseln: ", ", ".join(isl), " | See: ", Sea.voyages.size(), " Boote: ", Game.amount("boot"), " Fleisch: ", Game.amount("fleisch"), " Felle: ", Game.amount("felle"))
-			var jobs := world.settlers.map(func(s): return "%s:%s:%s:%d" % [s.display_name, s.job, s.activity, int(s.hunger)])
+			var jobs := world.settlers.map(func(s): return "%s:%s:%s:%d/v%d/h%d" % [s.display_name, s.job, s.activity, int(s.hunger), int(s.mind.vit), int(s.health)])
+			print("   gegessen: ", Game.eaten)
+			if args.has("nodestat"):
+				var ns := {}
+				for n in world.nodes:
+					if n.type in ["busch", "fischgrund", "pilzkreis", "palme"]:
+						var e: Array = ns.get(n.type, [0, 0, 999.0])
+						e[0] += 1
+						if n.amount > 0:
+							e[1] += n.amount
+						elif n.regrow_at >= 0.0:
+							e[2] = minf(e[2], n.regrow_at - Game.time_days)
+						ns[n.type] = e
+				print("   Knoten [Anzahl, Vorrat, naechstes Nachwachsen in Tagen]: ", ns)
 			print("   %s, Jahr %d: Holz %d, frierend %d Inseln" % [Seasons.short_text(), Seasons.year(), Game.amount("holz"), Seasons.cold.size()])
 			print("t=%d Tag %d %s pop=%d/%d holz=%d stein=%d food=%d | %s" % [elapsed, Game.day(), Game.clock_text(),
 				Game.population(), Game.housing_capacity(), Game.amount("holz"), Game.amount("stein"), Game.total_food(), jobs])
