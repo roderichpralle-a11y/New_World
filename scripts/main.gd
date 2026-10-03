@@ -84,6 +84,7 @@ func _maybe_autotest() -> void:
 		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
 	if not args.has("autotest"):
 		return
+	_args = args
 	hud._overlay_clear()
 	if not args.has("keep"):
 		_on_new_game()
@@ -581,6 +582,11 @@ func _autotest_school() -> void:
 			kids.map(func(k): return "%s %.2f %s" % [k.display_name, k.age, "Schule" if world.school_of(k) else "-"])]))
 
 
+var _args := {}
+const AGE_TECHS := ["glasmacherei", "papier", "hochschule", "stahl", "fabrik", "konservendose", "mietshaus",
+	"elektrizitaet", "gewaechshaus", "wohnblock", "computer", "solarenergie", "internet", "ki", "fusionsenergie", "zukunftsstadt"]
+
+
 func _autotest_prod() -> void:
 	for t in Data.techs:
 		if not Data.techs[t].get("soon", false):
@@ -591,7 +597,11 @@ func _autotest_prod() -> void:
 	var r := 4
 	for type in Data.buildings:
 		var def: Dictionary = Data.buildings[type]
-		if not (def.has("production") or def.has("research")) or type == "lagerfeuer":
+		if not (def.has("production") or def.has("research") or def.has("farm") or def.has("effects")) or type == "lagerfeuer":
+			continue
+		if _args.has("ages") and not def.get("requires", "") in AGE_TECHS:
+			continue  # --ages=1: nur die Gebaeude der neuen Zeitalter
+		if not _args.has("ages") and (def.has("farm") or def.has("effects")) and not def.has("research"):
 			continue
 		var done := false
 		for rad in range(r, 20):
@@ -609,6 +619,8 @@ func _autotest_prod() -> void:
 	for i in 8:
 		world.spawn_newcomer("f" if i % 2 else "m")
 	var jobs := ["koch", "koch", "handwerker", "handwerker", "steinmetz", "forscher", "forscher", "holzfaeller", "bauer", "fischer"]
+	if _args.has("ages"):
+		jobs = ["handwerker", "handwerker", "handwerker", "handwerker", "frei", "frei", "forscher", "koch", "bauer", "frei"]
 	for i in world.settlers.size():
 		world.settlers[i].age = 20.0
 		world.settlers[i].set_job(jobs[i % jobs.size()])

@@ -116,6 +116,9 @@ func set_speed(s: int) -> void:
 	speed_changed.emit(speed)
 
 
+var _ai_next := 0.0
+
+
 func _process(delta: float) -> void:
 	if world == null or is_over:
 		return
@@ -128,6 +131,12 @@ func _process(delta: float) -> void:
 			_last_day = day()
 			day_started.emit(_last_day)
 			notify("Tag %d beginnt." % _last_day, "sonne")
+		# KI-Steuerung (KI-Zentrum): freie Siedler auf fehlende Berufe verteilen
+		if time_days >= _ai_next:
+			_ai_next = time_days + 0.25
+			if eff_add("ai_jobs") > 0.0:
+				for w in Sea.all_worlds():
+					AiJobs.tick(w)
 		# Geschichten am Lagerfeuer: ein kleines bisschen Forschung kommt immer voran
 		add_research(float(Data.bal("passive_research_per_day", 0.0)) * delta * mult / float(Data.bal("day_length")), false)
 		_birth_timer += delta / float(Data.bal("day_length"))
@@ -606,7 +615,17 @@ func add_research(points: float, apply_bonus: bool = true) -> void:
 		_finish_research(t)
 
 
+## Zeitalter: das spaeteste, aus dem schon etwas erforscht ist (0 = Steinzeit).
+func current_age() -> int:
+	var a := 0
+	for t in research.done:
+		if Data.techs.has(t):
+			a = maxi(a, Data.age_of_tier(int(Data.techs[t].tier)))
+	return a
+
+
 func _finish_research(t: String) -> void:
+	var age_before := current_age()
 	research.progress.erase(t)
 	research.done.append(t)
 	research.current = ""
@@ -616,6 +635,9 @@ func _finish_research(t: String) -> void:
 	if not unlocks.is_empty():
 		text += " Neu zu bauen: " + ", ".join(unlocks) + "."
 	notify(text, "wissen")
+	var age := current_age()
+	if age > age_before:
+		notify("Ein neues Zeitalter beginnt: %s! %s" % [Data.age_name(age), Data.ages[age].get("desc", "")], "zeitalter")
 	Sound.play("forschung")
 	research_changed.emit()
 	stock_changed.emit()

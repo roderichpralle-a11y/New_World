@@ -281,7 +281,7 @@ func _heat(days: float) -> void:
 ## Frische Nahrung verdirbt, im Sommer schnell, im Winter gar nicht.
 ## Läuft je Vorrat (heute teilen sich alle Inseln einen, später hat jede Insel ihren).
 func _spoil(days: float) -> void:
-	var rate := _val("spoil_per_day", -1, 0.0)
+	var rate := _val("spoil_per_day", -1, 0.0) * maxf(0.0, Game.eff("spoil"))  # Kuehltechnik
 	if rate <= 0.0:
 		return
 	var stores := []
