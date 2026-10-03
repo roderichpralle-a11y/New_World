@@ -111,6 +111,19 @@ func _maybe_autotest() -> void:
 			s.hunger = float((i * 37) % 100)
 			if s.is_adult():
 				s.set_job(["holzfaeller", "sammler", "frei", "steinmetz", "bauer"][i % 5] if Data.jobs.has("steinmetz") else "frei")
+	if args.has("comfort"):
+		# Testhilfe: so viele Forschungen als erledigt markieren (Lebensstil steigt)
+		for t in Data.sorted_tech_ids().slice(0, int(args.comfort)):
+			Game.research.done.append(t)
+		Game._recompute_effects()
+		print("Lebensstil: ", SettlerMind.comfort_stage()[0], " ", SettlerMind.comfort())
+	if args.has("sick"):
+		# Testhilfe: einige Siedler krank machen
+		var ills := ["fieber", "erkaeltung", "ruhr"]
+		for i in min(int(args.sick), world.settlers.size()):
+			world.settlers[i].mind._fall_ill(ills[i % ills.size()])
+	if args.has("chartest"):
+		_autotest_chars()
 	if args.has("seatest"):
 		_autotest_sea()
 	if args.has("schooltest"):
@@ -156,6 +169,8 @@ func _maybe_autotest() -> void:
 					var w = Sea.worlds.get(int(m.id))
 					isl.append("%s[%s]:%s pop=%d tiere=%d holz=%d essen=%d" % [m.name, m.biome, m.state, w.settlers.size() if w else 0, w.animals.size() if w else 0,
 						Game.amount("holz", w) if w else 0, Game.total_food(w) if w else 0])
+				if args.has("wildlife"):
+					_report_wildlife()
 				print("   Inseln: ", ", ".join(isl), " | See: ", Sea.voyages.size(), " Boote: ", Game.amount("boot"), " Fleisch: ", Game.amount("fleisch"), " Felle: ", Game.amount("felle"))
 			var jobs := world.settlers.map(func(s): return "%s:%s:%s:%d" % [s.display_name, s.job, s.activity, int(s.hunger)])
 			print("   %s, Jahr %d: Holz %d, frierend %d Inseln" % [Seasons.short_text(), Seasons.year(), Game.amount("holz"), Seasons.cold.size()])
@@ -264,6 +279,50 @@ func _maybe_autotest() -> void:
 		print("Screenshot: ", args.shot)
 	Game.save_game()
 	get_tree().quit()
+
+
+## Charakter-Test: taeglicher Bericht ueber Laune, Krankheit, Vitamine und Arbeitskraft.
+func _autotest_chars() -> void:
+	Game.day_started.connect(func(d):
+		var all := []
+		for w in Sea.all_worlds():
+			all.append_array(w.settlers)
+		var sick := all.filter(func(x): return x.mind.sick != "")
+		var mood := 0.0
+		var wp := 0.0
+		var vit := 0.0
+		for x in all:
+			mood += x.mind.mood
+			wp += x.mind.work_power()
+			vit += x.mind.vit
+		var n := maxf(1.0, all.size())
+		print("   Tag %d: %d Siedler, %d krank, Laune %.0f, Vitamine %.0f, Arbeitskraft %.0f%%, Lebensstil %s, Tote %d" % [d, all.size(), sick.size(),
+			mood / n, vit / n, wp / n * 100.0, SettlerMind.comfort_stage()[0], Game.stats.deaths])
+		for x in all.slice(0, 4):
+			print("      %s (%s): Laune %d %s, Erholung %d, Gründe %s" % [x.display_name, x.mind.character_text(), int(x.mind.mood),
+				x.mind.mood_text(), int(x.mind.rest), x.mind.reasons.map(func(r): return "%s %+d" % [r[0], int(r[1])])]))
+
+
+## Testhilfe: Tierbestand je Insel und Art (erwachsen/jung, satt, Futter am Bau).
+func _report_wildlife() -> void:
+	for m in Sea.islands:
+		var w = Sea.worlds.get(int(m.id))
+		if w == null or w.animals.is_empty():
+			continue
+		var out := []
+		for t in Data.animals:
+			var all: Array = w.animals.filter(func(a): return a.type == t)
+			if all.is_empty():
+				continue
+			var food := 0.0
+			for a in all:
+				food += a.food
+			out.append("%s %d+%d jung satt=%d%%" % [t, w.adult_count(t), all.size() - w.adult_count(t), int(food / all.size() * 100.0)])
+		var dens := []
+		for n in w.nodes:
+			if n.def.has("spawns"):
+				dens.append("%s:%d/%d" % [n.type, w.animals.filter(func(a): return a.home == n.cell).size(), w.den_capacity(n)])
+		print("   Tiere %s: %s | Baue %s" % [m.name, ", ".join(out), " ".join(dens)])
 
 
 func _autotest_build() -> void:

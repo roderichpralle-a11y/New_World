@@ -375,7 +375,7 @@ func _defend(delta: float) -> void:
 	var d: Dictionary = def.defense
 	var tower_bonus := Game.eff_add("tower")
 	var rng := float(d.range) * 16.0 * (1.0 + tower_bonus * 0.5)
-	var an = world.nearest_animal(position + Vector2(0, -8), rng)
+	var an = world.nearest_animal(position + Vector2(0, -8), rng, "hostile")
 	if an == null:
 		_shot_t = 0.3
 		return

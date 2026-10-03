@@ -50,6 +50,9 @@ var _ghost_sprite: Sprite2D
 var _clouds: Array = []
 var _rng := RandomNumberGenerator.new()
 var _den_t: float = 0.0
+var _den_breed: Dictionary = {}  # "x,y" -> Tag des letzten Wurfs (-1 = in diesem Fruehling bereit)
+var _grazed: Dictionary = {}  # Zelle -> Tag, bis wann Tiere dort nichts mehr finden
+var _species_seen: Dictionary = {}  # Tierarten, die es auf der Insel gab
 var _school_frame: int = -1
 var _school_of: Dictionary = {}  # Kind-ID -> Schule
 
@@ -75,10 +78,14 @@ func build_new(seed_value: int) -> void:
 	var hut := place_building("huette", hut_cell, true)
 	var lena := spawn_settler({"name": "Lena", "sex": "f", "age": 20.0, "max_age": 46.0,
 		"skills": {"nahrung": 4, "bauen": 3, "holz": 1, "stein": 1}, "job": "sammler",
+		"traits": {"iq": 7.0, "konst": 7.0, "fleiss": 6.0, "gemuet": 7.5},
+		"talents": {"nahrung": 1.4, "bauen": 1.2, "wissen": 1.3, "holz": 0.8, "stein": 0.7, "handwerk": 1.0, "jagd": 0.8},
 		"look": {"skin": "#f2c9a0", "hair": "#a8642e", "style": 1, "shirt": "#d65f4f", "pants": "#5a4a7a"},
 		"x": center.x + 1, "y": center.y + 1})
 	var jonas := spawn_settler({"name": "Jonas", "sex": "m", "age": 21.0, "max_age": 44.0,
 		"skills": {"holz": 4, "stein": 3, "nahrung": 1, "bauen": 2}, "job": "holzfaeller",
+		"traits": {"iq": 5.0, "konst": 8.0, "fleiss": 8.0, "gemuet": 5.0},
+		"talents": {"holz": 1.5, "stein": 1.3, "handwerk": 1.4, "jagd": 1.2, "nahrung": 0.8, "bauen": 1.0, "wissen": 0.7},
 		"look": {"skin": "#e0ac7e", "hair": "#3a2a22", "style": 0, "shirt": "#4f8fd6", "pants": "#4a5a3a"},
 		"x": center.x - 1, "y": center.y + 1})
 	lena.home_id = hut.id
@@ -147,7 +154,22 @@ func build_from_save(w: Dictionary, m: Dictionary) -> void:
 	for g in w.get("graves", []):
 		_add_grave(cell_to_pos(Vector2i(int(g[0]), int(g[1]))), float(g[2]))
 	for a in w.get("animals", []):
-		spawn_animal(a[0], Vector2i(int(a[1]), int(a[2])), Vector2i(int(a[4]), int(a[5])), float(a[3]))
+		spawn_animal(a[0], Vector2i(int(a[1]), int(a[2])), Vector2i(int(a[4]), int(a[5])), float(a[3]),
+			float(a[6]) if a.size() > 6 else -1.0, float(a[7]) if a.size() > 7 else 1.0)
+	if w.has("den_breed"):
+		_den_breed = w.den_breed
+	else:
+		# Aelterer Spielstand: frueher kamen Tiere aus dem Nichts nach, jetzt vermehren sie
+		# sich. Ausgeraeumte Baue kehren zurueck, und jeder Bau wird einmalig aufgefuellt.
+		for n in island.nodes:
+			var c: Vector2i = n.cell
+			if Data.nodes[n.type].has("spawns") and not node_at.has(c) and not building_at.has(c):
+				spawn_node(n.type, c, int(n.get("variant", -1)))
+		for n in nodes.duplicate():
+			if n.def.has("spawns"):
+				var have := animals.filter(func(an): return an.home == n.cell).size()
+				for i in max(0, int(n.def.get("den_cap", 1)) - have):
+					_spawn_at_den(n)
 	Game.on_population_changed()
 
 
@@ -388,8 +410,6 @@ func spawn_node(type: String, c: Vector2i, variant: int = -1) -> ResNode:
 
 
 func remove_node(n: ResNode) -> void:
-	if n.def.has("spawns") and n.amount <= 0:
-		Game.notify_at(self, "%s ist ausgeräumt. Hier kommen keine Tiere mehr nach." % n.def.name, "schild")
 	nodes.erase(n)
 	node_at.erase(n.cell)
 	_set_solid(n.cell, building_at.has(n.cell))
@@ -768,13 +788,11 @@ func spawn_child(mother, father) -> Settler:
 	rng.randomize()
 	var sex := "f" if rng.randf() < 0.5 else "m"
 	var name := unique_name(sex, rng)
-	# Talente: Mischung der Eltern plus ein zufaelliges Talent
+	# Charakter und Begabungen teils von den Eltern; Faehigkeiten wachsen mit Spiel und Schule
+	var mind := SettlerMind.inherit(rng, mother.mind, father.mind)
 	var skills := {}
 	for sk in Data.skills:
-		var avg: float = (mother.skill_level(sk) + father.skill_level(sk)) / 2.0
-		skills[sk] = clamp(roundi(1.0 + (avg - 1.0) * 0.35 + rng.randf_range(-0.5, 1.0)), 1, 4)
-	var talent: String = Data.skills.keys()[rng.randi() % Data.skills.size()]
-	skills[talent] = min(int(skills[talent]) + 2, 5)
+		skills[sk] = clampi(roundi(1.0 + (float(mind.talents[sk]) - 1.0) * 1.5 + rng.randf_range(-0.3, 0.6)), 1, 3)
 	var look := Settler.random_look(rng)
 	look.skin = (mother if rng.randf() < 0.5 else father).look.skin
 	look.hair = (mother if rng.randf() < 0.5 else father).look.hair
@@ -783,7 +801,7 @@ func spawn_child(mother, father) -> Settler:
 	if home and home.complete and is_walkable(home.entrance_cell()):
 		c = home.entrance_cell()
 	var child := spawn_settler({"name": name, "sex": sex, "age": 0.0, "skills": skills, "job": "frei",
-		"look": look, "x": c.x, "y": c.y, "parents": [mother.id, father.id], "hunger": 80.0})
+		"look": look, "mind": mind, "x": c.x, "y": c.y, "parents": [mother.id, father.id], "hunger": 80.0})
 	assign_homes()
 	spawn_effect("hearts", child.position + Vector2(0, -16))
 	Game.on_population_changed()
@@ -807,13 +825,12 @@ func spawn_newcomer(sex: String) -> Settler:
 	var best = beach_near(rng)
 	if best == null:
 		return null
+	var mind := SettlerMind.roll(rng)
 	var skills := {}
 	for sk in Data.skills:
-		skills[sk] = rng.randi_range(1, 3)
-	var talent: String = Data.skills.keys()[rng.randi() % Data.skills.size()]
-	skills[talent] = rng.randi_range(4, 5)
+		skills[sk] = clampi(roundi(1.0 + (float(mind.talents[sk]) - 0.8) * 3.0 + rng.randf_range(0.0, 1.0)), 1, 5)
 	var s := spawn_settler({"name": unique_name(sex, rng), "sex": sex, "age": rng.randf_range(4.0, 12.0),
-		"skills": skills, "job": "frei", "x": best.x, "y": best.y, "hunger": 40.0})
+		"skills": skills, "mind": mind, "job": "frei", "x": best.x, "y": best.y, "hunger": 40.0})
 	assign_homes()
 	spawn_effect("chips_fischgrund", s.position)
 	Game.on_population_changed()
@@ -862,6 +879,9 @@ func kill_settler(s: Settler, reason: String) -> void:
 		return
 	s.abort_plan()
 	settlers.erase(s)
+	# Die Familie trauert, die anderen auf der Insel ein wenig
+	for o in settlers:
+		o.mind.on_relative_died(s.display_name, SettlerMind.is_close(o.id, s.id))
 	_add_grave(s.position, Game.time_days + 3.0)
 	s.queue_free()
 	assign_homes()
@@ -1181,6 +1201,8 @@ func pick_at(p: Vector2, radius: float = 12.0):
 	if best:
 		return best
 	for a in animals:
+		if not a.visible:
+			continue
 		var d: float = (a.position + Vector2(0, -7) - p).length()
 		if d < best_d:
 			best_d = d
@@ -1212,6 +1234,7 @@ func serialize() -> Dictionary:
 		"settlers": settlers.map(func(s): return s.serialize()),
 		"graves": graves.map(func(g): return [pos_to_cell(g[0].position).x, pos_to_cell(g[0].position).y, g[1]]),
 		"animals": animals.map(func(a): return a.serialize()),
+		"den_breed": _den_breed,
 	}
 
 
@@ -1340,39 +1363,189 @@ func _animate_ships(delta: float) -> void:
 
 
 # ================================================================== Wilde Tiere
-func spawn_animal(type: String, c: Vector2i, home: Vector2i, hp: float = -1.0) -> Animal:
+func spawn_animal(type: String, c: Vector2i, home: Vector2i, hp: float = -1.0, age: float = -1.0,
+		food: float = 1.0) -> Animal:
 	var a := Animal.new()
-	a.setup(self, type, c, home, hp)
+	a.setup(self, type, c, home, hp, age, food)
 	entities.add_child(a)
 	animals.append(a)
+	_species_seen[type] = true
 	return a
 
 
-func _spawn_at_den(den: ResNode) -> void:
-	for d in [Vector2i(0, 1), Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, -1), Vector2i(1, 1), Vector2i(-1, 1)]:
+func _spawn_at_den(den: ResNode, age: float = -1.0):
+	var dirs := [Vector2i(0, 1), Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, -1), Vector2i(1, 1), Vector2i(-1, 1)]
+	dirs.shuffle()
+	for d in dirs:
 		var c: Vector2i = den.cell + d
 		if is_walkable(c):
-			spawn_animal(den.def.spawns, c, den.cell)
+			return spawn_animal(den.def.spawns, c, den.cell, -1.0, age)
+	return null
+
+
+# ------------------------------------------------------------------ Bestand der Tiere
+## Erwachsene Tiere einer Art auf dieser Insel.
+func adult_count(type: String) -> int:
+	var n := 0
+	for a in animals:
+		if a.type == type and a.is_adult() and not a.dead:
+			n += 1
+	return n
+
+
+## Die letzten Tiere einer Art werden geschont (Jaeger, Wachturm, Notwehr), Jungtiere immer.
+func is_protected(a) -> bool:
+	return not a.is_adult() or adult_count(a.type) <= int(Data.bal("hunt_min_keep", 2))
+
+
+## Darf ein Jaeger dieses Tier jagen? Nur Erwachsene, und nur solange genug uebrig bleiben.
+func is_huntable(a) -> bool:
+	return a.is_adult() and not a.is_scared() and not is_protected(a)
+
+
+func animal_can_eat(n, type: String) -> bool:
+	var def: Dictionary = Data.animals[type]
+	if not def.food.has(n.type) and not (n.type in def.get("winter_food", []) and Seasons.is_winter()):
+		return false
+	return n.amount > 0 and float(_grazed.get(n.cell, -1.0)) <= Game.time_days
+
+
+## Naechste Futterquelle fuer ein Tier, im Umkreis seines Baus (hungrig weiter).
+func find_animal_food(a):
+	var r := float(a.def.get("roam", Data.bal("animal_food_radius", 10))) + (6.0 if a.is_hungry() else 0.0)
+	var best = null
+	var best_d := INF
+	for n in nodes:
+		if not animal_can_eat(n, a.type) or Vector2(n.cell - a.home).length() > r:
+			continue
+		if near_fire(n.position):
+			continue
+		var d := Vector2(n.cell - a.cell).length_squared()
+		if d < best_d:
+			best_d = d
+			best = n
+	return best
+
+
+func animal_eats(a, n) -> void:
+	_grazed[n.cell] = Game.time_days + float(Data.bal("animal_graze_days", 1.0))
+	if Data.animals[a.type].food.get(n.type, false) and n.type != "baum":
+		n.harvest_one()
+
+
+## Futterquellen um einen Bau (ohne Aas, das kommt und geht).
+func den_food(den) -> int:
+	var def: Dictionary = Data.animals[den.def.spawns]
+	var r := float(def.get("roam", Data.bal("animal_food_radius", 10)))
+	var n := 0
+	for o in nodes:
+		if o.type != "beute" and def.food.has(o.type) and o.amount > 0 and Vector2(o.cell - den.cell).length() <= r:
+			n += 1
+	return n
+
+
+## So viele Tiere kann die Umgebung des Baus ernaehren.
+func den_capacity(den) -> int:
+	var def: Dictionary = Data.animals[den.def.spawns]
+	return min(int(def.get("den_max", 6)), int(den_food(den) / float(def.get("food_per_animal", 3))))
+
+
+## Jahreszeit: 1 = Fruehling, 0 = andere Jahreszeit, -1 = keine Jahreszeiten (dann alle
+## `animal_breed_days` Tage).
+func _spring() -> int:
+	return 1 if Seasons.season() == Seasons.SPRING else 0
+
+
+## Tiere bekommen im Fruehling einmal Junge, wenn am Bau ein sattes Paar lebt und das
+## Futter fuer mehr Tiere reicht.
+func _process_dens(delta: float) -> void:
+	_den_t += delta / float(Data.bal("day_length"))
+	if _den_t < float(Data.bal("animal_tick_days", 0.1)):
+		return
+	_den_t = 0.0
+	for c in _grazed.keys():
+		if float(_grazed[c]) <= Game.time_days:
+			_grazed.erase(c)
+	var spring := _spring()
+	for n in nodes:
+		if not n.def.has("spawns"):
+			continue
+		var key := "%d,%d" % [n.cell.x, n.cell.y]
+		if spring == 0:
+			_den_breed[key] = -1.0
+			continue
+		var here := animals.filter(func(a): return a.home == n.cell and not a.dead)
+		var adults := here.filter(func(a): return a.is_adult())
+		# Ohne Paar zieht ein Tier herueber: von einem Bau mit mehr als zwei Erwachsenen,
+		# oder ein einzelnes Tier zu einem anderen einzelnen (zum Bau mit mehr Futter)
+		if adults.size() < 2:
+			if adults.size() == 1 or here.is_empty():
+				_find_mate(n, adults.size())
+			continue
+		var last := float(_den_breed.get(key, -99.0))
+		if spring == 1 and last >= 0.0:
+			continue  # in diesem Fruehling schon geworfen
+		if spring == -1 and Game.time_days - last < float(Data.bal("animal_breed_days", 4.0)):
+			continue
+		if adults.filter(func(a): return a.food > 0.4).size() < 2:
+			continue
+		var cap := den_capacity(n)
+		if here.size() >= cap:
+			continue
+		if _rng.randf() > float(Data.bal("animal_breed_chance", 0.75)):
+			continue
+		var def: Dictionary = Data.animals[n.def.spawns]
+		var lit: Array = def.get("litter", [1, 2])
+		var k: int = min(_rng.randi_range(int(lit[0]), int(lit[1])), cap + 1 - here.size(), int(def.get("den_max", 6)) - here.size())
+		var born := 0
+		for i in k:
+			if _spawn_at_den(n, 0.0) != null:
+				born += 1
+		_den_breed[key] = Game.time_days
+		if born > 0:
+			Game.notify_at(self, "Nachwuchs bei den %s: %d %s." % [def.get("plural_dat", def.name), born, "Jungtier" if born == 1 else "Jungtiere"], n.def.spawns)
+
+
+func _find_mate(den, have: int) -> void:
+	var type: String = den.def.spawns
+	var cap := den_capacity(den)
+	for a in animals:
+		if a.type != type or a.home == den.cell or not a.is_adult() or a.is_scared():
+			continue
+		var at := animals.filter(func(b): return b.home == a.home and b.is_adult()).size()
+		var other = node_at.get(a.home)
+		var other_cap := den_capacity(other) if other != null and other.def.has("spawns") else -1
+		if at > 2 or other_cap < 0 or (have == 1 and at == 1 and (other_cap < cap or (other_cap == cap and a.home < den.cell))):
+			a.home = den.cell
 			return
 
 
-## Tierbauten bringen nach und nach neue Tiere hervor, bis sie voll sind.
-func _process_dens(delta: float) -> void:
-	_den_t += delta / float(Data.bal("day_length"))
-	if _den_t < float(Data.bal("den_spawn_interval", 0.3)):
+var _escape_note: Dictionary = {}  # Tierart -> Tag der letzten Meldung
+
+
+## Ein Tier entkommt verwundet, weil es zu den letzten seiner Art gehoert.
+func on_animal_escaped(a) -> void:
+	if Game.time_days - float(_escape_note.get(a.type, -99.0)) < 2.0:
 		return
-	_den_t = 0.0
-	for n in nodes:
-		if not n.def.has("spawns") or n.amount <= 0:
-			continue
-		var count := animals.filter(func(a): return a.home == n.cell).size()
-		if count >= int(n.def.get("den_cap", 1)):
-			continue
-		if _rng.randf() > float(Data.bal("den_spawn_chance", 0.5)):
-			continue
-		if settlers.any(func(s): return s.cell.distance_to(n.cell) < 5.0):
-			continue
-		_spawn_at_den(n)
+	_escape_note[a.type] = Game.time_days
+	if a.is_adult():
+		Game.notify_at(self, "%s entkommt verwundet. Die letzten %d %s werden geschont." % [a.def.name, int(Data.bal("hunt_min_keep", 2)), a.def.get("plural", a.def.name)], "schild")
+
+
+func on_animal_starved(a) -> void:
+	animals.erase(a)
+	if Game.selected == a:
+		Game.select(null)
+	if is_visible_in_tree():
+		Game.notify_at(self, "%s ist verhungert. Für so viele Tiere gibt es nicht genug Futter." % a.def.name, "schild")
+	_check_extinct(a.type)
+	a.queue_free()
+
+
+func _check_extinct(type: String) -> void:
+	if animals.any(func(b): return b.type == type and not b.dead):
+		return
+	Game.notify_at(self, "Hier gibt es keine %s mehr." % Data.animals[type].get("plural", Data.animals[type].name), "schild")
 
 
 func on_animal_killed(a: Animal, by) -> void:
@@ -1402,13 +1575,19 @@ func on_animal_killed(a: Animal, by) -> void:
 	elif by is Building:
 		who = " vom Wachturm"
 	Game.notify_at(self, "%s wurde%s erlegt." % [a.def.name, who], "fleisch")
+	_check_extinct(a.type)
 	a.queue_free()
 
 
-func nearest_animal(from: Vector2, max_px: float):
+## filter: "" alle, "hunt" nur jagdbare (Jaeger), "hostile" nur angreifende (Wachturm).
+func nearest_animal(from: Vector2, max_px: float, filter: String = ""):
 	var best = null
 	var best_d := max_px
 	for a in animals:
+		if filter == "hunt" and not is_huntable(a):
+			continue
+		if filter == "hostile" and not a.is_hostile():
+			continue
 		var d: float = (a.position - from).length()
 		if d < best_d:
 			best_d = d
@@ -1422,6 +1601,8 @@ func threat_for(s) -> Animal:
 	var best = null
 	var best_d := INF
 	for a in animals:
+		if not a.visible:
+			continue
 		var d: float = (a.position - s.position).length()
 		if a.target == s and d < r * 2.0:
 			return a

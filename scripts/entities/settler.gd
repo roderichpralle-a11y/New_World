@@ -29,6 +29,7 @@ var carry_n: int = 0
 var birth_cooldown_until: float = 0.0
 var parents: Array = []
 var world
+var mind: SettlerMind  # Charakter, Gesundheit, Laune (settler_mind.gd)
 
 var cell: Vector2i
 var activity: String = "Schaut sich um"
@@ -83,6 +84,7 @@ func setup(p_world, data: Dictionary) -> void:
 	for sk in Data.skills:
 		skills[sk] = float(skills.get(sk, 1.0))
 	skill_xp = data.get("skill_xp", {})
+	mind = SettlerMind.new(self, data)
 	job = data.get("job", "frei")
 	home_id = int(data.get("home", 0))
 	look = data.get("look", random_look(_rng))
@@ -173,14 +175,17 @@ func skill_factor(sk: String) -> float:
 	return 0.6 + 0.08 * skill_level(sk)
 
 
-func gain_xp(sk: String, amount: float = 1.0) -> void:
+func gain_xp(sk: String, amount: float = 1.0, quiet: bool = false) -> void:
 	if sk == "":
 		return
-	skill_xp[sk] = float(skill_xp.get(sk, 0.0)) + amount
+	# Begabte und Kluge lernen schneller
+	skill_xp[sk] = float(skill_xp.get(sk, 0.0)) + amount * mind.learn_factor(sk)
 	var need := float(Data.bal("skill_xp_per_level")) * skill_level(sk)
 	if skill_xp[sk] >= need and skill_level(sk) < float(Data.bal("skill_max")):
 		skill_xp[sk] = 0.0
 		skills[sk] = skill_level(sk) + 1.0
+		if quiet:
+			return
 		Game.notify("%s ist besser geworden: %s Stufe %d." % [display_name, Data.skills[sk].name, int(skills[sk])], "sonne")
 		world.float_text(position + Vector2(0, -30), "Stufe %d!" % int(skills[sk]), "")
 		Sound.play_on("stufe", world)
@@ -238,24 +243,41 @@ func _needs(days: float) -> void:
 	hunger = max(0.0, hunger - float(Data.bal("hunger_per_day")) * Game.eff("hunger") * days * f)
 	if hunger <= 0.0:
 		health -= float(Data.bal("starve_damage_per_day")) * days
-	elif hunger > 30.0:
+	elif hunger > 30.0 and mind.sick == "":
 		health = min(100.0, health + float(Data.bal("heal_per_day")) * Game.eff("heal") * days)
+	mind.tick(days)
 	var was_adult := is_adult()
 	var grow := 1.0
 	if not was_adult:
 		var sc = world.school_of(self)
 		if sc:
 			grow = float(sc.def.school.get("growth", 1.0))
+		_learn_as_child(days, sc != null)
 	age += days * grow
 	if not was_adult and is_adult():
 		job = "frei"
-		Game.notify("%s ist erwachsen und kann jetzt arbeiten." % display_name, "person")
+		var tal := mind.best_talents().map(func(k): return Data.skills[k].name)
+		Game.notify("%s ist erwachsen und kann jetzt arbeiten.%s" % [display_name,
+			(" Begabt für: %s." % ", ".join(tal)) if not tal.is_empty() else ""], "person")
 		abort_plan()
 	_update_scale()
 	if health <= 0.0:
-		world.kill_settler(self, "verhungert")
+		var why := mind.death_reason()
+		world.kill_settler(self, why if why != "" else "verhungert")
 	elif age >= max_age + Game.eff_add("life"):
 		world.kill_settler(self, "im hohen Alter von %d Jahren gestorben" % int(age))
+
+
+## Kinder lernen beim Spielen ein wenig, in der Schule viel, vor allem in ihren Begabungen.
+func _learn_as_child(days: float, in_school: bool) -> void:
+	var xp := float(Data.ppl("school_xp_per_day", 120.0)) if in_school else float(Data.ppl("play_xp_per_day", 12.0))
+	for sk in Data.skills:
+		gain_xp(sk, xp * days * float(mind.talents.get(sk, 1.0)), true)
+
+
+## Macht der Siedler gerade Pause (Freizeit)?
+func on_break() -> bool:
+	return not _plan.is_empty() and _plan[0].get("rest", false)
 
 
 # ------------------------------------------------------------------ Planung
@@ -263,6 +285,13 @@ func _think() -> void:
 	_think_cooldown = 0.6 + _rng.randf() * 0.6
 	_release()
 	if sleeping and (Game.is_night()):
+		return
+	# Schwer krank: im Bett bleiben, nur zum Essen aufstehen
+	if mind.needs_bed() and not (hunger < float(Data.bal("eat_below")) and Game.total_food(world) > 0):
+		if sleeping:
+			activity = "Liegt krank im Bett (%s)" % mind.illness_name()
+			return
+		_plan_sick_bed()
 		return
 	if sleeping:
 		_wake_up()
@@ -286,7 +315,10 @@ func _think() -> void:
 		else:
 			_plan_wander(5, "Spielt")
 		return
-	# 5. Arbeit
+	# 5. Freizeit (erst wenn die Siedlung weiter entwickelt ist)
+	if mind.wants_break() and _plan_leisure():
+		return
+	# 6. Arbeit
 	if _plan_work():
 		return
 	_plan_wander(4, "Hat nichts zu tun")
@@ -336,7 +368,7 @@ func carry_capacity() -> int:
 
 ## Arbeitstempo fuer eine Faehigkeit inklusive Forschungsboni.
 func work_factor(sk: String, bonus: String = "") -> float:
-	var f := skill_factor(sk) * Game.eff("work") * Seasons.work_mult(world)
+	var f := skill_factor(sk) * Game.eff("work") * Seasons.work_mult(world) * mind.work_power()
 	if bonus != "":
 		f *= Game.eff(bonus)
 	return f
@@ -388,7 +420,18 @@ func _plan_eat() -> bool:
 func _do_eat() -> void:
 	var eaten := 0
 	while hunger < float(Data.bal("eat_until")):
-		var n := Game.eat_one(world)
+		# Rueckgabe: Naehrwert (float) oder {id, satiety, vitamins} aus dem Ernaehrungsmodell
+		var info = Game.eat_one(world)
+		var n := 0.0
+		if info is Dictionary:
+			if info.is_empty():
+				break
+			n = float(info.get("satiety", info.get("nutrition", 0.0)))
+			mind.on_meal(String(info.get("id", "")), info.get("vitamins"))
+		else:
+			n = float(info)
+			if n > 0.0:
+				mind.on_meal(Game.last_eaten)
 		if n <= 0.0:
 			break
 		hunger = min(100.0, hunger + n)
@@ -434,6 +477,78 @@ func _wake_up() -> void:
 	_zzz.visible = false
 
 
+## Krank ins Bett: nach Hause, sonst ans Lagerfeuer.
+func _plan_sick_bed() -> void:
+	var home = world.building_by_id(home_id)
+	var txt := "Liegt krank im Bett (%s)" % mind.illness_name()
+	if home and home.complete and _push_move_to([home.entrance_cell()], false):
+		_plan.append({"a": "work", "t": 0.2, "act": "Legt sich hin", "done": func():
+			_do_sleep_inside()
+			activity = txt})
+		activity = "Geht krank nach Hause"
+		return
+	var fire = world.nearest_storage(cell)
+	if fire and _push_move_to(fire.cells()):
+		_plan.append({"a": "work", "t": 0.2, "act": "Legt sich hin", "done": func():
+			_do_sleep_outside()
+			activity = "Liegt krank am Feuer (%s)" % mind.illness_name()})
+		activity = "Schleppt sich krank zum Feuer"
+		return
+	_do_sleep_outside()
+
+
+var _beach = null  # Lieblingsplatz am Strand fuer Spaziergaenge
+
+
+## Freizeit: je nach Charakter am Feuer plaudern, zu Hause ausruhen, am Strand spazieren,
+## mit den Kindern spielen oder in der Bibliothek lesen.
+func _plan_leisure() -> bool:
+	var opts := []  # [Gewicht, Zelle, Text, angrenzend]
+	var g := mind.trait_value("gemuet")
+	var fire = world.fire_building()
+	if fire:
+		opts.append([1.0 + g * 0.25, fire.cell, "Sitzt am Feuer und plaudert", true])
+	var home = world.building_by_id(home_id)
+	if home and home.complete:
+		opts.append([2.0, home.entrance_cell(), "Ruht sich zu Hause aus", false])
+	if _beach == null or not world.is_walkable(_beach):
+		_beach = world.beach_near(_rng)
+	var beach = _beach
+	if beach != null:
+		opts.append([1.5, beach, "Geht am Strand spazieren", false])
+	var kids: Array = world.settlers.filter(func(o): return not o.is_adult() and o.visible)
+	if not kids.is_empty():
+		var k = kids[_rng.randi() % kids.size()]
+		opts.append([1.0 + g * 0.15, k.cell, "Spielt mit %s" % k.display_name, false])
+	for b in world.buildings:
+		if b.complete and b.def.get("base", b.type) in ["bibliothek", "schreibstube"] and b.def.has("research"):
+			opts.append([mind.trait_value("iq") * 0.4, b.entrance_cell(), "Liest in: %s" % b.def.name, false])
+			break
+	if opts.is_empty():
+		return false
+	var total := 0.0
+	for o in opts:
+		total += float(o[0])
+	var x := _rng.randf() * total
+	var pick: Array = opts[0]
+	for o in opts:
+		x -= float(o[0])
+		if x <= 0.0:
+			pick = o
+			break
+	if pick[3]:
+		if not _push_move_to([pick[1]], true):
+			return false
+	else:
+		var dest = world.find_approach(cell, [pick[1]], false)
+		if dest == null:
+			return false
+		_plan.append({"a": "move", "cell": dest})
+	_plan.append({"a": "wait", "t": mind.break_length(), "rest": true, "act": pick[2]})
+	activity = "Freizeit: " + pick[2]
+	return true
+
+
 func _plan_wander(radius: int, text: String, at = null) -> void:
 	var anchor: Vector2i = cell
 	var st = world.nearest_storage(cell)
@@ -464,7 +579,7 @@ func _plan_work() -> bool:
 			return _plan_research() or _plan_free_gather()
 		"jaeger":
 			if Data.job_unlocked("jaeger"):
-				if _plan_hunt() or _plan_gather(["beute", "wolfsbau", "eberbau", "baerenhoehle"]):
+				if _plan_hunt() or _plan_gather(["beute"]):
 					return true
 			return _plan_free_gather()
 		_:
@@ -770,7 +885,8 @@ func _push_research_step(b) -> void:
 func _do_research(b) -> void:
 	if not is_instance_valid(b) or not b.complete:
 		return
-	var pts := float(Data.bal("research_per_work", 1.0)) * float(b.research_def().get("factor", 1.0)) * skill_factor("wissen")
+	var pts := float(Data.bal("research_per_work", 1.0)) * float(b.research_def().get("factor", 1.0)) * skill_factor("wissen") \
+		* mind.research_factor() * mind.work_power()
 	Game.add_research(pts)
 	gain_xp("wissen", 0.5)
 	b.mark_active(3.0)
@@ -825,6 +941,11 @@ func _run_action(delta: float) -> void:
 		"wait":
 			_moving = false
 			_working = false
+			if a.get("rest", false):
+				if not a.get("started", false):
+					a.started = true
+					activity = "Freizeit: " + String(a.get("act", "Ruht sich aus"))
+				mind.relax(delta / float(Data.bal("day_length")))
 			a.t = float(a.t) - delta
 			if a.t <= 0.0:
 				_plan.pop_front()
@@ -842,6 +963,8 @@ func _walk(delta: float, mult: float = 1.0) -> void:
 	spd *= Seasons.walk_mult()  # Schnee
 	if hunger <= 0.0:
 		spd *= 0.6
+	if mind.sick != "":
+		spd *= 0.8
 	var to := target - position
 	var step := spd * delta
 	if to.length() <= step:
@@ -866,7 +989,7 @@ func attack_damage() -> float:
 
 
 func _can_fight() -> bool:
-	return is_adult() and is_armed() and health > 30.0
+	return is_adult() and is_armed() and health > 30.0 and mind.sick == ""
 
 
 ## Prueft regelmaessig, ob ein Tier droht: Jaeger kaempfen, alle anderen fliehen ins naechste Haus.
@@ -916,9 +1039,10 @@ func _check_danger(delta: float) -> void:
 
 
 func _plan_hunt() -> bool:
-	if health < 55.0 or Game.is_night():
+	if health < 55.0 or Game.is_night() or mind.sick != "":
 		return false
-	var an = world.nearest_animal(position, 24.0 * 16.0)
+	# Jaeger jagen nur erwachsene Tiere und lassen von jeder Art genug zum Vermehren uebrig
+	var an = world.nearest_animal(position, 24.0 * 16.0, "hunt")
 	if an == null:
 		return false
 	_plan.append({"a": "hunt", "target": an, "start": cell})
@@ -928,7 +1052,7 @@ func _plan_hunt() -> bool:
 
 func _run_hunt(a: Dictionary, delta: float) -> void:
 	var an = a.target
-	if not is_instance_valid(an) or an.dead or (health < 25.0 and not a.get("flee", false)) \
+	if not is_instance_valid(an) or an.dead or an.is_scared() or (health < 25.0 and not a.get("flee", false)) \
 			or Vector2(cell - a.start).length() > 26.0:
 		_working = false
 		_plan.pop_front()
@@ -1059,5 +1183,5 @@ func serialize() -> Dictionary:
 		"hunger": snappedf(hunger, 0.01), "health": snappedf(health, 0.01), "skills": skills,
 		"skill_xp": skill_xp, "job": job, "home": home_id, "look": look,
 		"carry_res": carry_res, "carry_n": carry_n, "birth_cd": birth_cooldown_until,
-		"parents": parents, "x": cell.x, "y": cell.y,
+		"parents": parents, "x": cell.x, "y": cell.y, "mind": mind.serialize(),
 	}
