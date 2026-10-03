@@ -21,6 +21,7 @@
   "newcomer_chance": 0.03,
   "carry_capacity": 4,
   "walk_speed": 34.0,
+  "work_pace": 0.65,
   "skill_xp_per_level": 30.0,
   "skill_max": 10,
   "base_storage": 0,

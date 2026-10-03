@@ -411,7 +411,7 @@ Pushes auf den Zweig `claude/entwicklungsbaum-x33t1h` landen unter `/New_World/t
   `aggro`, `night_aggro`, `attack_time`, `meat`, `felle`, `leash`, `row` (Zeile in animals.png),
   `plural`, `plural_dat`, `food`, `winter_food`, `food_name`, `food_per_animal`, `roam`, `litter`,
   `den_max`, `adult_days`, `hibernate`.
-- **balance.json**: alle Zahlen für Zeit, Hunger, Nachwuchs, Lager, Karte.
+- **balance.json**: alle Zahlen für Zeit, Hunger, Nachwuchs, Lager, Karte. `work_pace` (0.65 seit josh's Spieltest am 2026-10-03) bremst jede Arbeit (Sammeln, Fällen, Abbau, Felder, Bau, Werkstätten, Forschung) gegenüber dem Verbrauch; Laufen, Essen, Heizen und die Uhr bleiben gleich.
 - **Spielstand** (Version 3): `{version, seed, time_days, next_id, stats, lineage, research,
   islands: [{id, name, biome, seed, size, pos, state, found_day, dens, world?}], active, voyages}`
   mit `world: {stock, nodes: [[type,x,y,amount,regrow_at,variant]], buildings: [...], settlers: [...],
