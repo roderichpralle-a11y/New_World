@@ -9,6 +9,6 @@
   "goldader": {"name": "Goldader", "yield": "gold", "capacity": 6, "work_time": 7.0, "skill": "stein", "terrain": "land", "solid": true, "regrow_days": 0, "sprites": {"full": ["gold_rock"], "low": "rock_small"}, "on_empty": "remove"},
   "wolfsbau": {"name": "Wolfsbau", "yield": "felle", "capacity": 6, "work_time": 3.0, "skill": "jagd", "terrain": "grass", "solid": true, "regrow_days": 0, "spawns": "wolf", "den_cap": 3, "sprites": {"full": ["den"]}, "on_empty": "remove"},
   "eberbau": {"name": "Wildschweinsuhle", "yield": "felle", "capacity": 5, "work_time": 3.0, "skill": "jagd", "terrain": "grass", "solid": true, "regrow_days": 0, "spawns": "eber", "den_cap": 2, "sprites": {"full": ["wallow"]}, "on_empty": "remove"},
-  "baerenhoehle": {"name": "Bärenhöhle", "yield": "felle", "capacity": 8, "work_time": 3.5, "skill": "jagd", "terrain": "land", "solid": true, "regrow_days": 0, "spawns": "baer", "den_cap": 1, "sprites": {"full": ["cave"]}, "on_empty": "remove"},
+  "baerenhoehle": {"name": "Bärenhöhle", "yield": "felle", "capacity": 8, "work_time": 3.5, "skill": "jagd", "terrain": "land", "solid": true, "regrow_days": 0, "spawns": "baer", "den_cap": 2, "sprites": {"full": ["cave"]}, "on_empty": "remove"},
   "beute": {"name": "Erlegtes Tier", "yield": "fleisch", "capacity": 5, "work_time": 1.6, "skill": "jagd", "terrain": "land", "solid": false, "regrow_days": 0, "decay_days": 2.0, "sprites": {"full": ["carcass"]}, "on_empty": "remove"}
 }

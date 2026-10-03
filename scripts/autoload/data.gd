@@ -14,6 +14,7 @@ var tiers: Array = []
 var islands: Dictionary = {}  # Inselarten (Biome)
 var animals: Dictionary = {}
 var goals: Dictionary = {}  # Einfuehrung und Ziele
+var people: Dictionary = {}  # Charaktere: Eigenschaften, Krankheiten, Laune, Freizeit
 
 var tex_terrain: Texture2D = preload("res://assets/sprites/terrain.png")
 var tex_objects: Texture2D = preload("res://assets/sprites/objects.png")
@@ -83,6 +84,7 @@ func _ready() -> void:
 	islands = _load("islands")
 	goals = _load("goals")
 	animals = _load("animals")
+	people = _load("people")
 	var f := FileAccess.open("res://assets/sprites/icons.txt", FileAccess.READ)
 	if f:
 		var i := 0
@@ -104,6 +106,11 @@ func _load(name: String) -> Dictionary:
 
 func bal(key: String, default = 0.0):
 	return balance.get(key, default)
+
+
+## Wert aus people.json (Charaktere der Siedler).
+func ppl(key: String, default = 0.0):
+	return people.get(key, default)
 
 
 ## AtlasTexture fuer ein Objekt (Frame f bei animierten Regionen).

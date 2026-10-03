@@ -308,6 +308,9 @@ func can_afford(cost: Dictionary, w = null) -> bool:
 	return true
 
 
+var last_eaten: String = ""  # Sorte der letzten Mahlzeit (fuer Vitamine und Speiseplan)
+
+
 ## Nimmt eine Mahlzeit: liefert Naehrwert (0 wenn nichts da).
 func eat_one(w = null) -> float:
 	var id := eat_food(false, w)
@@ -332,6 +335,7 @@ func eat_food(prefer_vitamins: bool, w = null) -> String:
 	if best != "":
 		take_stock(best, 1, w)
 		eaten[best] = int(eaten.get(best, 0)) + 1
+		last_eaten = best
 	return best
 
 
@@ -397,10 +401,16 @@ func _try_birth_on(w) -> void:
 	chance *= eff("birth")
 	# In besseren Haeusern kommen mehr Kinder zur Welt
 	chance *= home_birth_bonus(w, mother)
+	# Gut gelaunte Paare bekommen eher Kinder, kranke kaum
+	chance *= sqrt(mother.mind.birth_factor() * father.mind.birth_factor())
+	if mother.mind.sick != "":
+		chance *= 0.2
 	if _rng.randf() > chance:
 		return
 	mother.birth_cooldown_until = time_days + float(Data.bal("birth_cooldown"))
 	var child = w.spawn_child(mother, father)
+	mother.mind.on_child_born()
+	father.mind.on_child_born()
 	stats.births += 1
 	Sound.play_on("geburt", w)
 	notify_at(w, "%s ist geboren! Eltern: %s und %s." % [child.display_name, mother.display_name, father.display_name], "herz")
