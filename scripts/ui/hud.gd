@@ -1230,7 +1230,10 @@ Jedes Lager hat Stauraum: das Lagerfeuer 200, ein Lagerhaus 400, ein Großes Lag
 Gibt es mindestens drei Sorten Nahrung im Lager, kommen öfter Kinder zur Welt.
 
 [b]Seefahrt[/b]
-Mit der Forschung Schiffsbau baust du am Ufer eine Werft. Handwerker zimmern dort Boote. Über den Knopf Inseln öffnest du die Seekarte: Ein Boot sucht neue Inseln, und mit "Siedler schicken" bringt ein Boot bis zu vier Siedler hinüber. Alle Inseln teilen sich die Vorräte.
+Jede Insel hat ihr eigenes Lager. Waren kommen nur mit Schiffen auf eine andere Insel. Mit der Forschung Schiffsbau baust du am Ufer eine Werft; im Fenster der Werft wählst du das nächste Schiff. Ruderboote sind klein und landen an jedem Strand, Koggen tragen viel, Schnellsegler sind schnell, Galeonen riesig. Jedes Schiff braucht Seeleute (Beruf Seemann) und einen Liegeplatz in seinem Heimathafen: Werft 1, Anlegesteg 2, Hafen 2, Großer Hafen 3, Kais 1. Koggen und Schnellsegler laufen nur Inseln mit Hafen an, Galeonen nur Große Häfen. Holz-, Erz- und Proviantkai laden ihre Waren dreimal so schnell.
+
+[b]Seekarte und Routen[/b]
+Über den Knopf Inseln öffnest du die Seekarte. "Schiff hierher schicken" bringt Siedler und Waren zu einer Insel, "Neue Insel suchen" schickt ein Schiff auf Erkundung. Unter "Schiffe" legst du Routen fest: An jedem Halt lädt das Schiff die eingestellten Waren und lädt alles andere ab, dann fährt es weiter, immer wieder.
 
 [b]Neue Inseln[/b]
 Palmeninseln haben Kokosnüsse und viel Fisch, Waldinseln Pilze und Holz, Felseninseln Erz und Gold. Gold brauchst du für die höchsten Forschungen. Je weiter draußen, desto mehr wilde Tiere.
