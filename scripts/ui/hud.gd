@@ -631,6 +631,8 @@ func _refresh_stock(force: bool = false) -> void:
 	hint.modulate.a = 0.8
 	_stock_grid.add_child(hint)
 	for id in Data.sorted_resource_ids():
+		if Data.resources[id].get("category", "") == "ship":
+			continue  # Schiffe liegen im Hafen, nicht im Lager
 		_stock_grid.add_child(_stock_row(id))
 	var food := UiTheme.label("Nahrungssorten: %d" % Game.food_variety(), 13)
 	food.tooltip_text = "Ab %d Sorten im Lager kommen öfter Kinder zur Welt." % int(Data.bal("variety_min", 3))
@@ -1229,7 +1231,10 @@ Jedes Lager hat Stauraum: das Lagerfeuer 200, ein Lagerhaus 400, ein Großes Lag
 Gibt es mindestens drei Sorten Nahrung im Lager, kommen öfter Kinder zur Welt.
 
 [b]Seefahrt[/b]
-Mit der Forschung Schiffsbau baust du am Ufer eine Werft. Handwerker zimmern dort Boote. Über den Knopf Inseln öffnest du die Seekarte: Ein Boot sucht neue Inseln, und mit "Siedler schicken" bringt ein Boot bis zu vier Siedler hinüber. Alle Inseln teilen sich die Vorräte.
+Jede Insel hat ihr eigenes Lager. Waren kommen nur mit Schiffen auf eine andere Insel. Mit der Forschung Schiffsbau baust du am Ufer eine Werft; im Fenster der Werft wählst du das nächste Schiff. Ruderboote sind klein und landen an jedem Strand, Koggen tragen viel, Schnellsegler sind schnell, Galeonen riesig. Jedes Schiff braucht Seeleute (Beruf Seemann) und einen Liegeplatz in seinem Heimathafen: Werft 1, Anlegesteg 2, Hafen 2, Großer Hafen 3, Kais 1. Koggen und Schnellsegler laufen nur Inseln mit Hafen an, Galeonen nur Große Häfen. Holz-, Erz- und Proviantkai laden ihre Waren dreimal so schnell.
+
+[b]Seekarte und Routen[/b]
+Über den Knopf Inseln öffnest du die Seekarte. "Schiff hierher schicken" bringt Siedler und Waren zu einer Insel, "Neue Insel suchen" schickt ein Schiff auf Erkundung. Unter "Schiffe" legst du Routen fest: An jedem Halt lädt das Schiff die eingestellten Waren und lädt alles andere ab, dann fährt es weiter, immer wieder.
 
 [b]Neue Inseln[/b]
 Palmeninseln haben Kokosnüsse und viel Fisch, Waldinseln Pilze und Holz, Felseninseln Erz und Gold. Gold brauchst du für die höchsten Forschungen. Je weiter draußen, desto mehr wilde Tiere.
@@ -1523,6 +1528,10 @@ func _info_building(b: Building) -> void:
 				var w := UiTheme.label("Ohne Bauern wird das Feld nur selten bestellt.", 13, UiTheme.BAD)
 				w.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 				_info_box.add_child(w)
+	if b.complete and b.def.get("ships", false):
+		_info_shipyard(b)
+	if b.complete and b.def.has("harbor"):
+		_info_harbor(b)
 	if b.complete and b.def.has("production"):
 		_info_production(b)
 	if b.complete and b.def.has("research"):
@@ -1567,6 +1576,56 @@ func _names_of(ids: Array) -> Array:
 		if s.id in ids:
 			out.append(s.display_name)
 	return out
+
+
+## Werft: welches Schiff als naechstes gebaut wird.
+func _info_shipyard(b: Building) -> void:
+	_info_box.add_child(UiTheme.label("Nächstes Schiff", 15, UiTheme.TEXT, true))
+	var flow := HFlowContainer.new()
+	flow.add_theme_constant_override("h_separation", 4)
+	flow.add_theme_constant_override("v_separation", 4)
+	for t in Data.ships:
+		var sd: Dictionary = Data.ships[t]
+		if not Game.is_researched(sd.get("requires", "")):
+			continue
+		var bt := UiTheme.button(sd.name, sd.get("icon", "boot"), 34)
+		bt.toggle_mode = true
+		bt.button_pressed = b.ship_choice == t
+		bt.tooltip_text = "%s\nLaderaum %d, %d Fahrgäste, Besatzung %d, Tempo x%.1f" % [sd.desc, int(sd.cargo), int(sd.passengers), int(sd.crew), float(sd.speed)]
+		var tt: String = t
+		bt.pressed.connect(func():
+			b.ship_choice = tt
+			_rebuild_info())
+		flow.add_child(bt)
+	_info_box.add_child(flow)
+	var sd: Dictionary = Data.ships.get(b.ship_choice, {})
+	var l := UiTheme.label("%s: Laderaum %d, %d Fahrgäste, %d Seeleute, Tempo x%.1f. %s" % [sd.get("name", ""), int(sd.get("cargo", 0)),
+		int(sd.get("passengers", 0)), int(sd.get("crew", 1)), float(sd.get("speed", 1.0)), sd.get("desc", "")], 12)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_info_box.add_child(l)
+
+
+## Hafen, Steg, Kai: Liegeplaetze und Schiffe der Insel.
+func _info_harbor(b: Building) -> void:
+	var h: Dictionary = b.def.harbor
+	var sizes := {1: "klein", 2: "mittel", 3: "groß"}
+	var bl := []
+	for x in h.get("berths", []):
+		bl.append(sizes.get(int(x), "?"))
+	_info_box.add_child(UiTheme.label("Liegeplätze hier: %s" % ", ".join(bl), 13))
+	_info_box.add_child(UiTheme.label("Ladetempo: %d je Stunde" % int(h.get("rate", 0)), 13))
+	if h.has("goods"):
+		var gl := UiTheme.label("Schnell (%d je Stunde): %s" % [int(h.goods_rate), ", ".join(h.goods.map(func(g): return Data.resource_name(g)))], 12, UiTheme.GOOD)
+		gl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_info_box.add_child(gl)
+	_info_box.add_child(UiTheme.label("Insel: %s, %s" % [Sea.harbor_level_name(Sea.harbor_level(world)), Sea.berth_text(world)], 12))
+	var sb := UiTheme.button("Schiffe und Seekarte", "anker", 36)
+	sb.pressed.connect(func():
+		Game.select(null)
+		_sea_panel.open_ships()
+		if not _sea_panel.visible:
+			_toggle(_sea_panel))
+	_info_box.add_child(sb)
 
 
 func _info_production(b: Building) -> void:

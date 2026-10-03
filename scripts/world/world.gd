@@ -23,6 +23,8 @@ var settlers: Array = []
 var graves: Array = []  # [Sprite2D, bis_tag]
 var animals: Array = []  # wilde Tiere (Animal)
 var decor: Array = []  # Boote am Strand: [Sprite2D, bis_tag]
+var _ship_nodes: Dictionary = {}  # Schiff-ID -> Sprite2D (Schiffe, die hier liegen)
+var _ship_anim: float = 0.0
 var center: Vector2i
 var stock: Dictionary = {}  # Lager dieser Insel (Ware -> Menge), siehe Game.amount
 var store_limits: Dictionary = {}  # Hoechstmengen je Ware auf dieser Insel (fehlt = frei)
@@ -144,6 +146,8 @@ func build_from_save(w: Dictionary, m: Dictionary) -> void:
 		bld.farm_state = b.get("farm_state", "fallow")
 		bld.farm_time = float(b.get("farm_time", 0.0))
 		bld.paused = bool(b.get("paused", false))
+		if Data.ships.has(b.get("ship", "")):
+			bld.ship_choice = b.ship
 		bld.refresh()
 	for s in w.settlers:
 		spawn_settler(s)
@@ -490,6 +494,8 @@ func on_building_completed(b: Building) -> void:
 		assign_homes()
 	if b.def.has("effects"):
 		Game.refresh_effects()
+	if b.def.has("harbor"):
+		sync_ships()
 	Game.stock_changed.emit()
 	Game.population_changed.emit()
 
@@ -517,6 +523,8 @@ func demolish(b: Building) -> void:
 		Game.select(null)
 	spawn_effect("dust", b.position)
 	b.queue_free()
+	if b.def.has("harbor"):
+		sync_ships.call_deferred()
 	for res in refund:
 		Game.add_stock(res, refund[res], self)
 	assign_homes()
@@ -1016,6 +1024,8 @@ func _process(delta: float) -> void:
 		c = day_col.lerp(dusk if is_evening else Color(0.9, 0.85, 1.0), clamp(nf * 2.0, 0.0, 1.0)).lerp(night, clamp(nf * 2.0 - 1.0, 0.0, 1.0))
 	day_tint.color = c
 	_update_season_look()
+	if not _ship_nodes.is_empty():
+		_animate_ships(delta)
 	for cl in _clouds:
 		cl.position.x += delta * 6.0
 		if cl.position.x > size * T + 300:
@@ -1258,22 +1268,27 @@ func _water_near(c: Vector2i, radius: int):
 	return best
 
 
-## Ein Boot legt an der Werft (oder am Strand) ab und segelt aufs Meer hinaus.
-func sail_away() -> void:
-	var start = null
-	for b in buildings:
-		if b.type == "werft" and b.complete:
-			start = _water_near(b.entrance_cell(), 5)
+## Bild eines Schiffs (Sprite aus objects2.png, schaukelt in zwei Bildern).
+func _ship_node(sprite: String) -> Sprite2D:
+	var r: Array = Data.OBJECT2_REGIONS.get(sprite, Data.OBJECT2_REGIONS.boat)
+	var sp := Sprite2D.new()
+	sp.texture = Data.tex_objects2
+	sp.region_enabled = true
+	sp.region_rect = Rect2(r[0], r[1], r[2] * r[4], r[3])
+	sp.hframes = int(r[4])
+	sp.offset = Vector2(0, -r[3] / 2.0 + 10)
+	return sp
+
+
+## Ein Schiff legt am Hafen (oder am Strand) ab und segelt aufs Meer hinaus.
+func sail_away(sprite: String = "boat") -> void:
+	var start = _water_near(harbor_cell(), 6)
 	if start == null:
 		start = _water_near(landing_cell(), 5)
 	if start == null:
 		return
-	var sp := Sprite2D.new()
-	sp.texture = Data.tex_objects2
-	sp.region_enabled = true
-	sp.region_rect = Rect2(0, 64, 64, 32)
-	sp.hframes = 2
-	sp.position = cell_to_pos(start) + Vector2(0, -6)
+	var sp := _ship_node(sprite)
+	sp.position = cell_to_pos(start)
 	fx.add_child(sp)
 	var dir := (sp.position - cell_to_pos(center)).normalized()
 	if dir == Vector2.ZERO:
@@ -1282,6 +1297,69 @@ func sail_away() -> void:
 	tw.tween_property(sp, "position", sp.position + dir * size * T * 0.7, 9.0)
 	tw.parallel().tween_property(sp, "modulate:a", 0.0, 3.0).set_delay(6.0)
 	tw.tween_callback(sp.queue_free)
+
+
+## Eingang des groessten Hafens (oder der Werft), sonst der Landeplatz am Strand.
+func harbor_cell() -> Vector2i:
+	var best = null
+	var lv := -1
+	for b in buildings:
+		if b.complete and b.def.has("harbor") and int(b.def.harbor.get("level", 1)) > lv:
+			lv = int(b.def.harbor.get("level", 1))
+			best = b
+	return best.entrance_cell() if best else landing_cell()
+
+
+## Zeigt die Schiffe, die gerade bei dieser Insel liegen, im Wasser vor den Haefen.
+func sync_ships() -> void:
+	var here: Array = Sea.ships_at(island_id)
+	# Immer neu verteilen: Haefen koennen dazugekommen oder verschoben worden sein
+	for id in _ship_nodes.keys():
+		_ship_nodes[id].queue_free()
+	_ship_nodes.clear()
+	var taken := []
+	here.sort_custom(func(a, b): return int(Sea.ship_def(a).get("size", 1)) > int(Sea.ship_def(b).get("size", 1)))
+	for sh in here:
+		var id := int(sh.id)
+		var spot = _ship_spot(taken)
+		if spot == null:
+			continue
+		taken.append(spot)
+		var sp := _ship_node(String(Sea.ship_def(sh).get("sprite", "boat")))
+		sp.position = cell_to_pos(spot)
+		entities.add_child(sp)
+		_ship_nodes[id] = sp
+
+
+func _ship_spot(taken: Array):
+	var hs := buildings.filter(func(b): return b.complete and b.def.has("harbor"))
+	hs.sort_custom(func(a, b): return int(a.def.harbor.get("level", 1)) > int(b.def.harbor.get("level", 1)))
+	var anchors := hs.map(func(b): return b.entrance_cell())
+	anchors.append(landing_cell())
+	for a in anchors:
+		var best = null
+		var best_d := INF
+		for y in range(-7, 8):
+			for x in range(-7, 8):
+				var q: Vector2i = a + Vector2i(x, y)
+				if not (is_water(q) and is_water(q + Vector2i(1, 0)) and is_water(q + Vector2i(-1, 0)) and is_water(q + Vector2i(0, -1))):
+					continue
+				if taken.any(func(t): return Vector2(t - q).length() < 3.0):
+					continue
+				var d := Vector2(x, y).length()
+				if d < best_d:
+					best_d = d
+					best = q
+		if best != null:
+			return best
+	return null
+
+
+func _animate_ships(delta: float) -> void:
+	_ship_anim += delta
+	var f := int(_ship_anim * 1.6) % 2
+	for sp in _ship_nodes.values():
+		sp.frame = f
 
 
 # ================================================================== Wilde Tiere

@@ -16,6 +16,8 @@ var farm_time: float = 0.0  # Spielzeit der Aussaat
 var reserved_by: int = 0
 var occupants: Array = []  # Siedler-IDs, die hier arbeiten (Produktion, Forschung)
 var paused: bool = false
+var ship_choice: String = "boot"  # Werft: welches Schiff als naechstes gebaut wird
+var ship_wip: String = ""  # Werft: Schiff, fuer das die Rohstoffe schon genommen sind
 var active_until: float = 0.0  # Echtzeit, bis zu der die Werkstatt als "in Betrieb" gilt
 var deliveries: int = 0  # Ablieferungen an dieses Lager (nur zur Verteilung, nicht gespeichert)
 var world
@@ -213,7 +215,22 @@ func farm_task() -> String:
 
 # ---------------------------------------------------------------- Werkstatt / Forschung
 func prod_def() -> Dictionary:
+	if def.get("ships", false):
+		return ship_recipe(ship_wip if ship_wip != "" else ship_choice)
 	return def.get("production", {})
+
+
+## Werft: Bauplan fuer ein Schiff aus data/ships.json.
+func ship_recipe(t: String) -> Dictionary:
+	var p: Dictionary = def.get("production", {}).duplicate(true)
+	var sd: Dictionary = Data.ships.get(t, {})
+	if sd.is_empty():
+		return p
+	p["inputs"] = sd.build.inputs.duplicate()
+	p["outputs"] = {t: 1}
+	p["time"] = float(sd.build.get("time", p.get("time", 18.0)))
+	p["verb"] = "Baut: %s" % sd.name
+	return p
 
 
 func research_def() -> Dictionary:
@@ -239,6 +256,12 @@ func prod_blocker() -> String:
 		return "nicht fertig"
 	if paused:
 		return "angehalten"
+	if def.get("ships", false):
+		var sd: Dictionary = Data.ships.get(ship_choice, {})
+		if not Game.is_researched(sd.get("requires", "")):
+			return "Für %s fehlt die Forschung %s" % [sd.get("name", "?"), Data.techs[sd.requires].name]
+		if not Sea.free_berth(world, int(sd.get("size", 1))):
+			return "Kein freier Liegeplatz für ein weiteres Schiff. Baue einen Hafen oder Steg"
 	for res in p.get("inputs", {}):
 		if Game.amount(res, world) < int(p.inputs[res]):
 			return "Es fehlt %s" % Data.resource_name(res)
@@ -258,6 +281,8 @@ func take_inputs() -> bool:
 	var p := prod_def()
 	for res in p.get("inputs", {}):
 		Game.take_stock(res, int(p.inputs[res]), world)
+	if def.get("ships", false):
+		ship_wip = ship_choice
 	return true
 
 
@@ -364,5 +389,5 @@ func serialize() -> Dictionary:
 	return {
 		"id": id, "type": type, "x": cell.x, "y": cell.y, "complete": complete,
 		"progress": progress, "delivered": delivered,
-		"farm_state": farm_state, "farm_time": farm_time, "paused": paused,
+		"farm_state": farm_state, "farm_time": farm_time, "paused": paused, "ship": ship_choice,
 	}
