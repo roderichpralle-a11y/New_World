@@ -13,7 +13,11 @@ signal research_changed
 ## Spieler hat etwas getan (fuer die Einfuehrung), z. B. ("job", "holzfaeller")
 signal player_action(kind: String, what: String)
 
-const SAVE_PATH := "user://savegame.json"
+const LIVE_SAVE_PATH := "user://savegame.json"
+## Die Testversion (Webadresse mit /test/) hat einen eigenen Spielstand. Beim ersten Start
+## übernimmt sie eine Kopie des normalen Spielstands; der normale bleibt unberührt.
+var SAVE_PATH := LIVE_SAVE_PATH
+var is_test_build := false
 const SAVE_VERSION := 3
 
 var world = null  # aktive (sichtbare) Insel, siehe Sea fuer alle Inseln
@@ -45,6 +49,21 @@ var _rng := RandomNumberGenerator.new()
 func _ready() -> void:
 	_rng.randomize()
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	_detect_test_build()
+
+
+func _detect_test_build() -> void:
+	var path := ""
+	if OS.has_feature("web"):
+		path = str(JavaScriptBridge.eval("window.location.pathname", true))
+	if "--testbuild" in OS.get_cmdline_user_args():
+		path = "/test/"
+	if not "/test/" in path:
+		return
+	is_test_build = true
+	SAVE_PATH = "user://savegame_test.json"
+	if not FileAccess.file_exists(SAVE_PATH) and FileAccess.file_exists(LIVE_SAVE_PATH):
+		DirAccess.copy_absolute(LIVE_SAVE_PATH, SAVE_PATH)
 
 
 func reset_state(new_seed: int) -> void:

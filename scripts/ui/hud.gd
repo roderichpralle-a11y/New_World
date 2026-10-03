@@ -1829,6 +1829,10 @@ func show_title(has_save: bool) -> void:
 	var st := UiTheme.label("Zwei Siedler. Eine Insel. Viele Generationen.", 15)
 	st.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(st)
+	if Game.is_test_build:
+		var tb := UiTheme.label("Testversion mit eigenem Spielstand.\nDein normales Spiel bleibt unverändert.", 14, Color("#c03a2a"), true)
+		tb.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		v.add_child(tb)
 	if has_save:
 		var cont := UiTheme.button("Weiterspielen", "play", 50)
 		cont.pressed.connect(func():
