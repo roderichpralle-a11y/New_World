@@ -355,7 +355,7 @@ func _report_society(auto: String) -> void:
 			for l in m.lessons:
 				print("     Lehre (%s): %s" % [l[2], l[1]])
 	if Llm.state != "aus":
-		print("   ", Llm.status_text(), " Anfragen: ", Llm.stats, " offen: ", Llm.pending.size(), " | ", KiMind.activity)
+		print("   ", Llm.status_text(), " Anfragen: ", Llm.stats, " offen: ", Llm.pending.size(), " | Anfrage Rat %d Zeichen, Siedler %d Zeichen | " % [str(KiMind.last_prompt.get("rat", "")).length(), str(KiMind.last_prompt.get("siedler", "")).length()], KiMind.activity)
 	if _args.has("kichat") and KiMind.active() and not _args.has("_chatted"):
 		_args["_chatted"] = "1"
 		KiMind.chat(Game.world, str(_args.kichat))

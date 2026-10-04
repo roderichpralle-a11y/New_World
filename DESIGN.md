@@ -394,7 +394,14 @@ laden oder will der Spieler nicht, entscheidet die Regel-KI unten wie bisher.
   gelöscht nach der ersten erfolgreichen Antwort. Steht es beim nächsten Start noch da, ist die Seite
   abgestürzt, das Modell kommt nach `kiLlmTooBig` und wird übersprungen. Geht kein Ratsmodell, denkt der
   Rat mit dem Siedlermodell (`shared`). „Llama trotzdem versuchen“ im Rat-Fenster (`Llm.retry_big`)
-  vergisst die Abstürze. `crash_test.mjs` in `tools/ki_llm_test` prüft das in Chromium.
+  vergisst die Abstürze. Der Merker steht in localStorage und IndexedDB (verlässlich auf der Platte);
+  der Worker lädt erst weiter, wenn er gespeichert ist (`trying` → `go`). `crash_test.mjs` und
+  `crash_idb_test.mjs` in `tools/ki_llm_test` prüfen das in Chromium.
+- **Stückweises Einlesen** (`runGen`): Ein ONNX-Modell ohne Eingang `num_logits_to_keep` rechnet für jedes
+  Wort der Anfrage Wahrscheinlichkeiten über den ganzen Wortschatz aus (Llama: 2000 Wörter × 128 000 ≈ 1 GB).
+  Darum liest der Worker die Anfrage in Stücken von `chunk` (64) Wörtern mit `forward` und
+  `past_key_values` ein und lässt erst den Rest `generate` machen. Gleiches Ergebnis wie am Stück
+  (`chunk_test.mjs`).
 - Autoload `KiMind` (`scripts/autoload/ki_mind.gd`), läuft nur wenn `Llm.active()`; dann macht
   `Society` nur noch Häuser, Pflege, Feste und Anliegen. Eine Runde geht Insel für Insel (Hauptinsel
   zuerst): ist der Rat dran (`council_days`), bekommt Llama `council_system` (Rolle, Ziel: Hauptinsel

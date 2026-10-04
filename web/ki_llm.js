@@ -71,6 +71,8 @@
 			return ids.filter((id) => !(cfg.skip || []).includes(role + ':' + id));
 		}
 
+		let goResolve = null;
+
 		async function loadOne(role) {
 			const ids = candidates(role);
 			if (!ids.length && role === 'rat' && M.siedler) {
@@ -84,7 +86,8 @@
 				for (const dtype of dtypes) {
 					try {
 						status({ state: 'laden', role, note: id + ' (' + dtype + ')' });
-						post({ type: 'trying', role, id });
+						// Erst weiter, wenn die Seite sich sicher gemerkt hat, was jetzt geladen wird
+						await new Promise((res) => { goResolve = res; post({ type: 'trying', role, id }); setTimeout(res, 3000); });
 						const progress_callback = (p) => {
 							if (p && p.status === 'progress' && p.total) {
 								post({ type: 'progress', role, file: p.file, loaded: p.loaded, total: p.total });
@@ -135,6 +138,32 @@
 			return mx + Math.log(s);
 		}
 
+		// Lange Anfragen stückweise einlesen: Ohne das berechnet das Modell für jedes Wort der Anfrage
+		// eine Wahrscheinlichkeit für jedes Wort seines Wortschatzes (bei Llama mit 2000 Wörtern
+		// Anfrage über 1 GB auf einmal). In Stücken von `chunk` Wörtern bleibt es klein; das Gelesene
+		// steht im Zwischenspeicher (past_key_values), generate() macht danach mit dem Rest weiter.
+		async function runGen(m, enc, opts) {
+			const L = enc.input_ids.dims.at(-1);
+			const CH = cfg.chunk || 64;
+			let cache = null;
+			try {
+				for (let s = 0; s + CH < L; s += CH) {
+					const out = await m.model.forward({
+						input_ids: enc.input_ids.slice(null, [s, s + CH]), attention_mask: T.ones([1, s + CH]), past_key_values: cache,
+					});
+					const pkv = {};
+					for (const k in out) if (k.startsWith('present')) pkv[k.replace('present', 'past_key_values')] = out[k];
+					if (cache) cache.update(pkv); else cache = new T.DynamicCache(pkv);
+					if (out.logits && out.logits.location === 'gpu-buffer') out.logits.dispose();
+				}
+				return await m.model.generate({
+					...opts, input_ids: enc.input_ids, attention_mask: T.ones([1, L]), ...(cache ? { past_key_values: cache } : {}),
+				});
+			} finally {
+				if (cache) await cache.dispose();
+			}
+		}
+
 		// Auswahl: Wahrscheinlichkeit jeder Nummer 1..n als nächstes Wort der Antwort
 		async function choose(m, job) {
 			const text = render(m, job);
@@ -146,7 +175,7 @@
 					return logits;
 				}
 			}
-			await m.model.generate({ ...enc, max_new_tokens: 1, do_sample: false, logits_processor: [new Capture()] });
+			await runGen(m, enc, { max_new_tokens: 1, do_sample: false, logits_processor: [new Capture()] });
 			const n = Math.max(1, Math.min(9, job.n));
 			const raw = [];
 			for (let i = 0; i < n; i++) {
@@ -166,9 +195,8 @@
 			const text = render(m, job);
 			const enc = m.tok(text, { add_special_tokens: false });
 			const t = job.temperature || 0;
-			const out = await m.model.generate({
-				...enc, max_new_tokens: job.max_new_tokens || 48, do_sample: t > 0, temperature: t > 0 ? t : 1.0,
-				repetition_penalty: 1.15,
+			const out = await runGen(m, enc, {
+				max_new_tokens: job.max_new_tokens || 48, do_sample: t > 0, temperature: t > 0 ? t : 1.0, repetition_penalty: 1.15,
 			});
 			const len = enc.input_ids.dims.at(-1);
 			const seq = out.tolist()[0].slice(len).map(Number);
@@ -231,6 +259,8 @@
 				} catch (e) {
 					status({ state: 'fehler', device, error: String(e && e.message || e) });
 				}
+			} else if (msg.type === 'go') {
+				if (goResolve) { const r = goResolve; goResolve = null; r(); }
 			} else if (msg.type === 'job') {
 				queue.push(msg.job);
 				pump();
@@ -259,32 +289,61 @@
 	function lsSet(k, v) {
 		try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); } catch (e) { }
 	}
+	// IndexedDB schreibt verlässlich auf die Platte (localStorage kann bei einem Absturz verloren gehen)
+	function idb() {
+		return new Promise((res) => {
+			try {
+				const r = indexedDB.open('kiLlm', 1);
+				r.onupgradeneeded = () => r.result.createObjectStore('kv');
+				r.onsuccess = () => res(r.result);
+				r.onerror = () => res(null);
+			} catch (e) { res(null); }
+		});
+	}
+	async function idbGet(k, d) {
+		const db = await idb();
+		if (!db) return d;
+		return new Promise((res) => {
+			try {
+				const q = db.transaction('kv', 'readonly').objectStore('kv').get(k);
+				q.onsuccess = () => res(q.result === undefined ? d : JSON.parse(q.result));
+				q.onerror = () => res(d);
+			} catch (e) { res(d); }
+		});
+	}
+	async function idbSet(k, v) {
+		const db = await idb();
+		if (!db) return;
+		return new Promise((res) => {
+			try {
+				const tx = db.transaction('kv', 'readwrite', { durability: 'strict' });
+				if (v === null) tx.objectStore('kv').delete(k); else tx.objectStore('kv').put(JSON.stringify(v), k);
+				tx.oncomplete = () => res();
+				tx.onerror = () => res();
+				tx.onabort = () => res();
+			} catch (e) { res(); }
+		});
+	}
+	async function store(k, v) {
+		lsSet(k, v);
+		await idbSet(k, v);
+	}
+
 	K.tooBig = function () {
 		return JSON.stringify(lsGet('kiLlmTooBig', []));
 	};
 	K.resetTooBig = function () {
-		lsSet('kiLlmTooBig', null);
-		lsSet('kiLlmPending', null);
+		store('kiLlmTooBig', null);
+		store('kiLlmPending', null);
 		return 'ok';
 	};
 
 	K.init = function (cfgJson) {
 		if (K.worker) return 'schon';
 		const cfg = JSON.parse(cfgJson);
-		const pending = lsGet('kiLlmPending', null);
-		const big = lsGet('kiLlmTooBig', []);
-		const key = pending && pending.id ? pending.role + ':' + pending.id : '';
-		if (key && !big.includes(key)) {
-			big.push(key);
-			lsSet('kiLlmTooBig', big);
-			K.st.log.push('Beim letzten Mal abgestürzt: ' + pending.id + ' wird übersprungen.');
-		}
-		lsSet('kiLlmPending', null);
-		cfg.skip = big;
 		K.st.models = {};
 		K.st.progress = {};
 		K.st.error = '';
-		K.st.skipped = big;
 		try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) { }
 		try {
 			const src = '(' + workerMain.toString() + ')()';
@@ -304,10 +363,10 @@
 				const p = K.st.progress[m.role] || (K.st.progress[m.role] = {});
 				p[m.file] = [m.loaded, m.total];
 			} else if (m.type === 'trying') {
-				lsSet('kiLlmPending', { role: m.role, id: m.id });
+				store('kiLlmPending', { role: m.role, id: m.id }).then(() => K.worker && K.worker.postMessage({ type: 'go' }));
 			} else if (m.type === 'ok') {
 				const p = lsGet('kiLlmPending', null);
-				if (p && p.id === m.id) lsSet('kiLlmPending', null);
+				if (!p || p.id === m.id) store('kiLlmPending', null);
 			} else if (m.type === 'loaded') {
 				K.st.models[m.role] = { id: m.id, dtype: m.dtype, device: m.device, shared: !!m.shared };
 			} else if (m.type === 'log') {
@@ -321,7 +380,23 @@
 			K.st.state = 'fehler';
 			K.st.error = 'Worker: ' + (e.message || 'Fehler');
 		};
-		K.worker.postMessage({ type: 'init', cfg });
+		// Abgestürzte Modelle aus beiden Speichern lesen, dann erst laden
+		(async () => {
+			const pend = [lsGet('kiLlmPending', null), await idbGet('kiLlmPending', null)];
+			const big = [...new Set([...lsGet('kiLlmTooBig', []), ...(await idbGet('kiLlmTooBig', []))])];
+			for (const p of pend) {
+				const key = p && p.id ? p.role + ':' + p.id : '';
+				if (key && !big.includes(key)) {
+					big.push(key);
+					K.st.log.push('Beim letzten Mal abgestürzt: ' + p.id + ' wird übersprungen.');
+				}
+			}
+			await store('kiLlmTooBig', big);
+			await store('kiLlmPending', null);
+			cfg.skip = big;
+			K.st.skipped = big;
+			if (K.worker) K.worker.postMessage({ type: 'init', cfg });
+		})();
 		return 'ok';
 	};
 
