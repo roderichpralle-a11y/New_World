@@ -500,6 +500,10 @@ func _ki_status() -> void:
 				Llm.stop()
 			Llm.set_choice("llm")
 			refresh())
+	if Llm.state == "bereit" and not Llm.big_council():
+		_btn(h, "Llama trotzdem versuchen", "", "Lädt Llama-3.2-1B für den Rat (über 1 GB). Kann auf diesem Gerät abstürzen; dann nimmt das Spiel beim nächsten Start wieder das kleinere Modell.", func():
+			Llm.retry_big()
+			refresh())
 	if Llm.choice == "llm":
 		_btn(h, "Regel-KI nutzen", "", "Sprachmodelle ausschalten, die eingebaute Regel-KI entscheidet.", func():
 			Llm.set_choice("regel")

@@ -7,11 +7,14 @@
   ],
   "models": {
     "rat": ["onnx-community/Llama-3.2-1B-Instruct", "onnx-community/Llama-3.2-1B-Instruct-ONNX"],
-    "siedler": ["HuggingFaceTB/SmolLM-135M-Instruct", "onnx-community/SmolLM-135M-Instruct", "HuggingFaceTB/SmolLM2-135M-Instruct"]
+    "siedler": ["HuggingFaceTB/SmolLM-135M-Instruct", "onnx-community/SmolLM-135M-Instruct", "HuggingFaceTB/SmolLM2-135M-Instruct"],
+    "rat_small": ["HuggingFaceTB/SmolLM2-360M-Instruct", "onnx-community/Qwen2.5-0.5B-Instruct"]
   },
+  "_rat_small": "Für Handys und Geräte, auf denen Llama-3.2-1B abstürzt. Klappt auch das nicht, denkt der Rat mit dem Siedlermodell.",
   "model_names": {"rat": "Llama-3.2-1B", "siedler": "SmolLM-135M"},
-  "dtypes": {"webgpu_f16": ["q4f16", "fp16", "q4"], "webgpu": ["q4", "fp32"], "wasm": ["q4", "q8", "int8"]},
+  "dtypes": {"webgpu_f16": ["q4f16", "q4"], "webgpu": ["q4", "fp32"], "wasm": ["q4", "q8", "int8"]},
   "download_mb": 1250,
+  "download_mb_small": 400,
   "council_days": 1.0,
   "first_council_day": 0.15,
   "settler_days": 0.25,

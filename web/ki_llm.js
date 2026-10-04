@@ -60,8 +60,23 @@
 			return out;
 		}
 
+		// Welche Modelle probieren? Der Rat hat ein großes (Llama) und kleine für Handys. Modelle, bei
+		// denen das Gerät früher abgestürzt ist (cfg.skip), kommen nicht mehr dran.
+		function candidates(role) {
+			let ids = cfg.models[role] || [];
+			if (role === 'rat') {
+				const small = cfg.models.rat_small || [];
+				ids = cfg.small_first ? [...small, ...ids] : [...ids, ...small];
+			}
+			return ids.filter((id) => !(cfg.skip || []).includes(role + ':' + id));
+		}
+
 		async function loadOne(role) {
-			const ids = cfg.models[role];
+			const ids = candidates(role);
+			if (!ids.length && role === 'rat' && M.siedler) {
+				shareSettlerModel();
+				return;
+			}
 			const dev = device.startsWith('webgpu') ? 'webgpu' : (device === 'cpu' ? 'cpu' : 'wasm');
 			const dtypes = device === 'webgpu-f16' ? cfg.dtypes.webgpu_f16 : (dev === 'webgpu' ? cfg.dtypes.webgpu : cfg.dtypes.wasm);
 			let last = null;
@@ -69,6 +84,7 @@
 				for (const dtype of dtypes) {
 					try {
 						status({ state: 'laden', role, note: id + ' (' + dtype + ')' });
+						post({ type: 'trying', role, id });
 						const progress_callback = (p) => {
 							if (p && p.status === 'progress' && p.total) {
 								post({ type: 'progress', role, file: p.file, loaded: p.loaded, total: p.total });
@@ -85,7 +101,18 @@
 					}
 				}
 			}
+			if (role === 'rat' && M.siedler) {
+				shareSettlerModel();
+				return;
+			}
 			throw new Error(role + ': kein Modell ladbar (' + (last && last.message) + ')');
+		}
+
+		// Notlösung: Der Rat denkt mit dem Siedlermodell (braucht keinen zusätzlichen Speicher)
+		function shareSettlerModel() {
+			M.rat = M.siedler;
+			post({ type: 'loaded', role: 'rat', id: M.siedler.id, dtype: M.siedler.dtype, device: M.siedler.device, shared: true });
+			post({ type: 'ok', role: 'rat', id: M.siedler.id });
 		}
 
 		function render(m, job) {
@@ -159,6 +186,11 @@
 					if (!m) throw new Error('Modell ' + job.model + ' nicht geladen');
 					const r = job.mode === 'generate' ? await generate(m, job) : await choose(m, job);
 					post({ type: 'result', id: job.id, ok: true, ms: performance.now() - t0, ...r });
+					if (!m.proven) {
+						// Erste Antwort geschafft: das Gerät verkraftet dieses Modell
+						m.proven = true;
+						post({ type: 'ok', role: job.model, id: m.id });
+					}
 				} catch (e) {
 					post({ type: 'result', id: job.id, ok: false, ms: performance.now() - t0, error: String(e && e.message || e) });
 				}
@@ -219,9 +251,41 @@
 		return JSON.stringify({ webgpu: !!nav.gpu, memory: nav.deviceMemory || 0, mobile, cores: nav.hardwareConcurrency || 0 });
 	};
 
+	// Absturzschutz: Stürzt die Seite beim Laden oder bei der ersten Antwort eines Modells ab (zu wenig
+	// Speicher, z. B. auf dem iPhone), steht das Modell beim nächsten Start in kiLlmTooBig und wird übersprungen.
+	function lsGet(k, d) {
+		try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; }
+	}
+	function lsSet(k, v) {
+		try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); } catch (e) { }
+	}
+	K.tooBig = function () {
+		return JSON.stringify(lsGet('kiLlmTooBig', []));
+	};
+	K.resetTooBig = function () {
+		lsSet('kiLlmTooBig', null);
+		lsSet('kiLlmPending', null);
+		return 'ok';
+	};
+
 	K.init = function (cfgJson) {
 		if (K.worker) return 'schon';
 		const cfg = JSON.parse(cfgJson);
+		const pending = lsGet('kiLlmPending', null);
+		const big = lsGet('kiLlmTooBig', []);
+		const key = pending && pending.id ? pending.role + ':' + pending.id : '';
+		if (key && !big.includes(key)) {
+			big.push(key);
+			lsSet('kiLlmTooBig', big);
+			K.st.log.push('Beim letzten Mal abgestürzt: ' + pending.id + ' wird übersprungen.');
+		}
+		lsSet('kiLlmPending', null);
+		cfg.skip = big;
+		K.st.models = {};
+		K.st.progress = {};
+		K.st.error = '';
+		K.st.skipped = big;
+		try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) { }
 		try {
 			const src = '(' + workerMain.toString() + ')()';
 			const url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
@@ -239,8 +303,13 @@
 			} else if (m.type === 'progress') {
 				const p = K.st.progress[m.role] || (K.st.progress[m.role] = {});
 				p[m.file] = [m.loaded, m.total];
+			} else if (m.type === 'trying') {
+				lsSet('kiLlmPending', { role: m.role, id: m.id });
+			} else if (m.type === 'ok') {
+				const p = lsGet('kiLlmPending', null);
+				if (p && p.id === m.id) lsSet('kiLlmPending', null);
 			} else if (m.type === 'loaded') {
-				K.st.models[m.role] = { id: m.id, dtype: m.dtype, device: m.device };
+				K.st.models[m.role] = { id: m.id, dtype: m.dtype, device: m.device, shared: !!m.shared };
 			} else if (m.type === 'log') {
 				K.st.log.push(m.text);
 				if (K.st.log.length > 12) K.st.log.shift();

@@ -1,5 +1,5 @@
 <!doctype html><html><body><script src="ki_llm.js"></script><script>
-const cfg = { lib_urls: [location.origin + '/transformers.min.js'], models: { rat: ['tiny-llama'], siedler: ['tiny-smol'] },
+const cfg = { lib_urls: [location.origin + '/transformers.min.js'], models: { rat: ['tiny-llama'], siedler: ['tiny-smol'], rat_small: ['tiny-smol'] },
   dtypes: { webgpu_f16: ['fp32'], webgpu: ['fp32'], wasm: ['q4', 'fp32'] }, device: 'wasm', remote_host: location.origin + '/hf/', wasm_paths: location.origin + '/ort/' };
 window.out = [];
 KiLlm.init(JSON.stringify(cfg));

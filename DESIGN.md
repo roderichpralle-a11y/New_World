@@ -388,6 +388,13 @@ laden oder will der Spieler nicht, entscheidet die Regel-KI unten wie bisher.
   Wahl je Gerät in `user://ki_llm.cfg` (Titelbild und Rat-Fenster fragen vor dem Download).
   `choose(role, messages, n, hint)` und `generate(...)` geben einen `Job` zurück, `await job.done`.
   `--llmmock=1` ersetzt die Modelle durch eine Attrappe (wählt nach `hint` mit Zufall), für Tests.
+- **Speicher und Abstürze** (josh, iPhone 16 Pro: Llama-3.2-1B lässt Safari abstürzen): Auf Handys
+  (`Llm.small_first`) denkt der Rat zuerst mit `models.rat_small` (SmolLM2-360M, sonst Qwen2.5-0.5B).
+  Absturzschutz in `ki_llm.js`: vor jedem Ladeversuch steht `rolle:modell` in `localStorage.kiLlmPending`,
+  gelöscht nach der ersten erfolgreichen Antwort. Steht es beim nächsten Start noch da, ist die Seite
+  abgestürzt, das Modell kommt nach `kiLlmTooBig` und wird übersprungen. Geht kein Ratsmodell, denkt der
+  Rat mit dem Siedlermodell (`shared`). „Llama trotzdem versuchen“ im Rat-Fenster (`Llm.retry_big`)
+  vergisst die Abstürze. `crash_test.mjs` in `tools/ki_llm_test` prüft das in Chromium.
 - Autoload `KiMind` (`scripts/autoload/ki_mind.gd`), läuft nur wenn `Llm.active()`; dann macht
   `Society` nur noch Häuser, Pflege, Feste und Anliegen. Eine Runde geht Insel für Insel (Hauptinsel
   zuerst): ist der Rat dran (`council_days`), bekommt Llama `council_system` (Rolle, Ziel: Hauptinsel

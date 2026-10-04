@@ -1957,6 +1957,8 @@ func _ki_choice_box(v: VBoxContainer) -> void:
 		var txt := ""
 		if Llm.choice == "":
 			txt = "Rat und Siedler können von echten Sprachmodellen gesteuert werden\n(Llama-3.2-1B für die Inselräte, SmolLM-135M für jeden Siedler).\nSie laufen in deinem Browser, einmalig etwa %d MB Download." % int(Llm.cfg("download_mb", 1250))
+			if Llm.small_first():
+				txt = "Rat und Siedler können von echten Sprachmodellen gesteuert werden.\nAuf dem Handy denkt der Rat mit einem kleineren Modell (SmolLM2-360M),\nweil Llama-3.2-1B zu viel Speicher braucht. Siedler: SmolLM-135M.\nEinmalig etwa %d MB Download." % int(Llm.cfg("download_mb_small", 400))
 			if not Llm.probe.get("webgpu", true):
 				txt += "\nDein Browser hat kein WebGPU: Die Modelle rechnen dann langsam auf dem Prozessor."
 			if Llm.probe.get("mobile", false):

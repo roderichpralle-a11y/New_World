@@ -39,6 +39,8 @@ var _next := 1
 var _poll := 0.0
 var _rng := RandomNumberGenerator.new()
 var _started := false
+var force_big := false  # Llama-3.2-1B auch auf dem Handy versuchen
+var skipped: Array = []  # Modelle, bei denen das Gerät abgestürzt ist (werden übersprungen)
 
 
 func cfg(key: String, default = null):
@@ -50,6 +52,7 @@ func _ready() -> void:
 	var cf := ConfigFile.new()
 	if cf.load(CFG_PATH) == OK:
 		choice = str(cf.get_value("ki", "choice", ""))
+		force_big = bool(cf.get_value("ki", "force_big", false))
 	var args := OS.get_cmdline_user_args()
 	if "--llmmock=1" in args:
 		backend = "mock"
@@ -73,11 +76,36 @@ func needs_consent() -> bool:
 	return Society.enabled and choice == "" and backend != "mock"
 
 
+func _save_cfg() -> void:
+	var cf := ConfigFile.new()
+	cf.set_value("ki", "choice", choice)
+	cf.set_value("ki", "force_big", force_big)
+	cf.save(CFG_PATH)
+
+
+## Auf dem Handy startet der Rat mit einem kleineren Modell (Llama-3.2-1B braucht zu viel Speicher).
+func small_first() -> bool:
+	return bool(probe.get("mobile", false)) and not force_big
+
+
+## Denkt der Rat mit dem großen Modell, das josh ausgesucht hat?
+func big_council() -> bool:
+	return "Llama" in str(loaded.get("rat", {}).get("id", "")) or backend == "mock"
+
+
+## Llama-3.2-1B noch einmal versuchen (vergisst frühere Abstürze).
+func retry_big() -> void:
+	force_big = true
+	_save_cfg()
+	if backend == "web":
+		JavaScriptBridge.eval("window.KiLlm && KiLlm.resetTooBig()", true)
+	stop()
+	start()
+
+
 func set_choice(c: String) -> void:
 	choice = c
-	var cf := ConfigFile.new()
-	cf.set_value("ki", "choice", c)
-	cf.save(CFG_PATH)
+	_save_cfg()
 	if c == "llm":
 		start()
 	else:
@@ -108,7 +136,10 @@ func start() -> void:
 		_set_state("fehler")
 		return
 	JavaScriptBridge.eval(f.get_as_text(), true)
-	var conf := {"lib_urls": cfg("lib_urls", []), "models": cfg("models", {}), "dtypes": cfg("dtypes", {}), "device": "auto"}
+	var conf := {"lib_urls": cfg("lib_urls", []), "models": cfg("models", {}), "dtypes": cfg("dtypes", {}), "device": "auto",
+		"small_first": small_first()}
+	loaded = {}
+	progress = {}
 	var r = JavaScriptBridge.eval("window.KiLlm.init(%s)" % JSON.stringify(JSON.stringify(conf)), true)
 	if str(r) == "fehler":
 		_poll_web()
@@ -146,7 +177,14 @@ func status_text() -> String:
 	match state:
 		"bereit":
 			var dev: String = {"webgpu-f16": "Grafikkarte", "webgpu": "Grafikkarte", "wasm": "Prozessor (langsam)", "attrappe": "Testattrappe"}.get(device, device)
-			return "Sprachmodelle: Rat %s, Siedler %s, rechnen auf %s." % [model_name("rat"), model_name("siedler"), dev]
+			var rat := model_name("rat")
+			var why := ""
+			if loaded.get("rat", {}).get("shared", false):
+				rat = "mit dem Siedlermodell"
+				why = " Die größeren Ratsmodelle sind für dieses Gerät zu groß."
+			elif not big_council():
+				why = " Llama-3.2-1B ist für %s zu groß." % ("Handys" if small_first() else "dieses Gerät")
+			return "Sprachmodelle: Rat %s, Siedler %s, rechnen auf %s.%s" % [rat, model_name("siedler"), dev, why]
 		"laden":
 			var a := 0.0
 			var b := 0.0
@@ -247,6 +285,7 @@ func _poll_web() -> void:
 	device = str(st.get("device", device))
 	note = str(st.get("note", ""))
 	loaded = st.get("models", loaded)
+	skipped = st.get("skipped", skipped)
 	progress = st.get("progress", progress)
 	last_log = st.get("log", [])
 	if str(st.get("error", "")) != "":
