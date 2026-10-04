@@ -21,6 +21,14 @@ class Job:
 	var id: int = 0
 	var data: Dictionary = {}
 	var due: float = 0.0  # nur Attrappe
+	var finished := false
+	var result: Dictionary = {}
+
+	## Ergebnis abwarten, auch wenn der Auftrag schon fertig ist
+	func wait() -> Dictionary:
+		if not finished:
+			await done
+		return result
 
 
 var backend := ""  # "web", "mock" oder "" (aus)
@@ -209,8 +217,12 @@ func avg_ms(role: String) -> float:
 ## Nummer wählen lassen: Das Modell sieht die Nachrichten (die letzte endet mit den
 ## Möglichkeiten 1..n) und wir lesen ab, welche Nummer es wie wahrscheinlich schreibt.
 ## `hint` sind Gewichte, die nur die Testattrappe benutzt.
-func choose(role: String, messages: Array, n: int, hint: Array = []) -> Job:
-	return _submit({"model": role, "mode": "choose", "messages": messages, "n": clampi(n, 1, 9)}, hint, "")
+## `prefix` steht schon am Anfang der Antwort (z. B. "My choice:"), damit als Nächstes die Nummer kommt.
+func choose(role: String, messages: Array, n: int, hint: Array = [], prefix: String = "") -> Job:
+	var d := {"model": role, "mode": "choose", "messages": messages, "n": clampi(n, 1, 9)}
+	if prefix != "":
+		d["prefix"] = prefix
+	return _submit(d, hint, "")
 
 
 ## Freien Text schreiben lassen. `hint_text` benutzt nur die Testattrappe.
@@ -248,6 +260,8 @@ func _finish(id: int, res: Dictionary) -> void:
 	if res.get("ok", false) and stats.has(role):
 		stats[role][0] = int(stats[role][0]) + 1
 		stats[role][1] = float(stats[role][1]) + float(res.get("ms", 0.0))
+	j.finished = true
+	j.result = res
 	j.done.emit(res)
 
 

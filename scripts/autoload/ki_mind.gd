@@ -38,6 +38,8 @@ var sdec: Dictionary = {}  # Siedler-ID (Text) -> letzte Entscheidung mit Wahrsc
 var trades: Array = []  # laufende Handelsrouten zwischen Inseln
 var next_trade := 1
 var last_prompt: Dictionary = {}  # rat/siedler -> letzte Anfrage (zum Ansehen)
+var traces: Array = []  # Debug: alle Anfragen an die Modelle mit Ergebnis (nur im Speicher, für den Bericht)
+var trace_count := 0
 var _round_start := 0.0
 var _rng := RandomNumberGenerator.new()
 
@@ -79,6 +81,8 @@ func reset() -> void:
 	trades = []
 	next_trade = 1
 	last_prompt = {}
+	traces = []
+	trace_count = 0
 
 
 func serialize() -> Dictionary:
@@ -431,12 +435,24 @@ func _council_choose(w, ep: int, system: String, report: String, topic: String, 
 	var msgs := [{"role": "system", "content": system}, {"role": "user", "content": report + "\n\n" + _ask_text(question, options)}]
 	last_prompt["rat"] = system + "\n\n" + msgs[1].content
 	var job = Llm.choose("rat", msgs, options.size(), hint)
-	var r: Dictionary = await job.done
+	var r: Dictionary = await job.wait()
 	if ep != epoch or not r.get("ok", false):
 		return {"ok": false, "error": r.get("error", "")}
 	var probs: Array = r.get("probs", [])
-	var i := pick(probs, float(cfg("council_temperature", 0.35)))
-	return {"ok": true, "i": i, "probs": probs, "mass": float(r.get("mass", 0.0)), "top": str(r.get("top", "")), "ms": float(r.get("ms", 0.0))}
+	var clar := clarity(probs)
+	var i: int
+	var rule := "Modell"
+	if clar < float(cfg("undecided_clarity", 1.35)):
+		# Keine klare Meinung: nicht würfeln, die stärkste Nummer nehmen
+		i = _argmax(probs)
+		rule = "unentschlossen, stärkste Nummer"
+	else:
+		i = pick(probs, float(cfg("council_temperature", 0.35)))
+	trace({"who": "Rat", "isl": Sea.island_name(w), "role": "rat", "topic": topic, "prompt": last_prompt["rat"], "options": options,
+		"probs": probs, "mass": float(r.get("mass", 0.0)), "top": str(r.get("top", "")), "ms": float(r.get("ms", 0.0)),
+		"clarity": clar, "choice": options[i] if i < options.size() else "?", "rule": rule})
+	return {"ok": true, "i": i, "probs": probs, "mass": float(r.get("mass", 0.0)), "top": str(r.get("top", "")), "ms": float(r.get("ms", 0.0)),
+		"clarity": clar, "rule": rule}
 
 
 # ================================================================== Rat
@@ -561,9 +577,10 @@ func _council(w, ep: int) -> void:
 		{"role": "user", "content": report + "\n\nIhr habt beschlossen: %s\nSagt euren Bewohnern in ein oder zwei kurzen Sätzen auf Deutsch, was sie jetzt tun sollen und warum." % summary}]
 	last_prompt["rat"] = system + "\n\n" + msgs[1].content
 	var gj = Llm.generate("rat", msgs, int(cfg("reason_tokens", 60)), 0.0, "Wir setzen auf %s. %s" % [Society.strat_name(m.focus), summary])
-	var g: Dictionary = await gj.done
+	var g: Dictionary = await gj.wait()
 	if ep != epoch:
 		return
+	trace({"who": "Rat", "isl": where, "role": "rat", "topic": "Ansage an die Bewohner", "prompt": last_prompt["rat"], "text": str(g.get("text", g.get("error", ""))), "ms": float(g.get("ms", 0.0))})
 	if g.get("ok", false):
 		m.plan = _clean(str(g.get("text", "")))
 		if m.plan != "":
@@ -1076,33 +1093,124 @@ func settler_options(s, w) -> Array:
 	return out.slice(0, 7)
 
 
+## Englische Namen für das Siedlermodell: SmolLM-135M hat fast nur Englisch gelernt. Auf
+## Deutsch verstand es die Frage kaum und gab allen Nummern fast dieselbe Wahrscheinlichkeit,
+## die Entscheidung war dann gewürfelt.
+const JOB_EN := {"frei": ["Helper", "helps wherever needed"], "holzfaeller": ["Woodcutter", "fells trees and brings wood"],
+	"steinmetz": ["Stonemason", "breaks stone and ore"], "sammler": ["Gatherer", "picks berries and mushrooms (food)"],
+	"fischer": ["Fisher", "catches fish (food)"], "bauer": ["Farmer", "works fields and orchards (food)"],
+	"koch": ["Cook", "works in mill and bakery (food)"], "handwerker": ["Craftsman", "works in sawpit, brickworks and smithy"],
+	"baumeister": ["Builder", "builds new houses and workshops"], "forscher": ["Researcher", "finds new knowledge"],
+	"jaeger": ["Hunter", "hunts wild animals for meat and furs"], "seemann": ["Sailor", "sails on the ships"]}
+const SKILL_EN := {"holz": "woodwork", "stein": "stonework", "nahrung": "food", "bauen": "building", "handwerk": "crafts",
+	"wissen": "knowledge", "jagd": "hunting"}
+const SEASON_EN := ["spring", "summer", "autumn", "winter"]
+const FOOD_JOBS := ["sammler", "fischer", "bauer", "koch"]
+
+
+func _en(j: String) -> String:
+	return JOB_EN.get(j, [_jname(j)])[0]
+
+
+func _talent_word(v: float) -> String:
+	return "very good" if v >= 1.4 else ("good" if v >= 1.15 else ("average" if v >= 0.85 else "poor"))
+
+
+## Was für und gegen eine Arbeit spricht, in kurzen englischen Stichworten: So kann auch das
+## kleine Modell die Möglichkeiten auseinanderhalten.
+func _option_facts(j: String, s, w, sit: Dictionary, order: String) -> Array:
+	var f := []
+	if j == order:
+		f.append("the council orders this")
+	if j == s.job:
+		f.append("your current work")
+	var sk: String = Data.jobs.get(j, {}).get("skill", "")
+	if sk != "":
+		f.append("you are %s at it" % _talent_word(float(s.mind.talents.get(sk, 1.0))))
+	var food_low := float(sit.food) < float(sit.food_target)
+	if j in FOOD_JOBS:
+		if food_low:
+			f.append("the island needs food")
+		if s.hunger < 50.0 and j in ["sammler", "fischer"]:
+			f.append("you are hungry")
+	if j == "holzfaeller" and (float(sit.wood) < float(sit.wood_target) or Seasons.season() >= 2):
+		f.append("the island needs wood" + (" for heating" if Seasons.season() >= 2 else ""))
+	if j == "steinmetz" and float(sit.stone) < float(sit.stone_target):
+		f.append("the island needs stone")
+	if j == "baumeister" and int(sit.sites) > 0:
+		f.append("%d buildings wait to be built" % int(sit.sites))
+	if j == "jaeger" and int(sit.predators) > 0:
+		f.append("%d dangerous animals" % int(sit.predators))
+	if j == "frei" and (s.mind.rest < 30.0 or s.mind.sick != ""):
+		f.append("you can rest")
+	return f
+
+
+func settler_prompt(s, w, opts: Array, order: String) -> Array:
+	var sit: Dictionary = Society.situation(w)
+	var sea := Seasons.season()
+	var sname: String = SEASON_EN[clampi(sea, 0, 3)]
+	var left := int(Seasons.season_days()) - Seasons.day_in_season() + 1
+	var when := "It is %s, %d day%s left in this season." % [sname, left, "" if left == 1 else "s"]
+	if sea == 2:
+		when += " Winter comes next: nothing grows in winter and everyone needs wood for heating."
+	elif sea == 3:
+		when += " Nothing grows now. Food and wood are used up fast."
+	var me := []
+	me.append("%d years old" % int(s.age))
+	me.append("hunger: %s" % ("strong" if s.hunger < 35.0 else ("some" if s.hunger < 65.0 else "none")))
+	me.append("mood %d of 100" % int(s.mind.mood))
+	if s.mind.rest < 30.0:
+		me.append("tired")
+	if s.mind.sick != "":
+		me.append("sick")
+	var skills := []
+	var tal: Dictionary = s.mind.talents
+	var ks: Array = tal.keys()
+	ks.sort_custom(func(a, b): return float(tal[a]) > float(tal[b]))
+	for sk in ks.slice(0, 3):
+		skills.append("%s %s" % [SKILL_EN.get(sk, sk), _talent_word(float(tal[sk]))])
+	var last := []
+	for e in smem.get(str(s.id), []):
+		last.append("%s (day %d)" % [_en(e[1]), int(float(e[0])) + 1])
+	var lines := []
+	for i in opts.size():
+		var j: String = opts[i]
+		var facts := _option_facts(j, s, w, sit, order)
+		if not facts.is_empty():
+			facts[0] = str(facts[0]).left(1).to_upper() + str(facts[0]).substr(1)
+		lines.append("%d) %s: %s.%s" % [i + 1, _en(j), JOB_EN.get(j, ["", ""])[1], (" " + ", ".join(facts) + ".") if not facts.is_empty() else ""])
+	var sys := "You are %s, a settler on the island %s. You choose your next work yourself. The island council gives you an order, but you may choose something else if it is better for you or the island." % [
+		s.display_name, Sea.island_name(w)]
+	var user := "%s\nYou: %s.\nYour skills: %s.\nThe island: %d settlers, food %d (goal %d), wood %d (goal %d), stone %d.\nThe council's order for you: %s.\nYour last work: %s.\n\nWhat work do you do next?\n%s\nAnswer with the number only." % [
+		when, ", ".join(me), ", ".join(skills), int(sit.pop), int(sit.food), int(sit.food_target), int(sit.wood), int(sit.wood_target),
+		int(sit.stone), _en(order) if order != "" else "none", ", ".join(last) if not last.is_empty() else "nothing yet", "\n".join(lines)]
+	return [{"role": "system", "content": sys}, {"role": "user", "content": user}]
+
+
+## Wie entschieden ist eine Verteilung? 1 = alle gleich, n = ganz sicher.
+func clarity(probs: Array) -> float:
+	var top := 0.0
+	for p in probs:
+		top = maxf(top, float(p))
+	return top * probs.size()
+
+
+func _argmax(probs: Array) -> int:
+	var b := 0
+	for i in probs.size():
+		if float(probs[i]) > float(probs[b]):
+			b = i
+	return b
+
+
 func _settler_turn(s, w) -> void:
 	var ep := epoch
-	var m := mem(w)
 	var opts := settler_options(s, w)
 	var order := council_order(s)
 	activity = "%s überlegt, was er als Nächstes tut" % s.display_name if s.sex == "m" else "%s überlegt, was sie als Nächstes tut" % s.display_name
-	var sit: Dictionary = Society.situation(w)
-	var last := []
-	for e in smem.get(str(s.id), []):
-		last.append("Tag %d %s%s" % [int(float(e[0])) + 1, _jname(e[1]), " (eigene Wahl)" if e[2] else ""])
-	var labels := []
-	for j in opts:
-		var l := "%s: %s" % [_jname(j), Data.jobs.get(j, {}).get("desc", "")]
-		if j == order:
-			l += " (Auftrag des Rats)"
-		if j == s.job:
-			l += " (mache ich gerade)"
-		labels.append(l)
-	var sys := "Du bist %s, %d Jahre alt, ein Siedler auf der Insel %s. Du entscheidest selbst, was du als Nächstes arbeitest. Du hörst auf den Inselrat, aber du musst nicht." % [
-		s.display_name, int(s.age), Sea.island_name(w)]
-	var user := "%s. Deine Fähigkeiten: %s. Dein Charakter: %s. Wie es dir geht: %s.\nDie Insel: %d Siedler, Essen %d (Ziel %d), Holz %d (Ziel %d).\nDer Inselrat sagt: %s%s\nZuletzt hast du gemacht: %s.\n\n%s" % [
-		_when(), _skill_text(s), s.mind.character_text(), _needs_text(s, w), int(sit.pop), int(sit.food), int(sit.food_target),
-		int(sit.wood), int(sit.wood_target), m.plan if m.plan != "" else "Schwerpunkt %s." % Society.strat_name(m.focus),
-		(" Dein Auftrag: %s." % _jname(order)) if order != "" else "", ", ".join(last) if not last.is_empty() else "noch nichts",
-		_ask_text("Was tust du als Nächstes?", labels)]
-	var msgs := [{"role": "system", "content": sys}, {"role": "user", "content": user}]
-	last_prompt["siedler"] = sys + "\n\n" + user
+	var msgs := settler_prompt(s, w, opts, order)
+	last_prompt["siedler"] = msgs[0].content + "\n\n" + msgs[1].content
 	var hint := []
 	for j in opts:
 		var v := 0.15
@@ -1113,20 +1221,50 @@ func _settler_turn(s, w) -> void:
 		if j == s.best_job():
 			v += 0.3
 		hint.append(v)
-	var job = Llm.choose("siedler", msgs, opts.size(), hint)
-	var r: Dictionary = await job.done
+	# Zweimal fragen, das zweite Mal in umgekehrter Reihenfolge: Kleine Modelle schreiben gern
+	# einfach die 1. Gemittelt bleibt nur, was das Modell wirklich über die Arbeiten denkt.
+	var rev := opts.duplicate()
+	rev.reverse()
+	var rhint := hint.duplicate()
+	rhint.reverse()
+	var msgs2 := settler_prompt(s, w, rev, order)
+	var j1 = Llm.choose("siedler", msgs, opts.size(), hint, "My choice:")
+	var j2 = Llm.choose("siedler", msgs2, rev.size(), rhint, "My choice:")
+	var r: Dictionary = await j1.wait()
+	var r2: Dictionary = await j2.wait()
 	if ep != epoch or not is_instance_valid(s) or s.world != w:
 		return
 	if not r.get("ok", false):
 		return
-	var probs: Array = r.get("probs", [])
-	var i := pick(probs, float(cfg("settler_temperature", 0.8)))
+	var p1: Array = r.get("probs", [])
+	var p2r: Array = r2.get("probs", []) if r2.get("ok", false) else []
+	var probs := []
+	for i in opts.size():
+		var a := float(p1[i]) if i < p1.size() else 0.0
+		var b := float(p2r[opts.size() - 1 - i]) if p2r.size() == opts.size() else a
+		probs.append((a + b) * 0.5)
+	var clar := clarity(probs)
+	var i: int
+	var rule: String
+	if clar < float(cfg("undecided_clarity", 1.35)):
+		# Das Modell hat keine klare Meinung: nicht würfeln, sondern beim Auftrag oder der Arbeit bleiben
+		i = opts.find(order) if order != "" else opts.find(s.job)
+		if i < 0:
+			i = _argmax(probs)
+		rule = "unentschlossen, %s" % ("folgt dem Auftrag" if order != "" and opts[i] == order else "bleibt dabei")
+	else:
+		i = pick(probs, float(cfg("settler_temperature", 0.35)))
+		rule = "Modell"
 	var choice: String = opts[i]
 	var own := order != "" and choice != order
 	var names := opts.map(func(j): return _jname(j))
 	var ptext := _probs_text(names, probs)
 	sdec[str(s.id)] = {"day": Game.time_days, "job": choice, "order": order, "own": own, "probs": ptext,
-		"mass": float(r.get("mass", 0.0)), "top": str(r.get("top", ""))}
+		"mass": float(r.get("mass", 0.0)), "top": str(r.get("top", "")), "clarity": clar, "rule": rule}
+	trace({"who": s.display_name, "isl": Sea.island_name(w), "role": "siedler", "topic": "Arbeit", "prompt": last_prompt["siedler"],
+		"prompt2": msgs2[1].content, "options": names, "probs": probs, "probs_a": p1, "probs_b": p2r, "mass": [r.get("mass", 0.0), r2.get("mass", 0.0)],
+		"top": [r.get("top", ""), r2.get("top", "")], "ms": float(r.get("ms", 0.0)) + float(r2.get("ms", 0.0)), "clarity": clar,
+		"choice": names[i], "order": _jname(order) if order != "" else "", "rule": rule, "own": own})
 	var hist: Array = smem.get(str(s.id), [])
 	hist.append([snappedf(Game.time_days, 0.01), choice, own])
 	if hist.size() > 3:
@@ -1143,6 +1281,8 @@ func _settler_turn(s, w) -> void:
 		t += " Der Rat wollte mich als %s, aber ich habe selbst anders entschieden." % _jname(order)
 	elif order != "":
 		t += " Das ist mein Auftrag vom Rat."
+	if rule != "Modell":
+		t += " (Ich war unentschlossen.)"
 	Society.thoughts[s.id] = t
 	changed.emit()
 
@@ -1305,7 +1445,8 @@ func _reflect(w, ep: int, system: String) -> void:
 	last_prompt["rat"] = system + "\n\n" + msgs[1].content
 	var hint := "Im %s brauchen wir mehr Nahrungsarbeiter, wenn das Essen sinkt." % Seasons.season_name()
 	var j = Llm.generate("rat", msgs, int(cfg("reason_tokens", 60)), 0.0, hint)
-	var g: Dictionary = await j.done
+	var g: Dictionary = await j.wait()
+	trace({"who": "Rat", "isl": Sea.island_name(w), "role": "rat", "topic": "Lehre ziehen", "prompt": last_prompt["rat"], "text": str(g.get("text", g.get("error", ""))), "ms": float(g.get("ms", 0.0))})
 	if ep != epoch or not g.get("ok", false):
 		return
 	add_lesson(w, str(g.get("text", "")), "Rat")
@@ -1338,7 +1479,8 @@ func chat(w, text: String) -> void:
 			island_report(w), ("Bisheriges Gespräch:\n%s\n\n" % "\n".join(hist)) if not hist.is_empty() else "", text]}]
 	last_prompt["rat"] = msgs[0].content + "\n\n" + msgs[1].content
 	var j = Llm.generate("rat", msgs, int(cfg("chat_tokens", 90)), 0.3, "Wir haben deinen Wunsch gehört und berücksichtigen ihn bei der nächsten Sitzung.")
-	var g: Dictionary = await j.done
+	var g: Dictionary = await j.wait()
+	trace({"who": "Rat", "isl": Sea.island_name(w), "role": "rat", "topic": "Gespräch mit dem Herrscher", "prompt": last_prompt["rat"], "text": str(g.get("text", g.get("error", ""))), "ms": float(g.get("ms", 0.0))})
 	if ep != epoch:
 		return
 	m.waiting = false
@@ -1431,3 +1573,149 @@ func _drop_binding(w, kind: String) -> void:
 func _prune_binding(w) -> void:
 	var m := mem(w)
 	m.binding = m.binding.filter(func(b): return float(b.until) > Game.time_days or b.kind in ["bau", "forschung"])
+
+
+# ================================================================== Debug-Bericht
+## Vorübergehend zur Kontrolle: Jede Anfrage an ein Modell wird mit Möglichkeiten,
+## Wahrscheinlichkeiten und Entscheidung festgehalten. Die vollen Anfragetexte bleiben nur
+## für die letzten Einträge, damit der Speicher klein bleibt.
+const TRACE_MAX := 3000
+const TRACE_FULL := 150
+
+
+func trace(e: Dictionary) -> void:
+	trace_count += 1
+	e["n"] = trace_count
+	e["day"] = Game.time_days
+	e["clock"] = Time.get_time_string_from_system()
+	traces.append(e)
+	if traces.size() > TRACE_MAX:
+		traces = traces.slice(traces.size() - TRACE_MAX)
+	var old := traces.size() - TRACE_FULL - 1
+	if old >= 0:
+		for k in ["prompt", "prompt2"]:
+			if traces[old].has(k):
+				traces[old][k] = "(gekürzt) " + str(traces[old][k]).right(600)
+
+
+func _pct(v) -> String:
+	return "%d %%" % int(round(float(v) * 100.0))
+
+
+func _plist(opts: Array, probs: Array) -> String:
+	var parts := []
+	for i in opts.size():
+		var name := str(opts[i]).split(":")[0]
+		parts.append("%d) %s %s" % [i + 1, name, _pct(probs[i]) if i < probs.size() else "?"])
+	return ", ".join(parts)
+
+
+## Der ganze Bericht als Text.
+func report_text() -> String:
+	var L := []
+	L.append("KI-BERICHT New World (KI-Version)")
+	L.append("Erstellt: %s, Spieltag %d (%s), Jahr %d" % [Time.get_datetime_string_from_system(false, true), Game.day(), Seasons.season_name(), Seasons.year() + 1])
+	L.append(Llm.status_text())
+	L.append("Geladen: %s" % JSON.stringify(Llm.loaded))
+	L.append("Gerät: %s, Prüfung: %s, übersprungen: %s" % [Llm.device, JSON.stringify(Llm.probe), JSON.stringify(Llm.skipped)])
+	L.append("Anfragen: Rat %d (Schnitt %.1f s), Siedler %d (Schnitt %.2f s)" % [int(Llm.stats.rat[0]), Llm.avg_ms("rat") / 1000.0, int(Llm.stats.siedler[0]), Llm.avg_ms("siedler") / 1000.0])
+	L.append("Festgehalten: %d Einträge seit dem Start (die letzten %d hier, volle Anfragetexte nur bei den letzten %d)." % [trace_count, traces.size(), TRACE_FULL])
+	L.append("")
+	L.append("Lesehilfe: Klarheit 1,0 heißt, alle Möglichkeiten waren dem Modell gleich lieb (Würfeln). Klarheit = höchste Wahrscheinlichkeit mal Anzahl der Möglichkeiten; unter %.2f gilt das Modell als unentschlossen. Nummernanteil = wie sehr das Modell überhaupt mit einer Nummer antworten wollte. Siedler werden zweimal gefragt (A: normale Reihenfolge, B: umgekehrt), gezählt wird der Mittelwert." % float(cfg("undecided_clarity", 1.35)))
+	L.append("")
+	# Zusammenfassung
+	for role in ["siedler", "rat"]:
+		var ch := traces.filter(func(e): return e.role == role and e.has("probs"))
+		if ch.is_empty():
+			continue
+		var und := 0
+		var clar := 0.0
+		var mass := 0.0
+		var first_a := 0
+		var first_b := 0
+		var own := 0
+		var agree := 0
+		for e in ch:
+			if str(e.rule) != "Modell":
+				und += 1
+			clar += float(e.clarity)
+			var ms = e.get("mass", 0.0)
+			mass += float(ms[0]) if ms is Array else float(ms)
+			if e.get("own", false):
+				own += 1
+			if e.has("probs_a") and not e.probs_a.is_empty():
+				if _argmax(e.probs_a) == 0:
+					first_a += 1
+				if not e.probs_b.is_empty():
+					if _argmax(e.probs_b) == 0:
+						first_b += 1
+					if _argmax(e.probs_a) == e.probs_a.size() - 1 - _argmax(e.probs_b):
+						agree += 1
+		var n := float(ch.size())
+		L.append("== Zusammenfassung %s: %d Auswahlentscheidungen ==" % ["Siedler (SmolLM)" if role == "siedler" else "Rat", ch.size()])
+		L.append("Unentschlossen: %d (%s), mittlere Klarheit %.2f, mittlerer Nummernanteil %s" % [und, _pct(und / n), clar / n, _pct(mass / n)])
+		if role == "siedler":
+			L.append("Nummer 1 am liebsten: in A %s, in B %s (stark über 1/Anzahl heißt: das Modell nimmt einfach die erste Nummer)" % [_pct(first_a / n), _pct(first_b / n)])
+			L.append("A und B einig über die beste Arbeit: %s. Gegen den Auftrag entschieden: %d" % [_pct(agree / n), own])
+		L.append("")
+	# Gedächtnis der Räte
+	for i in Sea.settled_islands():
+		var w = Sea.worlds.get(i)
+		if w == null or not is_instance_valid(w):
+			continue
+		var m := mem(w)
+		L.append("== Insel %s ==" % Sea.island_name(w))
+		L.append("Schwerpunkt: %s, Plan: %s" % [Society.strat_name(m.focus), m.plan])
+		L.append("Anteile Arbeit: %s" % JSON.stringify(m.shares))
+		L.append("Vorgaben: %s, Prioritäten: %s" % [JSON.stringify(m.binding), JSON.stringify(m.prios)])
+		for l in m.lessons:
+			L.append("Lehre (Tag %d, %s): %s" % [int(float(l[0])) + 1, l[2], l[1]])
+		for e in experience_lines(w, 20):
+			L.append("Erfahrung: %s" % e)
+		for r in m.records:
+			L.append("Entscheidung: %s" % record_text(r))
+		for c in m.chat:
+			L.append("Gespräch %s: %s" % [c[0], c[1]])
+		L.append("")
+	# Verlauf
+	L.append("== Verlauf aller Anfragen (älteste zuerst) ==")
+	for e in traces:
+		L.append("")
+		L.append("#%d  Tag %d %02d:%02d (Uhr %s)  %s, %s: %s" % [int(e.n), int(floor(float(e.day))) + 1, int(fmod(float(e.day), 1.0) * 24.0),
+			int(fmod(float(e.day) * 24.0, 1.0) * 60.0), e.clock, e.isl, e.who, e.topic])
+		if e.has("probs"):
+			if e.has("order"):
+				L.append("Auftrag des Rats: %s" % (e.order if str(e.order) != "" else "keiner"))
+			L.append("Möglichkeiten und Wahrscheinlichkeit: %s" % _plist(e.options, e.probs))
+			if e.has("probs_a"):
+				L.append("  A (normale Reihenfolge): %s" % _plist(e.options, e.probs_a))
+				var rb := []
+				for k in e.probs_b.size():
+					rb.append(e.probs_b[e.probs_b.size() - 1 - k])
+				L.append("  B (umgekehrt gefragt, zurückgeordnet): %s" % (_plist(e.options, rb) if not rb.is_empty() else "keine Antwort"))
+			L.append("Klarheit %.2f, Nummernanteil %s, liebstes Wort: %s, Rechenzeit %d ms" % [float(e.clarity), JSON.stringify(e.mass), JSON.stringify(e.top), int(float(e.ms))])
+			L.append("Entscheidung: %s (%s)%s" % [str(e.choice).split(":")[0], e.rule, ", gegen den Auftrag" if e.get("own", false) else ""])
+		if e.has("text"):
+			L.append("Antwort: %s  (%d ms)" % [e.text, int(float(e.get("ms", 0.0)))])
+		if e.has("prompt"):
+			L.append("--- Anfrage ---")
+			L.append(str(e.prompt))
+			if e.has("prompt2"):
+				L.append("--- Anfrage B (Frageteil) ---")
+				L.append(str(e.prompt2))
+			L.append("--- Ende ---")
+	return "\n".join(L)
+
+
+## Bericht als Datei: im Browser herunterladen, sonst in user:// ablegen. Gibt den Dateinamen zurück.
+func download_report() -> String:
+	var name := "ki-bericht-tag%d-%s.txt" % [Game.day(), Time.get_datetime_string_from_system().replace(":", "-").replace("T", "_")]
+	var txt := report_text()
+	if OS.has_feature("web"):
+		JavaScriptBridge.download_buffer(txt.to_utf8_buffer(), name, "text/plain;charset=utf-8")
+		return name
+	var f := FileAccess.open("user://" + name, FileAccess.WRITE)
+	if f:
+		f.store_string(txt)
+		f.close()
+	return ProjectSettings.globalize_path("user://" + name)

@@ -11,6 +11,7 @@ const iv = setInterval(() => {
   if (p.status.state === 'bereit' && !window.sent) {
     window.sent = true;
     KiLlm.submit(JSON.stringify({ id: 1, model: 'rat', mode: 'choose', messages: ask, n: 2 }));
+    KiLlm.submit(JSON.stringify({ id: 3, model: 'siedler', mode: 'choose', messages: ask, n: 2, prefix: 'My choice:' }));
     KiLlm.submit(JSON.stringify({ id: 2, model: 'siedler', mode: 'generate', messages: ask, max_new_tokens: 6, temperature: 0.5 }));
   }
 }, 100);

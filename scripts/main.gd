@@ -278,6 +278,41 @@ func _maybe_autotest() -> void:
 					if args.panel == "ki":
 						hud._council_panel._view = "ki"
 						hud._council_panel.refresh()
+						if args.has("wheeltest"):
+							# Mausrad und Klick über einer Siedlerzeile: Rad darf das Fenster nicht schließen
+							for k in 3:
+								await get_tree().process_frame
+							var cp = hud._council_panel
+							var lab: Control = null
+							for c in cp._body.get_children():
+								if c is Label and c.tooltip_text.begins_with("Antippen"):
+									lab = c
+									break
+							if lab:
+								var at: Vector2 = lab.get_global_rect().get_center()
+								for k in 2:
+									for pressed in [true, false]:
+										var ev := InputEventMouseButton.new()
+										ev.button_index = MOUSE_BUTTON_WHEEL_DOWN
+										ev.pressed = pressed
+										ev.position = at
+										ev.global_position = at
+										Input.parse_input_event(ev)
+										await get_tree().process_frame
+								print("Mausrad über Siedlerzeile: Fenster offen=", cp.visible, " gescrollt=", cp._scroll.scroll_vertical, " von ", cp._scroll.get_v_scroll_bar().max_value)
+								await get_tree().create_timer(0.5).timeout
+								for pressed in [true, false]:
+									var ev := InputEventMouseButton.new()
+									ev.button_index = MOUSE_BUTTON_LEFT
+									ev.pressed = pressed
+									ev.position = lab.get_global_rect().get_center()
+									ev.global_position = ev.position
+									Input.parse_input_event(ev)
+									await get_tree().process_frame
+								await get_tree().create_timer(0.4).timeout
+								print("Klick auf Siedlerzeile: Fenster offen=", cp.visible)
+							else:
+								print("Mausrad-Test: keine Siedlerzeile gefunden")
 					if args.panel == "debatte":
 						Society.start_debate(world, "wissen")
 						Society.argue("lage")
@@ -325,6 +360,11 @@ func _maybe_autotest() -> void:
 		await RenderingServer.frame_post_draw
 		get_viewport().get_texture().get_image().save_png(args.shot)
 		print("Screenshot: ", args.shot)
+	if args.has("kireport"):
+		var f := FileAccess.open(str(args.kireport), FileAccess.WRITE)
+		f.store_string(KiMind.report_text())
+		f.close()
+		print("KI-Bericht: ", args.kireport)
 	Game.save_game()
 	get_tree().quit()
 

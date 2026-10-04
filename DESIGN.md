@@ -412,10 +412,18 @@ laden oder will der Spieler nicht, entscheidet die Regel-KI unten wie bisher.
   Prioritäten, Natur begrenzt Sammler/Fischer/Bauern, Notregel bei fast leerem Essen; `_make_orders` gibt
   jedem Siedler nach Begabung einen Auftrag), Bau (`build_options`, auch „nichts“), Forschung (nur
   Hauptinsel, `research_options`), Handel und sagt zum Schluss in einem Satz, was die Bewohner tun sollen.
-  Danach fragt SmolLM jeden Erwachsenen (höchstens alle `settler_days`): Fähigkeiten, Charakter,
-  Bedürfnisse, Inselzahlen, Wort und Auftrag des Rats, letzte drei Entscheidungen; Möglichkeiten: Auftrag
-  zuerst, dann aktueller Beruf, Lieblingsberuf, gefragte Berufe, „frei“. Gewählt wird nach den
-  Wahrscheinlichkeiten mit `settler_temperature`; Abweichen vom Auftrag heißt „eigene Wahl“.
+  Danach fragt SmolLM jeden Erwachsenen (höchstens alle `settler_days`, `settler_prompt`), auf
+  **Englisch**, weil SmolLM-135M fast nur Englisch kann (auf Deutsch waren die Nummern fast gleich
+  wahrscheinlich, die Wahl gewürfelt): Jahreszeit, Hunger, Laune, Fähigkeiten, Inselzahlen, Auftrag des
+  Rats, letzte Arbeiten; jede Möglichkeit mit kurzen Stichworten dafür (`_option_facts`: Auftrag,
+  aktuelle Arbeit, wie gut er darin ist, was die Insel braucht). Möglichkeiten: Auftrag zuerst, dann
+  aktueller Beruf, Lieblingsberuf, gefragte Berufe, „frei“. Die Antwort beginnt mit „My choice:“, damit
+  als Nächstes die Nummer kommt. Jeder Siedler wird **zweimal** gefragt, das zweite Mal in umgekehrter
+  Reihenfolge, und die Wahrscheinlichkeiten werden gemittelt (kleine Modelle nehmen gern die 1).
+  **Klarheit** = höchste Wahrscheinlichkeit mal Anzahl (1 = alle gleich). Unter `undecided_clarity`
+  wird nicht gewürfelt: der Siedler folgt dem Auftrag oder bleibt bei seiner Arbeit, der Rat nimmt die
+  stärkste Nummer. Sonst wird nach den Wahrscheinlichkeiten mit `settler_temperature`
+  (`council_temperature`) gewählt; Abweichen vom Auftrag heißt „eigene Wahl“.
   Siedler mit Befehl des Herrschers, Kranke und Seeleute werden nicht gefragt. Die Runde ist eine
   Koroutine; `epoch` bricht sie bei Neustart oder Laden ab, Pause hält sie an.
 - **Handel** (`_trade`): Der Rat sieht, was anderen Inseln übrig ist und ihm fehlt, und bittet um eine
@@ -435,6 +443,14 @@ laden oder will der Spieler nicht, entscheidet die Regel-KI unten wie bisher.
   Vorgaben“, „Prioritäten“, Aufträge und eigene Entscheidungen, Lehren. „KI beobachten“ zeigt Status
   und Rechenzeit, die letzte Sitzung mit Wahrscheinlichkeiten, jeden Siedler mit Auftrag und Wahl,
   das Gedächtnis und die letzte Anfrage an jedes Modell im Wortlaut.
+  Zeilen zum Siedler springen nur bei echtem Klick oder Tipp (`_jump_on_tap`); vorher schloss das
+  Mausrad über einer Siedlerzeile das Fenster. Beim Scrollen und beim Lesen der Anfrage baut sich die
+  Ansicht nicht neu auf, die Scrollposition bleibt.
+- **KI-Bericht (vorübergehend zur Kontrolle)**: `KiMind.trace` hält jede Anfrage an ein Modell fest
+  (Möglichkeiten, Wahrscheinlichkeiten A/B, Klarheit, Nummernanteil, Entscheidung und Regel, Antworttexte,
+  volle Anfrage für die letzten 150), nur im Speicher. „KI-Bericht herunterladen“ im Menü und in
+  „KI beobachten“ lädt `report_text()` als Textdatei herunter (Zusammenfassung, Gedächtnis je Insel,
+  Verlauf). Test: `--kireport=pfad`; Mausrad-Test: `--panel=ki --wheeltest=1 --shot=...`.
 
 ### Regel-KI (ohne Sprachmodelle)
 

@@ -1214,6 +1214,14 @@ func _build_menu_panel() -> void:
 			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED if full else DisplayServer.WINDOW_MODE_FULLSCREEN)
 			_menu_panel.visible = false)
 		v.add_child(fs)
+	if Game.is_ki_build:
+		# Vorübergehend zur Kontrolle der Sprachmodelle
+		var rep := UiTheme.button("KI-Bericht herunterladen", "buch", 44)
+		rep.tooltip_text = "Lädt eine Textdatei mit allen Überlegungen und Entscheidungen der KI herunter."
+		rep.pressed.connect(func():
+			var f := KiMind.download_report()
+			toast("KI-Bericht gespeichert: %s" % f, "buch"))
+		v.add_child(rep)
 	var info := UiTheme.label("Das Spiel speichert automatisch.", 12)
 	v.add_child(info)
 

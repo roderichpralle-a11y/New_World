@@ -18,6 +18,9 @@ var _scroll: ScrollContainer
 var _body: VBoxContainer
 var _tick: float = 0.0
 var _sig: String = ""
+var _scrolled_at: int = -100000  # wann der Spieler zuletzt gescrollt hat (ms)
+var _filled_view: String = ""
+var _restoring := false
 
 
 func setup(p_hud) -> void:
@@ -46,6 +49,9 @@ func setup(p_hud) -> void:
 	_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_body.add_theme_constant_override("separation", 5)
 	_scroll.add_child(_body)
+	_scroll.get_v_scroll_bar().value_changed.connect(func(_v):
+		if not _restoring:
+			_scrolled_at = Time.get_ticks_msec())
 	Society.changed.connect(func():
 		if visible:
 			refresh())
@@ -64,6 +70,7 @@ func open() -> void:
 	if Society.requests_of(_island).is_empty() and not Society.requests.is_empty():
 		_island = int(Society.requests[0].isl)
 	_view = "rat"
+	_filled_view = ""
 	_fit()
 	refresh()
 
@@ -80,6 +87,12 @@ func _process(delta: float) -> void:
 	_tick -= delta
 	if _tick <= 0.0:
 		_tick = 1.0
+		# Beim Beobachten nicht neu aufbauen, solange der Spieler scrollt oder die lange
+		# Anfrage liest: Das Neuaufbauen vieler Zeilen ließ die Liste springen.
+		if _view == "ki" and (Time.get_ticks_msec() - _scrolled_at < 2500 or _show_prompt != ""):
+			return
+		if _view == "ki":
+			_tick = 2.0
 		var sig := _signature()
 		if sig != _sig:
 			refresh()
@@ -113,7 +126,9 @@ func refresh() -> void:
 		return
 	_sig = _signature()
 	_fill_tabs()
+	var keep := _scroll.scroll_vertical
 	for c in _body.get_children():
+		_body.remove_child(c)
 		c.queue_free()
 	var w = _world()
 	if w == null:
@@ -133,6 +148,19 @@ func refresh() -> void:
 			_fill_prio(w)
 		_:
 			_fill_overview(w)
+	# Beim Neuaufbau derselben Ansicht an der Stelle bleiben, an der der Spieler liest
+	if _view == _filled_view and _view in ["ki", "rat", "vorgaben", "prio", "waehlen"] and keep > 0:
+		_restore_scroll(keep)
+	_filled_view = _view
+
+
+func _restore_scroll(v: int) -> void:
+	_restoring = true
+	_scroll.scroll_vertical = v
+	await get_tree().process_frame
+	_scroll.scroll_vertical = v
+	await get_tree().process_frame
+	_restoring = false
 
 
 func _fill_tabs() -> void:
@@ -459,15 +487,7 @@ func _fill_watch(w) -> void:
 		var hh: Dictionary = Society.household_of(s)
 		var l := _text("%s (%s, %s): %s" % [s.display_name, s.job_name(), hh.get("name", "?"),
 			Society.thoughts.get(s.id, "Überlegt noch.")], 13)
-		l.mouse_filter = Control.MOUSE_FILTER_STOP
-		l.tooltip_text = "Antippen: zum Siedler springen"
-		var sref = s
-		l.gui_input.connect(func(e):
-			if e is InputEventMouseButton and e.pressed and is_instance_valid(sref) and sref.world == Game.world:
-				visible = false
-				Game.select(sref)
-				if hud:
-					hud.camera.focus(sref.position))
+		_jump_on_tap(l, s)
 
 	# Protokoll
 	_section("Entscheidungen (neueste oben)")
@@ -477,6 +497,35 @@ func _fill_watch(w) -> void:
 		_text("Noch keine Entscheidung.", 13, DIM)
 	for l in lines.slice(0, 25):
 		_text("Tag %d %s  %s" % [int(floor(float(l[0]))) + 1, _clock(float(l[0])), l[1]], 12, DIM)
+
+
+## Antippen einer Zeile springt zum Siedler. Nur ein echter Klick oder Tipp (linke Taste,
+## losgelassen ohne zu ziehen): Mausrad und Wischen zum Scrollen gehen an die Liste weiter.
+## Früher reagierte die Zeile auf jedes Drücken, auch auf das Mausrad, und schloss beim
+## Scrollen das Fenster.
+func _jump_on_tap(l: Control, s) -> void:
+	l.mouse_filter = Control.MOUSE_FILTER_PASS
+	l.tooltip_text = "Antippen: zum Siedler springen"
+	var sref = s
+	var down := [Vector2.ZERO, -1]
+	l.gui_input.connect(func(e):
+		if not (e is InputEventMouseButton) or e.button_index != MOUSE_BUTTON_LEFT:
+			return
+		var now := Time.get_ticks_msec()
+		if e.pressed:
+			down[0] = e.global_position
+			down[1] = _scroll.scroll_vertical
+			return
+		if int(down[1]) < 0 or e.global_position.distance_to(down[0]) > 12.0 or absi(_scroll.scroll_vertical - int(down[1])) > 6 \
+				or now - _scrolled_at < 300:
+			down[1] = -1
+			return
+		down[1] = -1
+		if is_instance_valid(sref) and sref.world == Game.world:
+			visible = false
+			Game.select(sref)
+			if hud:
+				hud.camera.focus(sref.position))
 
 
 func _clock(t: float) -> String:
@@ -758,18 +807,11 @@ func _fill_watch_llm(w) -> void:
 			t += Society.thoughts.get(s.id, "hat noch nicht entschieden.")
 		else:
 			var order: String = d.get("order", "")
-			t += "Auftrag %s, entscheidet %s%s. Modell: %s" % [Data.jobs.get(order, {}).get("name", "keiner") if order != "" else "keiner",
-				Data.jobs.get(d.job, {}).get("name", d.job), " (eigene Wahl)" if d.get("own", false) else "", d.get("probs", "")]
+			t += "Auftrag %s, entscheidet %s%s. Modell: %s. Klarheit %.1f%s" % [Data.jobs.get(order, {}).get("name", "keiner") if order != "" else "keiner",
+				Data.jobs.get(d.job, {}).get("name", d.job), " (eigene Wahl)" if d.get("own", false) else "", d.get("probs", ""),
+				float(d.get("clarity", 0.0)), ", unentschlossen" if str(d.get("rule", "Modell")) != "Modell" else ""]
 		var l := _text(t, 13, RULER if d.get("own", false) else UiTheme.TEXT)
-		l.mouse_filter = Control.MOUSE_FILTER_STOP
-		l.tooltip_text = "Antippen: zum Siedler springen"
-		var sref = s
-		l.gui_input.connect(func(e):
-			if e is InputEventMouseButton and e.pressed and is_instance_valid(sref) and sref.world == Game.world:
-				visible = false
-				Game.select(sref)
-				if hud:
-					hud.camera.focus(sref.position))
+		_jump_on_tap(l, s)
 
 	_section("Gedächtnis des Rats")
 	if m.lessons.is_empty():
@@ -787,6 +829,14 @@ func _fill_watch_llm(w) -> void:
 		_text("Entscheidungen und Folgen:", 13, UiTheme.TEXT, true)
 	for r in recs.slice(0, 6):
 		_text(KiMind.record_text(r), 12, DIM)
+
+	_section("Bericht")
+	var rr0 := _row()
+	_btn(rr0, "KI-Bericht herunterladen", "buch", "Textdatei mit allen Anfragen, Wahrscheinlichkeiten und Entscheidungen seit dem Start.", func():
+		var f := KiMind.download_report()
+		if hud:
+			hud.toast("KI-Bericht gespeichert: %s" % f, "buch"))
+	_text("%d Anfragen festgehalten." % KiMind.trace_count, 12, DIM)
 
 	_section("Letzte Anfrage an ein Modell")
 	var pr := _row()
