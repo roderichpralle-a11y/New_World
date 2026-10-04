@@ -122,6 +122,7 @@ func reset() -> void:
 	households = {}
 	debate = {}
 	welcomed = false
+	KiMind.reset()
 
 
 func serialize() -> Dictionary:
@@ -131,7 +132,7 @@ func serialize() -> Dictionary:
 	var ord := {}
 	for sid in orders:
 		ord[str(sid)] = orders[sid]
-	return {"isl": out, "requests": requests, "next_req": next_req, "orders": ord, "welcomed": welcomed}
+	return {"isl": out, "requests": requests, "next_req": next_req, "orders": ord, "welcomed": welcomed, "mind": KiMind.serialize()}
 
 
 func load_from(d: Dictionary) -> void:
@@ -156,6 +157,7 @@ func load_from(d: Dictionary) -> void:
 	var od: Dictionary = d.get("orders", {})
 	for k in od:
 		orders[int(k)] = float(od[k])
+	KiMind.load_from(d.get("mind", {}))
 
 
 # ================================================================== Takt
@@ -171,11 +173,18 @@ func _process(_delta: float) -> void:
 		if w.settlers.is_empty():
 			continue
 		var st := state(w)
+		# Mit Sprachmodellen entscheiden Rat und Siedler in KiMind, hier bleibt nur die Pflege
+		var llm := KiMind.active()
 		if t >= float(st.next_think):
 			st.next_think = t + float(cfg("think_days", 0.25))
-			_think(w)
+			if llm:
+				_make_households(w, situation(w))
+			else:
+				_think(w)
 			_care(w, float(cfg("think_days", 0.25)))
 			st.attacks = maxf(0.0, float(st.attacks) - 0.5 * float(cfg("think_days", 0.25)))
+		if llm:
+			continue
 		if t >= float(st.next_council) and not Game.is_night():
 			st.next_council = t + float(cfg("council_days", 2.0))
 			_council(w)

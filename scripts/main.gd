@@ -268,8 +268,13 @@ func _maybe_autotest() -> void:
 						sp._on_map_input(drag)
 						sp._pressed = false
 						print("Seekarte Zoom: ", sp._zoom, " Verschiebung: ", sp._pan)
-				"rat", "debatte", "ki":
+				"rat", "debatte", "ki", "chat", "vorgaben", "prio":
 					hud._open_council()
+					if args.panel in ["chat", "vorgaben", "prio"]:
+						hud._council_panel._view = args.panel
+						hud._council_panel.refresh()
+					if args.has("prompt"):
+						hud._council_panel._show_prompt = str(args.prompt)
 					if args.panel == "ki":
 						hud._council_panel._view = "ki"
 						hud._council_panel.refresh()
@@ -338,6 +343,27 @@ func _report_society(auto: String) -> void:
 		for s in w.settlers:
 			counts[s.job] = int(counts.get(s.job, 0)) + 1
 		print("   Berufe: ", counts, " Laune: ", w.settlers.map(func(s): return int(s.mind.mood)))
+		if KiMind.active():
+			var m: Dictionary = KiMind.mem(w)
+			var own := 0
+			for k in KiMind.sdec:
+				if KiMind.sdec[k].get("own", false):
+					own += 1
+			print("   LLM %s: Schwerpunkt %s, Sitzungen %d, Plätze %s, eigene Wahl %d/%d, Lehren %d, Erfahrung %d, Handel %d | Plan: %s" % [
+				Sea.island_name(w), m.focus, int(m.councils), m.get("slots", {}), own, KiMind.sdec.size(), m.lessons.size(), m.exp.size(),
+				KiMind.trades.size(), m.plan])
+			for l in m.lessons:
+				print("     Lehre (%s): %s" % [l[2], l[1]])
+	if Llm.state != "aus":
+		print("   ", Llm.status_text(), " Anfragen: ", Llm.stats, " offen: ", Llm.pending.size(), " | ", KiMind.activity)
+	if _args.has("kichat") and KiMind.active() and not _args.has("_chatted"):
+		_args["_chatted"] = "1"
+		KiMind.chat(Game.world, str(_args.kichat))
+		KiMind.bind(Game.world, "beruf", "holzfaeller", 2)
+		KiMind.set_prio(Game.world, "forschung", 3)
+	if _args.has("_chatted"):
+		for c in KiMind.mem(Game.world).chat:
+			print("     Chat %s: %s" % [c[0], c[1]])
 	for r in Society.requests.duplicate():
 		print("   Anliegen: ", r.title, " | ", r.text)
 		if auto == "ja" or (auto == "rede" and r.kind != "strategie"):

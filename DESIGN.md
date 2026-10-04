@@ -372,6 +372,58 @@ Eigene Ausgabe unter `/New_World/ki/` (Zweig `claude/ki-variante-oexba8`, Workfl
 den normalen Spielstand) und lässt die Einführung weg. Ohne `/ki/` tut `Society` nichts, das normale
 Spiel bleibt unverändert. Der letzte Stand vor der KI-Variante liegt im Zweig `version-1.0`.
 
+### Sprachmodelle (Llama-3.2-1B für die Räte, SmolLM-135M für die Siedler)
+
+Wunsch von josh (2026-10-04): Jeder Siedler ist ein eigenes kleines Sprachmodell, jeder Inselrat ein
+größeres. Beide laufen im Browser des Spielers (kein Server, kein Schlüssel). Kann das Gerät sie nicht
+laden oder will der Spieler nicht, entscheidet die Regel-KI unten wie bisher.
+- `web/ki_llm.js` (im Export über `include_filter`): `window.KiLlm` startet einen Web Worker
+  (Blob, Modul), der transformers.js 4.3.0 vom CDN lädt (`lib_urls`) und beide Modelle lädt
+  (Modell-IDs und `dtypes` je Gerät in `data/ki_llm.json`, die Liste wird der Reihe nach probiert;
+  WebGPU wenn möglich, sonst WASM). `choose`: Chatvorlage + Frage mit nummerierten Möglichkeiten,
+  ein Schritt `generate` mit einem `LogitsProcessor`, der die Wahrscheinlichkeiten der Ziffern 1–9 abliest
+  (`probs`, dazu `mass` = Anteil der Ziffern an allem, was das Modell schreiben wollte). `generate`: freier
+  Text. Getestet in Node mit winzigen Zufallsmodellen (gleicher Code, `cfg.local_path`).
+- Autoload `Llm` (`scripts/autoload/llm.gd`): Status (aus, laden, bereit, fehler), Fortschritt,
+  Wahl je Gerät in `user://ki_llm.cfg` (Titelbild und Rat-Fenster fragen vor dem Download).
+  `choose(role, messages, n, hint)` und `generate(...)` geben einen `Job` zurück, `await job.done`.
+  `--llmmock=1` ersetzt die Modelle durch eine Attrappe (wählt nach `hint` mit Zufall), für Tests.
+- Autoload `KiMind` (`scripts/autoload/ki_mind.gd`), läuft nur wenn `Llm.active()`; dann macht
+  `Society` nur noch Häuser, Pflege, Feste und Anliegen. Eine Runde geht Insel für Insel (Hauptinsel
+  zuerst): ist der Rat dran (`council_days`), bekommt Llama `council_system` (Rolle, Ziel: Hauptinsel
+  wachsen und forschen, andere wachsen; Jahreszeitenregeln; Prioritäten, Wünsche und feste Vorgaben
+  des Herrschers; Gedächtnis) und `island_report` (Siedler mit Fähigkeiten und letzter Entscheidung,
+  Gebäude mit Zellen, Vorräte und Bedarf, alle Inseln mit Lage, Rohstoffen und Bedarf, alle Schiffe mit
+  Heimat und Route). Der Rat wählt nacheinander Schwerpunkt, Arbeit (Wahrscheinlichkeiten = Anteile, mal
+  Prioritäten, Natur begrenzt Sammler/Fischer/Bauern, Notregel bei fast leerem Essen; `_make_orders` gibt
+  jedem Siedler nach Begabung einen Auftrag), Bau (`build_options`, auch „nichts“), Forschung (nur
+  Hauptinsel, `research_options`), Handel und sagt zum Schluss in einem Satz, was die Bewohner tun sollen.
+  Danach fragt SmolLM jeden Erwachsenen (höchstens alle `settler_days`): Fähigkeiten, Charakter,
+  Bedürfnisse, Inselzahlen, Wort und Auftrag des Rats, letzte drei Entscheidungen; Möglichkeiten: Auftrag
+  zuerst, dann aktueller Beruf, Lieblingsberuf, gefragte Berufe, „frei“. Gewählt wird nach den
+  Wahrscheinlichkeiten mit `settler_temperature`; Abweichen vom Auftrag heißt „eigene Wahl“.
+  Siedler mit Befehl des Herrschers, Kranke und Seeleute werden nicht gefragt. Die Runde ist eine
+  Koroutine; `epoch` bricht sie bei Neustart oder Laden ab, Pause hält sie an.
+- **Handel** (`_trade`): Der Rat sieht, was anderen Inseln übrig ist und ihm fehlt, und bittet um eine
+  Ware. Der Rat der anderen Insel nennt seinen Preis (eine Ware, nichts oder ablehnen), der bittende Rat
+  nimmt an oder nicht. Dann fährt ein freies Schiff der gebenden Insel (sonst der eigenen; jedes Schiff
+  hat seine Heimatinsel) eine Route hin und her, bis `trade_days` vorbei sind (`trades`).
+- **Herrscher**: `chat(w, text)` (Llama antwortet, der Wunsch steht drei Tage im Systemtext, der Rat
+  tagt bald neu), `bind(w, fokus|bau|forschung|beruf, wert, n)` feste Vorgaben (kosten Vertrauen,
+  Schwerpunkt und Arbeiter gelten drei Tage, Bau und Forschung bis erledigt), `set_prio(w, key, 0..3)`.
+- **Lernen**: Jede Sitzung wird als `records` mit Kennzahlen gespeichert. Bei der nächsten misst
+  `_evaluate` die Veränderung je Tag (Essen, Holz, Stein, Siedler, Laune, Forschung), führt `exp` je
+  Jahreszeit und Schwerpunkt und schreibt bei auffälligen Messungen eine Lehre (`_measure_lesson`).
+  Alle `reflect_every` Sitzungen zieht Llama aus den letzten Entscheidungen und Folgen selbst eine Lehre
+  (`_reflect`). Lehren (höchstens `lessons_max`), Erfahrung und die letzten Entscheidungen mit Folgen
+  stehen in jedem Systemtext. Alles liegt im Society-Zustand der Insel (`state(w).llm`) und im Spielstand.
+- Rat-Fenster mit Sprachmodellen: Schwerpunkt, Satz des Rats, „Mit dem Rat sprechen“, „Feste
+  Vorgaben“, „Prioritäten“, Aufträge und eigene Entscheidungen, Lehren. „KI beobachten“ zeigt Status
+  und Rechenzeit, die letzte Sitzung mit Wahrscheinlichkeiten, jeden Siedler mit Auftrag und Wahl,
+  das Gedächtnis und die letzte Anfrage an jedes Modell im Wortlaut.
+
+### Regel-KI (ohne Sprachmodelle)
+
 Autoload `Society` (`scripts/autoload/society.gd`), alle Zahlen in `data/society.json`:
 - **Denken** (`_think`, alle `think_days` je Insel): `situation(w)` sammelt Lage (Essen je Kopf,
   Heizholz bis zum Frühling, Baustellen, Raubtiere, Felder ...). `desired_jobs` rechnet, wie viele
@@ -429,6 +481,8 @@ Pushes auf den Zweig `claude/entwicklungsbaum-x33t1h` landen unter `/New_World/t
 | `scripts/autoload/seasons.gd` | Jahreszeiten: Kalender, Wachstum, Heizen, Verderb, Frost, Schnee |
 | `scripts/autoload/sea.gd` | Inseln, Welten je Insel, Schiffsreisen, Inselwechsel |
 | `scripts/autoload/society.gd` | KI-Variante: Siedler denken selbst, Häuser, Inselrat, Anliegen an den Herrscher |
+| `scripts/autoload/llm.gd`, `web/ki_llm.js` | KI-Variante: Sprachmodelle im Browser (Worker, transformers.js), Attrappe für Tests |
+| `scripts/autoload/ki_mind.gd` | KI-Variante: Inselräte (Llama) und Siedler (SmolLM) entscheiden, Handel, Chat, Vorgaben, Lernen |
 | `scripts/world/island_gen.gd` | Inselgenerator (Seed → Gelände + Rohstoffe) |
 | `scripts/world/world.gd` | Tilemaps, Wegfindung (AStarGrid2D), Entitäten, Bauen, Effekte, Tag/Nacht |
 | `scripts/world/game_camera.gd` | Ziehen, Zoom (Mausrad, zwei Finger), Tippen |

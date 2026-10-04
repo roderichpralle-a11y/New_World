@@ -1,0 +1,44 @@
+{
+  "_info": "KI-Variante mit Sprachmodellen. Rat: Llama-3.2-1B, Siedler: SmolLM-135M. Läuft im Browser (web/ki_llm.js). Logik in scripts/autoload/llm.gd und scripts/autoload/ki_mind.gd.",
+  "lib_urls": [
+    "https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.0",
+    "https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.0/dist/transformers.min.js",
+    "https://unpkg.com/@huggingface/transformers@4.3.0/dist/transformers.min.js"
+  ],
+  "models": {
+    "rat": ["onnx-community/Llama-3.2-1B-Instruct", "onnx-community/Llama-3.2-1B-Instruct-ONNX"],
+    "siedler": ["HuggingFaceTB/SmolLM-135M-Instruct", "onnx-community/SmolLM-135M-Instruct", "HuggingFaceTB/SmolLM2-135M-Instruct"]
+  },
+  "model_names": {"rat": "Llama-3.2-1B", "siedler": "SmolLM-135M"},
+  "dtypes": {"webgpu_f16": ["q4f16", "fp16", "q4"], "webgpu": ["q4", "fp32"], "wasm": ["q4", "q8", "int8"]},
+  "download_mb": 1250,
+  "council_days": 1.0,
+  "first_council_day": 0.15,
+  "settler_days": 0.25,
+  "settler_temperature": 0.8,
+  "council_temperature": 0.35,
+  "reason_tokens": 60,
+  "chat_tokens": 90,
+  "max_options": 8,
+  "trade_days": 4.0,
+  "memory_records": 30,
+  "lessons_max": 10,
+  "reflect_every": 3,
+  "mock_delay": [0.05, 0.25],
+  "priorities": {
+    "nahrung": "Nahrung",
+    "rohstoffe": "Holz und Stein",
+    "bauen": "Bauen",
+    "forschung": "Forschung",
+    "wachstum": "Wachstum",
+    "schutz": "Schutz",
+    "handel": "Handel"
+  },
+  "priority_jobs": {
+    "nahrung": ["sammler", "fischer", "bauer", "koch"],
+    "rohstoffe": ["holzfaeller", "steinmetz"],
+    "bauen": ["baumeister", "handwerker"],
+    "forschung": ["forscher"],
+    "schutz": ["jaeger"]
+  }
+}

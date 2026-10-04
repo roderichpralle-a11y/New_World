@@ -1239,6 +1239,9 @@ func _volume_row(text: String, icon_name: String, value: float, on_change: Calla
 
 
 const HELP_KI := """[b]KI-Version: Du bist der Herrscher[/b]
+[b]Mit Sprachmodellen:[/b] Jede Insel hat einen Rat, den das Sprachmodell Llama-3.2-1B spielt. Er bekommt die ganze Lage (Siedler und ihre Fähigkeiten, Gebäude und wo sie stehen, alle Inseln mit Rohstoffen und Bedarf, alle Schiffe, Jahreszeiten und ihre Regeln) und entscheidet Schwerpunkt, Aufträge für jeden Bewohner, Bauten, Forschung (Hauptinsel) und Handel mit anderen Inseln. Jeder Siedler ist ein eigenes kleines Modell (SmolLM-135M): Es kennt seine Fähigkeiten, Bedürfnisse, den Auftrag des Rats und was er zuletzt getan hat, und entscheidet selbst, auch gegen den Rat.
+Unter [b]Rat[/b] kannst du mit jedem Rat schreiben, feste Vorgaben machen und Prioritäten verschieben. Der Rat merkt sich seine Entscheidungen, misst, was sie bewirkt haben, und schreibt sich daraus Lehren auf, die in seine nächsten Entscheidungen einfließen. Unter „KI beobachten“ siehst du alles, auch die Wahrscheinlichkeiten der Modelle und die letzte Anfrage.
+[b]Ohne Sprachmodelle[/b] (oder wenn dein Gerät sie nicht laden kann) entscheidet die Regel-KI:
 Deine Siedler denken selbst. Jeder wählt seine Arbeit nach dem, was gerade fehlt, und nach dem, was er gut kann. Was er denkt, steht im Infofenster.
 Die Bewohner eines Hauses halten zusammen: sie sprechen sich mit den anderen Häusern ab, wer sich um Nahrung, Holz und Stein, Bauen, Forschung oder Schutz kümmert, und pflegen Kranke im Haus.
 Jedes Haus schickt einen Sprecher in den [b]Inselrat[/b]. Alle zwei Tage stimmt der Rat über die Strategie ab: Nahrung sichern, Vorrat für den Winter, Wachsen, Bauen, Wissen, Schutz oder Seefahrt. Danach richten sich Berufe, Bauten und Forschung.
@@ -1916,6 +1919,7 @@ func show_title(has_save: bool) -> void:
 		var kb := UiTheme.label("KI-Version mit eigenem Spielstand: Die Siedler denken selbst,\njede Insel hat einen Rat, du bist der Herrscher.\nDein normales Spiel bleibt unverändert.", 14, Color("#2a5a9a"), true)
 		kb.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		v.add_child(kb)
+		_ki_choice_box(v)
 	if Game.is_test_build:
 		var tb := UiTheme.label("Testversion mit eigenem Spielstand.\nDein normales Spiel bleibt unverändert.", 14, Color("#c03a2a"), true)
 		tb.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -1940,6 +1944,47 @@ func show_title(has_save: bool) -> void:
 	hb.pressed.connect(func(): _toggle(_help_panel))
 	v.add_child(hb)
 	root.move_child(_help_panel, -1)
+
+
+## KI-Version: Sprachmodelle laden (einmal etwa 1,2 GB) oder die Regel-KI nehmen. Gilt je Gerät.
+func _ki_choice_box(v: VBoxContainer) -> void:
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 6)
+	v.add_child(box)
+	var fill := func(self_ref: Callable):
+		for c in box.get_children():
+			c.queue_free()
+		var txt := ""
+		if Llm.choice == "":
+			txt = "Rat und Siedler können von echten Sprachmodellen gesteuert werden\n(Llama-3.2-1B für die Inselräte, SmolLM-135M für jeden Siedler).\nSie laufen in deinem Browser, einmalig etwa %d MB Download." % int(Llm.cfg("download_mb", 1250))
+			if not Llm.probe.get("webgpu", true):
+				txt += "\nDein Browser hat kein WebGPU: Die Modelle rechnen dann langsam auf dem Prozessor."
+			if Llm.probe.get("mobile", false):
+				txt += "\nAuf dem Handy kann der Speicher knapp werden."
+		else:
+			txt = Llm.status_text()
+		var l := UiTheme.label(txt, 13, Color("#2a5a9a"))
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		l.custom_minimum_size.x = 420
+		box.add_child(l)
+		var h := HBoxContainer.new()
+		h.alignment = BoxContainer.ALIGNMENT_CENTER
+		h.add_theme_constant_override("separation", 6)
+		box.add_child(h)
+		if Llm.choice != "llm":
+			var a := UiTheme.button("Sprachmodelle laden", "ki", 38)
+			a.pressed.connect(func():
+				Llm.set_choice("llm")
+				self_ref.call(self_ref))
+			h.add_child(a)
+		if Llm.choice != "regel":
+			var b := UiTheme.button("Ohne Sprachmodelle (Regel-KI)", "", 38)
+			b.pressed.connect(func():
+				Llm.set_choice("regel")
+				self_ref.call(self_ref))
+			h.add_child(b)
+	fill.call(fill)
 
 
 func _show_game_over() -> void:
