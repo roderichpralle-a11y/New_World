@@ -402,6 +402,10 @@ Autoload `Society` (`scripts/autoload/society.gd`), alle Zahlen in `data/society
   setzt durch (Vertrauen −12, zwei Tage schlechte Laune). `order_job` (Beruf im Infofenster) gilt einen Tag.
 - **Wirkungen**: `Society.work_mult(w)` in `Settler.work_factor` (Fest, Freizeit, Überstunden),
   `Society.mood_reasons(s)` in `SettlerMind._update_mood`, `Society.on_attack` aus `Settler.take_damage`.
+- **Beobachten**: `decide(w, text)` schreibt jede Entscheidung (Berufswechsel mit Bedarf, Stimmen im Rat,
+  Bauten, Anliegen) ins Protokoll `dlog` je Insel (40 Einträge, gespeichert). Im Rat-Fenster zeigt
+  „KI beobachten“ die Lage, Bedarf je Beruf (gebraucht/besetzt), den nächsten Bau, die Gedanken aller
+  Siedler (antippen springt hin) und das Protokoll. Bildschirmfoto `--panel=ki`.
 - **Oberfläche**: Knopf „Rat (n)“ und `scripts/ui/council_panel.gd` (Inselreiter, Strategie, Vertrauen,
   Anliegen als Karten, Abstimmung, Häuser, Chronik, Diskussion). Spielanleitung beginnt mit `HELP_KI`.
 - **Spielstand**: `society` {isl, requests, next_req, orders, welcomed}; fehlt er, startet alles neu.

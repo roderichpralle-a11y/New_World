@@ -82,7 +82,11 @@ func _signature() -> String:
 	if w == null:
 		return ""
 	var st: Dictionary = Society.state(w)
-	return "%s|%d|%d|%s|%d|%d" % [st.strategy, int(st.trust), Society.requests.size(), _view, st.log.size(), Sea.settled_islands().size()]
+	var extra := ""
+	if _view == "ki":
+		# Beobachten: jede Sekunde neu, solange das Spiel läuft
+		extra = "%d|%d" % [st.dlog.size(), int(Game.time_days * 48.0)]
+	return "%s|%d|%d|%s|%d|%d|%s" % [st.strategy, int(st.trust), Society.requests.size(), _view, st.log.size(), Sea.settled_islands().size(), extra]
 
 
 func _world():
@@ -104,6 +108,8 @@ func refresh() -> void:
 	if w == null:
 		return
 	match _view:
+		"ki":
+			_fill_watch(w)
 		"waehlen":
 			_fill_choose(w)
 		"debatte":
@@ -188,6 +194,10 @@ func _fill_overview(w) -> void:
 		mods.append("Überstunden")
 	if not mods.is_empty():
 		_text("Gerade: %s." % ", ".join(mods), 13, RULER)
+	var wr := _row()
+	_btn(wr, "KI beobachten", "ki", "Zeigt, was gebraucht wird, was jeder Siedler denkt und jede Entscheidung der KI.", func():
+		_view = "ki"
+		refresh())
 
 	# Anliegen
 	var reqs := Society.requests_of(_island)
@@ -364,3 +374,87 @@ func _arg_tip(a: String) -> String:
 		"freizeit":
 			return "Wirkt besonders bei wenig fleißigen Sprechern. Bei Zustimmung wird zwei Tage gemütlicher gearbeitet."
 	return ""
+
+
+# ================================================================== KI beobachten
+## Was die KI gerade sieht und warum sie so entscheidet: Bedarf je Beruf, nächster Bau,
+## Gedanken jedes Siedlers und das Protokoll aller Entscheidungen.
+func _fill_watch(w) -> void:
+	var back := _row()
+	_btn(back, "Zurück zum Rat", "", "", func():
+		_view = "rat"
+		refresh())
+	var sit: Dictionary = Society.situation(w)
+	var st: Dictionary = Society.state(w)
+	_section("Was die KI sieht")
+	_text("Strategie: %s. Essen: %d (Ziel %d, mit Wintervorrat). Holz: %d (Ziel %d, mit Heizholz bis zum Frühling). Stein: %d. Wohnplätze: %d Siedler auf %d Plätzen. Baustellen: %d. Raubtiere: %d." % [
+		Society.strat_name(st.strategy), int(sit.food), int(sit.food_target), int(sit.wood), int(sit.wood_target),
+		int(sit.stone), int(sit.pop), int(sit.housing), int(sit.sites), int(sit.predators)], 13)
+
+	# Bedarf je Beruf: gewünschte Plätze und wer sie gerade hat
+	var free := 0
+	var have := {}
+	for s in w.settlers:
+		if s.is_adult() and s.job != "seemann" and not s.mind.needs_bed():
+			free += 1
+			have[s.job] = int(have.get(s.job, 0)) + 1
+	var slots: Dictionary = Society.job_slots(w, sit, free)
+	_section("Bedarf je Beruf (gebraucht / besetzt)")
+	var jobs: Array = slots.keys()
+	for j in have:
+		if not j in jobs:
+			jobs.append(j)
+	jobs.sort_custom(func(a, b): return int(slots.get(a, 0)) - int(have.get(a, 0)) > int(slots.get(b, 0)) - int(have.get(b, 0)))
+	for j in jobs:
+		var want := int(slots.get(j, 0))
+		var got := int(have.get(j, 0))
+		if want == 0 and got == 0:
+			continue
+		var name: String = Data.jobs.get(j, {}).get("name", j)
+		var mark := "fehlt %d" % (want - got) if want > got else ("zu viele" if got > want and j != "frei" else "passt")
+		_text("%s: %d / %d (%s). %s" % [name, want, got, mark, Society._why_job(w, j, sit) if j != "frei" else "Freie helfen, wo es fehlt."],
+			13, UiTheme.BAD if want > got else UiTheme.TEXT)
+
+	# Nächster Bau
+	_section("Nächster Bau")
+	var pick: Dictionary = Society._choose_building(w, sit)
+	if pick.is_empty():
+		_text("Im Moment plant der Rat keinen Bau.", 13, DIM)
+	else:
+		_text("%s: %s" % [Data.buildings[pick.type].name + (" (Ausbau)" if pick.has("upgrade") else ""), pick.why], 13)
+	if Game.research.current == "":
+		var t: String = Society.choose_research(st.strategy, w)
+		if t != "":
+			_text("Nächste Forschung: %s." % Data.techs[t].name, 13)
+
+	# Gedanken
+	_section("Was die Siedler denken")
+	for s in w.settlers:
+		if not s.is_adult():
+			continue
+		var hh: Dictionary = Society.household_of(s)
+		var l := _text("%s (%s, %s): %s" % [s.display_name, s.job_name(), hh.get("name", "?"),
+			Society.thoughts.get(s.id, "Überlegt noch.")], 13)
+		l.mouse_filter = Control.MOUSE_FILTER_STOP
+		l.tooltip_text = "Antippen: zum Siedler springen"
+		var sref = s
+		l.gui_input.connect(func(e):
+			if e is InputEventMouseButton and e.pressed and is_instance_valid(sref) and sref.world == Game.world:
+				visible = false
+				Game.select(sref)
+				if hud:
+					hud.camera.focus(sref.position))
+
+	# Protokoll
+	_section("Entscheidungen (neueste oben)")
+	var lines: Array = st.dlog.duplicate()
+	lines.reverse()
+	if lines.is_empty():
+		_text("Noch keine Entscheidung.", 13, DIM)
+	for l in lines.slice(0, 25):
+		_text("Tag %d %s  %s" % [int(floor(float(l[0]))) + 1, _clock(float(l[0])), l[1]], 12, DIM)
+
+
+func _clock(t: float) -> String:
+	var h := fposmod(t, 1.0) * 24.0
+	return "%02d:%02d" % [int(h), int(fposmod(h, 1.0) * 60.0)]

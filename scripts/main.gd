@@ -268,8 +268,11 @@ func _maybe_autotest() -> void:
 						sp._on_map_input(drag)
 						sp._pressed = false
 						print("Seekarte Zoom: ", sp._zoom, " Verschiebung: ", sp._pan)
-				"rat", "debatte":
+				"rat", "debatte", "ki":
 					hud._open_council()
+					if args.panel == "ki":
+						hud._council_panel._view = "ki"
+						hud._council_panel.refresh()
 					if args.panel == "debatte":
 						Society.start_debate(world, "wissen")
 						Society.argue("lage")

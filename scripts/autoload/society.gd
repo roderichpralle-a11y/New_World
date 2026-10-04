@@ -81,7 +81,7 @@ func state(w) -> Dictionary:
 	if not isl.has(id):
 		isl[id] = {"strategy": "nahrung", "since": Game.time_days, "next_council": Game.time_days + float(cfg("first_council_day", 0.4)),
 			"next_think": 0.0, "next_build": Game.time_days + 0.3, "trust": float(cfg("trust_start", 55)), "votes": [],
-			"log": [], "festival_until": 0.0, "leisure_until": 0.0, "overtime_until": 0.0, "resent_until": 0.0,
+			"log": [], "dlog": [], "festival_until": 0.0, "leisure_until": 0.0, "overtime_until": 0.0, "resent_until": 0.0,
 			"speakers": {}, "cool": {}, "attacks": 0.0, "heard": []}
 	return isl[id]
 
@@ -95,7 +95,17 @@ func _add_trust(w, key: String) -> void:
 	st.trust = clampf(float(st.trust) + float(cfg("trust", {}).get(key, 0)), 0.0, 100.0)
 
 
+## Entscheidungsprotokoll zum Beobachten der KI (Berufswechsel, Stimmen, Bauten, Anliegen).
+func decide(w, text: String) -> void:
+	var st := state(w)
+	st.dlog.append([Game.time_days, text])
+	if st.dlog.size() > 40:
+		st.dlog = st.dlog.slice(st.dlog.size() - 40)
+	changed.emit()
+
+
 func log_line(w, text: String) -> void:
+	decide(w, text)
 	var st := state(w)
 	st.log.append([Game.day(), text])
 	if st.log.size() > 12:
@@ -135,7 +145,7 @@ func load_from(d: Dictionary) -> void:
 		st.speakers = sp
 		isl[int(k)] = st
 		state(int(k))  # fehlende Felder ergänzen
-		for key in ["heard", "cool", "log", "votes"]:
+		for key in ["heard", "cool", "log", "votes", "dlog"]:
 			if not st.has(key):
 				st[key] = {} if key == "cool" else []
 	for r in d.get("requests", []):
@@ -437,6 +447,8 @@ func _think(w) -> void:
 			last_change[best.id] = t
 			changes += 1
 			Game.notify_at(w, "%s denkt um: %s statt %s. %s" % [best.display_name, best.job_name(), old, _why_job(w, j, sit)], "ki")
+			decide(w, "%s wird %s (vorher %s). Gebraucht: %d, da waren %d. %s" % [best.display_name, best.job_name(), old,
+				int(slots[j]), int(have[j]) - 1, _why_job(w, j, sit)])
 	# Wer in einem überbesetzten Beruf bleibt und nichts anderes findet, hilft frei aus
 	for s in free:
 		if changes >= max_changes:
@@ -444,6 +456,7 @@ func _think(w) -> void:
 		if s.job != "frei" and slots.has(s.job) and int(have.get(s.job, 0)) > int(slots.get(s.job, 0)) + 1 \
 				and t - float(last_change.get(s.id, -99.0)) >= cd:
 			have[s.job] = int(have.get(s.job, 0)) - 1
+			decide(w, "%s hört als %s auf (zu viele dort) und hilft jetzt frei aus." % [s.display_name, s.job_name()])
 			s.set_job("frei")
 			last_change[s.id] = t
 			changes += 1
@@ -468,7 +481,7 @@ func _why_job(w, j: String, sit: Dictionary) -> String:
 		"steinmetz":
 			return "Stein wird gebraucht."
 		"baumeister":
-			return "%d Baustellen warten." % int(sit.sites)
+			return ("%d Baustellen warten." % int(sit.sites)) if int(sit.sites) > 0 else "Gerade ist keine Baustelle offen."
 		"handwerker":
 			return "Die Werkstätten brauchen Hände."
 		"forscher":
@@ -688,6 +701,8 @@ func _council(w) -> void:
 				best = k
 		votes.append({"sid": s.id, "name": s.display_name, "house": household_of(s).get("name", ""), "strat": best, "why": op[best][1]})
 	st.votes = votes
+	for v in votes:
+		decide(w, "Rat: %s stimmt für „%s“. „%s“" % [v.name, strat_name(v.strat), v.why])
 	var win := _winner(votes, st.strategy, sc)
 	var where := Sea.island_name(w)
 	if win == st.strategy:
@@ -729,6 +744,7 @@ func add_request(w, kind: String, title: String, text: String, data: Dictionary 
 	requests.append({"id": next_req, "isl": id, "kind": kind, "title": title, "text": text, "who": who,
 		"made": Game.time_days, "until": Game.time_days + float(cfg("request_days", 1.0)), "data": data, "opts": opts})
 	next_req += 1
+	decide(w, "Anliegen an dich: %s" % title)
 	Game.notify_at(w, "Anliegen an den Herrscher: %s" % title, "glocke")
 	changed.emit()
 
