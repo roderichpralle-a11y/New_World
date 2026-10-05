@@ -380,6 +380,14 @@ den normalen Spielstand) und lässt die Einführung weg. Ohne `/ki/` tut `Societ
 Spiel bleibt unverändert. Der letzte Stand vor der KI-Variante liegt im Zweig `version-1.0`.
 
 ### Sprachmodelle (Llama-3.2-1B für die Räte, SmolLM-135M für die Siedler)
+- **Sprache der KI: immer Englisch** (josh 2026-10-05), unabhängig von der Sprache der Oberfläche:
+  alle Anfragen (Rat, Siedler, Chat, Lehre, Ansage) und damit alle Antworten der Modelle. Englische
+  Namen und Kurzbeschreibungen der Spieldaten stehen in `data/ki_en.json` (Gebäude, Forschung, Waren,
+  Rohstoffe, Berufe, Fähigkeiten, Tiere, Schiffe, Inseltypen, Schwerpunkte), Zugriff über
+  `KiMind.en_name/en_desc/en_res/en_job/en_strat/en_goods`. Was nur angezeigt wird (Chronik,
+  Entscheidungen, Wahrscheinlichkeiten) bleibt in der Sprache der Oberfläche; `record_text` und
+  `experience_lines` haben dafür einen Schalter `en`. Gespeicherte Entscheidungen tragen `build_en`,
+  `research_en`, `trade_en`. Die Übersetzung der Oberfläche macht ein eigenes System (Feinschliff).
 
 Wunsch von josh (2026-10-04): Jeder Siedler ist ein eigenes kleines Sprachmodell, jeder Inselrat ein
 größeres. Beide laufen im Browser des Spielers (kein Server, kein Schlüssel). Kann das Gerät sie nicht

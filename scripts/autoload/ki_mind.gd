@@ -28,6 +28,9 @@ signal changed
 const JOB_ORDER := ["sammler", "fischer", "bauer", "koch", "holzfaeller", "steinmetz", "baumeister", "handwerker", "forscher", "jaeger"]
 const PRIO_FACTOR := [0.4, 1.0, 1.5, 2.2]
 const PRIO_WORDS := ["unwichtig", "normal", "wichtig", "sehr wichtig"]
+const PRIO_WORDS_EN := ["unimportant", "normal", "important", "very important"]
+const PRIO_EN := {"nahrung": "food", "rohstoffe": "wood and stone", "bauen": "building", "forschung": "research",
+	"wachstum": "growth", "schutz": "protection", "handel": "trade"}
 const TRADE_GOODS := ["holz", "stein", "bretter", "lehm", "ziegel", "werkzeug", "eisen", "erz", "kohle", "felle", "gold", "glas", "papier"]
 
 var running := false
@@ -38,6 +41,7 @@ var sdec: Dictionary = {}  # Siedler-ID (Text) -> letzte Entscheidung mit Wahrsc
 var trades: Array = []  # laufende Handelsrouten zwischen Inseln
 var next_trade := 1
 var last_prompt: Dictionary = {}  # rat/siedler -> letzte Anfrage (zum Ansehen)
+var _trade_en := ""  # Handel der laufenden Sitzung auf Englisch (für das Modell)
 var traces: Array = []  # Debug: alle Anfragen an die Modelle mit Ergebnis (nur im Speicher, für den Bericht)
 var trace_count := 0
 var _round_start := 0.0
@@ -46,6 +50,7 @@ var _rng := RandomNumberGenerator.new()
 
 func _ready() -> void:
 	_rng.randomize()
+	_load_en()
 	var cf := ConfigFile.new()
 	if cf.load("user://ki_mind.cfg") == OK:
 		brake = bool(cf.get_value("ki", "brake", true))
@@ -98,6 +103,63 @@ func _update_brake(delta: float) -> void:
 		Engine.time_scale = 1.0 if braking else float(Game.speed)
 
 
+## Englisch für die Sprachmodelle: Alle Anfragen und Antworten der Modelle sind Englisch,
+## egal in welcher Sprache die Oberfläche läuft (josh 2026-10-05). Namen aus data/ki_en.json.
+var EN: Dictionary = {}
+
+
+func _load_en() -> void:
+	var f := FileAccess.open("res://data/ki_en.json", FileAccess.READ)
+	if f:
+		var d = JSON.parse_string(f.get_as_text())
+		if d is Dictionary:
+			EN = d
+
+
+func _en_entry(sec: String, id: String) -> Variant:
+	return EN.get(sec, {}).get(id, null)
+
+
+func en_name(sec: String, id: String) -> String:
+	var e = _en_entry(sec, id)
+	if e is Dictionary:
+		return str(e.get("name", id))
+	if e != null:
+		return str(e)
+	return id.replace("_", " ")
+
+
+func en_desc(sec: String, id: String) -> String:
+	var e = _en_entry(sec, id)
+	return str(e.get("desc", "")) if e is Dictionary else ""
+
+
+func en_res(id: String) -> String:
+	return "food" if id == "food" else en_name("resources", id)
+
+
+func en_job(j: String) -> String:
+	return en_name("jobs", j) if _en_entry("jobs", j) != null else JOB_EN.get(j, [j])[0]
+
+
+func en_season(s: int = -1) -> String:
+	if s < 0:
+		s = Seasons.season()
+	return SEASON_EN[clampi(s, 0, 3)]
+
+
+func en_goods(goods: Dictionary) -> String:
+	var parts := []
+	for id in goods:
+		if int(goods[id]) > 0:
+			parts.append("%d %s" % [int(goods[id]), en_res(id)])
+	return ", ".join(parts) if not parts.is_empty() else "nothing"
+
+
+func en_strat(k: String) -> String:
+	return en_name("strategies", k)
+
+
 func cfg(key: String, default = null):
 	return Data.ki_llm.get(key, default)
 
@@ -125,6 +187,11 @@ func mem(w) -> Dictionary:
 		for l in m.lessons:
 			l[1] = _clean(str(l[1]))
 		m.plan = _clean(str(m.plan)) if str(m.plan) != "" else ""
+	if not m.has("en_v1"):
+		# Seit 2026-10-05 denkt die KI auf Englisch: gemessene Lehren werden auf Englisch neu
+		# geschrieben, darum fallen die alten deutschen weg (die nächste Messung ersetzt sie).
+		m["en_v1"] = true
+		m.lessons = m.lessons.filter(func(l): return str(l[2]) != "Messung")
 	return m
 
 
@@ -234,16 +301,23 @@ func _run_round() -> void:
 
 
 # ================================================================== Gemeinsame Texte
+const SEASON_EFFECTS_EN := [
+	"trees grow fastest, fields are sown, animals have young",
+	"long days, berries ripen, grain grows best, fresh food spoils faster",
+	"mushroom time, everything else grows slower, no more sowing, storms slow ships, houses need some wood",
+	"nothing grows, short days, snow slows building and walking, every settler needs wood for heating and more food, stores do not spoil"]
+
+
 func _season_rules() -> String:
 	var out := []
 	for s in 4:
-		out.append("%s: %s" % [Seasons.season_name(s), Seasons.effects_text(s)])
-	return "Ein Jahr hat 4 Jahreszeiten mit je %d Tagen. %s Ein Erwachsener isst etwa 3 Essen am Tag. Heizholz je Siedler und Tag: Herbst 0,3, Winter 1. Felder werden nur im Frühling und Sommer bestellt, der Winter vernichtet die Saat." % [
+		out.append("%s: %s." % [en_season(s).capitalize(), SEASON_EFFECTS_EN[s]])
+	return "A year has 4 seasons of %d days each. %s An adult eats about 3 food per day. Heating wood per settler and day: autumn 0.3, winter 1. Fields are only sown in spring and summer; winter destroys the crops." % [
 		int(Seasons.season_days()), " ".join(out)]
 
 
 func _when() -> String:
-	return "Tag %d, %s (Tag %d von %d), Jahr %d" % [Game.day(), Seasons.season_name(), Seasons.day_in_season(), int(Seasons.season_days()), Seasons.year() + 1]
+	return "Day %d, %s (day %d of %d), year %d" % [Game.day(), en_season(), Seasons.day_in_season(), int(Seasons.season_days()), Seasons.year() + 1]
 
 
 func _jname(j: String) -> String:
@@ -256,8 +330,7 @@ func _skill_text(s) -> String:
 	var ks: Array = tal.keys()
 	ks.sort_custom(func(a, b): return float(tal[a]) + s.skill_level(a) * 0.1 > float(tal[b]) + s.skill_level(b) * 0.1)
 	for sk in ks.slice(0, 3):
-		var word := "sehr gut" if float(tal[sk]) >= 1.4 else ("gut" if float(tal[sk]) >= 1.15 else ("mittel" if float(tal[sk]) >= 0.85 else "schwach"))
-		parts.append("%s %s (Stufe %d)" % [Data.skills.get(sk, {}).get("name", sk), word, int(s.skill_level(sk))])
+		parts.append("%s %s (level %d)" % [en_name("skills", sk), _talent_word(float(tal[sk])), int(s.skill_level(sk))])
 	return ", ".join(parts)
 
 
@@ -265,32 +338,32 @@ func _food_text(w) -> String:
 	var parts := []
 	for id in Data.resources:
 		if Data.resources[id].get("category", "") == "food" and Game.amount(id, w) > 0:
-			parts.append("%d %s" % [Game.amount(id, w), Data.resources[id].name])
-	return ", ".join(parts) if not parts.is_empty() else "nichts"
+			parts.append("%d %s" % [Game.amount(id, w), en_res(id)])
+	return ", ".join(parts) if not parts.is_empty() else "nothing"
 
 
 func _stock_text(w) -> String:
 	var parts := []
 	for id in Data.resources:
 		if Data.resources[id].get("category", "") == "material" and Game.amount(id, w) > 0:
-			parts.append("%d %s" % [Game.amount(id, w), Data.resources[id].name])
-	return ", ".join(parts) if not parts.is_empty() else "nichts"
+			parts.append("%d %s" % [Game.amount(id, w), en_res(id)])
+	return ", ".join(parts) if not parts.is_empty() else "nothing"
 
 
 func _needs(w, sit: Dictionary) -> Array:
 	var n := []
 	if float(sit.food) < float(sit.food_target):
-		n.append("Essen (%d von %d)" % [int(sit.food), int(sit.food_target)])
+		n.append("food (%d of %d)" % [int(sit.food), int(sit.food_target)])
 	if float(sit.wood) < float(sit.wood_target):
-		n.append("Holz (%d von %d)" % [int(sit.wood), int(sit.wood_target)])
+		n.append("wood (%d of %d)" % [int(sit.wood), int(sit.wood_target)])
 	if float(sit.stone) < float(sit.stone_target):
-		n.append("Stein (%d von %d)" % [int(sit.stone), int(sit.stone_target)])
+		n.append("stone (%d of %d)" % [int(sit.stone), int(sit.stone_target)])
 	if int(sit.pop) >= int(sit.housing):
-		n.append("Wohnplatz (%d Siedler, %d Plätze)" % [int(sit.pop), int(sit.housing)])
+		n.append("housing (%d settlers, %d places)" % [int(sit.pop), int(sit.housing)])
 	if int(sit.vit_low) > 0:
-		n.append("Vitamine (%d mit Mangel)" % int(sit.vit_low))
+		n.append("vitamins (%d lacking)" % int(sit.vit_low))
 	if int(sit.predators) > 0:
-		n.append("Schutz vor %d Raubtieren" % int(sit.predators))
+		n.append("protection from %d predators" % int(sit.predators))
 	return n
 
 
@@ -301,8 +374,8 @@ func _resources_text(w) -> String:
 			c[n.type] = int(c.get(n.type, 0)) + 1
 	var parts := []
 	for t in c:
-		parts.append("%d %s" % [int(c[t]), Data.nodes.get(t, {}).get("name", t)])
-	return ", ".join(parts)
+		parts.append("%d %s" % [int(c[t]), en_name("nodes", t)])
+	return ", ".join(parts) if not parts.is_empty() else "none"
 
 
 func _buildings_text(w) -> String:
@@ -310,7 +383,7 @@ func _buildings_text(w) -> String:
 	var sites := []
 	for b in w.buildings:
 		if not b.complete:
-			sites.append("%s bei (%d,%d)" % [b.def.name, b.cell.x, b.cell.y])
+			sites.append("%s at (%d,%d)" % [en_name("buildings", b.type), b.cell.x, b.cell.y])
 			continue
 		if not groups.has(b.type):
 			groups[b.type] = []
@@ -318,10 +391,10 @@ func _buildings_text(w) -> String:
 	var parts := []
 	for t in groups:
 		var cells: Array = groups[t]
-		parts.append("%s %dx bei %s" % [Data.buildings[t].name, cells.size(), " ".join(cells.slice(0, 4)) + (" …" if cells.size() > 4 else "")])
-	var out := "; ".join(parts)
+		parts.append("%s %dx at %s" % [en_name("buildings", t), cells.size(), " ".join(cells.slice(0, 4)) + (" ..." if cells.size() > 4 else "")])
+	var out := "; ".join(parts) if not parts.is_empty() else "none"
 	if not sites.is_empty():
-		out += ". Baustellen: " + "; ".join(sites)
+		out += ". Construction sites: " + "; ".join(sites)
 	return out
 
 
@@ -331,20 +404,34 @@ func _islands_text(w) -> String:
 		var id := int(m.id)
 		var pos: Array = m.get("pos", [0, 0])
 		var where := "(%.1f, %.1f)" % [float(pos[0]), float(pos[1])]
-		var kind: String = Sea.biome_name(m)
+		var kind: String = en_name("islands", str(m.get("biome", "heimat")))
 		var state: String = m.get("state", "")
 		if state == "settled" and Sea.worlds.has(id):
 			var o = Sea.worlds[id]
 			var osit: Dictionary = Society.situation(o)
 			var need := _needs(o, osit)
-			lines.append("- %s%s, %s bei %s: %d Siedler. Rohstoffe: %s. Vorräte: %s; Essen %d. Braucht: %s." % [m.name,
-				" (eure Insel)" if id == int(w.island_id) else "", kind, where, o.settlers.size(), _resources_text(o),
-				_stock_text(o), int(osit.food), ", ".join(need) if not need.is_empty() else "nichts Dringendes"])
+			lines.append("- %s%s, %s at %s: %d settlers. Resources: %s. Stores: %s; food %d. Needs: %s." % [m.name,
+				" (your island)" if id == int(w.island_id) else "", kind, where, o.settlers.size(), _resources_text(o),
+				_stock_text(o), int(osit.food), ", ".join(need) if not need.is_empty() else "nothing urgent"])
 		elif state == "discovered":
-			lines.append("- %s, %s bei %s: entdeckt, unbewohnt." % [m.name, kind, where])
+			lines.append("- %s, %s at %s: discovered, uninhabited." % [m.name, kind, where])
 		elif state == "lost":
-			lines.append("- %s bei %s: verloren." % [m.name, where])
+			lines.append("- %s at %s: lost." % [m.name, where])
 	return "\n".join(lines)
+
+
+func _ship_status_en(sh: Dictionary) -> String:
+	if sh.state == "sea":
+		for v in Sea.voyages:
+			if int(v.get("ship", -1)) == int(sh.id):
+				if v.kind == "explore":
+					return "exploring the sea"
+				return "sailing to %s, %d hours left" % [Sea.meta(int(v.to)).get("name", "?"), int(ceil(maxf(0.0, float(v.arrive) - Game.time_days) * 24.0))]
+		return "at sea"
+	var where: String = Sea.meta(int(sh.at)).get("name", "?")
+	if sh.state == "load":
+		return "loading in %s" % where
+	return "in %s" % where
 
 
 func _ships_text() -> String:
@@ -354,11 +441,11 @@ func _ships_text() -> String:
 		if not sh.route.is_empty():
 			var stops := []
 			for stp in sh.route:
-				stops.append("%s (lädt %s)" % [Sea.meta(int(stp.island)).get("name", "?"), Sea.goods_text(stp.get("load", {})) if not stp.get("load", {}).is_empty() else "nichts"])
+				stops.append("%s (loads %s)" % [Sea.meta(int(stp.island)).get("name", "?"), en_goods(stp.get("load", {}))])
 			route = " Route: " + " -> ".join(stops)
-		lines.append("- %s (%s), Heimat %s: %s.%s" % [sh.name, Sea.ship_def(sh).get("name", sh.type),
-			Sea.meta(int(sh.home)).get("name", "?"), Sea.ship_status(sh), route])
-	return "\n".join(lines) if not lines.is_empty() else "Keine Schiffe."
+		lines.append("- %s (%s), home %s: %s.%s" % [sh.name, en_name("ships", str(sh.type)),
+			Sea.meta(int(sh.home)).get("name", "?"), _ship_status_en(sh), route])
+	return "\n".join(lines) if not lines.is_empty() else "No ships."
 
 
 func _settlers_text(w) -> String:
@@ -369,21 +456,21 @@ func _settlers_text(w) -> String:
 		var sm: Array = smem.get(str(s.id), [])
 		if not sm.is_empty():
 			var e: Array = sm[sm.size() - 1]
-			last = "; zuletzt: %s%s" % [_jname(e[1]), " (eigene Wahl)" if e[2] else ""]
+			last = "; last: %s%s" % [en_job(e[1]), " (own choice)" if e[2] else ""]
 		var state := ""
 		if s.mind.needs_bed():
-			state = ", krank"
+			state = ", sick"
 		elif s.hunger < 35.0:
-			state = ", hungrig"
-		lines.append("- %s, %d Jahre, %s; kann: %s%s%s" % [s.display_name, int(s.age), _jname(s.job), _skill_text(s), state, last])
+			state = ", hungry"
+		lines.append("- %s, %d years, %s; skills: %s%s%s" % [s.display_name, int(s.age), en_job(s.job), _skill_text(s), state, last])
 	if adults.size() > 16:
 		var rest := {}
 		for s in adults.slice(16):
 			rest[s.job] = int(rest.get(s.job, 0)) + 1
 		var parts := []
 		for j in rest:
-			parts.append("%d %s" % [int(rest[j]), _jname(j)])
-		lines.append("- und %d weitere: %s" % [adults.size() - 16, ", ".join(parts)])
+			parts.append("%d %s" % [int(rest[j]), en_job(j)])
+		lines.append("- and %d more: %s" % [adults.size() - 16, ", ".join(parts)])
 	return "\n".join(lines)
 
 
@@ -391,38 +478,38 @@ func _settlers_text(w) -> String:
 func island_report(w) -> String:
 	var sit: Dictionary = Society.situation(w)
 	var need := _needs(w, sit)
-	return "%s.\nInsel %s. Siedler: %d (%d Erwachsene, %d Kinder), Wohnplätze %d.\nErwachsene:\n%s\nGebäude: %s.\nVorräte: Essen %d (%s). Material: %s. Lager %d %% voll.\nDie Insel braucht: %s.\nRohstoffe auf der Insel: %s.\nInseln:\n%s\nSchiffe:\n%s" % [
+	return "%s.\nIsland %s. Settlers: %d (%d adults, %d children), housing %d.\nAdults:\n%s\nBuildings: %s.\nStores: food %d (%s). Materials: %s. Storage %d %% full.\nThe island needs: %s.\nResources on the island: %s.\nIslands:\n%s\nShips:\n%s" % [
 		_when(), Sea.island_name(w), int(sit.pop), int(sit.adults), int(sit.kids), int(sit.housing),
 		_settlers_text(w), _buildings_text(w), int(sit.food), _food_text(w), _stock_text(w), int(float(sit.storage_full) * 100.0),
-		", ".join(need) if not need.is_empty() else "nichts Dringendes", _resources_text(w), _islands_text(w), _ships_text()]
+		", ".join(need) if not need.is_empty() else "nothing urgent", _resources_text(w), _islands_text(w), _ships_text()]
 
 
 ## Systemtext des Rats: Rolle, Ziel, Spielregeln, Herrscher, Gedächtnis.
 func council_system(w) -> String:
 	var m := mem(w)
 	var main: bool = int(w.island_id) == 0
-	var goal := "Euer Ziel: Die Insel soll wachsen und die Forschung soll vorankommen. Ihr entscheidet auch, was als Nächstes erforscht wird." if main \
-		else "Euer Ziel: Die Insel soll wachsen. Forschung entscheidet die Hauptinsel."
-	var t := "Ihr seid der Inselrat von %s in einem Aufbauspiel. Ihr sagt den Bewohnern, was sie tun sollen, und entscheidet, was gebaut wird. Die Bewohner entscheiden am Ende selbst. %s\nSpielregeln: %s" % [
+	var goal := "Your goal: the island should grow and research should advance. You also decide what is researched next." if main \
+		else "Your goal: the island should grow. The main island decides research."
+	var t := "You are the island council of %s in a settlement building game. You tell the settlers what to do and decide what gets built. The settlers make the final choice themselves. %s Always answer in English.\nGame rules: %s" % [
 		Sea.island_name(w), goal, _season_rules()]
 	var pr := []
 	for k in cfg("priorities", {}):
 		var v := prio(w, k)
 		if v != 1:
-			pr.append("%s %s" % [cfg("priorities", {})[k], PRIO_WORDS[v]])
+			pr.append("%s %s" % [PRIO_EN.get(k, k), PRIO_WORDS_EN[v]])
 	if not pr.is_empty():
-		t += "\nPrioritäten des Herrschers: %s." % ", ".join(pr)
+		t += "\nThe ruler's priorities: %s." % ", ".join(pr)
 	var wishes := []
 	for x in m.wishes:
 		if Game.time_days - float(x[0]) < 3.0:
-			wishes.append("„%s“" % x[1])
+			wishes.append("\"%s\"" % x[1])
 	if not wishes.is_empty():
-		t += "\nDer Herrscher hat euch gesagt: %s" % " ".join(wishes)
+		t += "\nThe ruler told you: %s" % " ".join(wishes)
 	var binds := []
 	for b in m.binding:
-		binds.append(_binding_text(b))
+		binds.append(_binding_text_en(b))
 	if not binds.is_empty():
-		t += "\nFeste Vorgaben des Herrschers (müssen befolgt werden): %s." % "; ".join(binds)
+		t += "\nBinding orders from the ruler (must be followed): %s." % "; ".join(binds)
 	var mem_t := memory_text(w)
 	if mem_t != "":
 		t += "\n" + mem_t
@@ -437,15 +524,15 @@ func memory_text(w) -> String:
 		var ls := []
 		for l in m.lessons:
 			ls.append("- " + str(l[1]))
-		parts.append("Eure Lehren aus früheren Entscheidungen:\n" + "\n".join(ls))
-	var ex := experience_lines(w, 5)
+		parts.append("Your lessons from earlier decisions:\n" + "\n".join(ls))
+	var ex := experience_lines(w, 5, true)
 	if not ex.is_empty():
-		parts.append("Gemessene Erfahrung (Veränderung je Tag nach eurer Entscheidung):\n" + "\n".join(ex))
+		parts.append("Measured experience (change per day after your decision):\n" + "\n".join(ex))
 	var rec := []
 	for r in m.records.slice(maxi(0, m.records.size() - 4)):
-		rec.append("- " + record_text(r))
+		rec.append("- " + record_text(r, true))
 	if not rec.is_empty():
-		parts.append("Eure letzten Entscheidungen und was danach geschah:\n" + "\n".join(rec))
+		parts.append("Your last decisions and what happened after:\n" + "\n".join(rec))
 	return "\n".join(parts)
 
 
@@ -462,11 +549,24 @@ func _binding_text(b: Dictionary) -> String:
 	return str(b.value)
 
 
+func _binding_text_en(b: Dictionary) -> String:
+	match str(b.kind):
+		"fokus":
+			return "focus %s" % en_strat(b.value)
+		"bau":
+			return "build %s" % en_name("buildings", b.value)
+		"forschung":
+			return "research %s" % en_name("techs", b.value)
+		"beruf":
+			return "at least %d %s" % [int(b.get("n", 1)), en_job(b.value)]
+	return str(b.value)
+
+
 func _ask_text(question: String, options: Array) -> String:
 	var lines := [question]
 	for i in options.size():
 		lines.append("%d) %s" % [i + 1, options[i]])
-	lines.append("Antworte nur mit der Nummer.")
+	lines.append("Answer with the number only.")
 	return "\n".join(lines)
 
 
@@ -544,18 +644,18 @@ func _council(w, ep: int) -> void:
 	keys.sort_custom(func(a, b): return float(sc.get(a, 0.0)) > float(sc.get(b, 0.0)))
 	if forced != "":
 		m.focus = forced
-		last.focus = {"choice": Society.strat_name(forced), "why": "Vorgabe des Herrschers"}
+		last.focus = {"choice": Society.strat_name(forced), "id": forced, "why": "Vorgabe des Herrschers"}
 	else:
-		var opts := keys.map(func(k): return "%s: %s" % [Society.strat_name(k), Society.strategies()[k].get("desc", "")])
+		var opts := keys.map(func(k): return "%s: %s" % [en_strat(k), en_desc("strategies", k)])
 		var hint := keys.map(func(k): return maxf(0.05, float(sc.get(k, 0.0))))
-		var r := await _council_choose(w, ep, system, report, "Schwerpunkt", "Welcher Schwerpunkt ist für eure Insel jetzt am wichtigsten?", opts, hint)
+		var r := await _council_choose(w, ep, system, report, "Schwerpunkt", "Which focus is most important for your island now?", opts, hint)
 		if not r.ok:
 			return
 		var labels := keys.map(func(k): return Society.strat_name(k))
 		if keys[r.i] != m.focus:
 			Society.log_line(w, "Der Rat (Llama) wählt den Schwerpunkt „%s“ (vorher „%s“)." % [labels[r.i], Society.strat_name(m.focus)])
 		m.focus = keys[r.i]
-		last.focus = {"choice": labels[r.i], "probs": _probs_text(labels, r.probs), "mass": r.mass}
+		last.focus = {"choice": labels[r.i], "id": keys[r.i], "probs": _probs_text(labels, r.probs), "mass": r.mass}
 		Society.decide(w, "Rat: Schwerpunkt %s. Modell: %s." % [labels[r.i], last.focus.probs])
 	Society.state(w).strategy = m.focus
 
@@ -571,9 +671,9 @@ func _council(w, ep: int) -> void:
 		var want: Dictionary = Society.desired_jobs(w, sit)
 		jobs.sort_custom(func(a, b): return float(want.get(a, 0.0)) > float(want.get(b, 0.0)))
 		jobs = jobs.slice(0, 9)
-		var opts := jobs.map(func(j): return "%s: %s" % [_jname(j), Data.jobs[j].get("desc", "")])
+		var opts := jobs.map(func(j): return "%s: %s" % [en_job(j), en_desc("jobs", j)])
 		var hint := jobs.map(func(j): return 0.1 + float(want.get(j, 0.0)))
-		var r := await _council_choose(w, ep, system, report, "Arbeit", "Welche Arbeit brauchen eure Bewohner jetzt am dringendsten?", opts, hint)
+		var r := await _council_choose(w, ep, system, report, "Arbeit", "Which work do your settlers need most urgently now?", opts, hint)
 		if not r.ok:
 			return
 		var shares := {}
@@ -581,7 +681,7 @@ func _council(w, ep: int) -> void:
 			shares[jobs[i]] = float(r.probs[i]) if i < r.probs.size() else 0.0
 		m.shares = shares
 		var labels := jobs.map(func(j): return _jname(j))
-		last.jobs = {"probs": _probs_text(labels, r.probs, 5), "mass": r.mass}
+		last.jobs = {"probs": _probs_text(labels, r.probs, 5), "mass": r.mass, "en": _probs_text(jobs.map(func(j): return en_job(j)), r.probs, 5)}
 		_make_orders(w, sit)
 		Society.decide(w, "Rat: Arbeit verteilt nach %s." % last.jobs.probs)
 
@@ -598,23 +698,24 @@ func _council(w, ep: int) -> void:
 	if bforced != "":
 		_build(w, {"type": bforced, "why": "Vorgabe des Herrschers."}, "auf Befehl des Herrschers")
 		_drop_binding(w, "bau")
-		last.build = {"choice": Data.buildings[bforced].name, "why": "Vorgabe des Herrschers"}
+		last.build = {"choice": Data.buildings[bforced].name, "id": bforced, "en": en_name("buildings", bforced), "why": "Vorgabe des Herrschers"}
 	elif w.fire_building() != null and w.construction_sites().size() < 2:
 		var cands := build_options(w, sit)
 		if not cands.is_empty():
 			cands = cands.slice(0, int(cfg("max_options", 8)))
-			var opts := cands.map(func(c): return "%s: %s Kosten %s." % [_build_name(w, c), c.why, _cost_text(c.type)])
-			opts.append("Nichts bauen, Material sparen.")
+			var opts := cands.map(func(c): return "%s: %s Cost %s." % [_build_name_en(w, c), c.get("why_en", "Useful for the island now."), _cost_text_en(c.type)])
+			opts.append("Build nothing, save materials.")
 			var hint := []
 			for i in cands.size():
 				hint.append(1.0 / (1.0 + i))
 			hint.append(0.3)
-			var r := await _council_choose(w, ep, system, report, "Bauen", "Was soll als Nächstes gebaut werden?", opts, hint)
+			var r := await _council_choose(w, ep, system, report, "Bauen", "What should be built next?", opts, hint)
 			if not r.ok:
 				return
 			var labels := cands.map(func(c): return _build_name(w, c))
 			labels.append("nichts")
-			last.build = {"choice": labels[r.i], "probs": _probs_text(labels, r.probs), "mass": r.mass}
+			last.build = {"choice": labels[r.i], "probs": _probs_text(labels, r.probs), "mass": r.mass,
+				"id": cands[r.i].type if r.i < cands.size() else "", "en": _build_name_en(w, cands[r.i]) if r.i < cands.size() else "nothing"}
 			if r.i < cands.size() and w.construction_sites().size() >= 2:
 				Society.decide(w, "Rat: Bau %s verschoben, inzwischen sind schon zwei Baustellen offen." % labels[r.i])
 			elif r.i < cands.size():
@@ -635,15 +736,15 @@ func _council(w, ep: int) -> void:
 		if tforced != "" and Game.tech_state(tforced) == "available":
 			_research(w, tforced, "auf Befehl des Herrschers")
 			_drop_binding(w, "forschung")
-			last.research = {"choice": Data.techs[tforced].name, "why": "Vorgabe des Herrschers"}
+			last.research = {"choice": Data.techs[tforced].name, "id": tforced, "en": en_name("techs", tforced), "why": "Vorgabe des Herrschers"}
 		else:
 			var techs := research_options(w)
 			if not techs.is_empty():
-				var opts := techs.map(func(t): return "%s: %s" % [Data.techs[t].name, Data.techs[t].get("desc", "")])
+				var opts := techs.map(func(t): return "%s: %s" % [en_name("techs", t), en_desc("techs", t)])
 				var hint := []
 				for i in techs.size():
 					hint.append(1.0 / (1.0 + i))
-				var r := await _council_choose(w, ep, system, report, "Forschung", "Was sollen eure Forscher als Nächstes erforschen?", opts, hint)
+				var r := await _council_choose(w, ep, system, report, "Forschung", "What should your researchers research next?", opts, hint)
 				if not r.ok:
 					return
 				if Game.research.current != "":
@@ -651,7 +752,7 @@ func _council(w, ep: int) -> void:
 					Society.decide(w, "Rat: Forschung %s verworfen, inzwischen wird %s erforscht." % [Data.techs[techs[r.i]].name, Data.techs[Game.research.current].name])
 				else:
 					var labels := techs.map(func(t): return Data.techs[t].name)
-					last.research = {"choice": labels[r.i], "probs": _probs_text(labels, r.probs), "mass": r.mass}
+					last.research = {"choice": labels[r.i], "probs": _probs_text(labels, r.probs), "mass": r.mass, "id": techs[r.i], "en": en_name("techs", techs[r.i])}
 					_research(w, techs[r.i], "der Rat hat es beschlossen")
 					Society.decide(w, "Rat: Forschung %s. Modell: %s." % [labels[r.i], last.research.probs])
 
@@ -664,11 +765,14 @@ func _council(w, ep: int) -> void:
 	sit = Society.situation(w)
 	system = council_system(w)
 	report = island_report(w)
+	_trade_en = ""
 	var tr := await _trade(w, ep, system, report, sit)
 	if ep != epoch:
 		return
 	if tr != "":
 		last.trade = tr
+		if _trade_en != "":
+			last.trade_en = _trade_en
 
 	# 6. Was sagt der Rat den Bewohnern?
 	# Frische Lage vor jeder Frage: Eine Sitzung dauert echte Zeit, in der das Spiel weiterläuft
@@ -680,9 +784,9 @@ func _council(w, ep: int) -> void:
 	activity = "Rat von %s spricht zu den Bewohnern" % where
 	var summary := _decision_summary(last)
 	var msgs := [{"role": "system", "content": system},
-		{"role": "user", "content": report + "\n\nIhr habt beschlossen: %s\nSagt euren Bewohnern in ein oder zwei kurzen Sätzen auf Deutsch, was sie jetzt tun sollen und warum. %s" % [summary, length_rule("reason_tokens")]}]
+		{"role": "user", "content": report + "\n\nYou decided: %s\nTell your settlers in one or two short sentences in English what they should do now and why. %s" % [_decision_summary_en(last), length_rule("reason_tokens")]}]
 	last_prompt["rat"] = system + "\n\n" + msgs[1].content
-	var gj = Llm.generate("rat", msgs, int(cfg("reason_tokens", 60)), 0.0, "Wir setzen auf %s. %s" % [Society.strat_name(m.focus), summary])
+	var gj = Llm.generate("rat", msgs, int(cfg("reason_tokens", 60)), 0.0, "We focus on %s. %s" % [en_strat(m.focus), _decision_summary_en(last)])
 	var g: Dictionary = await gj.wait()
 	if ep != epoch:
 		return
@@ -704,6 +808,25 @@ func _council(w, ep: int) -> void:
 	changed.emit()
 
 
+func _decision_summary_en(last: Dictionary) -> String:
+	var parts := []
+	if last.has("focus"):
+		parts.append("focus %s" % en_strat(m_focus_id(last)))
+	if last.has("jobs") and last.jobs.has("en"):
+		parts.append("work: %s" % last.jobs.en)
+	if last.has("build") and last.build.has("en"):
+		parts.append("build: %s" % last.build.en)
+	if last.has("research") and last.research.has("en"):
+		parts.append("research: %s" % last.research.en)
+	if last.has("trade_en"):
+		parts.append("trade: %s" % last.trade_en)
+	return ". ".join(parts) + "."
+
+
+func m_focus_id(last: Dictionary) -> String:
+	return str(last.get("focus", {}).get("id", ""))
+
+
 func _decision_summary(last: Dictionary) -> String:
 	var parts := []
 	if last.has("focus"):
@@ -723,8 +846,8 @@ func _decision_summary(last: Dictionary) -> String:
 ## statt an der Grenze abgeschnitten zu werden. Die Grenze zählt Wortstücke (Token); ein deutsches
 ## Wort sind etwa zwei, darum steht in der Anfrage die Hälfte als Wörter.
 func length_rule(key: String) -> String:
-	var words := int(int(cfg(key, 140)) / 2)
-	return "Eure ganze Antwort darf höchstens %d Wörter lang sein, sonst wird sie abgeschnitten. Hört mit einem ganzen Satz auf." % words
+	var words := int(int(cfg(key, 140)) * 0.6)
+	return "Your whole answer must be at most %d words, otherwise it gets cut off. End with a complete sentence." % words
 
 
 ## Antwort eines Modells aufräumen. Hört das Modell mitten im Satz auf (Wortgrenze erreicht),
@@ -884,6 +1007,17 @@ func _cost_text(t: String) -> String:
 	return ", ".join(parts) if not parts.is_empty() else "nichts"
 
 
+func _cost_text_en(t: String) -> String:
+	return en_goods(Data.buildings[t].get("cost", {}))
+
+
+func _build_name_en(w, c: Dictionary) -> String:
+	if c.has("upgrade"):
+		var b = w.building_by_id(int(c.upgrade))
+		return "upgrade %s to %s" % [en_name("buildings", b.type) if b else "?", en_name("buildings", c.type)]
+	return en_name("buildings", c.type)
+
+
 func _build_name(w, c: Dictionary) -> String:
 	if c.has("upgrade"):
 		var b = w.building_by_id(int(c.upgrade))
@@ -904,31 +1038,31 @@ func build_options(w, sit: Dictionary) -> Array:
 	if not first.is_empty():
 		add.call(first)
 	if int(sit.season) in [Seasons.SPRING, Seasons.SUMMER]:
-		add.call({"type": "feld", "why": "Mehr Felder bringen mehr Essen (Ernte im Sommer und Herbst)."})
+		add.call({"type": "feld", "why": "Mehr Felder bringen mehr Essen (Ernte im Sommer und Herbst).", "why_en": "More fields bring more food (harvest in summer and autumn)."})
 		if Game.is_unlocked("obstgarten"):
-			add.call({"type": "obstgarten", "why": "Obst bringt Vitamine."})
+			add.call({"type": "obstgarten", "why": "Obst bringt Vitamine.", "why_en": "Fruit brings vitamins."})
 	for t in Society.HOUSE_ORDER:
 		if Game.is_unlocked(t) and Data.buildings[t].get("buildable", true):
-			add.call({"type": t, "why": "Mehr Wohnplatz (%d Siedler, %d Plätze)." % [int(sit.pop), int(sit.housing)]})
+			add.call({"type": t, "why": "Mehr Wohnplatz (%d Siedler, %d Plätze)." % [int(sit.pop), int(sit.housing)], "why_en": "More housing (%d settlers, %d places)." % [int(sit.pop), int(sit.housing)]})
 			break
 	for b in w.buildings:
 		var to: String = b.def.get("upgrade", "")
 		if b.complete and b.housing() > 0 and to != "" and Game.is_unlocked(to):
-			add.call({"type": to, "upgrade": b.id, "why": "Mehr Platz für Familien."})
+			add.call({"type": to, "upgrade": b.id, "why": "Mehr Platz für Familien.", "why_en": "More room for families."})
 			break
 	for t in Society.PROD_ORDER:
 		if Game.is_unlocked(t) and Society._count(w, [t]) == 0:
-			add.call({"type": t, "why": "%s fehlt noch auf der Insel." % Data.buildings[t].name})
+			add.call({"type": t, "why": "%s fehlt noch auf der Insel." % Data.buildings[t].name, "why_en": "The island has no %s yet." % en_name("buildings", t)})
 	for t in ["schreibstube", "bibliothek", "universitaet", "labor", "schule"]:
 		if Game.is_unlocked(t) and Society._count(w, [t]) == 0:
-			add.call({"type": t, "why": "Ein Ort zum Forschen und Lernen."})
+			add.call({"type": t, "why": "Ein Ort zum Forschen und Lernen.", "why_en": "A place for research and learning."})
 	if float(sit.storage_full) > 0.7:
-		add.call({"type": "lager", "why": "Das Lager ist zu %d %% voll." % int(float(sit.storage_full) * 100.0)})
+		add.call({"type": "lager", "why": "Das Lager ist zu %d %% voll." % int(float(sit.storage_full) * 100.0), "why_en": "Storage is %d %% full." % int(float(sit.storage_full) * 100.0)})
 	if Game.is_unlocked("wachturm") and int(sit.predators) > 0:
-		add.call({"type": "wachturm", "why": "%d Raubtiere auf der Insel." % int(sit.predators)})
+		add.call({"type": "wachturm", "why": "%d Raubtiere auf der Insel." % int(sit.predators), "why_en": "%d predators on the island." % int(sit.predators)})
 	for t in ["werft", "anlegesteg", "hafen"]:
 		if Game.is_unlocked(t) and Society._count(w, [t]) == 0:
-			add.call({"type": t, "why": "Für Schiffe und Handel."})
+			add.call({"type": t, "why": "Für Schiffe und Handel.", "why_en": "For ships and trade."})
 			break
 	return out
 
@@ -997,13 +1131,13 @@ func _trade(w, ep: int, system: String, report: String, sit: Dictionary) -> Stri
 	if offers.is_empty():
 		return ""
 	offers = offers.slice(0, 6)
-	var opts := offers.map(func(x): return "%d %s von %s holen lassen" % [int(x[1]), Data.resource_name(x[0]), Sea.island_name(x[2])])
-	opts.append("Keinen Handel.")
+	var opts := offers.map(func(x): return "Ask %s for %d %s" % [Sea.island_name(x[2]), int(x[1]), en_res(x[0])])
+	opts.append("No trade.")
 	var hint := []
 	for i in offers.size():
 		hint.append(0.6 / (1.0 + i))
 	hint.append(0.4)
-	var r := await _council_choose(w, ep, system, report, "Handel", "Wollt ihr eine andere Insel um eine Ware bitten? Sie wird dafür etwas verlangen.", opts, hint)
+	var r := await _council_choose(w, ep, system, report, "Handel", "Do you want to ask another island for goods? It will want something in return.", opts, hint)
 	if not r.ok or r.i >= offers.size():
 		return ""
 	var off: Array = offers[r.i]
@@ -1021,9 +1155,9 @@ func _trade(w, ep: int, system: String, report: String, sit: Dictionary) -> Stri
 		if pay.has(id):
 			pay_opts.append([id, mini(int(pay[id]), maxi(4, amount))])
 	pay_opts = pay_opts.slice(0, 5)
-	var popts := pay_opts.map(func(x): return "%d %s verlangen" % [int(x[1]), Data.resource_name(x[0])])
-	popts.append("Nichts verlangen, wir helfen gern.")
-	popts.append("Ablehnen, wir brauchen es selbst.")
+	var popts := pay_opts.map(func(x): return "Ask for %d %s" % [int(x[1]), en_res(x[0])])
+	popts.append("Ask for nothing, we are glad to help.")
+	popts.append("Refuse, we need it ourselves.")
 	var phint := []
 	for i in pay_opts.size():
 		phint.append(0.8 / (1.0 + i))
@@ -1032,24 +1166,26 @@ func _trade(w, ep: int, system: String, report: String, sit: Dictionary) -> Stri
 	var osys := council_system(o)
 	var orep := island_report(o)
 	var pr := await _council_choose(o, ep, osys, orep, "Handel mit %s" % Sea.island_name(w),
-		"Der Rat von %s bittet euch um %d %s per Schiff. Was verlangt ihr dafür?" % [Sea.island_name(w), amount, Data.resource_name(good)], popts, phint)
+		"The council of %s asks you for %d %s by ship. What do you want in return?" % [Sea.island_name(w), amount, en_res(good)], popts, phint)
 	if not pr.ok or not is_instance_valid(o):
 		return ""
 	if pr.i == popts.size() - 1:
 		Society.log_line(o, "Der Rat lehnt die Bitte von %s um %s ab." % [Sea.island_name(w), Data.resource_name(good)])
 		Society.log_line(w, "%s lehnt ab: keine %s für uns." % [Sea.island_name(o), Data.resource_name(good)])
+		_trade_en = "%s refused" % Sea.island_name(o)
 		return "%s lehnt ab" % Sea.island_name(o)
 	var price := {}
 	if pr.i < pay_opts.size():
 		price[pay_opts[pr.i][0]] = int(pay_opts[pr.i][1])
 		# Der bittende Rat stimmt über den Preis ab
 		var ar := await _council_choose(w, ep, system, report, "Preis",
-			"%s verlangt %s für %d %s. Nehmt ihr an?" % [Sea.island_name(o), Sea.goods_text(price), amount, Data.resource_name(good)],
-			["Ja, annehmen.", "Nein, zu teuer."], [0.6, 0.4])
+			"%s wants %s for %d %s. Do you accept?" % [Sea.island_name(o), en_goods(price), amount, en_res(good)],
+			["Yes, accept.", "No, too expensive."], [0.6, 0.4])
 		if not ar.ok:
 			return ""
 		if ar.i != 0:
 			Society.log_line(w, "Der Rat lehnt den Preis von %s ab (%s)." % [Sea.island_name(o), Sea.goods_text(price)])
+			_trade_en = "price of %s refused" % Sea.island_name(o)
 			return "Preis von %s abgelehnt" % Sea.island_name(o)
 	return _open_trade(w, o, {good: amount}, price)
 
@@ -1121,6 +1257,7 @@ func _open_trade(w, o, get: Dictionary, give: Dictionary) -> String:
 			break
 	if ship.is_empty():
 		Society.log_line(w, "Handel mit %s vereinbart, aber kein freies Schiff." % Sea.island_name(o))
+		_trade_en = "agreed, but no free ship"
 		return "vereinbart, aber kein freies Schiff"
 	# "food" in echte Speisen umwandeln
 	var g := {}
@@ -1141,6 +1278,8 @@ func _open_trade(w, o, get: Dictionary, give: Dictionary) -> String:
 	trades.append(t)
 	var text := "%s bringt %s%s mit der %s (Heimat %s)" % [Sea.island_name(o), Sea.goods_text(g),
 		(" gegen " + Sea.goods_text(p)) if not p.is_empty() else " als Hilfe", ship.name, Sea.meta(int(ship.home)).get("name", "?")]
+	_trade_en = "%s brings %s%s with the %s (home %s)" % [Sea.island_name(o), en_goods(g),
+		(" for " + en_goods(p)) if not p.is_empty() else " as help", ship.name, Sea.meta(int(ship.home)).get("name", "?")]
 	Society.log_line(w, "Handelsroute beschlossen: %s." % text)
 	Society.log_line(o, "Handelsroute beschlossen: %s." % text)
 	Game.notify("Handel: %s." % text, "boot")
@@ -1483,14 +1622,28 @@ func _remember(w, sit: Dictionary, last: Dictionary) -> void:
 			jobs[s.job] = int(jobs.get(s.job, 0)) + 1
 	var rec := {"d": snappedf(Game.time_days, 0.01), "s": int(sit.season), "focus": m.focus,
 		"build": str(last.get("build", {}).get("choice", "")), "research": str(last.get("research", {}).get("choice", "")),
-		"trade": str(last.get("trade", "")), "jobs": jobs, "m": _metrics(w, sit)}
+		"trade": str(last.get("trade", "")), "jobs": jobs, "m": _metrics(w, sit),
+		"build_en": str(last.get("build", {}).get("en", "")), "research_en": str(last.get("research", {}).get("en", "")),
+		"trade_en": str(last.get("trade_en", ""))}
 	m.records.append(rec)
 	var mx := int(cfg("memory_records", 30))
 	if m.records.size() > mx:
 		m.records = m.records.slice(m.records.size() - mx)
 
 
-func record_text(r: Dictionary) -> String:
+func record_text(r: Dictionary, en: bool = false) -> String:
+	if en:
+		var e := "Day %d (%s): focus %s" % [int(float(r.d)) + 1, en_season(int(r.s)), en_strat(str(r.focus))]
+		if str(r.get("build_en", "")) not in ["", "nothing"]:
+			e += ", built %s" % r.build_en
+		if str(r.get("research_en", "")) != "":
+			e += ", researched %s" % r.research_en
+		if str(r.get("trade_en", "")) != "":
+			e += ", trade: %s" % r.trade_en
+		if r.has("out"):
+			var oo: Dictionary = r.out
+			e += " -> after that per day: food %+.1f, wood %+.1f, stone %+.1f, settlers %+.1f, mood %+.1f" % [float(oo.food), float(oo.wood), float(oo.stone), float(oo.pop), float(oo.mood)]
+		return e
 	var t := "Tag %d (%s): Schwerpunkt %s" % [int(float(r.d)) + 1, Seasons.season_name(int(r.s)), Society.strat_name(str(r.focus))]
 	if str(r.get("build", "")) not in ["", "nichts"]:
 		t += ", gebaut %s" % r.build
@@ -1535,7 +1688,7 @@ func _evaluate(w, sit: Dictionary) -> void:
 
 
 ## Erfahrung als Text, die passende Jahreszeit zuerst.
-func experience_lines(w, n: int) -> Array:
+func experience_lines(w, n: int, en: bool = false) -> Array:
 	var m := mem(w)
 	var keys: Array = m.exp.keys()
 	var cur := int(Seasons.season())
@@ -1550,6 +1703,11 @@ func experience_lines(w, n: int) -> Array:
 		var e: Array = m.exp[k]
 		var c := float(e[0])
 		var p := str(k).split("|")
+		if en:
+			out.append("- %s, focus %s: food %+.1f, wood %+.1f, stone %+.1f, settlers %+.1f, mood %+.1f (%d times)" % [
+				en_season(int(p[0])), en_strat(p[1]), float(e[1]) / c, float(e[2]) / c, float(e[3]) / c,
+				float(e[4]) / c, float(e[5]) / c, int(c)])
+			continue
 		out.append("- %s, Schwerpunkt %s: Essen %+.1f, Holz %+.1f, Stein %+.1f, Siedler %+.1f, Laune %+.1f (%d mal)" % [
 			Seasons.season_name(int(p[0])), Society.strat_name(p[1]), float(e[1]) / c, float(e[2]) / c, float(e[3]) / c,
 			float(e[4]) / c, float(e[5]) / c, int(c)])
@@ -1561,25 +1719,25 @@ func _measure_lesson(w, r: Dictionary, o: Dictionary) -> void:
 	var food_workers := 0
 	for j in ["sammler", "fischer", "bauer", "koch"]:
 		food_workers += int(r.jobs.get(j, 0))
-	var season := Seasons.season_name(int(r.s))
+	var season := en_season(int(r.s))
 	var text := ""
 	var kind := ""
 	if float(o.food) < -2.0 and food_workers > 0:
 		kind = "essen"
-		text = "Im %s sank das Essen um %.1f je Tag, obwohl %d Leute Nahrung holten. %s" % [season, -float(o.food), food_workers,
-			"Vor dem Winter Vorrat anlegen." if int(r.s) in [Seasons.AUTUMN, Seasons.WINTER] else "Mehr Felder oder Fischer nötig."]
+		text = "In %s food fell by %.1f per day although %d people got food. %s" % [season, -float(o.food), food_workers,
+			"Build up stores before winter." if int(r.s) in [Seasons.AUTUMN, Seasons.WINTER] else "More fields or fishers needed."]
 	elif float(o.food) < -1.0 and food_workers == 0:
 		kind = "ohne"
-		text = "Ohne Nahrungsarbeiter sinkt das Essen schnell (%.1f je Tag im %s)." % [float(o.food), season]
+		text = "Without food workers food falls fast (%.1f per day in %s)." % [float(o.food), season]
 	elif float(o.wood) < -3.0 and int(r.s) in [Seasons.AUTUMN, Seasons.WINTER]:
 		kind = "holz"
-		text = "Im %s verbrennen wir viel Holz (%.1f je Tag). Im Sommer Holz sammeln." % [season, float(o.wood)]
+		text = "In %s we burn a lot of wood (%.1f per day). Collect wood in summer." % [season, float(o.wood)]
 	elif float(o.pop) > 0.4:
 		kind = "wachsen|" + str(r.focus)
-		text = "Mit Schwerpunkt %s im %s wuchs die Insel (+%.1f Siedler je Tag)." % [Society.strat_name(str(r.focus)), season, float(o.pop)]
+		text = "With focus %s in %s the island grew (+%.1f settlers per day)." % [en_strat(str(r.focus)), season, float(o.pop)]
 	elif float(o.mood) < -5.0:
 		kind = "laune"
-		text = "Im %s fiel die Laune stark (%.1f je Tag). Feste und Freizeit helfen." % [season, float(o.mood)]
+		text = "In %s mood fell strongly (%.1f per day). Festivals and free time help." % [season, float(o.mood)]
 	if text != "":
 		# Dieselbe Beobachtung in derselben Jahreszeit ersetzt die alte (neueste Zahlen)
 		add_lesson(w, text, "Messung", "%s|%d" % [kind, int(r.s)])
@@ -1613,12 +1771,12 @@ func _reflect(w, ep: int, system: String) -> void:
 	var m := mem(w)
 	var lines := []
 	for r in m.records.slice(maxi(0, m.records.size() - 6)):
-		lines.append("- " + record_text(r))
+		lines.append("- " + record_text(r, true))
 	activity = "Rat von %s denkt über seine Entscheidungen nach" % Sea.island_name(w)
 	var msgs := [{"role": "system", "content": system},
-		{"role": "user", "content": "Eure letzten Entscheidungen und was danach geschah:\n%s\n\nWas habt ihr daraus über die Spielmechanik gelernt? Schreibt eine kurze, konkrete Lehre in einem Satz auf Deutsch, die euch künftig hilft. %s" % ["\n".join(lines), length_rule("reason_tokens")]}]
+		{"role": "user", "content": "Your last decisions and what happened after:\n%s\n\nWhat did you learn from this about the game mechanics? Write one short, concrete lesson in one sentence in English that will help you in the future. %s" % ["\n".join(lines), length_rule("reason_tokens")]}]
 	last_prompt["rat"] = system + "\n\n" + msgs[1].content
-	var hint := "Im %s brauchen wir mehr Nahrungsarbeiter, wenn das Essen sinkt." % Seasons.season_name()
+	var hint := "In %s we need more food workers when food goes down." % en_season()
 	var j = Llm.generate("rat", msgs, int(cfg("reason_tokens", 60)), 0.0, hint)
 	var g: Dictionary = await j.wait()
 	trace({"who": "Rat", "isl": Sea.island_name(w), "role": "rat", "topic": "Lehre ziehen", "prompt": last_prompt["rat"], "text": str(g.get("text", g.get("error", ""))), "ms": float(g.get("ms", 0.0))})
@@ -1648,12 +1806,12 @@ func chat(w, text: String) -> void:
 	var ep := epoch
 	var hist := []
 	for c in m.chat.slice(maxi(0, m.chat.size() - 7), m.chat.size() - 1):
-		hist.append("%s: %s" % ["Herrscher" if c[0] == "Du" else "Rat", c[1]])
+		hist.append("%s: %s" % ["Ruler" if c[0] == "Du" else "Council", c[1]])
 	var msgs := [{"role": "system", "content": council_system(w)},
-		{"role": "user", "content": "%s\n\n%sDer Herrscher sagt zu euch: „%s“\nAntwortet dem Herrscher kurz auf Deutsch (höchstens drei Sätze). Sagt, ob und wie ihr seinem Wunsch folgt. %s" % [
-			island_report(w), ("Bisheriges Gespräch:\n%s\n\n" % "\n".join(hist)) if not hist.is_empty() else "", text, length_rule("chat_tokens")]}]
+		{"role": "user", "content": "%s\n\n%sThe ruler says to you: \"%s\"\nAnswer the ruler briefly in English (at most three sentences). Say whether and how you follow the wish. %s" % [
+			island_report(w), ("Conversation so far:\n%s\n\n" % "\n".join(hist)) if not hist.is_empty() else "", text, length_rule("chat_tokens")]}]
 	last_prompt["rat"] = msgs[0].content + "\n\n" + msgs[1].content
-	var j = Llm.generate("rat", msgs, int(cfg("chat_tokens", 90)), 0.3, "Wir haben deinen Wunsch gehört und berücksichtigen ihn bei der nächsten Sitzung.")
+	var j = Llm.generate("rat", msgs, int(cfg("chat_tokens", 90)), 0.3, "We heard your wish and will consider it at the next session.")
 	var g: Dictionary = await j.wait()
 	trace({"who": "Rat", "isl": Sea.island_name(w), "role": "rat", "topic": "Gespräch mit dem Herrscher", "prompt": last_prompt["rat"], "text": str(g.get("text", g.get("error", ""))), "ms": float(g.get("ms", 0.0))})
 	if ep != epoch:
