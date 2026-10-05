@@ -69,6 +69,12 @@ func mem(w) -> Dictionary:
 	for k in defaults:
 		if not m.has(k):
 			m[k] = defaults[k]
+	if not m.has("clean_v2"):
+		# Ältere Spielstände: abgeschnittene Lehren und Ansage auf ganze Sätze kürzen
+		m["clean_v2"] = true
+		for l in m.lessons:
+			l[1] = _clean(str(l[1]))
+		m.plan = _clean(str(m.plan)) if str(m.plan) != "" else ""
 	return m
 
 
@@ -613,14 +619,25 @@ func _decision_summary(last: Dictionary) -> String:
 	return ". ".join(parts) + "."
 
 
+## Antwort eines Modells aufräumen. Hört das Modell mitten im Satz auf (Wortgrenze erreicht),
+## bleibt nur bis zum letzten ganzen Satz stehen; sonst wäre der Text abgeschnitten, auch in den
+## Lehren, die der Rat in jeder Anfrage wieder liest.
 func _clean(t: String) -> String:
 	t = t.strip_edges().replace("\n", " ")
 	while "  " in t:
 		t = t.replace("  ", " ")
-	if t.length() > 280:
-		var cut := t.substr(0, 280)
-		var dot := cut.rfind(".")
-		t = cut.substr(0, dot + 1) if dot > 40 else cut + "…"
+	if t.length() > 400:
+		t = t.substr(0, 400)
+	var ends := [".", "!", "?"]
+	var tail := t.rstrip(" „“\"')»«")
+	if tail != "" and not tail.right(1) in ends:
+		var dot := -1
+		for e in ends:
+			dot = maxi(dot, t.rfind(e + " "))
+		if dot >= 10:
+			t = t.substr(0, dot + 1)
+		else:
+			t = t.rstrip(" ,;:-") + " …"
 	return t
 
 

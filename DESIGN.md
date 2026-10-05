@@ -412,6 +412,9 @@ laden oder will der Spieler nicht, entscheidet die Regel-KI unten wie bisher.
   Prioritäten, Natur begrenzt Sammler/Fischer/Bauern, Notregel bei fast leerem Essen; `_make_orders` gibt
   jedem Siedler nach Begabung einen Auftrag), Bau (`build_options`, auch „nichts“), Forschung (nur
   Hauptinsel, `research_options`), Handel und sagt zum Schluss in einem Satz, was die Bewohner tun sollen.
+  Freie Texte (Ansage, Lehren, Chat) haben `reason_tokens`/`chat_tokens` Wörter Platz; `_clean` kürzt eine
+  mitten im Satz abgebrochene Antwort auf den letzten ganzen Satz (sonst „…“). Die Ansage geht nicht an
+  die Siedler (sie bekommen ihren Auftrag), Lehren aber in jede Ratsanfrage.
   Danach fragt SmolLM jeden Erwachsenen (höchstens alle `settler_days`, `settler_prompt`), auf
   **Englisch**, weil SmolLM-135M fast nur Englisch kann (auf Deutsch waren die Nummern fast gleich
   wahrscheinlich, die Wahl gewürfelt): Jahreszeit, Hunger, Laune, Fähigkeiten, Inselzahlen, Auftrag des
