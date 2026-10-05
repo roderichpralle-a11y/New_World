@@ -367,6 +367,67 @@ func eat_food(prefer_vitamins: bool, w = null) -> String:
 	return best
 
 
+## Kluge Speisenwahl: Der Siedler s waehlt aus dem Lager der Insel w die Speise, die seinen
+## Bedarf (Saettigung bis eat_until, Vitamine bis vitamin_target) am besten deckt, ohne
+## Saettigung zu verschwenden. Dazu zaehlen: was bald verdirbt zuerst, Abwechslung gegenueber
+## den letzten Mahlzeiten, Vorrat im Lager und ob die Speise noch als Zutat gebraucht wird.
+## Gibt die Sorte zurueck und nimmt sie aus dem Lager ("" wenn nichts da ist).
+func choose_food(s, w = null) -> String:
+	var deficit := maxf(1.0, float(Data.bal("eat_until")) - s.hunger)
+	var vit_need := maxf(0.0, float(Data.bal("vitamin_target", 70.0)) - s.mind.vit)
+	var vit_urgent := 1.0 if s.mind.vit < float(Data.ppl("vit_low", 30.0)) else 0.0
+	var total := 0
+	var ids := []
+	for id in Data.food_ids():
+		var n := amount(id, w)
+		if n > 0:
+			ids.append(id)
+			total += n
+	if ids.is_empty():
+		return ""
+	var needed := _ingredient_goods(w)
+	var meals: Array = s.mind.meals
+	var best := ""
+	var best_score := -INF
+	for id in ids:
+		var sat := Data.food_satiety(id)
+		var vit := Data.food_vitamins(id)
+		var score := minf(sat, deficit) / deficit  # Bedarf gedeckt
+		score -= float(Data.bal("eat_waste_weight", 0.6)) * maxf(0.0, sat - deficit) / deficit  # verschwendet
+		if vit_need > 0.0:
+			score += (0.8 + 0.8 * vit_urgent) * minf(vit, vit_need) / vit_need
+		var recent := 0
+		for m in meals:
+			if m == id:
+				recent += 1
+		score += 0.3 * (1.0 - float(recent) / maxf(1.0, float(meals.size())))  # Abwechslung
+		score += minf(0.5, Seasons.spoil_rate(id) * 15.0)  # bald verdorben
+		score += 0.25 * float(amount(id, w)) / float(total)  # Vorrat
+		if needed.has(id):
+			score -= 0.2  # wird in einer Werkstatt noch gebraucht
+		score += float(amount(id, w)) * 0.0001  # bei Gleichstand das, wovon mehr da ist
+		if score > best_score:
+			best_score = score
+			best = id
+	take_stock(best, 1, w)
+	eaten[best] = int(eaten.get(best, 0)) + 1
+	last_eaten = best
+	return best
+
+
+## Waren, die eine fertige Werkstatt der Insel als Zutat braucht.
+func _ingredient_goods(w) -> Dictionary:
+	var out := {}
+	var world_w = w if w != null else world
+	if world_w == null:
+		return out
+	for b in world_w.buildings:
+		if b.complete:
+			for id in b.prod_def().get("inputs", {}):
+				out[id] = true
+	return out
+
+
 ## Anzahl der Nahrungssorten, die gerade im Lager sind.
 func food_variety(w = null) -> int:
 	var n := 0
