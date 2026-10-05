@@ -12,7 +12,7 @@
   "beeren": {"name": "Beeren", "icon": "beeren", "category": "food", "nutrition": 12, "vitamins": 22, "size": 1, "order": 10},
   "fisch": {"name": "Fisch", "icon": "fisch", "category": "food", "nutrition": 22, "vitamins": 6, "size": 1, "order": 11},
   "weizen": {"name": "Getreide", "icon": "weizen", "category": "food", "nutrition": 10, "vitamins": 3, "size": 1, "order": 12},
-  "aepfel": {"name": "Äpfel", "icon": "aepfel", "category": "food", "nutrition": 14, "vitamins": 20, "size": 1, "order": 13},
+  "aepfel": {"name": "Äpfel", "icon": "aepfel", "category": "food", "nutrition": 28, "vitamins": 40, "size": 1, "order": 13},
   "eier": {"name": "Eier", "icon": "eier", "category": "food", "nutrition": 20, "vitamins": 8, "size": 1, "order": 14},
   "raeucherfisch": {"name": "Räucherfisch", "icon": "raeucherfisch", "category": "food", "nutrition": 34, "vitamins": 5, "size": 1, "order": 15},
   "brot": {"name": "Brot", "icon": "brot", "category": "food", "nutrition": 84, "vitamins": 6, "size": 1, "order": 16},
