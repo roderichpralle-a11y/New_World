@@ -278,6 +278,13 @@ func _heat(days: float) -> void:
 			cold.erase(w)
 
 
+## Anteil, der von dieser Ware heute pro Tag verdirbt (0 für haltbare Ware und im Winter).
+func spoil_rate(id: String) -> float:
+	if not id in cfg.get("perishable", []):
+		return 0.0
+	return _val("spoil_per_day", -1, 0.0) * maxf(0.0, Game.eff("spoil"))
+
+
 ## Frische Nahrung verdirbt, im Sommer schnell, im Winter gar nicht.
 ## Läuft je Vorrat (heute teilen sich alle Inseln einen, später hat jede Insel ihren).
 func _spoil(days: float) -> void:

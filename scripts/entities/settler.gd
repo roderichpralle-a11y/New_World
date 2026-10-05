@@ -426,9 +426,9 @@ func _plan_eat() -> bool:
 
 func _do_eat() -> void:
 	var eaten := 0
-	while hunger < float(Data.bal("eat_until")) and eaten < 8:
-		# Fehlen Vitamine, greift der Siedler zu Obst und Beeren, sonst zum Saettigendsten
-		var id := Game.eat_food(mind.vit < float(Data.bal("vitamin_target", 70.0)), world)
+	while hunger < float(Data.bal("eat_until")) - 4.0 and eaten < 8:
+		# Kluge Wahl nach Bedarf, Groesse, Vorrat, Abwechslung und Verderb (Game.choose_food)
+		var id := Game.choose_food(self, world)
 		if id == "":
 			break
 		hunger = min(100.0, hunger + Data.food_satiety(id))

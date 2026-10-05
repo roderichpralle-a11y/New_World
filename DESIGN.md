@@ -325,10 +325,15 @@ einmal aufgebaut ist. Dafür gilt:
   Abfragen: `Data.food_satiety(id)`, `Data.food_vitamins(id)`.
 - **Siedler**: `hunger` (Sättigung 0–100, sinkt um `hunger_per_day` = 75). Vitamine, Speiseplan,
   Skorbut und Arbeitskraft gehören zum Charakter-Modell (`settler.mind.vit`, `mind.meals`, siehe
-  „Charaktere der Siedler“). Beim Essen (`Game.eat_food(prefer_vitamins, w)`) greift ein Siedler unter
-  `vitamin_target` (balance.json) zum vitaminreichsten, sonst zum sättigendsten im Lager seiner
-  Insel, und meldet die Mahlzeit mit `mind.on_meal(id, Data.food_vitamins(id))`. `Game.eaten` zählt
-  alles, `Game.last_eaten` ist die letzte Sorte.
+  „Charaktere der Siedler“). Beim Essen wählt `Game.choose_food(settler, w)` die Speise aus dem Lager seiner Insel (Kopf
+  der Schleife in `Settler._do_eat`, sie hört bei `eat_until - 4` auf). Wertung je Sorte: gedeckter
+  Sättigungsbedarf (bis `eat_until`), abzüglich `eat_waste_weight` (0.6) für Sättigung, die über den
+  Bedarf hinausgeht; dazu gedeckter Vitaminbedarf (bis `vitamin_target`, doppelt bei Mangel unter
+  `vit_low`); Abwechslung gegenüber `mind.meals`; Bonus für Verderbliches (`Seasons.spoil_rate(id)`);
+  Bonus für große Vorräte; Abzug, wenn eine fertige Werkstatt die Ware als Zutat braucht (Weizen,
+  Fisch). `Game.eat_food(prefer_vitamins, w)` bleibt als einfache Wahl (Sättigendstes oder
+  Vitaminreichstes) für andere Aufrufer. Die Mahlzeit meldet `mind.on_meal(id, Data.food_vitamins(id))`.
+  `Game.eaten` zählt alles, `Game.last_eaten` ist die letzte Sorte. Test: `--foodtest=1`.
 - **Notessen**: ist das Lager der Insel leer (oder voll mit anderem), essen sehr hungrige Siedler
   direkt am Strauch, an Palme, Pilzkreis oder Fischgrund (`_plan_forage`).
 - **Knappe Natur** (`nodes.json`): Sammeln, Fischen, Holz und Stein dauern 2–4x so lange wie

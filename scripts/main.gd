@@ -99,6 +99,8 @@ func _maybe_autotest() -> void:
 	if args.has("season"):
 		# Testhilfe: Start in einer Jahreszeit (0 Frühling .. 3 Winter)
 		Seasons.jump_to_season(int(args.season))
+	if args.has("foodtest"):
+		_autotest_food()
 	if args.has("build"):
 		_autotest_build()
 	if args.has("prodtest"):
@@ -841,3 +843,33 @@ func _on_hover(p: Vector2) -> void:
 func _unhandled_key_input(event: InputEvent) -> void:
 	if event.is_pressed() and event is InputEventKey and event.keycode == KEY_ESCAPE and world and world.is_placing():
 		world.cancel_placement()
+
+
+## Speisenwahl-Test: Auswahl in verschiedenen Lagen ausgeben (Game.choose_food).
+func _autotest_food() -> void:
+	var s = world.settlers[0]
+	var cases := [
+		["Hunger 50, alles da", 50.0, 70.0, {"beeren": 10, "fisch": 10, "brot": 10, "weizen": 10, "aepfel": 10}],
+		["Hunger 10, alles da", 10.0, 70.0, {"beeren": 10, "fisch": 10, "brot": 10, "weizen": 10, "aepfel": 10}],
+		["Hunger 80, kaum Bedarf", 80.0, 70.0, {"beeren": 10, "fisch": 10, "brot": 10, "aepfel": 10}],
+		["Hunger 40, Vitamine fehlen (10)", 40.0, 10.0, {"beeren": 10, "fisch": 10, "brot": 10, "aepfel": 10}],
+		["Hunger 40, nur Weizen und Brot", 40.0, 70.0, {"weizen": 20, "brot": 3}],
+		["Hunger 40, nur Weizen", 40.0, 70.0, {"weizen": 20}],
+	]
+	for c in cases:
+		var st: Dictionary = Game._stock_of(world)
+		st.clear()
+		s.hunger = c[1]
+		s.mind.vit = c[2]
+		s.mind.meals.clear()
+		for id in c[3]:
+			st[id] = c[3][id]
+		var seq := []
+		while s.hunger < float(Data.bal("eat_until")) and seq.size() < 8:
+			var id := Game.choose_food(s, world)
+			if id == "":
+				break
+			s.hunger = minf(100.0, s.hunger + Data.food_satiety(id))
+			s.mind.on_meal(id, Data.food_vitamins(id))
+			seq.append(id)
+		print("Wahl: ", c[0], " -> ", seq, " Hunger danach ", int(s.hunger), " Vitamine ", int(s.mind.vit))
