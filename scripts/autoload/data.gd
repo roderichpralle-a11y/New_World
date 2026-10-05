@@ -82,6 +82,7 @@ var _cache: Dictionary = {}
 
 
 func _ready() -> void:
+	Loc.setup()
 	resources = _load("resources")
 	nodes = _load("nodes")
 	buildings = _load("buildings")
@@ -117,7 +118,29 @@ func _load(name: String) -> Dictionary:
 		push_error("Daten fehlen: " + path)
 		return {}
 	var d = JSON.parse_string(f.get_as_text())
-	return d if d is Dictionary else {}
+	if not d is Dictionary:
+		return {}
+	if name != "names":
+		_translate(d)
+	return d
+
+
+## Anzeigetexte in Spieldaten: diese Schluessel werden beim Laden uebersetzt
+## (gleiche Liste in tools/i18n.py).
+const TEXT_KEYS := ["name", "desc", "text", "hint", "verb", "sow_verb", "harvest_verb", "names", "_tiers",
+	"comfort_stages", "low", "high", "plural", "plural_dat", "by", "food_name", "deadly"]
+
+
+func _translate(o, key: String = "") -> Variant:
+	if o is Dictionary:
+		for k in o:
+			o[k] = _translate(o[k], k if k in TEXT_KEYS else "")
+	elif o is Array:
+		for i in o.size():
+			o[i] = _translate(o[i], key)
+	elif o is String and key in TEXT_KEYS:
+		return tr(o)
+	return o
 
 
 func bal(key: String, default = 0.0):

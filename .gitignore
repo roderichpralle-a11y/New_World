@@ -3,3 +3,4 @@ build/
 tools/preview/
 *.tmp
 tools/__pycache__/
+data/i18n/missing.json

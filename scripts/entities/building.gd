@@ -18,7 +18,7 @@ var occupants: Array = []  # Siedler-IDs, die hier arbeiten (Produktion, Forschu
 var paused: bool = false
 var ship_choice: String = "boot"  # Werft: welches Schiff als naechstes gebaut wird
 var ship_wip: String = ""  # Werft: Schiff, fuer das die Rohstoffe schon genommen sind
-var active_until: float = 0.0  # Echtzeit, bis zu der die Werkstatt als "in Betrieb" gilt
+var active_until: float = 0.0  # Echtzeit, bis zu der die Werkstatt als tr("in Betrieb") gilt
 var deliveries: int = 0  # Ablieferungen an dieses Lager (nur zur Verteilung, nicht gespeichert)
 var world
 
@@ -229,7 +229,7 @@ func ship_recipe(t: String) -> Dictionary:
 	p["inputs"] = sd.build.inputs.duplicate()
 	p["outputs"] = {t: 1}
 	p["time"] = float(sd.build.get("time", p.get("time", 18.0)))
-	p["verb"] = "Baut: %s" % sd.name
+	p["verb"] = tr("Baut: %s") % sd.name
 	return p
 
 
@@ -253,24 +253,24 @@ func free_slots() -> int:
 func prod_blocker() -> String:
 	var p := prod_def()
 	if p.is_empty() or not complete:
-		return "nicht fertig"
+		return tr("nicht fertig")
 	if paused:
-		return "angehalten"
+		return tr("angehalten")
 	if def.get("ships", false):
 		var sd: Dictionary = Data.ships.get(ship_choice, {})
 		if not Game.is_researched(sd.get("requires", "")):
-			return "Für %s fehlt die Forschung %s" % [sd.get("name", "?"), Data.techs[sd.requires].name]
+			return tr("Für %s fehlt die Forschung %s") % [sd.get("name", "?"), Data.techs[sd.requires].name]
 		if not Sea.free_berth(world, int(sd.get("size", 1))):
-			return "Kein freier Liegeplatz für ein weiteres Schiff. Baue einen Hafen oder Steg"
+			return tr("Kein freier Liegeplatz für ein weiteres Schiff. Baue einen Hafen oder Steg")
 	for res in p.get("inputs", {}):
 		if Game.amount(res, world) < int(p.inputs[res]):
-			return "Es fehlt %s" % Data.resource_name(res)
+			return tr("Es fehlt %s") % Data.resource_name(res)
 	var any_space := false
 	for res in p.get("outputs", {}):
 		if Game.space_for(res, world) > 0:
 			any_space = true
 	if not any_space:
-		return "Das Lager ist voll"
+		return tr("Das Lager ist voll")
 	return ""
 
 
