@@ -580,7 +580,7 @@ func _council(w, ep: int) -> void:
 	activity = "Rat von %s spricht zu den Bewohnern" % where
 	var summary := _decision_summary(last)
 	var msgs := [{"role": "system", "content": system},
-		{"role": "user", "content": report + "\n\nIhr habt beschlossen: %s\nSagt euren Bewohnern in ein oder zwei kurzen Sätzen auf Deutsch, was sie jetzt tun sollen und warum." % summary}]
+		{"role": "user", "content": report + "\n\nIhr habt beschlossen: %s\nSagt euren Bewohnern in ein oder zwei kurzen Sätzen auf Deutsch, was sie jetzt tun sollen und warum. %s" % [summary, length_rule("reason_tokens")]}]
 	last_prompt["rat"] = system + "\n\n" + msgs[1].content
 	var gj = Llm.generate("rat", msgs, int(cfg("reason_tokens", 60)), 0.0, "Wir setzen auf %s. %s" % [Society.strat_name(m.focus), summary])
 	var g: Dictionary = await gj.wait()
@@ -617,6 +617,14 @@ func _decision_summary(last: Dictionary) -> String:
 	if last.has("trade"):
 		parts.append("Handel: %s" % last.trade)
 	return ". ".join(parts) + "."
+
+
+## Längengrenze für freie Antworten, steht in der Anfrage: Das Modell soll selbst kurz bleiben,
+## statt an der Grenze abgeschnitten zu werden. Die Grenze zählt Wortstücke (Token); ein deutsches
+## Wort sind etwa zwei, darum steht in der Anfrage die Hälfte als Wörter.
+func length_rule(key: String) -> String:
+	var words := int(int(cfg(key, 140)) / 2)
+	return "Eure ganze Antwort darf höchstens %d Wörter lang sein, sonst wird sie abgeschnitten. Hört mit einem ganzen Satz auf." % words
 
 
 ## Antwort eines Modells aufräumen. Hört das Modell mitten im Satz auf (Wortgrenze erreicht),
@@ -1458,7 +1466,7 @@ func _reflect(w, ep: int, system: String) -> void:
 		lines.append("- " + record_text(r))
 	activity = "Rat von %s denkt über seine Entscheidungen nach" % Sea.island_name(w)
 	var msgs := [{"role": "system", "content": system},
-		{"role": "user", "content": "Eure letzten Entscheidungen und was danach geschah:\n%s\n\nWas habt ihr daraus über die Spielmechanik gelernt? Schreibt eine kurze, konkrete Lehre in einem Satz auf Deutsch, die euch künftig hilft." % "\n".join(lines)}]
+		{"role": "user", "content": "Eure letzten Entscheidungen und was danach geschah:\n%s\n\nWas habt ihr daraus über die Spielmechanik gelernt? Schreibt eine kurze, konkrete Lehre in einem Satz auf Deutsch, die euch künftig hilft. %s" % ["\n".join(lines), length_rule("reason_tokens")]}]
 	last_prompt["rat"] = system + "\n\n" + msgs[1].content
 	var hint := "Im %s brauchen wir mehr Nahrungsarbeiter, wenn das Essen sinkt." % Seasons.season_name()
 	var j = Llm.generate("rat", msgs, int(cfg("reason_tokens", 60)), 0.0, hint)
@@ -1492,8 +1500,8 @@ func chat(w, text: String) -> void:
 	for c in m.chat.slice(maxi(0, m.chat.size() - 7), m.chat.size() - 1):
 		hist.append("%s: %s" % ["Herrscher" if c[0] == "Du" else "Rat", c[1]])
 	var msgs := [{"role": "system", "content": council_system(w)},
-		{"role": "user", "content": "%s\n\n%sDer Herrscher sagt zu euch: „%s“\nAntwortet dem Herrscher kurz auf Deutsch (höchstens drei Sätze). Sagt, ob und wie ihr seinem Wunsch folgt." % [
-			island_report(w), ("Bisheriges Gespräch:\n%s\n\n" % "\n".join(hist)) if not hist.is_empty() else "", text]}]
+		{"role": "user", "content": "%s\n\n%sDer Herrscher sagt zu euch: „%s“\nAntwortet dem Herrscher kurz auf Deutsch (höchstens drei Sätze). Sagt, ob und wie ihr seinem Wunsch folgt. %s" % [
+			island_report(w), ("Bisheriges Gespräch:\n%s\n\n" % "\n".join(hist)) if not hist.is_empty() else "", text, length_rule("chat_tokens")]}]
 	last_prompt["rat"] = msgs[0].content + "\n\n" + msgs[1].content
 	var j = Llm.generate("rat", msgs, int(cfg("chat_tokens", 90)), 0.3, "Wir haben deinen Wunsch gehört und berücksichtigen ihn bei der nächsten Sitzung.")
 	var g: Dictionary = await j.wait()
