@@ -58,6 +58,10 @@ var _hiding = null  # Gebaeude, in dem sich der Siedler vor Tieren versteckt
 # anderes, idle = nichts zu tun, needs = Essen, Freizeit, Krankheit, Flucht), erledigte
 # Arbeitsschritte und abgelieferte Waren. KiMind liest und leert sie bei jeder Ratssitzung.
 var stat: Dictionary = {}
+# Auslastung für die Siedlerliste (dieselbe Messung als gleitender Wert): Tageszeit je Art,
+# needs zählt nicht. Ältere Zeit verblasst mit BUSY_DAYS.
+const BUSY_DAYS := 1.0
+var busy: Dictionary = {}
 var _stat_kind: String = "needs"
 
 var _body: Node2D
@@ -87,6 +91,7 @@ func setup(p_world, data: Dictionary) -> void:
 	max_age = float(data.get("max_age", _rng.randf_range(Data.bal("old_age_min"), Data.bal("old_age_max"))))
 	hunger = float(data.get("hunger", 90.0))
 	health = float(data.get("health", 100.0))
+	busy = data.get("busy", {})
 	skills = data.get("skills", {})
 	for sk in Data.skills:
 		skills[sk] = float(skills.get(sk, 1.0))
@@ -216,6 +221,7 @@ func set_job(j: String) -> void:
 	if j == job:
 		return
 	job = j
+	busy = {}
 	abort_plan()
 
 
@@ -239,9 +245,28 @@ func _process(delta: float) -> void:
 			_think()
 	else:
 		_run_action(delta)
-	if Society.enabled and is_adult() and not Game.is_night():
-		stat[_stat_kind] = float(stat.get(_stat_kind, 0.0)) + days
+	if is_adult() and not Game.is_night():
+		_count_busy(days)
+		if Society.enabled:
+			stat[_stat_kind] = float(stat.get(_stat_kind, 0.0)) + days
 	_animate(delta)
+
+
+func _count_busy(days: float) -> void:
+	var keep := exp(-days / BUSY_DAYS)
+	for k in ["job", "other", "idle"]:
+		busy[k] = float(busy.get(k, 0.0)) * keep
+	if _stat_kind != "needs":
+		busy[_stat_kind] = float(busy.get(_stat_kind, 0.0)) + days
+
+
+## Anteil der eigenen Arbeit an der Tageszeit (ohne Essen, Freizeit, Krankheit) in Prozent,
+## -1 solange zu wenig gemessen ist.
+func busy_percent() -> int:
+	var day := float(busy.get("job", 0.0)) + float(busy.get("other", 0.0)) + float(busy.get("idle", 0.0))
+	if day < 0.1:
+		return -1
+	return int(round(float(busy.get("job", 0.0)) / day * 100.0))
 
 
 func _needs(days: float) -> void:
@@ -622,7 +647,7 @@ func _plan_wander(radius: int, text: String, at = null) -> void:
 
 # ------------------------------------------------------------------ Arbeit
 func _plan_work() -> bool:
-	# Erst die eigene Arbeit; was danach kommt, zählt in der Statistik als "etwas anderes"
+	# Erst die eigene Arbeit; was danach kommt, zählt in Statistik und Auslastung als "etwas anderes"
 	_stat_kind = "job"
 	match job:
 		"frei":
@@ -1263,4 +1288,6 @@ func serialize() -> Dictionary:
 		"skill_xp": skill_xp, "job": job, "home": home_id, "look": look,
 		"carry_res": carry_res, "carry_n": carry_n, "birth_cd": birth_cooldown_until,
 		"parents": parents, "x": cell.x, "y": cell.y, "mind": mind.serialize(),
+		"busy": {"job": snappedf(float(busy.get("job", 0.0)), 0.001), "other": snappedf(float(busy.get("other", 0.0)), 0.001),
+			"idle": snappedf(float(busy.get("idle", 0.0)), 0.001)},
 	}
