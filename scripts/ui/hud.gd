@@ -12,6 +12,7 @@ var camera: GameCamera
 var root: Control
 var _res_labels: Dictionary = {}
 var _food_label: Label
+var _food_short := false  # schmaler Bildschirm: Tage kurz als "3T"
 var _pop_label: Label
 var _day_label: Label
 var _day_icon: TextureRect
@@ -202,13 +203,22 @@ func _refresh_top() -> void:
 		_res_labels[id].add_theme_color_override("font_color", UiTheme.BAD if room <= 0 else UiTheme.TEXT)
 		_res_labels[id].get_parent().tooltip_text = tr("%s: %d, Platz für %d weitere") % [Data.resource_name(id), Game.amount(id), room]
 	var food := Game.total_food()
-	_food_label.text = "%d" % food
+	var days := Game.food_days()
+	if days < 0.0:
+		_food_label.text = "%d" % food
+	else:
+		var dn := int(floor(min(days, 999.0)))
+		if _food_short:
+			_food_label.text = "%d (%s)" % [food, tr("%dT") % dn]
+		else:
+			_food_label.text = "%d (%s)" % [food, tr("1 Tag") if dn == 1 else tr("%d Tage") % dn]
 	var parts := []
 	for id in Data.food_ids():
 		parts.append(tr("%s: %d  (sättigt %d, Vitamine %d)") % [Data.resource_name(id), Game.amount(id), int(Data.food_satiety(id)), int(Data.food_vitamins(id))])
-	_food_label.get_parent().tooltip_text = tr("Nahrung\n") + "\n".join(parts) + tr("\nStauraum: %d von %d belegt") % [Game.used_volume(), Game.storage_volume()]
+	var days_tip := (tr("\nReicht für etwa %.1f Tage: Menge mal Sättigung aller Nahrung, geteilt durch die Siedler und ihren Tagesbedarf.") % days) if days >= 0.0 else ""
+	_food_label.get_parent().tooltip_text = tr("Nahrung\n") + "\n".join(parts) + days_tip + tr("\nStauraum: %d von %d belegt") % [Game.used_volume(), Game.storage_volume()]
 	var pop := Game.population()
-	_food_label.add_theme_color_override("font_color", UiTheme.BAD if food < pop * 3 else UiTheme.TEXT)
+	_food_label.add_theme_color_override("font_color", UiTheme.BAD if (days >= 0.0 and days < 1.0) or (days < 0.0 and food < pop * 3) else UiTheme.TEXT)
 	var here: int = world.settlers.size() if world and is_instance_valid(world) else 0
 	_pop_label.text = "%d/%d" % [here, Game.housing_capacity()]
 	var tip := tr("Bewohner / Wohnplätze auf dieser Insel")
@@ -2057,6 +2067,9 @@ func _layout() -> void:
 	var top_h := 50.0
 	# Schmal: Jahreszeit nur als Symbol
 	_season_label.visible = not (portrait or vs.x < 760)
+	if _food_short != (vs.x < 480):
+		_food_short = vs.x < 480
+		_refresh_top()
 	if portrait or vs.x < 760:
 		sp.position = Vector2(vs.x - sp.size.x - 6, 54)
 		top_h = 100.0

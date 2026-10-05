@@ -301,6 +301,21 @@ func total_food(w = null) -> int:
 	return n
 
 
+## Fuer wie viele Tage die Nahrung einer Insel alle Siedler satt macht: Menge mal Saettigung
+## aller Nahrungsgueter, geteilt durch Siedler und den Tagesbedarf eines Erwachsenen (mit
+## Jahreszeit und Kaelte). -1 ohne Siedler.
+func food_days(w = null) -> float:
+	var ww = w if w != null else world
+	if ww == null or not is_instance_valid(ww) or ww.settlers.is_empty():
+		return -1.0
+	var st := _stock_of(w)
+	var sat := 0.0
+	for id in Data.food_ids():
+		sat += float(st.get(id, 0)) * Data.food_satiety(id)
+	var need := float(Data.bal("hunger_per_day")) * eff("hunger") * Seasons.hunger_mult(ww)
+	return sat / (ww.settlers.size() * max(need, 0.01))
+
+
 func amount(id: String, w = null) -> int:
 	return int(_stock_of(w).get(id, 0))
 
