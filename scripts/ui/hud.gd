@@ -39,6 +39,8 @@ var _settler_list: VBoxContainer
 var _menu_panel: PanelContainer
 var _help_panel: PanelContainer
 var _notify_panel: PanelContainer
+var _slots_panel: PanelContainer
+var _slots_box: VBoxContainer
 var _notify_grid: GridContainer
 var _info_panel: PanelContainer
 var _info_box: VBoxContainer
@@ -82,6 +84,7 @@ func setup(p_world: World, p_camera: GameCamera) -> void:
 	_build_menu_panel()
 	_build_help_panel()
 	_build_notify_panel()
+	_build_slots_panel()
 	_build_info_panel()
 	_sea_panel = SeaPanel.new()
 	root.add_child(_sea_panel)
@@ -308,7 +311,7 @@ func _toggle(panel: Control) -> void:
 
 
 func _panels() -> Array:
-	return [_build_panel, _research_panel, _stock_panel, _settler_panel, _menu_panel, _help_panel, _notify_panel, _sea_panel]
+	return [_build_panel, _research_panel, _stock_panel, _settler_panel, _menu_panel, _help_panel, _notify_panel, _slots_panel, _sea_panel]
 
 
 func _popup_panel(title: String) -> Array:
@@ -1202,6 +1205,9 @@ func _build_menu_panel() -> void:
 		toast(tr("Spiel gespeichert."), "haus")
 		_menu_panel.visible = false)
 	v.add_child(save)
+	var sl := UiTheme.button(tr("Spielstände"), "kiste", 44)
+	sl.pressed.connect(func(): _open_slots())
+	v.add_child(sl)
 	var help := UiTheme.button(tr("Spielanleitung"), "sonne", 44)
 	help.pressed.connect(func(): _toggle(_help_panel))
 	v.add_child(help)
@@ -1270,6 +1276,117 @@ func _language_row() -> HBoxContainer:
 			get_tree().quit())
 	h.add_child(ob)
 	return h
+
+
+## Fuenf Spielstaende: laden, hierhin speichern, neu beginnen, loeschen
+func _build_slots_panel() -> void:
+	var r := _popup_panel(tr("Spielstände"))
+	_slots_panel = r[0]
+	_slots_box = VBoxContainer.new()
+	_slots_box.add_theme_constant_override("separation", 6)
+	r[1].add_child(_slots_box)
+
+
+func _open_slots() -> void:
+	_toggle(_slots_panel)
+	if _slots_panel.visible:
+		_fill_slots()
+		root.move_child(_slots_panel, -1)
+		_layout.call_deferred()
+
+
+func _fill_slots() -> void:
+	for c in _slots_box.get_children():
+		c.queue_free()
+	var in_title := has_overlay()
+	_slots_box.custom_minimum_size.x = min(640.0, get_viewport().get_visible_rect().size.x - 40.0)
+	_slots_panel.size = Vector2.ZERO
+	var hint := UiTheme.label(tr("Das Spiel speichert automatisch in den aktiven Spielstand."), 13, DIM)
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_slots_box.add_child(hint)
+	for n in range(1, Game.SLOTS + 1):
+		var row := PanelContainer.new()
+		# Breit: Text links, Knoepfe rechts; schmal: Knoepfe darunter
+		var f: BoxContainer = HBoxContainer.new() if get_viewport().get_visible_rect().size.x >= 600.0 else VBoxContainer.new()
+		f.add_theme_constant_override("separation", 8 if f is HBoxContainer else 4)
+		row.add_child(f)
+		var v := VBoxContainer.new()
+		v.add_theme_constant_override("separation", 1)
+		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		f.add_child(v)
+		var active: bool = n == Game.slot
+		var used := Game.slot_exists(n)
+		var head := UiTheme.label(tr("Spielstand %d") % n + (tr(" (aktiv)") if active else ""), 15, Color("#7a4a28") if active else UiTheme.TEXT, true)
+		v.add_child(head)
+		var info := Game.slot_info(n)
+		var il := UiTheme.label(info if info != "" else (tr("Gespeichertes Spiel") if used else tr("Leer")), 12, DIM)
+		il.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(il)
+		var h := HBoxContainer.new()
+		h.add_theme_constant_override("separation", 6)
+		h.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		f.add_child(h)
+		var slot_n: int = n
+		if active and not in_title:
+			var sv := _slot_button(tr("Speichern"))
+			sv.pressed.connect(func():
+				Game.save_game()
+				toast(tr("Spiel gespeichert."), "haus")
+				_fill_slots())
+			h.add_child(sv)
+		if used and not (active and not in_title):
+			var ld := _slot_button(tr("Laden") if not active else tr("Weiterspielen"))
+			ld.pressed.connect(func():
+				if active:
+					_slots_panel.visible = false
+					_overlay_clear()
+					continue_requested.emit()
+					return
+				if not in_title:
+					Game.save_game()
+				Game.switch_slot(slot_n, "continue"))
+			h.add_child(ld)
+		if not active and not in_title:
+			h.add_child(_slot_confirm_button(tr("Hier speichern"), used, func():
+				Game.save_to_slot(slot_n)
+				toast(tr("Gespeichert in Spielstand %d. Du spielst jetzt dort weiter.") % slot_n, "haus")
+				_fill_slots()))
+		h.add_child(_slot_confirm_button(tr("Neues Spiel"), used, func():
+			if not in_title and not active:
+				Game.save_game()
+			if active:
+				_slots_panel.visible = false
+				_overlay_clear()
+				new_game_requested.emit()
+			else:
+				Game.switch_slot(slot_n, "new")))
+		if used and not active:
+			h.add_child(_slot_confirm_button(tr("Löschen"), true, func():
+				Game.delete_slot(slot_n)
+				_fill_slots()))
+		_slots_box.add_child(row)
+
+
+func _slot_button(text: String) -> Button:
+	var b := Button.new()
+	b.text = text
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size.y = 36
+	b.add_theme_font_size_override("font_size", 14)
+	return b
+
+
+## Knopf, der bei belegtem Platz erst nachfragt (zweimal tippen)
+func _slot_confirm_button(text: String, ask: bool, action: Callable) -> Button:
+	var b := _slot_button(text)
+	var armed := [not ask]
+	b.pressed.connect(func():
+		if not armed[0]:
+			armed[0] = true
+			b.text = tr("Sicher?")
+			return
+		action.call())
+	return b
 
 
 ## Meldungen nach Art ein- und ausschalten (gespeichert in user://settings.cfg)
@@ -2006,6 +2123,9 @@ func show_title(has_save: bool) -> void:
 		_overlay_clear()
 		new_game_requested.emit())
 	v.add_child(ng)
+	var sb := UiTheme.button(tr("Spielstände (aktiv: %d)") % Game.slot, "kiste", 40)
+	sb.pressed.connect(func(): _open_slots())
+	v.add_child(sb)
 	var hb := UiTheme.button(tr("Spielanleitung"), "menu", 40)
 	hb.pressed.connect(func(): _toggle(_help_panel))
 	v.add_child(hb)
