@@ -4,7 +4,7 @@ extends Node
 
 signal stock_changed
 signal population_changed
-signal notified(text: String, icon: String)
+signal notified(text: String, icon: String, cat: String)
 signal day_started(day: int)
 signal selection_changed(obj)
 signal speed_changed(speed: int)
@@ -50,6 +50,7 @@ func _ready() -> void:
 	_rng.randomize()
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_detect_test_build()
+	_load_notify_settings()
 
 
 func _detect_test_build() -> void:
@@ -437,15 +438,53 @@ func food_variety(w = null) -> int:
 	return n
 
 
-func notify(text: String, icon: String = "") -> void:
-	notified.emit(text, icon)
+## Meldungsarten: jede laesst sich im Menue unter "Meldungen" abschalten.
+const NOTIFY_CATS := {"tag": "Tag und Jahreszeit", "siedler": "Siedler und Nachwuchs",
+	"gesundheit": "Krankheiten", "tod": "Todesfälle und verlorene Inseln", "bauen": "Bauen",
+	"lager": "Lager, Vorräte und Winter", "forschung": "Forschung und Zeitalter", "see": "Seefahrt",
+	"tiere": "Tiere und Jagd", "ki": "KI-Steuerung"}
+## Art einer Meldung nach ihrem Symbol, wenn der Aufruf keine Art nennt
+const NOTIFY_ICON_CAT := {"": "tag", "sonne": "tag", "herz": "siedler", "person": "siedler",
+	"abriss": "tod", "hammer": "bauen", "haus": "lager", "holz": "lager", "weizen": "lager",
+	"wissen": "forschung", "zeitalter": "forschung", "boot": "see", "anker": "see", "kompass": "see",
+	"schild": "tiere", "fleisch": "tiere", "ki": "ki"}
+var notify_off: Dictionary = {}  # Art -> true, wenn abgeschaltet (user://settings.cfg [notify])
+var goal_card_on: bool = true
+
+
+func notify(text: String, icon: String = "", cat: String = "") -> void:
+	if cat == "":
+		cat = NOTIFY_ICON_CAT.get(icon, "tag")
+	if notify_off.get(cat, false):
+		return
+	notified.emit(text, icon, cat)
 
 
 ## Meldung von einer Insel: bei mehreren Inseln steht der Inselname davor.
-func notify_at(w, text: String, icon: String = "") -> void:
+func notify_at(w, text: String, icon: String = "", cat: String = "") -> void:
 	if w and w != world and Sea.worlds.size() > 1:
 		text = "%s: %s" % [Sea.island_name(w), text]
-	notify(text, icon)
+	notify(text, icon, cat)
+
+
+func _load_notify_settings() -> void:
+	var cf := ConfigFile.new()
+	if cf.load("user://settings.cfg") != OK:
+		return
+	for c in NOTIFY_CATS:
+		notify_off[c] = not bool(cf.get_value("notify", c, true))
+	goal_card_on = bool(cf.get_value("notify", "goal_card", true))
+
+
+func set_notify(cat: String, on: bool) -> void:
+	if cat == "goal_card":
+		goal_card_on = on
+	else:
+		notify_off[cat] = not on
+	var cf := ConfigFile.new()
+	cf.load("user://settings.cfg")
+	cf.set_value("notify", cat, on)
+	cf.save("user://settings.cfg")
 
 
 func select(obj) -> void:
@@ -774,7 +813,7 @@ func apply_save_header(d: Dictionary) -> void:
 	# Aeltere Spielstaende kennen keine Ziele: Einfuehrung ueberspringen, erreichte Ziele nachholen
 	var g = d.get("goals", null)
 	if g is Dictionary:
-		goals = {"tut": int(g.get("tut", 0)), "ms": int(g.get("ms", 0))}
+		goals = {"tut": int(g.get("tut", 0)), "ms": int(g.get("ms", 0)), "hide": str(g.get("hide", ""))}
 	else:
 		goals = {"tut": 999, "ms": 0, "catchup": true}
 	_recompute_effects()
