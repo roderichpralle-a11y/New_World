@@ -54,6 +54,12 @@ var _danger_t: float = 0.0
 var _attack_t: float = 0.0
 var _hurt: float = 0.0
 var _hiding = null  # Gebaeude, in dem sich der Siedler vor Tieren versteckt
+# Auslastung (wie in der KI-Version gemessen): Tageszeit je Art, job = eigene Arbeit, other =
+# etwas anderes, idle = nichts zu tun; needs (Essen, Freizeit, Krankheit, Flucht) zaehlt nicht.
+# Gleitender Wert: aeltere Zeit verblasst mit BUSY_DAYS.
+const BUSY_DAYS := 1.0
+var busy: Dictionary = {}
+var _stat_kind: String = "needs"
 
 var _body: Node2D
 var _layers: Dictionary = {}
@@ -82,6 +88,7 @@ func setup(p_world, data: Dictionary) -> void:
 	max_age = float(data.get("max_age", _rng.randf_range(Data.bal("old_age_min"), Data.bal("old_age_max"))))
 	hunger = float(data.get("hunger", 90.0))
 	health = float(data.get("health", 100.0))
+	busy = data.get("busy", {})
 	skills = data.get("skills", {})
 	for sk in Data.skills:
 		skills[sk] = float(skills.get(sk, 1.0))
@@ -211,6 +218,7 @@ func set_job(j: String) -> void:
 	if j == job:
 		return
 	job = j
+	busy = {}
 	abort_plan()
 
 
@@ -234,7 +242,26 @@ func _process(delta: float) -> void:
 			_think()
 	else:
 		_run_action(delta)
+	if is_adult() and not Game.is_night():
+		_count_busy(days)
 	_animate(delta)
+
+
+func _count_busy(days: float) -> void:
+	var keep := exp(-days / BUSY_DAYS)
+	for k in ["job", "other", "idle"]:
+		busy[k] = float(busy.get(k, 0.0)) * keep
+	if _stat_kind != "needs":
+		busy[_stat_kind] = float(busy.get(_stat_kind, 0.0)) + days
+
+
+## Anteil der eigenen Arbeit an der Tageszeit (ohne Essen, Freizeit, Krankheit) in Prozent,
+## -1 solange zu wenig gemessen ist.
+func busy_percent() -> int:
+	var day := float(busy.get("job", 0.0)) + float(busy.get("other", 0.0)) + float(busy.get("idle", 0.0))
+	if day < 0.1:
+		return -1
+	return int(round(float(busy.get("job", 0.0)) / day * 100.0))
 
 
 func _needs(days: float) -> void:
@@ -286,6 +313,8 @@ func on_break() -> bool:
 func _think() -> void:
 	_think_cooldown = 0.6 + _rng.randf() * 0.6
 	_release()
+	var prev_kind := _stat_kind
+	_stat_kind = "needs"
 	if sleeping and (Game.is_night()):
 		return
 	# Schwer krank: im Bett bleiben, nur zum Essen aufstehen
@@ -297,10 +326,12 @@ func _think() -> void:
 		return
 	if sleeping:
 		_wake_up()
-	# 1. Getragenes abliefern
+	# 1. Getragenes abliefern (zählt zur Arbeit, aus der es stammt)
 	if carry_n > 0:
+		_stat_kind = prev_kind if prev_kind in ["job", "other"] else "job"
 		if _plan_deliver():
 			return
+		_stat_kind = "needs"
 	# 2. Essen
 	if hunger < float(Data.bal("eat_below")) and Game.total_food(world) > 0:
 		if _plan_eat():
@@ -327,6 +358,7 @@ func _think() -> void:
 	# 6. Arbeit
 	if _plan_work():
 		return
+	_stat_kind = "idle"
 	_plan_wander(4, tr("Hat nichts zu tun"))
 
 
@@ -606,24 +638,39 @@ func _plan_wander(radius: int, text: String, at = null) -> void:
 
 # ------------------------------------------------------------------ Arbeit
 func _plan_work() -> bool:
+	# Erst die eigene Arbeit; was danach kommt, zählt in der Auslastung als "etwas anderes"
+	_stat_kind = "job"
 	match job:
 		"frei":
 			return _plan_free()
 		"baumeister":
-			return _plan_construction() or _plan_free_gather()
+			if _plan_construction():
+				return true
+			_stat_kind = "other"
+			return _plan_free_gather()
 		"bauer":
-			return _plan_farm() or _plan_gather(["busch", "palme", "pilzkreis"])
+			if _plan_farm():
+				return true
+			_stat_kind = "other"
+			return _plan_gather(["busch", "palme", "pilzkreis"])
 		"forscher":
-			return _plan_research() or _plan_free_gather()
+			if _plan_research():
+				return true
+			_stat_kind = "other"
+			return _plan_free_gather()
 		"jaeger":
 			if Data.job_unlocked("jaeger"):
 				if _plan_hunt() or _plan_gather(["beute"]):
 					return true
+			_stat_kind = "other"
 			return _plan_free_gather()
 		_:
 			var targets: Array = Data.jobs.get(job, {}).get("targets", [])
+			if _plan_gather(targets):
+				return true
 			# Ist das eigene Lager voll, hilft der Siedler woanders aus
-			return _plan_gather(targets) or _plan_construction() or _plan_free_gather()
+			_stat_kind = "other"
+			return _plan_construction() or _plan_free_gather()
 
 
 func _plan_free() -> bool:
@@ -1053,6 +1100,7 @@ func _check_danger(delta: float) -> void:
 	if sleeping:
 		_wake_up()
 	abort_plan()
+	_stat_kind = "job" if job == "jaeger" else "needs"
 	if _can_fight():
 		_plan.append({"a": "hunt", "target": an, "start": cell})
 		activity = tr("Kämpft gegen: %s") % an.def.name
@@ -1227,4 +1275,6 @@ func serialize() -> Dictionary:
 		"skill_xp": skill_xp, "job": job, "home": home_id, "look": look,
 		"carry_res": carry_res, "carry_n": carry_n, "birth_cd": birth_cooldown_until,
 		"parents": parents, "x": cell.x, "y": cell.y, "mind": mind.serialize(),
+		"busy": {"job": snappedf(float(busy.get("job", 0.0)), 0.001), "other": snappedf(float(busy.get("other", 0.0)), 0.001),
+			"idle": snappedf(float(busy.get("idle", 0.0)), 0.001)},
 	}
