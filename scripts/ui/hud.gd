@@ -37,6 +37,8 @@ var _settler_panel: PanelContainer
 var _settler_list: VBoxContainer
 var _menu_panel: PanelContainer
 var _help_panel: PanelContainer
+var _notify_panel: PanelContainer
+var _notify_grid: GridContainer
 var _info_panel: PanelContainer
 var _info_box: VBoxContainer
 var _place_bar: PanelContainer
@@ -80,6 +82,7 @@ func setup(p_world: World, p_camera: GameCamera) -> void:
 	_build_settler_panel()
 	_build_menu_panel()
 	_build_help_panel()
+	_build_notify_panel()
 	_build_info_panel()
 	_sea_panel = SeaPanel.new()
 	root.add_child(_sea_panel)
@@ -321,7 +324,7 @@ func _toggle(panel: Control) -> void:
 
 
 func _panels() -> Array:
-	return [_build_panel, _research_panel, _stock_panel, _settler_panel, _menu_panel, _help_panel, _sea_panel, _council_panel]
+	return [_build_panel, _research_panel, _stock_panel, _settler_panel, _menu_panel, _help_panel, _notify_panel, _sea_panel, _council_panel]
 
 
 func _popup_panel(title: String) -> Array:
@@ -1191,6 +1194,9 @@ func _build_menu_panel() -> void:
 	var help := UiTheme.button(tr("Spielanleitung"), "sonne", 44)
 	help.pressed.connect(func(): _toggle(_help_panel))
 	v.add_child(help)
+	var nt := UiTheme.button(tr("Meldungen"), "glocke", 44)
+	nt.pressed.connect(func(): _toggle(_notify_panel))
+	v.add_child(nt)
 	var ng := UiTheme.button(tr("Neues Spiel"), "abriss", 44)
 	var armed := [false]
 	ng.pressed.connect(func():
@@ -1261,6 +1267,39 @@ func _language_row() -> HBoxContainer:
 			get_tree().quit())
 	h.add_child(ob)
 	return h
+
+
+## Meldungen nach Art ein- und ausschalten (gespeichert in user://settings.cfg)
+func _build_notify_panel() -> void:
+	var r := _popup_panel(tr("Meldungen"))
+	_notify_panel = r[0]
+	var v: VBoxContainer = r[1]
+	var l := UiTheme.label(tr("Welche Meldungen sollen eingeblendet werden?"), 13)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.custom_minimum_size.x = 260
+	v.add_child(l)
+	var rows := [["goal_card", tr("Nächstes Ziel (oben links)"), Game.goal_card_on]]
+	for c in Game.NOTIFY_CATS:
+		if c in Game.KI_NOTIFY_CATS and not Society.enabled:
+			continue
+		rows.append([c, Game.NOTIFY_CATS[c], not Game.notify_off.get(c, false)])
+	_notify_grid = GridContainer.new()
+	_notify_grid.add_theme_constant_override("h_separation", 8)
+	_notify_grid.add_theme_constant_override("v_separation", 4)
+	v.add_child(_notify_grid)
+	for row in rows:
+		var cb := CheckBox.new()
+		cb.text = row[1]
+		cb.button_pressed = row[2]
+		cb.focus_mode = Control.FOCUS_NONE
+		cb.custom_minimum_size.y = 32
+		cb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		cb.add_theme_font_size_override("font_size", 14)
+		var cat: String = row[0]
+		cb.toggled.connect(func(on):
+			Game.set_notify(cat, on)
+			Sound.play("klick"))
+		_notify_grid.add_child(cb)
 
 
 ## Versionsnummer steht nur in project.godot (application/config/version).
@@ -1918,7 +1957,7 @@ func _info_animal(a: Animal) -> void:
 
 
 # ================================================================== Meldungen
-func toast(text: String, icon_name: String = "") -> void:
+func toast(text: String, icon_name: String = "", _cat: String = "") -> void:
 	# Dieselbe Meldung nicht doppelt stapeln
 	for c in _toasts.get_children():
 		if c.get_meta("text", "") == text and not c.is_queued_for_deletion():
@@ -2144,6 +2183,7 @@ func _layout() -> void:
 		goal_card.set_deferred("size", Vector2(gw, 0))
 		if goal_card.visible:
 			_toasts.position.y = max(top_h, goal_card.position.y + goal_card.size.y) + 6
+	_notify_grid.columns = 2 if vs.x >= 640 else 1
 	_size_settler_panel(vs.y - top_h - bp.size.y - 18.0)
 	for pnl in _panels():
 		pnl.reset_size()

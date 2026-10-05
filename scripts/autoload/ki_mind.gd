@@ -820,7 +820,7 @@ func _council(w, ep: int) -> void:
 		m.plan = _clean(str(g.get("text", "")))
 		if m.plan != "":
 			Society.log_line(w, tr("Der Rat sagt: „%s“") % m.plan)
-			Game.notify_at(w, tr("Der Inselrat von %s: „%s“") % [where, m.plan], "glocke")
+			Game.notify_at(w, tr("Der Inselrat von %s: „%s“") % [where, m.plan], "glocke", "rat")
 	last.plan = m.plan
 	m.last = last
 	m.councils = int(m.councils) + 1
@@ -1270,7 +1270,7 @@ func _build(w, c: Dictionary, how: String) -> void:
 		var b = w.building_by_id(int(c.upgrade))
 		if b and b.complete and w.upgrade_building(b) != null:
 			Society.log_line(w, tr("Der Rat lässt %s ausbauen (%s).") % [b.def.name, how])
-			Game.notify_at(w, tr("Der Rat lässt %s ausbauen (%s).") % [b.def.name, how], "hammer")
+			Game.notify_at(w, tr("Der Rat lässt %s ausbauen (%s).") % [b.def.name, how], "hammer", "rat_bau")
 		return
 	var spot: Vector2i = Society.find_spot(w, c.type)
 	if spot.x < 0:
@@ -1278,7 +1278,7 @@ func _build(w, c: Dictionary, how: String) -> void:
 		return
 	w.place_building(c.type, spot, false)
 	Society.log_line(w, tr("Der Rat lässt bauen: %s bei (%d,%d) (%s).") % [def.name, spot.x, spot.y, how])
-	Game.notify_at(w, tr("Der Rat lässt bauen: %s. %s") % [def.name, c.get("why", "")], "hammer")
+	Game.notify_at(w, tr("Der Rat lässt bauen: %s. %s") % [def.name, c.get("why", "")], "hammer", "rat_bau")
 
 
 # ------------------------------------------------------------------ Forschung
@@ -1303,7 +1303,7 @@ func _research(w, t: String, how: String) -> void:
 		Society.decide(w, tr("Forschung %s geht nicht: %s") % [Data.techs[t].name, err])
 		return
 	Society.log_line(w, tr("Die Forscher beginnen mit %s (%s).") % [Data.techs[t].name, how])
-	Game.notify_at(w, tr("Der Rat lässt erforschen: %s.") % Data.techs[t].name, "wissen")
+	Game.notify_at(w, tr("Der Rat lässt erforschen: %s.") % Data.techs[t].name, "wissen", "rat_bau")
 
 
 # ================================================================== Handel
@@ -1479,7 +1479,7 @@ func _open_trade(w, o, get: Dictionary, give: Dictionary) -> String:
 		(" for " + en_goods(p)) if not p.is_empty() else " as help", ship.name, Sea.meta(int(ship.home)).get("name", "?")]
 	Society.log_line(w, tr("Handelsroute beschlossen: %s.") % text)
 	Society.log_line(o, tr("Handelsroute beschlossen: %s.") % text)
-	Game.notify(tr("Handel: %s.") % text, "boot")
+	Game.notify(tr("Handel: %s.") % text, "boot", "handel")
 	return text
 
 
@@ -2176,7 +2176,7 @@ func add_lesson(w, text: String, source: String, key: String = "") -> void:
 				drop = i
 				break
 		m.lessons.remove_at(drop)
-	Society.decide(w, tr("Lehre (%s): %s") % [source, text])
+	Society.decide(w, tr("Lehre (%s): %s") % [tr(source), text])
 
 
 ## Llama schaut auf seine letzten Entscheidungen und deren Folgen und zieht selbst eine Lehre.

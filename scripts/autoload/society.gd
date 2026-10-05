@@ -167,8 +167,8 @@ func _process(_delta: float) -> void:
 	var t := Game.time_days
 	if not welcomed:
 		welcomed = true
-		Game.notify(tr("KI-Version: Deine Siedler entscheiden selbst, was sie arbeiten. Jedes Haus schickt einen Sprecher in den Inselrat."), "ki")
-		Game.notify(tr("Du bist der Herrscher. Unter „Rat“ findest du die Anliegen der Inseln: zustimmen, diskutieren oder bestimmen."), "glocke")
+		Game.notify(tr("KI-Version: Deine Siedler entscheiden selbst, was sie arbeiten. Jedes Haus schickt einen Sprecher in den Inselrat."), "ki", "rat")
+		Game.notify(tr("Du bist der Herrscher. Unter „Rat“ findest du die Anliegen der Inseln: zustimmen, diskutieren oder bestimmen."), "glocke", "rat")
 	for w in Sea.all_worlds():
 		if w.settlers.is_empty():
 			continue
@@ -455,7 +455,7 @@ func _think(w) -> void:
 			best.set_job(j)
 			last_change[best.id] = t
 			changes += 1
-			Game.notify_at(w, tr("%s denkt um: %s statt %s. %s") % [best.display_name, best.job_name(), old, _why_job(w, j, sit)], "ki")
+			Game.notify_at(w, tr("%s denkt um: %s statt %s. %s") % [best.display_name, best.job_name(), old, _why_job(w, j, sit)], "ki", "rat")
 			decide(w, tr("%s wird %s (vorher %s). Gebraucht: %d, da waren %d. %s") % [best.display_name, best.job_name(), old,
 				int(slots[j]), int(have[j]) - 1, _why_job(w, j, sit)])
 	# Wer in einem überbesetzten Beruf bleibt und nichts anderes findet, hilft frei aus
@@ -716,7 +716,7 @@ func _council(w) -> void:
 	var where := Sea.island_name(w)
 	if win == st.strategy:
 		log_line(w, tr("Der Rat bleibt bei „%s“ (%s).") % [strat_name(win), tally_text(votes)])
-		Game.notify_at(w, tr("Der Inselrat hat getagt und bleibt bei „%s“.") % strat_name(win), "glocke")
+		Game.notify_at(w, tr("Der Inselrat hat getagt und bleibt bei „%s“.") % strat_name(win), "glocke", "rat")
 	else:
 		add_request(w, "strategie", tr("Neue Strategie: %s") % strat_name(win),
 			tr("Der Rat von %s möchte die Strategie ändern: „%s“ statt „%s“. Abstimmung: %s.") % [where, strat_name(win), strat_name(st.strategy), tally_text(votes)],
@@ -732,7 +732,7 @@ func set_strategy(w, k: String, how: String) -> void:
 	# Wer für diese Strategie gestimmt hat, fühlt sich gehört
 	st.heard = st.votes.filter(func(v): return v.strat == k).map(func(v): return int(v.sid))
 	log_line(w, tr("Neue Strategie: „%s“. %s") % [strat_name(k), how])
-	Game.notify_at(w, tr("Neue Strategie: %s. %s") % [strat_name(k), how], "glocke")
+	Game.notify_at(w, tr("Neue Strategie: %s. %s") % [strat_name(k), how], "glocke", "rat")
 	st.next_think = 0.0
 	changed.emit()
 
@@ -754,7 +754,7 @@ func add_request(w, kind: String, title: String, text: String, data: Dictionary 
 		"made": Game.time_days, "until": Game.time_days + float(cfg("request_days", 1.0)), "data": data, "opts": opts})
 	next_req += 1
 	decide(w, tr("Anliegen an dich: %s") % title)
-	Game.notify_at(w, tr("Anliegen an den Herrscher: %s") % title, "glocke")
+	Game.notify_at(w, tr("Anliegen an den Herrscher: %s") % title, "glocke", "rat")
 	changed.emit()
 
 
@@ -799,7 +799,7 @@ func answer(rid: int, ans: String) -> String:
 	else:
 		_add_trust(w, "reject")
 		log_line(w, tr("Herrscher lehnt ab: %s.") % r.title)
-		Game.notify_at(w, tr("Der Herrscher lehnt ab: %s.") % r.title, "glocke")
+		Game.notify_at(w, tr("Der Herrscher lehnt ab: %s.") % r.title, "glocke", "rat")
 	if msg == "":
 		_close(r)
 	return msg
@@ -835,29 +835,29 @@ func _carry_out(w, r: Dictionary, how: String) -> String:
 				var b = w.building_by_id(int(d.upgrade))
 				if b == null or not b.complete or w.upgrade_building(b) == null:
 					return tr("Das Haus kann gerade nicht ausgebaut werden.")
-				Game.notify_at(w, tr("Der Rat lässt %s ausbauen (%s).") % [b.def.name, how], "hammer")
+				Game.notify_at(w, tr("Der Rat lässt %s ausbauen (%s).") % [b.def.name, how], "hammer", "rat_bau")
 			else:
 				var c := find_spot(w, d.type)
 				if c.x < 0:
 					return tr("Es gibt keinen freien Platz für %s.") % Data.buildings[d.type].name
 				w.place_building(d.type, c, false)
-				Game.notify_at(w, tr("Der Rat lässt bauen: %s (%s).") % [Data.buildings[d.type].name, how], "hammer")
+				Game.notify_at(w, tr("Der Rat lässt bauen: %s (%s).") % [Data.buildings[d.type].name, how], "hammer", "rat_bau")
 		"forschung":
 			if Game.research.current != "":
 				return ""
 			var err := Game.start_research(d.tech)
 			if err != "":
-				Game.notify_at(w, tr("Forschung %s: %s") % [Data.techs[d.tech].name, err], "wissen")
+				Game.notify_at(w, tr("Forschung %s: %s") % [Data.techs[d.tech].name, err], "wissen", "rat_bau")
 				return err if how.begins_with(tr("der Herrscher")) else ""
-			Game.notify_at(w, tr("Die Siedler forschen jetzt an %s (%s).") % [Data.techs[d.tech].name, how], "wissen")
+			Game.notify_at(w, tr("Die Siedler forschen jetzt an %s (%s).") % [Data.techs[d.tech].name, how], "wissen", "rat_bau")
 		"fest":
 			_festival(w)
 		"freizeit":
 			state(w).leisure_until = Game.time_days + float(cfg("leisure_days", 2.0))
-			Game.notify_at(w, tr("Mehr Freizeit auf %s: die Siedler arbeiten zwei Tage gemütlicher.") % Sea.island_name(w), "sonne")
+			Game.notify_at(w, tr("Mehr Freizeit auf %s: die Siedler arbeiten zwei Tage gemütlicher.") % Sea.island_name(w), "sonne", "rat")
 		"ueberstunden":
 			state(w).overtime_until = Game.time_days + float(cfg("overtime_days", 2.0))
-			Game.notify_at(w, tr("Die Siedler auf %s machen Überstunden.") % Sea.island_name(w), "hammer")
+			Game.notify_at(w, tr("Die Siedler auf %s machen Überstunden.") % Sea.island_name(w), "hammer", "rat_bau")
 		"hilfe":
 			var from = _world_of(int(d.from))
 			var sh := Sea.ship_by_id(int(d.ship))
@@ -889,7 +889,7 @@ func _festival(w) -> void:
 			break
 		need -= Game.take_stock(id, min(need, Game.amount(id, w)), w)
 	st.festival_until = Game.time_days + float(cfg("festival_days", 1.0))
-	Game.notify_at(w, tr("Fest auf %s! Die Siedler feiern, essen gut und arbeiten heute weniger.") % Sea.island_name(w), "musik")
+	Game.notify_at(w, tr("Fest auf %s! Die Siedler feiern, essen gut und arbeiten heute weniger.") % Sea.island_name(w), "musik", "rat")
 	Sound.play_on("glocke", w)
 
 
@@ -935,7 +935,7 @@ func _plan_buildings(w) -> void:
 		if fc.x >= 0:
 			w.place_building(t, fc, false)
 			log_line(w, tr("Der Rat legt an: %s.") % Data.buildings[t].name)
-			Game.notify_at(w, tr("Der Rat legt an: %s. Mehr Felder bringen mehr Essen.") % Data.buildings[t].name, "weizen")
+			Game.notify_at(w, tr("Der Rat legt an: %s. Mehr Felder bringen mehr Essen.") % Data.buildings[t].name, "weizen", "rat_bau")
 			return
 	if w.construction_sites().size() >= 2:
 		return
@@ -953,7 +953,7 @@ func _plan_buildings(w) -> void:
 		if c.x >= 0:
 			w.place_building(pick.type, c, false)
 			log_line(w, tr("Der Rat lässt bauen: %s. %s") % [def.name, pick.why])
-			Game.notify_at(w, tr("Der Rat lässt bauen: %s. %s") % [def.name, pick.why], "hammer")
+			Game.notify_at(w, tr("Der Rat lässt bauen: %s. %s") % [def.name, pick.why], "hammer", "rat_bau")
 		return
 	var costs := []
 	for id in def.get("cost", {}):

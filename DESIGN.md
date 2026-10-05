@@ -195,7 +195,7 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
 
 **Sprache (Englisch/Deutsch):** Der Quelltext bleibt deutsch, Englisch ist die Standardsprache. `data/i18n/en.json` ordnet jedem deutschen Text (Schlüssel) den englischen zu. Im Code stehen Anzeigetexte in `tr("...")` (in statischen Funktionen `Loc.t("...")`); Texte aus `data/*.json` (Felder name, desc, text, hint, verb ... siehe `Data.TEXT_KEYS`) übersetzt Data beim Laden. `scripts/autoload/loc.gd` lädt die Sprache aus `user://settings.cfg` ([game] language, Standard "en"), die Wahl steht im Menü und auf dem Startbild und startet das Spiel nach dem Speichern neu. Gespeicherte Insel- und Schiffsnamen zeigt `Loc.name_of` in der gewählten Sprache. Werkzeug: `python3 tools/i18n.py wrap` packt neue deutsche Texte im Code in tr(), `missing` listet Texte ohne Übersetzung (data/i18n/missing.json), `check` prüft Platzhalter. Neue Texte also immer auch in en.json eintragen. Testaufruf: `--langcheck=1` meldet sichtbare deutsche Texte im englischen Spiel.
 
-**Versionsnummer:** steht nur in `project.godot` unter `application/config/version` (Format Major.Minor.Patch). Das Menü und der Titelbildschirm zeigen sie unten an, die Testversion mit dem Zusatz „(Testversion)“. Für ein Update dort hochzählen. Im KI-Zweig setzt web.yml die letzte Stelle bei jedem Bau auf die Laufnummer des Ablaufs („Version 1.0.N KI“).
+**Versionsnummer:** steht in `project.godot` unter `application/config/version`. Die ersten beiden Stellen (1.0) zählt man dort von Hand hoch; die letzte setzt der Web-Build selbst auf die Zahl der Stände des Zweigs (`git rev-list --count --first-parent HEAD`), jeder Build von main zählt also eins weiter. Das Menü und der Titelbildschirm zeigen sie unten an, die Testversion mit dem Zusatz „(Testversion)“. Im KI-Zweig setzt web.yml die letzte Stelle bei jedem Bau auf die Laufnummer des Ablaufs („Version 1.0.N KI“).
 
 **Siedlerliste:** fast bildschirmfüllend mit kompakten Zeilen; Spaltenköpfe Name, Alter, Beruf, Satt sortieren (nochmal tippen dreht um), Filter für Beruf, Erwachsene/Kinder, Nur Hungrige (unter 30 % satt) und, bei mehreren Inseln, Diese Insel/Alle Inseln. Testaufruf: `--crowd=24 --panel=settlers [--sfilter=1]`.
 
@@ -214,7 +214,13 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
   Zeigerpfeil, danach feste Ziele mit Belohnungen und endlos erzeugte Ziele (Bevölkerung, Inseln,
   Geburten). Zustand `Game.goals {tut, ms}` im Spielstand; ältere Spielstände überspringen die
   Einführung und holen erreichte Ziele still nach. `Game.player_action(kind, what)` meldet
-  Spieleraktionen. Statistik `kills` zählt erlegte Tiere.
+  Spieleraktionen. Statistik `kills` zählt erlegte Tiere. Das X auf der Zielkarte blendet das
+  aktuelle Ziel aus (`goals.hide` = Ziel-ID), das nächste erscheint wieder.
+- **Meldungen**: `Game.notify(text, icon, cat)` hat eine Art aus `Game.NOTIFY_CATS` (ohne Angabe nach
+  dem Symbol über `NOTIFY_ICON_CAT`). Menü > „Meldungen“ schaltet jede Art und die Zielkarte ab;
+  gespeichert in `user://settings.cfg` Abschnitt `[notify]`, gilt für alle Spielstände.
+  Abgeschaltete Arten erreichen das Signal `notified` gar nicht. Neue Meldungsarten (etwa der KI)
+  als neuen Eintrag in `NOTIFY_CATS` anlegen und beim Aufruf als `cat` angeben.
 - **Bauen**: mit der Maus baut ein Klick sofort (Rechtsklick oder Esc bricht ab), am Handy tippt man
   den Platz an und bestätigt mit „Hier bauen“.
 - **Verschieben**: Knopf „Verschieben“ im Infofenster jedes Gebäudes (auch Baustellen, Felder und
@@ -386,6 +392,27 @@ Spiel bleibt unverändert. Der letzte Stand vor der KI-Variante liegt im Zweig `
   Siedler übernimmt den Auftrag des Rats (`_settler_obey`), ohne Auftrag bleibt er bei seiner Arbeit, und
   SmolLM wird nicht gefragt. Die Siedler-Entscheidung mit SmolLM (`_settler_turn` ab `settler_options`)
   bleibt unverändert im Code; `true` in `data/ki_llm.json` oder `--freewill=1` schaltet sie wieder ein.
+- **Arbeit nach Bedarf** (josh 2026-10-05): `KiMind.job_capacity(w)` rechnet vor jeder Arbeitsfrage, wie
+  viele Siedler je Beruf bis zur nächsten Sitzung beschäftigt sind: Felder nur für Saat und Ernte, die
+  in dieser Zeit anfallen; Sammeln, Fischen, Holz, Stein aus Vorrat plus Nachwuchs, begrenzt durch den
+  Platz im Lager; Werkstätten nach Rohstoffen; Baustellen nach Restarbeit und fehlendem Material;
+  Forschungsplätze; jagdbare Tiere. Arbeitszeit eines Siedlers = helle Tageszeit × `work_share`.
+  `_make_orders` vergibt nie mehr Plätze, der Rest wird Helfer (frei). Das Modell sieht bei jedem Beruf
+  „work for at most N“ mit Grund. Die gemessene Auslastung korrigiert das (`fit`, unten).
+- **Arbeitsstatistik:** Siedler zählen ihre helle Tageszeit in `settler.stat` (job = eigene Arbeit,
+  other = Ausweicharbeit, idle = nichts zu tun, needs = Essen, Freizeit, Krankheit, Flucht), dazu
+  Arbeitsschritte und abgelieferte Waren. `_collect_stats` liest das bei jeder Sitzung je Beruf und je
+  Siedler (`mem.stats`, die letzten 12 Abschnitte; `mem.stat_total` fürs ganze Spiel). Liegt die
+  eigene Arbeit unter `busy_target`, sinkt `fit[Beruf]` und damit die Zahl der Plätze; dazu wird eine
+  Lehre gemessen. Der Rat bekommt die Statistik in jeder Anfrage („How your workers spent the daytime“).
+- **Lager:** ab `storage_watch` steht ein Lager (Großes Lager, sonst Lagerhaus) unter den
+  Bauvorschlägen, ab `storage_urgent` ganz oben, ab `storage_rule` baut der Rat es sofort (Notregel).
+- **Lehren fürs ganze Spiel:** Jede Lehre kommt ins Archiv (`mem.archive`). Nach `summarize_every` neuen
+  fasst Llama alles zu höchstens `knowledge_max` Regeln zusammen (`mem.knowledge`, ohne Modell die
+  neueste Lehre je Art). In der Anfrage stehen die Regeln und die 3 neuesten Lehren. Rat > „Gelernt und
+  Statistik“ zeigt Regeln, Arbeit bis zur nächsten Sitzung, Statistik und alle Lehren (`--panel=lernen`).
+- **Meldungen:** Ansagen des Rats, Bau/Forschung durch den Rat und Handel haben eigene Arten
+  (`rat`, `rat_bau`, `handel`, nur in der KI-Version im Menü „Meldungen“).
 - **Sprache der KI: immer Englisch** (josh 2026-10-05), unabhängig von der Sprache der Oberfläche:
   alle Anfragen (Rat, Siedler, Chat, Lehre, Ansage) und damit alle Antworten der Modelle. Englische
   Namen und Kurzbeschreibungen der Spieldaten stehen in `data/ki_en.json` (Gebäude, Forschung, Waren,
