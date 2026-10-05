@@ -4,6 +4,7 @@ config_version=5
 [application]
 
 config/name="Insel-Siedler"
+config/version="1.0.0"
 config/description="Ein gemütliches Aufbauspiel auf einer Pixel-Insel."
 run/main_scene="res://scenes/main.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")

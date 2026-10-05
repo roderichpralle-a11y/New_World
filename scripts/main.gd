@@ -230,6 +230,8 @@ func _maybe_autotest() -> void:
 				"research":
 					hud._fill_research_list()
 					hud._toggle(hud._research_panel)
+				"menu":
+					hud._toggle(hud._menu_panel)
 				"stock":
 					hud._refresh_stock(true)
 					hud._toggle(hud._stock_panel)
