@@ -380,6 +380,10 @@ den normalen Spielstand) und lässt die Einführung weg. Ohne `/ki/` tut `Societ
 Spiel bleibt unverändert. Der letzte Stand vor der KI-Variante liegt im Zweig `version-1.0`.
 
 ### Sprachmodelle (Llama-3.2-1B für die Räte, SmolLM-135M für die Siedler)
+- **Freier Wille der Siedler** (`settler_free_will`, josh 2026-10-05: vorerst aus): Aus heißt, jeder
+  Siedler übernimmt den Auftrag des Rats (`_settler_obey`), ohne Auftrag bleibt er bei seiner Arbeit, und
+  SmolLM wird nicht gefragt. Die Siedler-Entscheidung mit SmolLM (`_settler_turn` ab `settler_options`)
+  bleibt unverändert im Code; `true` in `data/ki_llm.json` oder `--freewill=1` schaltet sie wieder ein.
 - **Sprache der KI: immer Englisch** (josh 2026-10-05), unabhängig von der Sprache der Oberfläche:
   alle Anfragen (Rat, Siedler, Chat, Lehre, Ansage) und damit alle Antworten der Modelle. Englische
   Namen und Kurzbeschreibungen der Spieldaten stehen in `data/ki_en.json` (Gebäude, Forschung, Waren,

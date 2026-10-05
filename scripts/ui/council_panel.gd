@@ -815,6 +815,8 @@ func _fill_watch_llm(w) -> void:
 				Sea.goods_text(t.get("get", {})), Sea.goods_text(t.give) if not t.give.is_empty() else "nichts"], 13)
 
 	_section("Siedler (SmolLM): Auftrag und eigene Entscheidung")
+	if not KiMind.free_will():
+		_text("Freier Wille ist ausgeschaltet: Jeder Siedler macht, was der Rat ihm aufträgt. Ohne Auftrag bleibt er bei seiner Arbeit. SmolLM wird dafür nicht gefragt.", 12, DIM)
 	for s in w.settlers:
 		if not s.is_adult():
 			continue
@@ -822,6 +824,8 @@ func _fill_watch_llm(w) -> void:
 		var t := "%s: " % s.display_name
 		if d.is_empty():
 			t += Society.thoughts.get(s.id, "hat noch nicht entschieden.")
+		elif str(d.get("rule", "")).ends_with("(freier Wille aus)"):
+			t += "%s: %s" % [Data.jobs.get(d.job, {}).get("name", d.job), d.rule]
 		else:
 			var order: String = d.get("order", "")
 			t += "Auftrag %s, entscheidet %s%s. Modell: %s. Klarheit %.1f%s" % [Data.jobs.get(order, {}).get("name", "keiner") if order != "" else "keiner",

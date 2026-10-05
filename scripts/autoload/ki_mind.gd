@@ -1509,10 +1509,39 @@ func _note_lag(key: String, hours: float) -> void:
 	lag[key] = hours if float(lag.get(key, 0.0)) <= 0.0 else lerpf(float(lag[key]), hours, 0.3)
 
 
+## Freier Wille der Siedler (josh 2026-10-05: vorerst aus). Aus: Jeder Siedler macht, was der Rat
+## ihm aufträgt; ohne Auftrag bleibt er bei seiner Arbeit. Das Siedlermodell wird dann nicht
+## gefragt (spart Rechenzeit). Die ganze Entscheidungslogik bleibt und ist mit
+## "settler_free_will": true in data/ki_llm.json oder `--freewill=1` sofort wieder an.
+func free_will() -> bool:
+	return bool(cfg("settler_free_will", false)) or "--freewill=1" in OS.get_cmdline_user_args()
+
+
+func _settler_obey(s, w, order: String) -> void:
+	var choice: String = order if order != "" else s.job
+	sdec[str(s.id)] = {"day": Game.time_days, "age_h": 0.0, "job": choice, "order": order, "own": false, "probs": "",
+		"mass": 0.0, "top": "", "clarity": 0.0, "rule": "Auftrag des Rats (freier Wille aus)" if order != "" else "kein Auftrag, bleibt dabei (freier Wille aus)"}
+	var hist: Array = smem.get(str(s.id), [])
+	hist.append([snappedf(Game.time_days, 0.01), choice, false])
+	if hist.size() > 3:
+		hist = hist.slice(hist.size() - 3)
+	smem[str(s.id)] = hist
+	var old: String = s.job
+	if choice != old:
+		s.set_job(choice)
+		Society.last_change[s.id] = Game.time_days
+		Society.decide(w, "%s wird %s (vorher %s), wie der Rat sagt." % [s.display_name, _jname(choice), _jname(old)])
+	Society.thoughts[s.id] = ("Ich bin %s. Das ist mein Auftrag vom Rat." % _jname(choice)) if order != "" else ("Ich bin %s. Der Rat hat mir nichts anderes aufgetragen." % _jname(choice))
+	changed.emit()
+
+
 func _settler_turn(s, w) -> void:
 	var ep := epoch
-	var opts := settler_options(s, w)
 	var order := council_order(s)
+	if not free_will():
+		_settler_obey(s, w, order)
+		return
+	var opts := settler_options(s, w)
 	activity = "%s überlegt, was er als Nächstes tut" % s.display_name if s.sex == "m" else "%s überlegt, was sie als Nächstes tut" % s.display_name
 	var msgs := settler_prompt(s, w, opts, order)
 	last_prompt["siedler"] = msgs[0].content + "\n\n" + msgs[1].content

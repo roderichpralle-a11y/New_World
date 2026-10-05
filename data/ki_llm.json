@@ -18,6 +18,8 @@
   "council_days": 1.0,
   "first_council_day": 0.15,
   "settler_days": 0.25,
+  "settler_free_will": false,
+  "_settler_free_will": "false: Siedler machen immer, was der Rat aufträgt (josh 2026-10-05); das Siedlermodell wird dann nicht gefragt. true: Siedler entscheiden selbst mit SmolLM.",
   "settler_temperature": 0.35,
   "undecided_clarity": 1.35,
   "_undecided_clarity": "Klarheit = höchste Wahrscheinlichkeit mal Anzahl der Möglichkeiten (1 = alle gleich). Darunter würfelt niemand: Siedler folgen dem Auftrag oder bleiben bei ihrer Arbeit, der Rat nimmt die stärkste Nummer.",
