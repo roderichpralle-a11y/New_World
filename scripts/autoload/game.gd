@@ -20,6 +20,13 @@ var SAVE_PATH := LIVE_SAVE_PATH
 var is_test_build := false
 ## KI-Variante (Webadresse mit /ki/): Siedler steuern sich selbst, Inselrat, Herrscher (Society).
 var is_ki_build := false
+## Fuenf Spielstaende: Platz 1 ist die bisherige Datei, die anderen haengen _2 .. _5 an.
+## Der aktive Platz steht in user://settings.cfg [game] slot (Testversion: slot_test).
+const SLOTS := 5
+var slot := 1
+var _slot_base := LIVE_SAVE_PATH
+## Nach dem Neuladen der Seite (Spielstand wechseln): "continue" oder "new" statt Titelbild
+var autostart := ""
 const SAVE_VERSION := 3
 
 var world = null  # aktive (sichtbare) Insel, siehe Sea fuer alle Inseln
@@ -52,6 +59,7 @@ func _ready() -> void:
 	_rng.randomize()
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_detect_test_build()
+	_load_slot()
 	_load_notify_settings()
 
 
@@ -776,6 +784,86 @@ func _finish_research(t: String) -> void:
 	stock_changed.emit()
 
 
+# ---------------------------------------------------------------- Spielstaende
+func slot_path(n: int) -> String:
+	return _slot_base if n <= 1 else _slot_base.replace(".json", "_%d.json" % n)
+
+
+func slot_exists(n: int) -> bool:
+	return FileAccess.file_exists(slot_path(n))
+
+
+func _slot_key() -> String:
+	return "slot_ki" if is_ki_build else ("slot_test" if is_test_build else "slot")
+
+
+func _load_slot() -> void:
+	_slot_base = SAVE_PATH
+	var cf := ConfigFile.new()
+	if cf.load("user://settings.cfg") == OK:
+		slot = clampi(int(cf.get_value("game", _slot_key(), 1)), 1, SLOTS)
+		autostart = str(cf.get_value("game", "autostart", ""))
+		if autostart != "":
+			cf.erase_section_key("game", "autostart")
+			cf.save("user://settings.cfg")
+	SAVE_PATH = slot_path(slot)
+
+
+## Kurzbeschreibung eines Spielstands, beim Speichern in settings.cfg [slots] abgelegt
+func slot_info(n: int) -> String:
+	if not slot_exists(n):
+		return ""
+	var cf := ConfigFile.new()
+	cf.load("user://settings.cfg")
+	var raw = cf.get_value("slots", slot_path(n).get_file(), [])
+	if not (raw is Array) or raw.size() < 4:
+		return ""
+	var dt := Time.get_datetime_dict_from_unix_time(int(raw[3]) + int(Time.get_time_zone_from_system().get("bias", 0)) * 60)
+	var isl: int = int(raw[2])
+	return tr("Tag %d, %d Siedler, %s, gespeichert %02d.%02d. %02d:%02d") % [int(raw[0]), int(raw[1]),
+		tr("1 Insel") if isl == 1 else tr("%d Inseln") % isl, dt.day, dt.month, dt.hour, dt.minute]
+
+
+func _write_slot_info() -> void:
+	var cf := ConfigFile.new()
+	cf.load("user://settings.cfg")
+	cf.set_value("slots", SAVE_PATH.get_file(), [day(), population(), Sea.worlds.size(), int(Time.get_unix_time_from_system())])
+	cf.save("user://settings.cfg")
+
+
+## Wechselt den Spielstand. mode: "continue" laedt ihn, "new" beginnt dort ein neues Spiel,
+## "" merkt sich nur den Platz (nach "Hier speichern"). Laden und Neu laden die Seite neu.
+func switch_slot(n: int, mode: String) -> void:
+	var cf := ConfigFile.new()
+	cf.load("user://settings.cfg")
+	cf.set_value("game", _slot_key(), n)
+	if mode != "":
+		cf.set_value("game", "autostart", mode)
+	cf.save("user://settings.cfg")
+	slot = n
+	SAVE_PATH = slot_path(n)
+	if mode == "":
+		return
+	if mode == "new" and slot_exists(n):
+		DirAccess.remove_absolute(slot_path(n))
+	if OS.has_feature("web"):
+		JavaScriptBridge.eval("window.location.reload()")
+	else:
+		OS.set_restart_on_exit(true)
+		get_tree().quit()
+
+
+## Speichert das laufende Spiel in einen anderen Platz und spielt dort weiter.
+func save_to_slot(n: int) -> void:
+	switch_slot(n, "")
+	save_game()
+
+
+func delete_slot(n: int) -> void:
+	if n != slot and slot_exists(n):
+		DirAccess.remove_absolute(slot_path(n))
+
+
 # ---------------------------------------------------------------- Speichern
 func has_save() -> bool:
 	return FileAccess.file_exists(SAVE_PATH)
@@ -801,6 +889,7 @@ func save_game() -> void:
 	if f:
 		f.store_string(JSON.stringify(data))
 		f.close()
+		_write_slot_info()
 
 
 func load_save() -> Dictionary:

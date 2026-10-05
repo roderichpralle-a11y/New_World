@@ -48,6 +48,12 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
   Inseln verloren und niemand mehr auf See, ist das Spiel vorbei (Spielstand wird gelöscht).
 - Speichern: automatisch alle `autosave_seconds` Sekunden, beim Verlassen und über das Menü
   (`user://savegame.json`, im Browser in IndexedDB).
+- Fünf Spielstände (Menü und Titelbild > „Spielstände“): Platz 1 ist `savegame.json`, die anderen
+  `savegame_2.json` .. `_5` (Testversion entsprechend `savegame_test_N.json`). Der aktive Platz steht in
+  `user://settings.cfg` [game] `slot` (`slot_test`), Kurzinfos (Tag, Siedler, Inseln, Zeit) unter [slots].
+  „Laden“ und „Neues Spiel“ in einem anderen Platz speichern erst, merken `autostart` und laden die
+  Seite neu (Desktop: Neustart); main.gd überspringt dann das Titelbild. „Hier speichern“ kopiert das
+  laufende Spiel in den Platz und spielt dort weiter. Testaufrufe `--panel=slots`, `--slottest=1`.
 
 ## Entwicklungsbaum und Wirtschaft (Etappe 2)
 

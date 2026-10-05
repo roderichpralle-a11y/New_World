@@ -33,7 +33,12 @@ func _ready() -> void:
 			world.cancel_placement())
 	_focus_start()
 	Game.set_speed(0)
-	hud.show_title(not save.is_empty())
+	if Game.autostart == "continue" and not save.is_empty():
+		_on_continue()
+	elif Game.autostart != "":
+		_on_new_game()
+	else:
+		hud.show_title(not save.is_empty())
 	_maybe_autotest()
 
 
@@ -101,6 +106,14 @@ func _maybe_autotest() -> void:
 		Seasons.jump_to_season(int(args.season))
 	if args.has("foodtest"):
 		_autotest_food()
+	if args.has("slottest"):
+		# Spielstaende: in Platz 2 speichern, Infos lesen, Platz 2 loeschen geht nur inaktiv
+		await get_tree().create_timer(2.0, true, false, true).timeout
+		Game.save_to_slot(2)
+		print("Slot aktiv=", Game.slot, " pfad=", Game.SAVE_PATH, " 2 da=", Game.slot_exists(2), " info=", Game.slot_info(2))
+		Game.switch_slot(1, "")
+		Game.delete_slot(2)
+		print("Slot aktiv=", Game.slot, " 2 da=", Game.slot_exists(2), " 1 info=", Game.slot_info(1))
 	if args.has("build"):
 		_autotest_build()
 	if args.has("prodtest"):
@@ -240,6 +253,8 @@ func _maybe_autotest() -> void:
 					hud._toggle(hud._menu_panel)
 				"notify":
 					hud._toggle(hud._notify_panel)
+				"slots":
+					hud._open_slots()
 				"stock":
 					hud._refresh_stock(true)
 					hud._toggle(hud._stock_panel)
