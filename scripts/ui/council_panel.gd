@@ -106,7 +106,7 @@ func _signature() -> String:
 	var extra := ""
 	if KiMind.active() or Llm.state == "laden":
 		var m: Dictionary = KiMind.mem(w)
-		extra = "%s|%d|%d|%s|%d|%s|%s" % [Llm.state, m.chat.size(), int(m.councils), str(m.waiting), m.binding.size(), KiMind.activity, Llm.status_text() if Llm.state == "laden" else ""]
+		extra = "%s|%d|%d|%s|%d|%s|%s|%s" % [Llm.state, m.chat.size(), int(m.councils), str(m.waiting), m.binding.size(), KiMind.activity, Llm.status_text() if Llm.state == "laden" else "", str(KiMind.braking)]
 	if _view == "ki":
 		# Beobachten: jede Sekunde neu, solange das Spiel läuft
 		extra += "%d|%d" % [st.dlog.size(), int(Game.time_days * 48.0)]
@@ -557,6 +557,21 @@ func _ki_status() -> void:
 		_btn(h, "Regel-KI nutzen", "", "Sprachmodelle ausschalten, die eingebaute Regel-KI entscheidet.", func():
 			Llm.set_choice("regel")
 			refresh())
+	if KiMind.active():
+		var lg: Dictionary = KiMind.lag
+		_text("Antworten kommen im Schnitt %.1f Spielstunden nach der Frage an (Rat: Sitzung %.1f Spielstunden, alle Siedler einmal: %.1f)." % [
+			float(lg.siedler), float(lg.rat), float(lg.runde)], 12, DIM)
+		if KiMind.braking:
+			_text("Die Zeit läuft gerade nur normal schnell, bis die KI aufgeholt hat.", 12, RULER)
+		var b := CheckButton.new()
+		b.text = "Zeit wartet auf die KI"
+		b.tooltip_text = "Bei schneller Geschwindigkeit läuft die Zeit nur normal schnell, solange der Rat tagt oder Siedler auf ihre Entscheidung warten. So entscheidet die KI mit aktuellen Angaben."
+		b.button_pressed = KiMind.brake
+		b.focus_mode = Control.FOCUS_NONE
+		b.add_theme_color_override("font_color", UiTheme.TEXT)
+		b.add_theme_color_override("font_pressed_color", UiTheme.TEXT)
+		b.toggled.connect(func(on): KiMind.set_brake(on))
+		_body.add_child(b)
 
 
 func _fill_overview_llm(w) -> void:

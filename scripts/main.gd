@@ -92,6 +92,9 @@ func _maybe_autotest() -> void:
 	var scale := float(args.get("scale", "8"))
 	Game.set_speed(1)
 	Engine.time_scale = scale
+	if args.has("gamespeed"):
+		# Test mit echter Spielgeschwindigkeit (1..3) statt Zeitraffer, z. B. für die Zeitbremse der KI
+		Game.set_speed(int(args.gamespeed))
 	Game.notified.connect(func(t, _i): print("[Tag %d %s] %s" % [Game.day(), Game.clock_text(), t]))
 	if args.has("season"):
 		# Testhilfe: Start in einer Jahreszeit (0 Frühling .. 3 Winter)

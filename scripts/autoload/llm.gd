@@ -48,6 +48,8 @@ var _poll := 0.0
 var _rng := RandomNumberGenerator.new()
 var _started := false
 var force_big := false  # Llama-3.2-1B auch auf dem Handy versuchen
+var mock_delay: Dictionary = {}  # Test: feste Rechenzeit der Attrappe je Modell
+var _mock_free := 0.0
 var skipped: Array = []  # Modelle, bei denen das Gerät abgestürzt ist (werden übersprungen)
 
 
@@ -67,6 +69,11 @@ func _ready() -> void:
 		choice = "llm"
 	elif "--llm=0" in args:
 		choice = "regel"
+	for a in args:
+		if a.begins_with("--llmdelay="):
+			# Test: Rechenzeit der Attrappe in Sekunden je Anfrage, "rat,siedler"
+			var p := a.trim_prefix("--llmdelay=").split(",")
+			mock_delay = {"rat": float(p[0]), "siedler": float(p[1]) if p.size() > 1 else float(p[0])}
 	if OS.has_feature("web"):
 		var p = JavaScriptBridge.eval("(function(){var n=navigator||{};return JSON.stringify({webgpu:!!n.gpu,memory:n.deviceMemory||0,mobile:/Android|iPhone|iPad|iPod|Mobile/i.test(n.userAgent||'')})})()", true)
 		var d = JSON.parse_string(str(p)) if p != null else null
@@ -243,7 +250,13 @@ func _submit(data: Dictionary, hint: Array, hint_text: String) -> Job:
 		return j
 	if backend == "mock":
 		var dl: Array = cfg("mock_delay", [0.05, 0.25])
-		j.due = Time.get_ticks_msec() / 1000.0 + _rng.randf_range(float(dl[0]), float(dl[1]))
+		var now := Time.get_ticks_msec() / 1000.0
+		if mock_delay.has(data.model):
+			# Wie ein echtes Modell: eine Anfrage nach der anderen, feste Rechenzeit je Modell
+			_mock_free = maxf(_mock_free, now) + float(mock_delay[data.model]) * _rng.randf_range(0.8, 1.2)
+			j.due = _mock_free
+		else:
+			j.due = now + _rng.randf_range(float(dl[0]), float(dl[1]))
 		j.data["_hint"] = hint
 		j.data["_hint_text"] = hint_text
 	else:

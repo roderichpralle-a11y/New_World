@@ -46,6 +46,56 @@ var _rng := RandomNumberGenerator.new()
 
 func _ready() -> void:
 	_rng.randomize()
+	var cf := ConfigFile.new()
+	if cf.load("user://ki_mind.cfg") == OK:
+		brake = bool(cf.get_value("ki", "brake", true))
+	if "--kibrake=0" in OS.get_cmdline_user_args():
+		brake = false
+
+
+## Zeitbremse: Bei schneller Geschwindigkeit läuft das Spiel nur normal schnell, solange der
+## Rat tagt oder Siedler auf ihre Entscheidung warten. Sonst wären die Angaben, mit denen die
+## Modelle entscheiden, schon viele Spielstunden alt, bevor die Antwort kommt.
+var brake := true
+var braking := false
+var _brake_check := 0.0
+
+
+func set_brake(on: bool) -> void:
+	brake = on
+	var cf := ConfigFile.new()
+	cf.set_value("ki", "brake", on)
+	cf.save("user://ki_mind.cfg")
+	changed.emit()
+
+
+func _overdue() -> int:
+	var n := 0
+	var lim := float(cfg("settler_days", 0.25)) * 2.0
+	for w in Sea.all_worlds():
+		if not is_instance_valid(w):
+			continue
+		for s in w.settlers:
+			if not is_instance_valid(s) or not s.is_adult() or s.job == "seemann" or s.mind.needs_bed() \
+					or float(Society.orders.get(s.id, 0.0)) > Game.time_days:
+				continue
+			var d: Dictionary = sdec.get(str(s.id), {})
+			if not d.is_empty() and Game.time_days - float(d.get("day", 0.0)) > lim:
+				n += 1
+	return n
+
+
+func _update_brake(delta: float) -> void:
+	_brake_check -= delta
+	if _brake_check > 0.0:
+		return
+	_brake_check = 0.5
+	var want := brake and active() and Game.speed > 1 and not Game.is_over and (council_busy or _overdue() > 0)
+	if want != braking:
+		braking = want
+		changed.emit()
+	if Game.speed > 1:
+		Engine.time_scale = 1.0 if braking else float(Game.speed)
 
 
 func cfg(key: String, default = null):
@@ -111,6 +161,7 @@ func _process(_delta: float) -> void:
 	if not Society.enabled:
 		return
 	Llm.maybe_start()
+	_update_brake(_delta / maxf(0.01, Engine.time_scale))
 	if running and Time.get_ticks_msec() / 1000.0 - _round_start > 900.0:
 		running = false  # Sicherheitsnetz: hängende Runde aufgeben
 	if not active() or running or Game.world == null or Game.is_over:
@@ -137,6 +188,7 @@ func _run_round() -> void:
 	var worlds: Array = Sea.all_worlds().duplicate()
 	worlds.sort_custom(func(a, b): return int(a.island_id) < int(b.island_id))
 	var did := false
+	var g0 := Game.time_days
 	for w in worlds:
 		if not await _alive(ep):
 			return
@@ -145,11 +197,19 @@ func _run_round() -> void:
 		var m := mem(w)
 		if Game.time_days >= float(m.next_council) and not Game.is_night():
 			m.next_council = Game.time_days + float(cfg("council_days", 1.0))
+			var c0 := Game.time_days
+			council_busy = true
 			await _council(w, ep)
+			council_busy = false
+			_note_lag("rat", (Game.time_days - c0) * 24.0)
 			did = true
 			if ep != epoch:
 				return
-		for s in w.settlers.duplicate():
+		# Wer am dringendsten eine Entscheidung braucht, kommt zuerst dran: Bei vielen Siedlern
+		# dauert eine Runde lange, und wer zuletzt käme, hätte sonst den ältesten Stand.
+		var queue: Array = w.settlers.duplicate()
+		queue.sort_custom(func(a, b): return _urgency(a) > _urgency(b))
+		for s in queue:
 			if not await _alive(ep):
 				return
 			if not is_instance_valid(s) or not is_instance_valid(w) or s.world != w:
@@ -162,6 +222,9 @@ func _run_round() -> void:
 				return
 	activity = ""
 	running = false
+	council_busy = false
+	if did:
+		_note_lag("runde", (Game.time_days - g0) * 24.0)
 	if not did:
 		# Nichts zu tun: kurz warten, bevor die nächste Runde startet
 		running = true
@@ -465,6 +528,7 @@ func _council_choose(w, ep: int, system: String, report: String, topic: String, 
 func _council(w, ep: int) -> void:
 	var m := mem(w)
 	var sit: Dictionary = Society.situation(w)
+	var sit0 := sit  # Lage zu Beginn der Sitzung (für die Messung danach)
 	Society._make_households(w, sit)
 	_evaluate(w, sit)
 	_prune_binding(w)
@@ -495,6 +559,12 @@ func _council(w, ep: int) -> void:
 		Society.decide(w, "Rat: Schwerpunkt %s. Modell: %s." % [labels[r.i], last.focus.probs])
 	Society.state(w).strategy = m.focus
 
+	# Frische Lage vor jeder Frage: Eine Sitzung dauert echte Zeit, in der das Spiel weiterläuft
+	# (bei schneller Geschwindigkeit viele Spielstunden). Jede Frage wird ohnehin ganz neu
+	# eingelesen, die frische Lage kostet also nichts extra.
+	sit = Society.situation(w)
+	system = council_system(w)
+	report = island_report(w)
 	# 2. Welche Arbeit ist wie wichtig? Daraus bekommt jeder Siedler einen Auftrag.
 	var jobs := _job_options(w, sit)
 	if not jobs.is_empty():
@@ -518,6 +588,12 @@ func _council(w, ep: int) -> void:
 	# 3. Bauen
 	if not await _alive(ep):
 		return
+	# Frische Lage vor jeder Frage: Eine Sitzung dauert echte Zeit, in der das Spiel weiterläuft
+	# (bei schneller Geschwindigkeit viele Spielstunden). Jede Frage wird ohnehin ganz neu
+	# eingelesen, die frische Lage kostet also nichts extra.
+	sit = Society.situation(w)
+	system = council_system(w)
+	report = island_report(w)
 	var bforced := _binding_value(w, "bau")
 	if bforced != "":
 		_build(w, {"type": bforced, "why": "Vorgabe des Herrschers."}, "auf Befehl des Herrschers")
@@ -539,13 +615,21 @@ func _council(w, ep: int) -> void:
 			var labels := cands.map(func(c): return _build_name(w, c))
 			labels.append("nichts")
 			last.build = {"choice": labels[r.i], "probs": _probs_text(labels, r.probs), "mass": r.mass}
-			if r.i < cands.size():
+			if r.i < cands.size() and w.construction_sites().size() >= 2:
+				Society.decide(w, "Rat: Bau %s verschoben, inzwischen sind schon zwei Baustellen offen." % labels[r.i])
+			elif r.i < cands.size():
 				_build(w, cands[r.i], "der Rat hat es beschlossen")
 			Society.decide(w, "Rat: Bauen %s. Modell: %s." % [labels[r.i], last.build.probs])
 
 	# 4. Forschung (nur Hauptinsel)
 	if not await _alive(ep):
 		return
+	# Frische Lage vor jeder Frage: Eine Sitzung dauert echte Zeit, in der das Spiel weiterläuft
+	# (bei schneller Geschwindigkeit viele Spielstunden). Jede Frage wird ohnehin ganz neu
+	# eingelesen, die frische Lage kostet also nichts extra.
+	sit = Society.situation(w)
+	system = council_system(w)
+	report = island_report(w)
 	if int(w.island_id) == 0 and Game.research.current == "":
 		var tforced := _binding_value(w, "forschung")
 		if tforced != "" and Game.tech_state(tforced) == "available":
@@ -562,14 +646,24 @@ func _council(w, ep: int) -> void:
 				var r := await _council_choose(w, ep, system, report, "Forschung", "Was sollen eure Forscher als Nächstes erforschen?", opts, hint)
 				if not r.ok:
 					return
-				var labels := techs.map(func(t): return Data.techs[t].name)
-				last.research = {"choice": labels[r.i], "probs": _probs_text(labels, r.probs), "mass": r.mass}
-				_research(w, techs[r.i], "der Rat hat es beschlossen")
-				Society.decide(w, "Rat: Forschung %s. Modell: %s." % [labels[r.i], last.research.probs])
+				if Game.research.current != "":
+					# Während der Rat nachdachte, wurde schon etwas anderes begonnen
+					Society.decide(w, "Rat: Forschung %s verworfen, inzwischen wird %s erforscht." % [Data.techs[techs[r.i]].name, Data.techs[Game.research.current].name])
+				else:
+					var labels := techs.map(func(t): return Data.techs[t].name)
+					last.research = {"choice": labels[r.i], "probs": _probs_text(labels, r.probs), "mass": r.mass}
+					_research(w, techs[r.i], "der Rat hat es beschlossen")
+					Society.decide(w, "Rat: Forschung %s. Modell: %s." % [labels[r.i], last.research.probs])
 
 	# 5. Handel mit anderen Inseln
 	if not await _alive(ep):
 		return
+	# Frische Lage vor jeder Frage: Eine Sitzung dauert echte Zeit, in der das Spiel weiterläuft
+	# (bei schneller Geschwindigkeit viele Spielstunden). Jede Frage wird ohnehin ganz neu
+	# eingelesen, die frische Lage kostet also nichts extra.
+	sit = Society.situation(w)
+	system = council_system(w)
+	report = island_report(w)
 	var tr := await _trade(w, ep, system, report, sit)
 	if ep != epoch:
 		return
@@ -577,6 +671,12 @@ func _council(w, ep: int) -> void:
 		last.trade = tr
 
 	# 6. Was sagt der Rat den Bewohnern?
+	# Frische Lage vor jeder Frage: Eine Sitzung dauert echte Zeit, in der das Spiel weiterläuft
+	# (bei schneller Geschwindigkeit viele Spielstunden). Jede Frage wird ohnehin ganz neu
+	# eingelesen, die frische Lage kostet also nichts extra.
+	sit = Society.situation(w)
+	system = council_system(w)
+	report = island_report(w)
 	activity = "Rat von %s spricht zu den Bewohnern" % where
 	var summary := _decision_summary(last)
 	var msgs := [{"role": "system", "content": system},
@@ -595,7 +695,7 @@ func _council(w, ep: int) -> void:
 	last.plan = m.plan
 	m.last = last
 	m.councils = int(m.councils) + 1
-	_remember(w, sit, last)
+	_remember(w, sit0, last)
 	Society._council_requests(w, sit)
 	# Alle paar Sitzungen zieht der Rat selbst eine Lehre
 	if int(m.councils) % int(cfg("reflect_every", 3)) == 0 and m.records.size() >= 2:
@@ -1229,6 +1329,47 @@ func _argmax(probs: Array) -> int:
 	return b
 
 
+## Warum eine Siedler-Antwort nicht mehr passt (leer = passt noch). Dann wird sie nicht
+## umgesetzt; der Siedler kommt in der nächsten Runde mit frischen Angaben wieder dran.
+func _settler_stale(s, w, choice: String, order: String) -> String:
+	if float(Society.orders.get(s.id, 0.0)) > Game.time_days:
+		return "der Herrscher hat inzwischen bestimmt"
+	if s.mind.needs_bed():
+		return "inzwischen krank"
+	if council_order(s) != order:
+		return "der Rat hat inzwischen einen neuen Auftrag gegeben"
+	if choice != s.job and choice != "frei" and not choice in _job_options(w, Society.situation(w)):
+		return "%s hat inzwischen nichts mehr zu tun" % _jname(choice)
+	return ""
+
+
+## Wie dringend braucht ein Siedler eine neue Entscheidung? Noch nie entschieden, neuer
+## Auftrag vom Rat, hungrig oder ohne Arbeit zuerst, sonst wessen Entscheidung am ältesten ist.
+func _urgency(s) -> float:
+	if not is_instance_valid(s):
+		return -1.0
+	var d: Dictionary = sdec.get(str(s.id), {})
+	if d.is_empty():
+		return 100.0
+	var u := Game.time_days - float(d.get("day", 0.0))
+	if council_order(s) != str(d.get("order", "")):
+		u += 10.0
+	if s.hunger < 35.0:
+		u += 5.0
+	if s.job == "frei":
+		u += 3.0
+	return u
+
+
+## Wie alt sind die Antworten der Modelle, wenn sie ankommen (in Spielstunden)?
+var lag := {"siedler": 0.0, "rat": 0.0, "runde": 0.0}
+var council_busy := false
+
+
+func _note_lag(key: String, hours: float) -> void:
+	lag[key] = hours if float(lag.get(key, 0.0)) <= 0.0 else lerpf(float(lag[key]), hours, 0.3)
+
+
 func _settler_turn(s, w) -> void:
 	var ep := epoch
 	var opts := settler_options(s, w)
@@ -1255,12 +1396,15 @@ func _settler_turn(s, w) -> void:
 	var msgs2 := settler_prompt(s, w, rev, order)
 	var j1 = Llm.choose("siedler", msgs, opts.size(), hint, "My choice:")
 	var j2 = Llm.choose("siedler", msgs2, rev.size(), rhint, "My choice:")
+	var t0 := Game.time_days
 	var r: Dictionary = await j1.wait()
 	var r2: Dictionary = await j2.wait()
 	if ep != epoch or not is_instance_valid(s) or s.world != w:
 		return
 	if not r.get("ok", false):
 		return
+	var age_h := (Game.time_days - t0) * 24.0
+	_note_lag("siedler", age_h)
 	var p1: Array = r.get("probs", [])
 	var p2r: Array = r2.get("probs", []) if r2.get("ok", false) else []
 	var probs := []
@@ -1281,15 +1425,21 @@ func _settler_turn(s, w) -> void:
 		i = pick(probs, float(cfg("settler_temperature", 0.35)))
 		rule = "Modell"
 	var choice: String = opts[i]
+	# Ist die Antwort noch gültig? Während das Modell rechnete, lief das Spiel weiter.
+	var stale := _settler_stale(s, w, choice, order)
+	if stale != "":
+		trace({"who": s.display_name, "isl": Sea.island_name(w), "role": "siedler", "topic": "Arbeit (verworfen)",
+			"text": "Antwort (%s) nach %.1f Spielstunden verworfen: %s" % [_jname(choice), age_h, stale]})
+		return
 	var own := order != "" and choice != order
 	var names := opts.map(func(j): return _jname(j))
 	var ptext := _probs_text(names, probs)
-	sdec[str(s.id)] = {"day": Game.time_days, "job": choice, "order": order, "own": own, "probs": ptext,
+	sdec[str(s.id)] = {"day": Game.time_days, "age_h": age_h, "job": choice, "order": order, "own": own, "probs": ptext,
 		"mass": float(r.get("mass", 0.0)), "top": str(r.get("top", "")), "clarity": clar, "rule": rule}
 	trace({"who": s.display_name, "isl": Sea.island_name(w), "role": "siedler", "topic": "Arbeit", "prompt": last_prompt["siedler"],
 		"prompt2": msgs2[1].content, "options": names, "probs": probs, "probs_a": p1, "probs_b": p2r, "mass": [r.get("mass", 0.0), r2.get("mass", 0.0)],
 		"top": [r.get("top", ""), r2.get("top", "")], "ms": float(r.get("ms", 0.0)) + float(r2.get("ms", 0.0)), "clarity": clar,
-		"choice": names[i], "order": _jname(order) if order != "" else "", "rule": rule, "own": own})
+		"choice": names[i], "order": _jname(order) if order != "" else "", "rule": rule, "own": own, "age_h": age_h})
 	var hist: Array = smem.get(str(s.id), [])
 	hist.append([snappedf(Game.time_days, 0.01), choice, own])
 	if hist.size() > 3:
@@ -1644,6 +1794,9 @@ func report_text() -> String:
 	L.append("Geladen: %s" % JSON.stringify(Llm.loaded))
 	L.append("Gerät: %s, Prüfung: %s, übersprungen: %s" % [Llm.device, JSON.stringify(Llm.probe), JSON.stringify(Llm.skipped)])
 	L.append("Anfragen: Rat %d (Schnitt %.1f s), Siedler %d (Schnitt %.2f s)" % [int(Llm.stats.rat[0]), Llm.avg_ms("rat") / 1000.0, int(Llm.stats.siedler[0]), Llm.avg_ms("siedler") / 1000.0])
+	L.append("Spielgeschwindigkeit %d, Zeit wartet auf die KI: %s%s" % [Game.speed, "an" if brake else "aus", " (bremst gerade)" if braking else ""])
+	L.append("Alter der Antworten in Spielstunden: Siedler %.1f, Ratssitzung %.1f, alle Siedler einmal %.1f. Verworfene Siedler-Antworten (veraltet): %d" % [
+		float(lag.siedler), float(lag.rat), float(lag.runde), traces.filter(func(e): return str(e.topic).ends_with("(verworfen)")).size()])
 	L.append("Festgehalten: %d Einträge seit dem Start (die letzten %d hier, volle Anfragetexte nur bei den letzten %d)." % [trace_count, traces.size(), TRACE_FULL])
 	L.append("")
 	L.append("Lesehilfe: Klarheit 1,0 heißt, alle Möglichkeiten waren dem Modell gleich lieb (Würfeln). Klarheit = höchste Wahrscheinlichkeit mal Anzahl der Möglichkeiten; unter %.2f gilt das Modell als unentschlossen. Nummernanteil = wie sehr das Modell überhaupt mit einer Nummer antworten wollte. Siedler werden zweimal gefragt (A: normale Reihenfolge, B: umgekehrt), gezählt wird der Mittelwert." % float(cfg("undecided_clarity", 1.35)))
@@ -1718,7 +1871,8 @@ func report_text() -> String:
 				for k in e.probs_b.size():
 					rb.append(e.probs_b[e.probs_b.size() - 1 - k])
 				L.append("  B (umgekehrt gefragt, zurückgeordnet): %s" % (_plist(e.options, rb) if not rb.is_empty() else "keine Antwort"))
-			L.append("Klarheit %.2f, Nummernanteil %s, liebstes Wort: %s, Rechenzeit %d ms" % [float(e.clarity), JSON.stringify(e.mass), JSON.stringify(e.top), int(float(e.ms))])
+			L.append("Klarheit %.2f, Nummernanteil %s, liebstes Wort: %s, Rechenzeit %d ms%s" % [float(e.clarity), JSON.stringify(e.mass), JSON.stringify(e.top), int(float(e.ms)),
+				", Antwort kam %.1f Spielstunden nach der Frage" % float(e.age_h) if e.has("age_h") else ""])
 			L.append("Entscheidung: %s (%s)%s" % [str(e.choice).split(":")[0], e.rule, ", gegen den Auftrag" if e.get("own", false) else ""])
 		if e.has("text"):
 			L.append("Antwort: %s  (%d ms)" % [e.text, int(float(e.get("ms", 0.0)))])

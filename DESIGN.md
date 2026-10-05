@@ -450,6 +450,18 @@ laden oder will der Spieler nicht, entscheidet die Regel-KI unten wie bisher.
   Zeilen zum Siedler springen nur bei echtem Klick oder Tipp (`_jump_on_tap`); vorher schloss das
   Mausrad über einer Siedlerzeile das Fenster. Beim Scrollen und beim Lesen der Anfrage baut sich die
   Ansicht nicht neu auf, die Scrollposition bleibt.
+- **Zeit und Geschwindigkeit**: Die Modelle brauchen echte Sekunden, das Spiel läuft weiter (bei
+  „Schnell“ dreimal so schnell). Darum: Der Rat bekommt vor jeder Frage einer Sitzung die frische Lage
+  (`council_system`/`island_report` neu; jede Frage wird ohnehin ganz neu eingelesen); Forschung und Bau
+  prüfen nach der Antwort, ob inzwischen schon etwas begonnen wurde. Siedler-Antworten werden vor dem
+  Umsetzen geprüft (`_settler_stale`: Befehl des Herrschers, krank, neuer Auftrag des Rats, Arbeit hat
+  nichts mehr zu tun) und sonst verworfen; der Siedler kommt in der nächsten Runde frisch dran. Die
+  Reihenfolge der Siedler richtet sich nach `_urgency` (nie entschieden, neuer Auftrag, Hunger, frei,
+  älteste Entscheidung). `lag` misst das Alter der Antworten in Spielstunden (Anzeige im Rat und im
+  Bericht). **Zeitbremse** „Zeit wartet auf die KI“ (`brake`, Standard an, `user://ki_mind.cfg`): Bei
+  Geschwindigkeit 2 oder 3 läuft `Engine.time_scale` auf 1, solange der Rat tagt oder ein Siedler länger
+  als doppelt `settler_days` auf seine Entscheidung wartet. Test: `--gamespeed=3 --llmdelay=6,0.5`
+  (Attrappe rechnet wie ein echtes Modell nacheinander, Sekunden je Anfrage Rat/Siedler), `--kibrake=0`.
 - **KI-Bericht (vorübergehend zur Kontrolle)**: `KiMind.trace` hält jede Anfrage an ein Modell fest
   (Möglichkeiten, Wahrscheinlichkeiten A/B, Klarheit, Nummernanteil, Entscheidung und Regel, Antworttexte,
   volle Anfrage für die letzten 150), nur im Speicher. „KI-Bericht herunterladen“ im Menü und in
