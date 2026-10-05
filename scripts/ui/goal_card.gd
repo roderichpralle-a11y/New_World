@@ -43,6 +43,10 @@ func setup(p_hud) -> void:
 	_skip.tooltip_text = "Einführung überspringen"
 	_skip.pressed.connect(_skip_tutorial)
 	hr.add_child(_skip)
+	var close := UiTheme.button("", "abriss", 22)
+	close.tooltip_text = "Ziel ausblenden, bis das nächste kommt"
+	close.pressed.connect(_dismiss)
+	hr.add_child(close)
 	_text = UiTheme.label("", 14, UiTheme.TEXT, true)
 	_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_text.custom_minimum_size.x = 170
@@ -204,6 +208,17 @@ func _advance(g: Dictionary, silent: bool) -> void:
 	tw.tween_property(self, "modulate", Color.WHITE, 0.8)
 
 
+## Wegklicken: dieses Ziel bleibt verborgen, das naechste erscheint wieder.
+func _dismiss() -> void:
+	Game.goals["hide"] = _cur_id
+	Sound.play("zu")
+	hud.toast("Ziel ausgeblendet. Das nächste Ziel erscheint wieder. Ganz abschalten: Menü > Meldungen.", "ziel", "tag")
+
+
+func shown() -> bool:
+	return Game.goal_card_on and str(Game.goals.get("hide", "")) != current().id
+
+
 func _skip_tutorial() -> void:
 	Game.goals.tut = Data.goals.get("tutorial", []).size()
 	_actions.clear()
@@ -216,15 +231,25 @@ func _process(delta: float) -> void:
 	var real: float = delta / max(Engine.time_scale, 0.001) if Engine.time_scale > 0.0 else 1.0 / 60.0
 	_bob += real
 	var active: bool = Game.world != null and is_instance_valid(Game.world) and not Game.is_over and not hud.has_overlay()
-	visible = active
 	if not active:
-		_pointer.visible = false
+		_set_visible(false)
 		return
 	_tick -= real
 	if _tick <= 0.0:
 		_tick = 0.4
 		_check()
-	_update_pointer()
+	_set_visible(shown())
+	if visible:
+		_update_pointer()
+
+
+func _set_visible(on: bool) -> void:
+	if not on:
+		_pointer.visible = false
+	if visible != on:
+		visible = on
+		if hud:
+			hud._layout.call_deferred()
 
 
 func _check() -> void:

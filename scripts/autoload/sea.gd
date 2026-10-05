@@ -518,7 +518,7 @@ func _ship_tick_all() -> void:
 				for i in n:
 					var sh := _new_ship(t, w.island_id)
 					fill_crew(sh)
-					Game.notify_at(w, "Stapellauf! Die %s liegt bereit." % ship_label(sh), Data.ships[t].get("icon", "boot"))
+					Game.notify_at(w, "Stapellauf! Die %s liegt bereit." % ship_label(sh), Data.ships[t].get("icon", "boot"), "see")
 					Sound.play_on("entdeckt", w)
 				w.sync_ships()
 				islands_changed.emit()

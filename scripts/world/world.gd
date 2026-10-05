@@ -1503,7 +1503,7 @@ func _process_dens(delta: float) -> void:
 				born += 1
 		_den_breed[key] = Game.time_days
 		if born > 0:
-			Game.notify_at(self, "Nachwuchs bei den %s: %d %s." % [def.get("plural_dat", def.name), born, "Jungtier" if born == 1 else "Jungtiere"], n.def.spawns)
+			Game.notify_at(self, "Nachwuchs bei den %s: %d %s." % [def.get("plural_dat", def.name), born, "Jungtier" if born == 1 else "Jungtiere"], n.def.spawns, "tiere")
 
 
 func _find_mate(den, have: int) -> void:
