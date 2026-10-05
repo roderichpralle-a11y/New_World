@@ -193,6 +193,8 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
 
 ## Feinschliff (Etappe 4)
 
+**Sprache (Englisch/Deutsch):** Der Quelltext bleibt deutsch, Englisch ist die Standardsprache. `data/i18n/en.json` ordnet jedem deutschen Text (Schlüssel) den englischen zu. Im Code stehen Anzeigetexte in `tr("...")` (in statischen Funktionen `Loc.t("...")`); Texte aus `data/*.json` (Felder name, desc, text, hint, verb ... siehe `Data.TEXT_KEYS`) übersetzt Data beim Laden. `scripts/autoload/loc.gd` lädt die Sprache aus `user://settings.cfg` ([game] language, Standard "en"), die Wahl steht im Menü und auf dem Startbild und startet das Spiel nach dem Speichern neu. Gespeicherte Insel- und Schiffsnamen zeigt `Loc.name_of` in der gewählten Sprache. Werkzeug: `python3 tools/i18n.py wrap` packt neue deutsche Texte im Code in tr(), `missing` listet Texte ohne Übersetzung (data/i18n/missing.json), `check` prüft Platzhalter. Neue Texte also immer auch in en.json eintragen. Testaufruf: `--langcheck=1` meldet sichtbare deutsche Texte im englischen Spiel.
+
 **Versionsnummer:** steht nur in `project.godot` unter `application/config/version` (Format Major.Minor.Patch). Das Menü und der Titelbildschirm zeigen sie unten an, die Testversion mit dem Zusatz „(Testversion)“. Für ein Update dort hochzählen.
 
 **Siedlerliste:** fast bildschirmfüllend mit kompakten Zeilen; Spaltenköpfe Name, Alter, Beruf, Satt sortieren (nochmal tippen dreht um), Filter für Beruf, Erwachsene/Kinder, Nur Hungrige (unter 30 % satt) und, bei mehreren Inseln, Diese Insel/Alle Inseln. Testaufruf: `--crowd=24 --panel=settlers [--sfilter=1]`.

@@ -58,7 +58,7 @@ func _detect_test_build() -> void:
 		path = str(JavaScriptBridge.eval("window.location.pathname", true))
 	if "--testbuild" in OS.get_cmdline_user_args():
 		path = "/test/"
-	if not "/test/" in path:
+	if not "/test" in path:  # /test/ und /test-en/
 		return
 	is_test_build = true
 	SAVE_PATH = "user://savegame_test.json"
@@ -130,7 +130,7 @@ func _process(delta: float) -> void:
 		if day() != _last_day:
 			_last_day = day()
 			day_started.emit(_last_day)
-			notify("Tag %d beginnt." % _last_day, "sonne")
+			notify(tr("Tag %d beginnt.") % _last_day, "sonne")
 		# KI-Steuerung (KI-Zentrum): freie Siedler auf fehlende Berufe verteilen
 		if time_days >= _ai_next:
 			_ai_next = time_days + 0.25
@@ -502,7 +502,7 @@ func _try_birth_on(w) -> void:
 	father.mind.on_child_born()
 	stats.births += 1
 	Sound.play_on("geburt", w)
-	notify_at(w, "%s ist geboren! Eltern: %s und %s." % [child.display_name, mother.display_name, father.display_name], "herz")
+	notify_at(w, tr("%s ist geboren! Eltern: %s und %s.") % [child.display_name, mother.display_name, father.display_name], "herz")
 
 
 ## Geburtenfaktor des Hauses, in dem die Mutter wohnt (Hütte 1, Holzhaus 1.4, Steinhaus 1.8).
@@ -522,7 +522,7 @@ func _try_newcomer(w, adults: Array) -> void:
 	var sex := "m" if men < women else ("f" if women < men else ("f" if _rng.randf() < 0.5 else "m"))
 	var s = w.spawn_newcomer(sex)
 	if s:
-		notify_at(w, "%s ist an den Strand gespült worden und schließt sich euch an!" % s.display_name, "person")
+		notify_at(w, tr("%s ist an den Strand gespült worden und schließt sich euch an!") % s.display_name, "person")
 		Sound.play_on("glocke", w)
 
 
@@ -550,7 +550,7 @@ func register_lineage(sid: int, parents: Array) -> void:
 
 func on_settler_died(s, reason: String) -> void:
 	stats.deaths += 1
-	var text := "%s ist %s." % [s.display_name, reason]
+	var text := tr("%s ist %s.") % [s.display_name, reason]
 	notify_at(s.world, text, "abriss")
 	Sound.play_on("tod", s.world)
 	if selected == s:
@@ -640,7 +640,7 @@ func start_research(t: String) -> String:
 	if st == "current":
 		return ""
 	if st != "available":
-		return "Diese Forschung ist noch nicht möglich."
+		return tr("Diese Forschung ist noch nicht möglich.")
 	if not t in research.paid:
 		var cost: Dictionary = Data.techs[t].get("cost", {})
 		if not can_afford(cost):
@@ -648,9 +648,9 @@ func start_research(t: String) -> String:
 			for id in cost:
 				if amount(id) < int(cost[id]):
 					miss.append("%d %s" % [int(cost[id]) - amount(id), Data.resource_name(id)])
-			var why := "Es fehlt noch: " + ", ".join(miss)
+			var why := tr("Es fehlt noch: ") + ", ".join(miss)
 			if amount("felle") < int(cost.get("felle", 0)):
-				why += ". Felle bringen Jäger, wenn sie wilde Tiere erlegen."
+				why += tr(". Felle bringen Jäger, wenn sie wilde Tiere erlegen.")
 			return why
 		for id in cost:
 			take_stock(id, int(cost[id]))
@@ -692,13 +692,13 @@ func _finish_research(t: String) -> void:
 	research.current = ""
 	_recompute_effects()
 	var unlocks := Data.tech_unlocks(t).map(func(b): return Data.buildings[b].name)
-	var text := "Erforscht: %s!" % Data.techs[t].name
+	var text := tr("Erforscht: %s!") % Data.techs[t].name
 	if not unlocks.is_empty():
-		text += " Neu zu bauen: " + ", ".join(unlocks) + "."
+		text += tr(" Neu zu bauen: ") + ", ".join(unlocks) + "."
 	notify(text, "wissen")
 	var age := current_age()
 	if age > age_before:
-		notify("Ein neues Zeitalter beginnt: %s! %s" % [Data.age_name(age), Data.ages[age].get("desc", "")], "zeitalter")
+		notify(tr("Ein neues Zeitalter beginnt: %s! %s") % [Data.age_name(age), Data.ages[age].get("desc", "")], "zeitalter")
 	Sound.play("forschung")
 	research_changed.emit()
 	stock_changed.emit()

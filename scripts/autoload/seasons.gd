@@ -76,7 +76,7 @@ func season_progress() -> float:
 func season_name(s: int = -1) -> String:
 	if s < 0:
 		s = season()
-	return cfg.get("names", ["Frühling", "Sommer", "Herbst", "Winter"])[s]
+	return cfg.get("names", [tr("Frühling"), tr("Sommer"), tr("Herbst"), tr("Winter")])[s]
 
 
 func icon(s: int = -1) -> AtlasTexture:
@@ -101,13 +101,13 @@ func effects_text(s: int = -1) -> String:
 		s = season()
 	match s:
 		SPRING:
-			return "Bäume wachsen am schnellsten, Felder werden bestellt, Tiere bekommen Junge."
+			return tr("Bäume wachsen am schnellsten, Felder werden bestellt, Tiere bekommen Junge.")
 		SUMMER:
-			return "Lange Tage, Beeren reifen, Getreide wächst am besten. Frische Nahrung verdirbt schneller."
+			return tr("Lange Tage, Beeren reifen, Getreide wächst am besten. Frische Nahrung verdirbt schneller.")
 		AUTUMN:
-			return "Pilzzeit, alles andere wächst langsamer. Keine Aussaat mehr, Stürme bremsen Schiffe, Häuser brauchen etwas Holz."
+			return tr("Pilzzeit, alles andere wächst langsamer. Keine Aussaat mehr, Stürme bremsen Schiffe, Häuser brauchen etwas Holz.")
 		_:
-			return "Nichts wächst, kurze Tage, Schnee bremst Bauen und Laufen. Jeder Siedler braucht Holz zum Heizen und mehr Essen. Vorräte verderben nicht."
+			return tr("Nichts wächst, kurze Tage, Schnee bremst Bauen und Laufen. Jeder Siedler braucht Holz zum Heizen und mehr Essen. Vorräte verderben nicht.")
 
 
 func jump_to_season(s: int) -> void:
@@ -226,7 +226,7 @@ func _process(delta: float) -> void:
 
 func _on_new_season(s: int) -> void:
 	season_changed.emit(s)
-	Game.notify("%s, Jahr %d. %s" % [season_name(s), year(), effects_text(s)], "")
+	Game.notify(tr("%s, Jahr %d. %s") % [season_name(s), year(), effects_text(s)], "")
 	if s == WINTER:
 		_frost()
 	Sound.play("glocke")
@@ -238,14 +238,14 @@ func _on_new_day() -> void:
 		var parts := []
 		for id in _spoiled:
 			parts.append("%d %s" % [_spoiled[id], Data.resource_name(id)])
-		Game.notify("Verdorben: %s. Räuchern und Backen macht Essen haltbar." % ", ".join(parts), "abriss")
+		Game.notify(tr("Verdorben: %s. Räuchern und Backen macht Essen haltbar.") % ", ".join(parts), "abriss")
 		_spoiled = {}
 	# Vorwarnung einen Tag vor dem Winter
 	if season() == AUTUMN and day_in_season() == int(season_days()):
 		var need := 0.0
 		for w in Sea.all_worlds():
 			need += w.settlers.size() * heat_per_settler(WINTER) * season_days()
-		Game.notify("Morgen beginnt der Winter! Ihr braucht etwa %d Holz zum Heizen und haltbare Vorräte." % int(ceil(need)), "holz")
+		Game.notify(tr("Morgen beginnt der Winter! Ihr braucht etwa %d Holz zum Heizen und haltbare Vorräte.") % int(ceil(need)), "holz")
 
 
 ## Heizen: jeder Siedler braucht im Herbst etwas, im Winter viel Holz.
@@ -266,11 +266,11 @@ func _heat(days: float) -> void:
 			if got < need:
 				if not cold.has(w):
 					cold[w] = true
-					Game.notify_at(w, "Kein Holz zum Heizen: die Siedler frieren! Sie werden schneller hungrig und arbeiten langsamer.", "holz")
+					Game.notify_at(w, tr("Kein Holz zum Heizen: die Siedler frieren! Sie werden schneller hungrig und arbeiten langsamer."), "holz")
 					Sound.play_on("fehler", w)
 			elif cold.has(w):
 				cold.erase(w)
-				Game.notify_at(w, "Die Öfen brennen wieder.", "holz")
+				Game.notify_at(w, tr("Die Öfen brennen wieder."), "holz")
 		_heat_acc[w] = acc
 	# Verlorene Inseln vergessen
 	for w in cold.keys():
@@ -331,7 +331,7 @@ func _frost() -> void:
 				node.regrow_at = Game.time_days + float(node.def.get("regrow_days", 1.0))
 				node.refresh()
 		if n > 0:
-			Game.notify_at(w, "Der Frost hat %d %s vernichtet. Sät im Frühling früh genug!" % [n, "Feld" if n == 1 else "Felder"], "weizen")
+			Game.notify_at(w, tr("Der Frost hat %d %s vernichtet. Sät im Frühling früh genug!") % [n, tr("Feld") if n == 1 else tr("Felder")], "weizen")
 
 
 # ---------------------------------------------------------------- Wetter (Schnee, Laub)

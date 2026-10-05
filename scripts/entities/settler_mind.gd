@@ -115,7 +115,7 @@ func character_text() -> String:
 			parts.append(defs[k].high)
 		elif v <= 3.5:
 			parts.append(defs[k].low)
-	return ", ".join(parts) if not parts.is_empty() else "durchschnittlich"
+	return ", ".join(parts) if not parts.is_empty() else tr("durchschnittlich")
 
 
 ## Faehigkeiten mit Begabung ab 1.3, beste zuerst.
@@ -293,8 +293,8 @@ func _fall_ill(k: String) -> void:
 	s.abort_plan()
 	# Leichte Krankheiten nur in Liste und Infofenster, schwere als Meldung
 	if ill.get("bed", false) or ill.has("deadly"):
-		var hint := " Es fehlen Vitamine: Beeren, Äpfel oder Kokosnüsse helfen." if k == "skorbut" else ""
-		Game.notify_at(s.world, "%s ist krank: %s.%s" % [s.display_name, ill.name, hint], "herz")
+		var hint := tr(" Es fehlen Vitamine: Beeren, Äpfel oder Kokosnüsse helfen.") if k == "skorbut" else ""
+		Game.notify_at(s.world, tr("%s ist krank: %s.%s") % [s.display_name, ill.name, hint], "herz")
 
 
 func _recover() -> void:
@@ -305,7 +305,7 @@ func _recover() -> void:
 	sick = ""
 	sick_left = 0.0
 	if (ill.get("bed", false) or ill.has("deadly")) and s.world and s.world.settlers.has(s):
-		Game.notify_at(s.world, "%s ist wieder gesund (%s überstanden)." % [s.display_name, name], "herz")
+		Game.notify_at(s.world, tr("%s ist wieder gesund (%s überstanden).") % [s.display_name, name], "herz")
 
 
 func illness_name() -> String:
@@ -315,7 +315,7 @@ func illness_name() -> String:
 ## Todesursache, falls die Gesundheit durch eine Krankheit auf 0 faellt.
 func death_reason() -> String:
 	if sick != "":
-		return String(Data.ppl("illnesses")[sick].get("deadly", "an einer Krankheit gestorben"))
+		return String(Data.ppl("illnesses")[sick].get("deadly", tr("an einer Krankheit gestorben")))
 	return ""
 
 
@@ -349,40 +349,40 @@ func _update_mood(days: float) -> void:
 	var base := 55.0 + (trait_value("gemuet") - 5.5) * 3.0
 	# Essen: Menge
 	if s.hunger <= 0.0:
-		r.append(["Hungert", -30.0])
+		r.append([tr("Hungert"), -30.0])
 	elif s.hunger < 35.0:
-		r.append(["Hat Hunger", -12.0])
+		r.append([tr("Hat Hunger"), -12.0])
 	elif s.hunger >= 70.0:
-		r.append(["Ist satt", 6.0])
+		r.append([tr("Ist satt"), 6.0])
 	# Essen: Abwechslung (wird mit dem Wohlstand wichtiger)
 	if meals.size() >= 3:
 		var v := diet_variety()
 		var val := clampf((v - 2) * 4.0, -8.0, 10.0) * (0.5 + c)
 		if v <= 1:
-			r.append(["Immer dasselbe Essen", val])
+			r.append([tr("Immer dasselbe Essen"), val])
 		elif v >= 4:
-			r.append(["Abwechslungsreiches Essen", val])
+			r.append([tr("Abwechslungsreiches Essen"), val])
 	if vit < float(Data.ppl("vit_low", 30.0)):
-		r.append(["Zu wenig Vitamine", -10.0])
+		r.append([tr("Zu wenig Vitamine"), -10.0])
 	# Gesundheit
 	if sick != "":
-		r.append(["Ist krank (%s)" % illness_name(), -20.0 if needs_bed() else -12.0])
+		r.append([tr("Ist krank (%s)") % illness_name(), -20.0 if needs_bed() else -12.0])
 	elif s.health < 50.0:
-		r.append(["Fühlt sich schwach", -8.0])
+		r.append([tr("Fühlt sich schwach"), -8.0])
 	# Wohnen
 	var home = s.world.building_by_id(s.home_id) if s.home_id != 0 else null
 	if home == null:
-		r.append(["Hat kein Zuhause", -(4.0 + 14.0 * c)])
+		r.append([tr("Hat kein Zuhause"), -(4.0 + 14.0 * c)])
 	else:
 		var hb := float(home.def.get("birth_bonus", 1.0)) - 1.0
 		if hb > 0.0:
-			r.append(["Wohnt schön (%s)" % home.def.name, hb * 15.0 * (0.5 + c)])
+			r.append([tr("Wohnt schön (%s)") % home.def.name, hb * 15.0 * (0.5 + c)])
 	# Freizeit
 	if leisure_share() > 0.0:
 		if rest < 25.0:
-			r.append(["Ist überarbeitet", -(8.0 + 10.0 * c)])
+			r.append([tr("Ist überarbeitet"), -(8.0 + 10.0 * c)])
 		elif rest > 70.0 and c > 0.1:
-			r.append(["Ist erholt", 4.0])
+			r.append([tr("Ist erholt"), 4.0])
 	# Trauer und Freude
 	var keep := []
 	for g in grief:
@@ -392,14 +392,14 @@ func _update_mood(days: float) -> void:
 	if not grief.is_empty():
 		var g: Array = grief[-1]
 		var full := float(Data.ppl("grief_mood", 30.0)) * (1.0 if g.size() < 3 or g[2] else 0.3)
-		r.append(["Trauert um %s" % g[0], -full])
+		r.append([tr("Trauert um %s") % g[0], -full])
 	if Game.time_days < joy_until:
-		r.append(["Freut sich über das Baby", float(Data.ppl("joy_mood", 12.0))])
+		r.append([tr("Freut sich über das Baby"), float(Data.ppl("joy_mood", 12.0))])
 	var sm := Seasons.season_mod("mood") - 1.0
 	if absf(sm) > 0.01:
-		r.append([("Freut sich über: %s" if sm > 0.0 else "Leidet unter: %s") % Seasons.season_name(), sm * 60.0])
+		r.append([(tr("Freut sich über: %s") if sm > 0.0 else tr("Leidet unter: %s")) % Seasons.season_name(), sm * 60.0])
 	if not Seasons.is_warm(s.world):
-		r.append(["Friert (kein Heizholz)", -15.0])
+		r.append([tr("Friert (kein Heizholz)"), -15.0])
 	var target := base
 	for x in r:
 		target += float(x[1])
@@ -410,14 +410,14 @@ func _update_mood(days: float) -> void:
 
 func mood_text() -> String:
 	if mood >= 80.0:
-		return "glücklich"
+		return tr("glücklich")
 	if mood >= 60.0:
-		return "zufrieden"
+		return tr("zufrieden")
 	if mood >= 40.0:
-		return "geht so"
+		return tr("geht so")
 	if mood >= 20.0:
-		return "unzufrieden"
-	return "verzweifelt"
+		return tr("unzufrieden")
+	return tr("verzweifelt")
 
 
 func birth_factor() -> float:

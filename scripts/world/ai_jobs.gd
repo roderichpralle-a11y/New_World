@@ -28,7 +28,7 @@ static func tick(w) -> void:
 	if pick == null:
 		return
 	pick.set_job(want)
-	Game.notify_at(w, "KI: %s arbeitet jetzt als %s." % [pick.display_name, Data.jobs[want].name], "ki")
+	Game.notify_at(w, Loc.t("KI: %s arbeitet jetzt als %s.") % [pick.display_name, Data.jobs[want].name], "ki")
 
 
 ## Welcher Beruf fehlt auf der Insel am meisten?
