@@ -214,7 +214,13 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
   Zeigerpfeil, danach feste Ziele mit Belohnungen und endlos erzeugte Ziele (Bevölkerung, Inseln,
   Geburten). Zustand `Game.goals {tut, ms}` im Spielstand; ältere Spielstände überspringen die
   Einführung und holen erreichte Ziele still nach. `Game.player_action(kind, what)` meldet
-  Spieleraktionen. Statistik `kills` zählt erlegte Tiere.
+  Spieleraktionen. Statistik `kills` zählt erlegte Tiere. Das X auf der Zielkarte blendet das
+  aktuelle Ziel aus (`goals.hide` = Ziel-ID), das nächste erscheint wieder.
+- **Meldungen**: `Game.notify(text, icon, cat)` hat eine Art aus `Game.NOTIFY_CATS` (ohne Angabe nach
+  dem Symbol über `NOTIFY_ICON_CAT`). Menü > „Meldungen“ schaltet jede Art und die Zielkarte ab;
+  gespeichert in `user://settings.cfg` Abschnitt `[notify]`, gilt für alle Spielstände.
+  Abgeschaltete Arten erreichen das Signal `notified` gar nicht. Neue Meldungsarten (etwa der KI)
+  als neuen Eintrag in `NOTIFY_CATS` anlegen und beim Aufruf als `cat` angeben.
 - **Bauen**: mit der Maus baut ein Klick sofort (Rechtsklick oder Esc bricht ab), am Handy tippt man
   den Platz an und bestätigt mit „Hier bauen“.
 - **Verschieben**: Knopf „Verschieben“ im Infofenster jedes Gebäudes (auch Baustellen, Felder und

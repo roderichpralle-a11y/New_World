@@ -92,7 +92,7 @@ func _maybe_autotest() -> void:
 	var scale := float(args.get("scale", "8"))
 	Game.set_speed(1)
 	Engine.time_scale = scale
-	Game.notified.connect(func(t, _i): print("[Tag %d %s] %s" % [Game.day(), Game.clock_text(), t]))
+	Game.notified.connect(func(t, _i, _c): print("[Tag %d %s] %s" % [Game.day(), Game.clock_text(), t]))
 	if args.has("season"):
 		# Testhilfe: Start in einer Jahreszeit (0 Frühling .. 3 Winter)
 		Seasons.jump_to_season(int(args.season))
@@ -224,6 +224,8 @@ func _maybe_autotest() -> void:
 			camera.focus(world.settlers[0].position)
 		if args.has("buildmenu"):
 			hud._toggle(hud._build_panel)
+		if args.has("hidegoal"):
+			hud.goal_card._dismiss()
 		if args.has("panel"):
 			match args.panel:
 				"research":
@@ -231,6 +233,8 @@ func _maybe_autotest() -> void:
 					hud._toggle(hud._research_panel)
 				"menu":
 					hud._toggle(hud._menu_panel)
+				"notify":
+					hud._toggle(hud._notify_panel)
 				"stock":
 					hud._refresh_stock(true)
 					hud._toggle(hud._stock_panel)

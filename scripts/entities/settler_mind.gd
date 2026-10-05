@@ -294,7 +294,7 @@ func _fall_ill(k: String) -> void:
 	# Leichte Krankheiten nur in Liste und Infofenster, schwere als Meldung
 	if ill.get("bed", false) or ill.has("deadly"):
 		var hint := tr(" Es fehlen Vitamine: Beeren, Äpfel oder Kokosnüsse helfen.") if k == "skorbut" else ""
-		Game.notify_at(s.world, tr("%s ist krank: %s.%s") % [s.display_name, ill.name, hint], "herz")
+		Game.notify_at(s.world, tr("%s ist krank: %s.%s") % [s.display_name, ill.name, hint], "herz", "gesundheit")
 
 
 func _recover() -> void:
@@ -305,7 +305,7 @@ func _recover() -> void:
 	sick = ""
 	sick_left = 0.0
 	if (ill.get("bed", false) or ill.has("deadly")) and s.world and s.world.settlers.has(s):
-		Game.notify_at(s.world, tr("%s ist wieder gesund (%s überstanden).") % [s.display_name, name], "herz")
+		Game.notify_at(s.world, tr("%s ist wieder gesund (%s überstanden).") % [s.display_name, name], "herz", "gesundheit")
 
 
 func illness_name() -> String:

@@ -238,7 +238,7 @@ func _on_new_day() -> void:
 		var parts := []
 		for id in _spoiled:
 			parts.append("%d %s" % [_spoiled[id], Data.resource_name(id)])
-		Game.notify(tr("Verdorben: %s. Räuchern und Backen macht Essen haltbar.") % ", ".join(parts), "abriss")
+		Game.notify(tr("Verdorben: %s. Räuchern und Backen macht Essen haltbar.") % ", ".join(parts), "abriss", "lager")
 		_spoiled = {}
 	# Vorwarnung einen Tag vor dem Winter
 	if season() == AUTUMN and day_in_season() == int(season_days()):
