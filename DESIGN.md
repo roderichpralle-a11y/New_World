@@ -214,6 +214,10 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
   Einführung und holen erreichte Ziele still nach. `Game.player_action(kind, what)` meldet
   Spieleraktionen. Statistik `kills` zählt erlegte Tiere. Das X auf der Zielkarte blendet das
   aktuelle Ziel aus (`goals.hide` = Ziel-ID), das nächste erscheint wieder.
+- **Nahrung in der Oberleiste**: Zahl der Nahrungsgüter und dahinter `Game.food_days()`, für wie viele
+  Tage die Nahrung der angezeigten Insel reicht: Summe aus Menge mal Sättigung, geteilt durch die
+  Siedler (Kinder zählen voll) und den Tagesbedarf `hunger_per_day` mit Jahreszeit und Kälte. Rot
+  unter einem Tag; schmale Bildschirme zeigen „3T“.
 - **Meldungen**: `Game.notify(text, icon, cat)` hat eine Art aus `Game.NOTIFY_CATS` (ohne Angabe nach
   dem Symbol über `NOTIFY_ICON_CAT`). Menü > „Meldungen“ schaltet jede Art und die Zielkarte ab;
   gespeichert in `user://settings.cfg` Abschnitt `[notify]`, gilt für alle Spielstände.
