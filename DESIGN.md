@@ -193,7 +193,7 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
 
 ## Feinschliff (Etappe 4)
 
-**Versionsnummer:** steht nur in `project.godot` unter `application/config/version` (Format Major.Minor.Patch). Das Menü und der Titelbildschirm zeigen sie unten an, die Testversion mit dem Zusatz „(Testversion)“. Für ein Update dort hochzählen.
+**Versionsnummer:** steht nur in `project.godot` unter `application/config/version` (Format Major.Minor.Patch). Das Menü und der Titelbildschirm zeigen sie unten an, die Testversion mit dem Zusatz „(Testversion)“. Für ein Update dort hochzählen. Im KI-Zweig setzt web.yml die letzte Stelle bei jedem Bau auf die Laufnummer des Ablaufs („Version 1.0.N KI“).
 
 **Siedlerliste:** fast bildschirmfüllend mit kompakten Zeilen; Spaltenköpfe Name, Alter, Beruf, Satt sortieren (nochmal tippen dreht um), Filter für Beruf, Erwachsene/Kinder, Nur Hungrige (unter 30 % satt) und, bei mehreren Inseln, Diese Insel/Alle Inseln. Testaufruf: `--crowd=24 --panel=settlers [--sfilter=1]`.
 

@@ -36,6 +36,12 @@ jobs:
             templates/web_nothreads_release.zip templates/web_nothreads_debug.zip templates/version.txt -d $dest
           rm Godot_v${GODOT_VERSION}_export_templates.tpz Godot_v${GODOT_VERSION}_linux.x86_64.zip
 
+      - name: Versionsnummer setzen
+        # Letzte Stelle zählt bei jedem Bau hoch (Laufnummer dieses Ablaufs), z. B. 1.0.61
+        run: |
+          sed -i 's/^config\/version=.*/config\/version="1.0.${{ github.run_number }}"/' project.godot
+          grep '^config/version' project.godot
+
       - name: Exportieren
         run: |
           ./godot-bin --headless --import --quit || true
