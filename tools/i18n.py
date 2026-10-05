@@ -15,7 +15,12 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 EN = os.path.join(ROOT, "data", "i18n", "en.json")
 SKIP_FILES = {"scripts/ui/ui_theme.gd", "scripts/autoload/loc.gd", "scripts/autoload/sound.gd"}
-SKIP = {"Lena", "Jonas", "Kim", "Insel%d", "Sprache / Language", "Deutsch", "English"}
+# Hier stehen die englischen Sprachmodell-Texte; die bleiben immer englisch, also nur von Hand in tr() packen.
+WRAP_SKIP = {"scripts/autoload/ki_mind.gd", "scripts/autoload/llm.gd"}
+SKIP = {"Lena", "Jonas", "Kim", "Insel%d", "Sprache / Language", "Deutsch", "English",
+        # KI-Variante: gespeicherte Schluessel, uebersetzt erst bei der Anzeige
+        "Rat", "Du", "Modell", "Messung", "(freier Wille aus)", "unentschlossen, stärkste Nummer",
+        "Auftrag des Rats (freier Wille aus)", "kein Auftrag, bleibt dabei (freier Wille aus)"}
 TEXT_KEYS = {"name", "desc", "text", "hint", "verb", "sow_verb", "harvest_verb", "names", "_tiers",
              "comfort_stages", "low", "high", "plural", "plural_dat", "by", "food_name", "deadly"}
 LIT = re.compile(r'"((?:[^"\\\n]|\\.)*)"')
@@ -76,6 +81,8 @@ def iter_code(lines):
 def wrap():
     changed = 0
     for f, rel in gd_files():
+        if rel in WRAP_SKIP:
+            continue
         lines = open(f, encoding="utf-8").read().split("\n")
         out = list(lines)
         for i, line, static, skip in iter_code(lines):
@@ -118,7 +125,7 @@ def collect():
                     if is_text(unescape(m.group(1))):
                         keys.setdefault(unescape(m.group(1)), rel)
     for f in sorted(glob.glob(os.path.join(ROOT, "data", "*.json"))):
-        if f.endswith("names.json"):
+        if f.endswith(("names.json", "ki_en.json", "ki_llm.json")):
             continue
         rel = os.path.relpath(f, ROOT)
 

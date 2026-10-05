@@ -393,7 +393,13 @@ Spiel bleibt unverändert. Der letzte Stand vor der KI-Variante liegt im Zweig `
   `KiMind.en_name/en_desc/en_res/en_job/en_strat/en_goods`. Was nur angezeigt wird (Chronik,
   Entscheidungen, Wahrscheinlichkeiten) bleibt in der Sprache der Oberfläche; `record_text` und
   `experience_lines` haben dafür einen Schalter `en`. Gespeicherte Entscheidungen tragen `build_en`,
-  `research_en`, `trade_en`. Die Übersetzung der Oberfläche macht ein eigenes System (Feinschliff).
+  `research_en`, `trade_en`. Die Oberfläche (Rat-Fenster, KI beobachten, KI-Bericht, Chronik) übersetzt das
+  gemeinsame Sprachsystem (Abschnitt Feinschliff, `tr()` + `data/i18n/en.json`). In `ki_mind.gd` und `llm.gd`
+  stehen die englischen Anfragetexte ohne `tr()`; `tools/i18n.py wrap` lässt diese beiden Dateien deshalb aus
+  (`WRAP_SKIP`), neue Anzeigetexte dort von Hand in `tr()` packen. Gespeicherte Schlüssel bleiben deutsch und
+  werden erst beim Anzeigen übersetzt: Sprecher "Rat"/"Du" in Chat und Debatte, Quelle einer Lehre
+  ("Rat"/"Messung"), die Regel einer Siedlerentscheidung ("Modell", "… (freier Wille aus)"); sie stehen in
+  `SKIP` von `tools/i18n.py`. Die Namen in `ki_en.json` sind dieselben wie in `en.json`.
 
 Wunsch von josh (2026-10-04): Jeder Siedler ist ein eigenes kleines Sprachmodell, jeder Inselrat ein
 größeres. Beide laufen im Browser des Spielers (kein Server, kein Schlüssel). Kann das Gerät sie nicht

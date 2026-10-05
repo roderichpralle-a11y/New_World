@@ -283,7 +283,7 @@ func _update_council_button() -> void:
 	if _council_btn == null:
 		return
 	var n := Society.requests.size()
-	_council_btn.text = "Rat (%d)" % n if n > 0 else "Rat"
+	_council_btn.text = tr("Rat (%d)") % n if n > 0 else tr("Rat")
 	_council_btn.visible = Society.enabled
 
 
@@ -1973,7 +1973,7 @@ func show_title(has_save: bool) -> void:
 	st.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(st)
 	if Game.is_ki_build:
-		var kb := UiTheme.label("KI-Version mit eigenem Spielstand: Die Siedler denken selbst,\njede Insel hat einen Rat, du bist der Herrscher.\nDein normales Spiel bleibt unverändert.", 14, Color("#2a5a9a"), true)
+		var kb := UiTheme.label(tr("KI-Version mit eigenem Spielstand: Die Siedler denken selbst,\njede Insel hat einen Rat, du bist der Herrscher.\nDein normales Spiel bleibt unverändert."), 14, Color("#2a5a9a"), true)
 		kb.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		v.add_child(kb)
 		_ki_choice_box(v)
@@ -2015,13 +2015,13 @@ func _ki_choice_box(v: VBoxContainer) -> void:
 			c.queue_free()
 		var txt := ""
 		if Llm.choice == "":
-			txt = "Rat und Siedler können von echten Sprachmodellen gesteuert werden\n(Llama-3.2-1B für die Inselräte, SmolLM-135M für jeden Siedler).\nSie laufen in deinem Browser, einmalig etwa %d MB Download." % int(Llm.cfg("download_mb", 1250))
+			txt = tr("Rat und Siedler können von echten Sprachmodellen gesteuert werden\n(Llama-3.2-1B für die Inselräte, SmolLM-135M für jeden Siedler).\nSie laufen in deinem Browser, einmalig etwa %d MB Download.") % int(Llm.cfg("download_mb", 1250))
 			if Llm.small_first():
-				txt = "Rat und Siedler können von echten Sprachmodellen gesteuert werden.\nAuf dem Handy denkt der Rat mit einem kleineren Modell (SmolLM2-360M),\nweil Llama-3.2-1B zu viel Speicher braucht. Siedler: SmolLM-135M.\nEinmalig etwa %d MB Download." % int(Llm.cfg("download_mb_small", 400))
+				txt = tr("Rat und Siedler können von echten Sprachmodellen gesteuert werden.\nAuf dem Handy denkt der Rat mit einem kleineren Modell (SmolLM2-360M),\nweil Llama-3.2-1B zu viel Speicher braucht. Siedler: SmolLM-135M.\nEinmalig etwa %d MB Download.") % int(Llm.cfg("download_mb_small", 400))
 			if not Llm.probe.get("webgpu", true):
-				txt += "\nDein Browser hat kein WebGPU: Die Modelle rechnen dann langsam auf dem Prozessor."
+				txt += tr("\nDein Browser hat kein WebGPU: Die Modelle rechnen dann langsam auf dem Prozessor.")
 			if Llm.probe.get("mobile", false):
-				txt += "\nAuf dem Handy kann der Speicher knapp werden."
+				txt += tr("\nAuf dem Handy kann der Speicher knapp werden.")
 		else:
 			txt = Llm.status_text()
 		var l := UiTheme.label(txt, 13, Color("#2a5a9a"))
@@ -2034,13 +2034,13 @@ func _ki_choice_box(v: VBoxContainer) -> void:
 		h.add_theme_constant_override("separation", 6)
 		box.add_child(h)
 		if Llm.choice != "llm":
-			var a := UiTheme.button("Sprachmodelle laden", "ki", 38)
+			var a := UiTheme.button(tr("Sprachmodelle laden"), "ki", 38)
 			a.pressed.connect(func():
 				Llm.set_choice("llm")
 				self_ref.call(self_ref))
 			h.add_child(a)
 		if Llm.choice != "regel":
-			var b := UiTheme.button("Ohne Sprachmodelle (Regel-KI)", "", 38)
+			var b := UiTheme.button(tr("Ohne Sprachmodelle (Regel-KI)"), "", 38)
 			b.pressed.connect(func():
 				Llm.set_choice("regel")
 				self_ref.call(self_ref))

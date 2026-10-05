@@ -294,7 +294,7 @@ func _maybe_autotest() -> void:
 							var cp = hud._council_panel
 							var lab: Control = null
 							for c in cp._body.get_children():
-								if c is Label and c.tooltip_text.begins_with("Antippen"):
+								if c is Label and c.tooltip_text.begins_with(tr("Antippen")):
 									lab = c
 									break
 							if lab:
@@ -894,6 +894,12 @@ func _lang_check() -> void:
 		func(): hud._toggle(hud._menu_panel), func(): hud._toggle(hud._help_panel),
 		func(): Game.select(world.settlers[0]),
 		func(): Game.select(world.buildings[0])]
+	if Society.enabled:
+		for v in ["rat", "ki", "chat", "vorgaben", "prio", "debatte"]:
+			opens.append(func():
+				hud._open_council()
+				hud._council_panel._view = v
+				hud._council_panel.refresh())
 	for o in opens:
 		o.call()
 		await get_tree().process_frame

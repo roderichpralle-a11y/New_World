@@ -141,13 +141,13 @@ func start() -> void:
 	if backend == "mock" or not OS.has_feature("web"):
 		backend = "mock"
 		device = "attrappe"
-		loaded = {"rat": {"id": "Attrappe (Test)", "dtype": "-", "device": "-"}, "siedler": {"id": "Attrappe (Test)", "dtype": "-", "device": "-"}}
+		loaded = {"rat": {"id": tr("Attrappe (Test)"), "dtype": "-", "device": "-"}, "siedler": {"id": tr("Attrappe (Test)"), "dtype": "-", "device": "-"}}
 		_set_state("bereit")
 		return
 	backend = "web"
 	var f := FileAccess.open("res://web/ki_llm.js", FileAccess.READ)
 	if f == null:
-		error = "web/ki_llm.js fehlt im Spiel."
+		error = tr("web/ki_llm.js fehlt im Spiel.")
 		_set_state("fehler")
 		return
 	JavaScriptBridge.eval(f.get_as_text(), true)
@@ -166,7 +166,7 @@ func stop() -> void:
 	_started = false
 	if backend == "web":
 		JavaScriptBridge.eval("if(window.KiLlm&&KiLlm.worker){KiLlm.worker.terminate();KiLlm.worker=null;KiLlm.st.state='aus';}", true)
-	_fail_pending("Sprachmodelle ausgeschaltet")
+	_fail_pending(tr("Sprachmodelle ausgeschaltet"))
 	backend = "" if backend == "web" else backend
 	_set_state("aus")
 
@@ -191,15 +191,15 @@ func model_name(role: String) -> String:
 func status_text() -> String:
 	match state:
 		"bereit":
-			var dev: String = {"webgpu-f16": "Grafikkarte", "webgpu": "Grafikkarte", "wasm": "Prozessor (langsam)", "attrappe": "Testattrappe"}.get(device, device)
+			var dev: String = {"webgpu-f16": tr("Grafikkarte"), "webgpu": tr("Grafikkarte"), "wasm": tr("Prozessor (langsam)"), "attrappe": tr("Testattrappe")}.get(device, device)
 			var rat := model_name("rat")
 			var why := ""
 			if loaded.get("rat", {}).get("shared", false):
-				rat = "mit dem Siedlermodell"
-				why = " Die größeren Ratsmodelle sind für dieses Gerät zu groß."
+				rat = tr("mit dem Siedlermodell")
+				why = tr(" Die größeren Ratsmodelle sind für dieses Gerät zu groß.")
 			elif not big_council():
-				why = " Llama-3.2-1B ist für %s zu groß." % ("Handys" if small_first() else "dieses Gerät")
-			return "Sprachmodelle: Rat %s, Siedler %s, rechnen auf %s.%s" % [rat, model_name("siedler"), dev, why]
+				why = tr(" Llama-3.2-1B ist für %s zu groß.") % (tr("Handys") if small_first() else tr("dieses Gerät"))
+			return tr("Sprachmodelle: Rat %s, Siedler %s, rechnen auf %s.%s") % [rat, model_name("siedler"), dev, why]
 		"laden":
 			var a := 0.0
 			var b := 0.0
@@ -207,12 +207,12 @@ func status_text() -> String:
 				a += float(progress[role][0])
 				b += float(progress[role][1])
 			var pct := ("%d %%" % int(100.0 * a / b)) if b > 0.0 else "startet"
-			return "Sprachmodelle werden geladen (%s, %d MB). %s" % [pct, int(a / 1048576.0), note]
+			return tr("Sprachmodelle werden geladen (%s, %d MB). %s") % [pct, int(a / 1048576.0), note]
 		"fehler":
-			return "Sprachmodelle gehen nicht: %s Es entscheidet die Regel-KI." % error
+			return tr("Sprachmodelle gehen nicht: %s Es entscheidet die Regel-KI.") % error
 	if choice == "regel":
-		return "Regel-KI (Sprachmodelle ausgeschaltet)."
-	return "Regel-KI (Sprachmodelle nicht geladen)."
+		return tr("Regel-KI (Sprachmodelle ausgeschaltet).")
+	return tr("Regel-KI (Sprachmodelle nicht geladen).")
 
 
 func avg_ms(role: String) -> float:
@@ -246,7 +246,7 @@ func _submit(data: Dictionary, hint: Array, hint_text: String) -> Job:
 	j.data = data
 	pending[j.id] = j
 	if state != "bereit":
-		_finish.call_deferred(j.id, {"ok": false, "error": "Sprachmodelle nicht bereit"})
+		_finish.call_deferred(j.id, {"ok": false, "error": tr("Sprachmodelle nicht bereit")})
 		return j
 	if backend == "mock":
 		var dl: Array = cfg("mock_delay", [0.05, 0.25])

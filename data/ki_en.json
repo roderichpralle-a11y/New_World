@@ -1,648 +1,648 @@
 {
-  "_info": "English names for prompts to the language models (KI-Variante). Interface text is translated elsewhere.",
-  "buildings": {
-    "lagerfeuer": {
-      "name": "Campfire",
-      "desc": "Heart of the settlement for storing, eating and warmth. Researchers think here until there is a writing room."
-    },
-    "huette": {
-      "name": "Hut",
-      "desc": "Home for 2 settlers. More homes mean more children."
-    },
-    "holzhaus": {
-      "name": "Wooden house",
-      "desc": "A solid plank house for 4 settlers. People living here have children 40% more often. Huts can be upgraded to it."
-    },
-    "steinhaus": {
-      "name": "Stone house",
-      "desc": "A large house with a tile roof for 6 settlers. People living here have children 80% more often."
-    },
-    "lager": {
-      "name": "Storehouse",
-      "desc": "Storage space 400 for supplies. Big goods like planks need more space than small ones like berries. Also another drop-off point."
-    },
-    "grosslager": {
-      "name": "Large store",
-      "desc": "A stone storehouse with storage space 1000 for all goods."
-    },
-    "feld": {
-      "name": "Grain field",
-      "desc": "A farmer sows and harvests grain here."
-    },
-    "obstgarten": {
-      "name": "Orchard",
-      "desc": "Apple trees tended by a farmer. Grows slower than grain but gives a lot of fruit."
-    },
-    "muehle": {
-      "name": "Windmill",
-      "desc": "Grinds grain into flour for the bakery."
-    },
-    "baeckerei": {
-      "name": "Bakery",
-      "desc": "Bakes bread from flour, which keeps you full for a long time."
-    },
-    "raeucherei": {
-      "name": "Smokehouse",
-      "desc": "Smokes fish so it keeps you full much longer."
-    },
-    "huehnerhof": {
-      "name": "Chicken farm",
-      "desc": "Chickens are fed grain and lay eggs."
-    },
-    "saegegrube": {
-      "name": "Saw pit",
-      "desc": "Saws wood into planks."
-    },
-    "lehmgrube": {
-      "name": "Clay pit",
-      "desc": "A stonecutter digs clay here for bricks."
-    },
-    "ziegelei": {
-      "name": "Brickworks",
-      "desc": "Fires clay in a kiln into hard bricks."
-    },
-    "steinbruch": {
-      "name": "Quarry",
-      "desc": "Gives endless stone, even when the island's rocks are used up."
-    },
-    "koehlerei": {
-      "name": "Charcoal kiln",
-      "desc": "A kiln turns wood into hot charcoal."
-    },
-    "mine": {
-      "name": "Ore mine",
-      "desc": "A tunnel into the rock. Gives ore and some stone."
-    },
-    "schmelze": {
-      "name": "Smelter",
-      "desc": "Melts ore with coal into iron."
-    },
-    "schmiede": {
-      "name": "Smithy",
-      "desc": "Makes good tools from iron and planks."
-    },
-    "schreibstube": {
-      "name": "Writing room",
-      "desc": "Two researchers work twice as fast here as at the campfire. Can be upgraded in three costly steps."
-    },
-    "schreibstube2": {
-      "name": "Large writing room",
-      "desc": "Writing room level 2: three researchers, 40% faster than level 1."
-    },
-    "schreibstube3": {
-      "name": "Scholars' room",
-      "desc": "Writing room level 3: three researchers, almost twice as fast as level 1."
-    },
-    "schreibstube4": {
-      "name": "Academy",
-      "desc": "Writing room level 4: four researchers work more than two and a half times as fast as level 1."
-    },
-    "bibliothek": {
-      "name": "Library",
-      "desc": "House of knowledge: three researchers work almost twice as fast as in the writing room."
-    },
-    "werft": {
-      "name": "Shipyard",
-      "desc": "Craftsmen build ships on the shore. You choose which ship is built next. Has a berth for one rowboat."
-    },
-    "anlegesteg": {
-      "name": "Jetty",
-      "desc": "A wooden pier: 2 berths for rowboats, loading is faster than on the beach."
-    },
-    "hafen": {
-      "name": "Harbor",
-      "desc": "Quay wall with crane: 2 berths for cogs and fast sailers, fast loading. Medium ships need a harbor to visit the island."
-    },
-    "grosser_hafen": {
-      "name": "Large harbor",
-      "desc": "Deep basin and two cranes: 3 berths, also for galleons. Very fast loading."
-    },
-    "holzkai": {
-      "name": "Wood quay",
-      "desc": "Quay for wood, planks and coal: these goods load three times as fast. 1 berth for medium ships."
-    },
-    "steinkai": {
-      "name": "Ore quay",
-      "desc": "Quay for stone, clay, bricks, ore, iron, gold and tools: three times as fast loading. 1 berth for medium ships."
-    },
-    "proviantkai": {
-      "name": "Food quay",
-      "desc": "Quay with a cold cellar for all food: three times as fast loading. 1 berth for medium ships."
-    },
-    "wachturm": {
-      "name": "Watchtower",
-      "desc": "An archer keeps watch and shoots wild animals nearby. Settlers flee here when in danger."
-    },
-    "leuchtturm": {
-      "name": "Lighthouse",
-      "desc": "Its fire guides the boats: exploring takes half as long and all boats go faster."
-    },
-    "denkmal": {
-      "name": "Monument",
-      "desc": "A golden monument to the founders. On all islands more children are born and everyone lives 6 days longer."
-    },
-    "schule": {
-      "name": "School",
-      "desc": "Children learn to read and count here. Up to 8 pupils grow up twice as fast."
-    },
-    "glashuette": {
-      "name": "Glassworks",
-      "desc": "A hot furnace makes glass from clay and coal."
-    },
-    "papiermuehle": {
-      "name": "Paper mill",
-      "desc": "A water wheel pounds wood into pulp to make paper."
-    },
-    "universitaet": {
-      "name": "University",
-      "desc": "Scholars of all fields: four researchers work three and a half times as fast as in the writing room."
-    },
-    "stahlwerk": {
-      "name": "Steelworks",
-      "desc": "A blast furnace makes hard steel from iron and a lot of coal."
-    },
-    "fabrik": {
-      "name": "Factory",
-      "desc": "Steam machines build new machines from steel and wood."
-    },
-    "konservenfabrik": {
-      "name": "Cannery",
-      "desc": "Fish in tin cans: very filling and never spoils."
-    },
-    "mietshaus": {
-      "name": "Apartment house",
-      "desc": "Three floors of brick for 10 settlers. People living here have children 20% more often."
-    },
-    "kraftwerk": {
-      "name": "Power plant",
-      "desc": "Burns coal to make power for factories, labs and computers."
-    },
-    "gewaechshaus": {
-      "name": "Greenhouse",
-      "desc": "Apples grow under glass all year, even in winter."
-    },
-    "wohnblock": {
-      "name": "Apartment block",
-      "desc": "A tall building of concrete and glass for 16 settlers. People living here have children 40% more often."
-    },
-    "elektronikwerk": {
-      "name": "Electronics plant",
-      "desc": "Chips are made from glass, steel and power in a clean room."
-    },
-    "solarpark": {
-      "name": "Solar park",
-      "desc": "Turns sunlight into power without coal. A craftsman keeps the panels clean."
-    },
-    "labor": {
-      "name": "Research lab",
-      "desc": "Microscopes, computers and antennas: four researchers work six times as fast as in the writing room."
-    },
-    "ki_zentrum": {
-      "name": "AI center",
-      "desc": "An AI helps with research: four researchers ten times as fast as in the writing room. It gives idle settlers the jobs that are missing, and everyone works 20% faster."
-    },
-    "fusionsreaktor": {
-      "name": "Fusion reactor",
-      "desc": "A small sun in a hall: a lot of power without coal."
-    },
-    "zukunftsstadt": {
-      "name": "Future city",
-      "desc": "Glass towers, green roofs and a rocket: the goal of all ages. On all islands children come twice as often, everyone lives 20 days longer and works 30% faster."
-    }
+ "_info": "English names for prompts to the language models (KI-Variante). Interface text is translated elsewhere.",
+ "buildings": {
+  "lagerfeuer": {
+   "name": "Campfire",
+   "desc": "Heart of the settlement for storing, eating and warmth. Researchers think here until there is a writing room."
   },
-  "techs": {
-    "steinwerkzeuge": {
-      "name": "Stone tools",
-      "desc": "Sharp stone blades: cutting wood and stone is 25% faster."
-    },
-    "flechtkoerbe": {
-      "name": "Woven baskets",
-      "desc": "Settlers carry 2 more items at once."
-    },
-    "schrift": {
-      "name": "Writing",
-      "desc": "Knowledge can be written down. Unlocks the writing room."
-    },
-    "gartenbau": {
-      "name": "Gardening",
-      "desc": "Unlocks the orchard. Fields give 20% more."
-    },
-    "holzbearbeitung": {
-      "name": "Woodworking",
-      "desc": "Unlocks the saw pit. Wood becomes planks."
-    },
-    "zimmerei": {
-      "name": "Carpentry",
-      "desc": "Unlocks the wooden house for 4 settlers. Huts can be upgraded. Building is 20% faster."
-    },
-    "toepferei": {
-      "name": "Pottery",
-      "desc": "Unlocks the clay pit and brickworks."
-    },
-    "muehlenbau": {
-      "name": "Mill building",
-      "desc": "Unlocks the windmill, which grinds grain into flour."
-    },
-    "raeuchern": {
-      "name": "Smoking",
-      "desc": "Unlocks the smokehouse. Fishers catch 25% faster."
-    },
-    "steinbruch": {
-      "name": "Quarrying",
-      "desc": "Unlocks the quarry, which gives endless stone."
-    },
-    "vorratshaltung": {
-      "name": "Storage",
-      "desc": "Better shelves and barrels: all stores hold 25% more."
-    },
-    "maurerei": {
-      "name": "Masonry",
-      "desc": "Unlocks the stone house (6 settlers) and the large store."
-    },
-    "backkunst": {
-      "name": "Baking",
-      "desc": "Unlocks the bakery. Bread keeps you full for long."
-    },
-    "tierhaltung": {
-      "name": "Animal keeping",
-      "desc": "Unlocks the chicken farm, which turns grain into eggs."
-    },
-    "bewaesserung": {
-      "name": "Irrigation",
-      "desc": "Ditches and jugs: fields and orchards grow 30% faster."
-    },
-    "koehlerei": {
-      "name": "Charcoal making",
-      "desc": "Unlocks the charcoal kiln, which gives charcoal for metal."
-    },
-    "heilkunde": {
-      "name": "Healing",
-      "desc": "Herbs and care: settlers live 8 days longer and get well twice as fast."
-    },
-    "unterricht": {
-      "name": "Teaching",
-      "desc": "Reading, writing, counting: unlocks the school, where children grow up twice as fast."
-    },
-    "handkarren": {
-      "name": "Handcarts",
-      "desc": "Settlers carry 3 more items and walk 15% faster."
-    },
-    "bergbau": {
-      "name": "Mining",
-      "desc": "Unlocks the ore mine."
-    },
-    "gelehrsamkeit": {
-      "name": "Scholarship",
-      "desc": "Unlocks the library. All researchers work 20% faster."
-    },
-    "eisenverhuettung": {
-      "name": "Iron smelting",
-      "desc": "Unlocks the smelter, which makes iron from ore and coal."
-    },
-    "schmiedekunst": {
-      "name": "Smithing",
-      "desc": "Unlocks the smithy, which makes tools."
-    },
-    "eisenwerkzeuge": {
-      "name": "Iron tools",
-      "desc": "Iron axes, hoes and sickles: all work is 30% faster."
-    },
-    "eisenpflug": {
-      "name": "Iron plow",
-      "desc": "Deeper plowing: fields and orchards give 50% more."
-    },
-    "baumeisterkunst": {
-      "name": "Building skill",
-      "desc": "Cranes and pulleys: building is 40% faster."
-    },
-    "schiffsbau": {
-      "name": "Shipbuilding",
-      "desc": "Unlocks the shipyard, the jetty and the sailor job. Rowboats explore the sea and carry settlers and goods to other islands."
-    },
-    "waffenkunde": {
-      "name": "Weapons",
-      "desc": "Spears and bows: unlocks the watchtower and the hunter job. Settlers fight wild animals twice as well."
-    },
-    "navigation": {
-      "name": "Navigation",
-      "desc": "Compass and star maps: ships go 50% faster and take 2 more settlers. Unlocks the harbor and the cog."
-    },
-    "seehandel": {
-      "name": "Sea trade",
-      "desc": "Large harbors, quays for certain goods, galleons and fast sailers."
-    },
-    "jagdkunst": {
-      "name": "Hunting skill",
-      "desc": "Traps and tracking: hunters hit 50% harder and killed animals give more meat."
-    },
-    "befestigung": {
-      "name": "Fortification",
-      "desc": "Stone walls: watchtowers shoot farther and 60% harder."
-    },
-    "pelzkleidung": {
-      "name": "Warm clothes",
-      "desc": "Fur coats and blankets: settlers get hungry 15% slower and live 4 days longer."
-    },
-    "leuchtfeuer": {
-      "name": "Beacon",
-      "desc": "Unlocks the lighthouse, which guides boats safely and faster across the sea."
-    },
-    "goldenes_zeitalter": {
-      "name": "Golden age",
-      "desc": "The crown of your culture. Unlocks the monument, which brings more children and longer life on all islands."
-    },
-    "glasmacherei": {
-      "name": "Glassmaking",
-      "desc": "Unlocks the glassworks: clay and coal become glass."
-    },
-    "papier": {
-      "name": "Paper",
-      "desc": "Unlocks the paper mill: wood becomes paper."
-    },
-    "uhrwerk": {
-      "name": "Mechanical clock",
-      "desc": "Fixed work hours: everyone works 10% faster."
-    },
-    "astronomie": {
-      "name": "Astronomy",
-      "desc": "Telescope and star maps: ships go 30% faster, exploring is 30% faster."
-    },
-    "buchdruck": {
-      "name": "Printing",
-      "desc": "Movable type: knowledge spreads, research is 25% faster."
-    },
-    "hochschule": {
-      "name": "University",
-      "desc": "Unlocks the university, where four researchers work very fast."
-    },
-    "fruchtwechsel": {
-      "name": "Crop rotation",
-      "desc": "Fields change crops and recover: 40% more harvest."
-    },
-    "anatomie": {
-      "name": "Anatomy",
-      "desc": "Doctors understand the body: the sick heal faster, everyone lives 6 days longer."
-    },
-    "dampfmaschine": {
-      "name": "Steam engine",
-      "desc": "Steam drives saws and pumps: wood, stone and ore are 30% faster."
-    },
-    "stahl": {
-      "name": "Steel",
-      "desc": "Unlocks the steelworks: iron and coal become steel."
-    },
-    "konservendose": {
-      "name": "Tin can",
-      "desc": "Unlocks the cannery: canned fish never spoils."
-    },
-    "fabrik": {
-      "name": "Factories",
-      "desc": "Unlocks the factory, which builds machines. All workshops work 20% faster."
-    },
-    "eisenbahn": {
-      "name": "Railway",
-      "desc": "Rails and carts: settlers walk 30% faster and carry 4 more items."
-    },
-    "mietshaus": {
-      "name": "Apartment houses",
-      "desc": "Unlocks the apartment house for 10 settlers."
-    },
-    "kunstduenger": {
-      "name": "Fertilizer",
-      "desc": "Factory fertilizer: fields give 50% more."
-    },
-    "elektrizitaet": {
-      "name": "Electricity",
-      "desc": "Unlocks the power plant. Electric light: everyone works 10% faster."
-    },
-    "telegraf": {
-      "name": "Telegraph",
-      "desc": "Messages in seconds: exploring is 50% faster, research 20% faster."
-    },
-    "impfung": {
-      "name": "Vaccines",
-      "desc": "Vaccines protect: the sick heal twice as fast, everyone lives 8 days longer."
-    },
-    "kuehltechnik": {
-      "name": "Refrigeration",
-      "desc": "Fridges: fresh food spoils much slower."
-    },
-    "verbrennungsmotor": {
-      "name": "Combustion engine",
-      "desc": "Trucks and tractors: building is 50% faster, fields ripen 40% faster."
-    },
-    "wohnblock": {
-      "name": "Apartment blocks",
-      "desc": "Unlocks the apartment block for 16 settlers."
-    },
-    "gewaechshaus": {
-      "name": "Greenhouse",
-      "desc": "Unlocks the greenhouse, where apples grow all year."
-    },
-    "motorschiffe": {
-      "name": "Motor ships",
-      "desc": "Ship engines: all ships go 50% faster."
-    },
-    "computer": {
-      "name": "Computers",
-      "desc": "Unlocks the electronics plant. Computers help research: 30% faster."
-    },
-    "solarenergie": {
-      "name": "Solar power",
-      "desc": "Unlocks the solar park: power from sunlight, without coal."
-    },
-    "automatisierung": {
-      "name": "Automation",
-      "desc": "Controlled machines: workshops work 40% faster, wood and stone are 30% faster."
-    },
-    "internet": {
-      "name": "Internet",
-      "desc": "All knowledge linked: research 50% faster. Unlocks the research lab."
-    },
-    "logistik": {
-      "name": "Logistics",
-      "desc": "Computer storage: 50% more storage, settlers carry 4 more items and walk 20% faster."
-    },
-    "gentechnik": {
-      "name": "Genetic engineering",
-      "desc": "Strong plants and new medicine: fields give 50% more, everyone lives 10 days longer."
-    },
-    "ki": {
-      "name": "Artificial intelligence",
-      "desc": "Unlocks the AI center: it helps research and gives idle settlers the jobs that are missing."
-    },
-    "fusionsenergie": {
-      "name": "Nuclear fusion",
-      "desc": "Unlocks the fusion reactor: a lot of power without coal."
-    },
-    "robotik": {
-      "name": "Robotics",
-      "desc": "Robots help everywhere: everyone works 30% faster, building is 50% faster."
-    },
-    "zukunftsstadt": {
-      "name": "Future city",
-      "desc": "The goal of all ages: unlocks the future city."
-    }
+  "huette": {
+   "name": "Hut",
+   "desc": "Home for 2 settlers. More homes mean more children."
   },
-  "resources": {
-    "holz": "wood",
-    "stein": "stone",
-    "bretter": "planks",
-    "lehm": "clay",
-    "ziegel": "bricks",
-    "kohle": "coal",
-    "erz": "ore",
-    "eisen": "iron",
-    "werkzeug": "tools",
-    "mehl": "flour",
-    "beeren": "berries",
-    "fisch": "fish",
-    "weizen": "grain",
-    "aepfel": "apples",
-    "eier": "eggs",
-    "raeucherfisch": "smoked fish",
-    "brot": "bread",
-    "felle": "furs",
-    "gold": "gold",
-    "boot": "rowboat",
-    "kogge": "cog",
-    "schnellsegler": "fast sailer",
-    "galeone": "galleon",
-    "fleisch": "meat",
-    "kokos": "coconuts",
-    "pilze": "mushrooms",
-    "glas": "glass",
-    "papier": "paper",
-    "stahl": "steel",
-    "maschinen": "machines",
-    "strom": "power",
-    "elektronik": "electronics",
-    "konserven": "canned food"
+  "holzhaus": {
+   "name": "Wooden house",
+   "desc": "A solid plank house for 4 settlers. People living here have children 40% more often. Huts can be upgraded to it."
   },
-  "nodes": {
-    "baum": "tree",
-    "fels": "rock",
-    "busch": "berry bush",
-    "fischgrund": "fishing spot",
-    "palme": "coconut palm",
-    "pilzkreis": "mushroom ring",
-    "erzader": "ore vein",
-    "goldader": "gold vein",
-    "wolfsbau": "wolf den",
-    "eberbau": "boar wallow",
-    "baerenhoehle": "bear cave",
-    "beute": "killed animal"
+  "steinhaus": {
+   "name": "Stone house",
+   "desc": "A large house with a tile roof for 6 settlers. People living here have children 80% more often."
   },
-  "jobs": {
-    "frei": {
-      "name": "Idle",
-      "desc": "Helps wherever help is needed."
-    },
-    "holzfaeller": {
-      "name": "Woodcutter",
-      "desc": "Cuts trees and brings wood."
-    },
-    "steinmetz": {
-      "name": "Stonecutter",
-      "desc": "Cuts stone, ore and gold from rocks; works in the quarry, clay pit and mine."
-    },
-    "sammler": {
-      "name": "Gatherer",
-      "desc": "Picks berries, coconuts and mushrooms."
-    },
-    "fischer": {
-      "name": "Fisher",
-      "desc": "Fishes at fishing spots on the shore."
-    },
-    "bauer": {
-      "name": "Farmer",
-      "desc": "Works grain fields and orchards."
-    },
-    "koch": {
-      "name": "Cook",
-      "desc": "Works in the mill, bakery, smokehouse and chicken farm."
-    },
-    "handwerker": {
-      "name": "Craftsman",
-      "desc": "Works in the saw pit, brickworks, charcoal kiln, smelter, smithy and shipyard."
-    },
-    "baumeister": {
-      "name": "Builder",
-      "desc": "Brings materials and builds buildings."
-    },
-    "forscher": {
-      "name": "Researcher",
-      "desc": "Does research at the campfire or in the writing room and library."
-    },
-    "jaeger": {
-      "name": "Hunter",
-      "desc": "Hunts wild animals, brings meat and furs and clears animal dens."
-    },
-    "seemann": {
-      "name": "Sailor",
-      "desc": "Sails as crew on the ships. No ship leaves without sailors. On land he fishes."
-    }
+  "lager": {
+   "name": "Storehouse",
+   "desc": "Storage space 400 for supplies. Big goods like planks need more space than small ones like berries. Also another drop-off point."
   },
-  "skills": {
-    "holz": "woodwork",
-    "stein": "stonework",
-    "nahrung": "food",
-    "bauen": "building",
-    "handwerk": "crafting",
-    "wissen": "knowledge",
-    "jagd": "hunting"
+  "grosslager": {
+   "name": "Large store",
+   "desc": "A stone storehouse with storage space 1000 for all goods."
   },
-  "animals": {
-    "wolf": "wolf",
-    "eber": "boar",
-    "baer": "bear"
+  "feld": {
+   "name": "Grain field",
+   "desc": "A farmer sows and harvests grain here."
   },
-  "ships": {
-    "boot": "rowboat",
-    "kogge": "cog",
-    "schnellsegler": "fast sailer",
-    "galeone": "galleon"
+  "obstgarten": {
+   "name": "Orchard",
+   "desc": "Apple trees tended by a farmer. Grows slower than grain but gives a lot of fruit."
   },
-  "islands": {
-    "heimat": "home island",
-    "tropen": "palm island",
-    "wald": "forest island",
-    "berg": "rock island"
+  "muehle": {
+   "name": "Windmill",
+   "desc": "Grinds grain into flour for the bakery."
   },
-  "strategies": {
-    "nahrung": {
-      "name": "Secure food",
-      "desc": "More gatherers, fishers, farmers and cooks; new fields."
-    },
-    "winter": {
-      "name": "Stock up for winter",
-      "desc": "Lots of firewood, food that keeps (smokehouse, bakery), full stores."
-    },
-    "wachstum": {
-      "name": "Grow",
-      "desc": "New and better houses, a school, enough food for children."
-    },
-    "bauen": {
-      "name": "Building and workshops",
-      "desc": "Workshops and production chains, more wood and stone."
-    },
-    "wissen": {
-      "name": "Knowledge and research",
-      "desc": "More researchers, writing room, library and school."
-    },
-    "sicherheit": {
-      "name": "Protection from animals",
-      "desc": "Hunters and watchtowers against wild animals."
-    },
-    "seefahrt": {
-      "name": "Seafaring and trade",
-      "desc": "Shipyard, harbors and ships, find new islands."
-    }
+  "baeckerei": {
+   "name": "Bakery",
+   "desc": "Bakes bread from flour, which keeps you full for a long time."
   },
-  "seasons": [
-    "spring",
-    "summer",
-    "autumn",
-    "winter"
-  ]
+  "raeucherei": {
+   "name": "Smokehouse",
+   "desc": "Smokes fish so it keeps you full much longer."
+  },
+  "huehnerhof": {
+   "name": "Chicken farm",
+   "desc": "Chickens are fed grain and lay eggs."
+  },
+  "saegegrube": {
+   "name": "Saw pit",
+   "desc": "Saws wood into planks."
+  },
+  "lehmgrube": {
+   "name": "Clay pit",
+   "desc": "A stonecutter digs clay here for bricks."
+  },
+  "ziegelei": {
+   "name": "Brickworks",
+   "desc": "Fires clay in a kiln into hard bricks."
+  },
+  "steinbruch": {
+   "name": "Quarry",
+   "desc": "Gives endless stone, even when the island's rocks are used up."
+  },
+  "koehlerei": {
+   "name": "Charcoal kiln",
+   "desc": "A kiln turns wood into hot charcoal."
+  },
+  "mine": {
+   "name": "Ore mine",
+   "desc": "A tunnel into the rock. Gives ore and some stone."
+  },
+  "schmelze": {
+   "name": "Smelter",
+   "desc": "Melts ore with coal into iron."
+  },
+  "schmiede": {
+   "name": "Smithy",
+   "desc": "Makes good tools from iron and planks."
+  },
+  "schreibstube": {
+   "name": "Writing room",
+   "desc": "Two researchers work twice as fast here as at the campfire. Can be upgraded in three costly steps."
+  },
+  "schreibstube2": {
+   "name": "Large writing room",
+   "desc": "Writing room level 2: three researchers, 40% faster than level 1."
+  },
+  "schreibstube3": {
+   "name": "Scholars' room",
+   "desc": "Writing room level 3: three researchers, almost twice as fast as level 1."
+  },
+  "schreibstube4": {
+   "name": "Academy",
+   "desc": "Writing room level 4: four researchers work more than two and a half times as fast as level 1."
+  },
+  "bibliothek": {
+   "name": "Library",
+   "desc": "House of knowledge: three researchers work almost twice as fast as in the writing room."
+  },
+  "werft": {
+   "name": "Shipyard",
+   "desc": "Craftsmen build ships on the shore. You choose which ship is built next. Has a berth for one rowboat."
+  },
+  "anlegesteg": {
+   "name": "Jetty",
+   "desc": "A wooden pier: 2 berths for rowboats, loading is faster than on the beach."
+  },
+  "hafen": {
+   "name": "Harbor",
+   "desc": "Quay wall with crane: 2 berths for cogs and fast sailers, fast loading. Medium ships need a harbor to visit the island."
+  },
+  "grosser_hafen": {
+   "name": "Large harbor",
+   "desc": "Deep basin and two cranes: 3 berths, also for galleons. Very fast loading."
+  },
+  "holzkai": {
+   "name": "Wood quay",
+   "desc": "Quay for wood, planks and coal: these goods load three times as fast. 1 berth for medium ships."
+  },
+  "steinkai": {
+   "name": "Ore quay",
+   "desc": "Quay for stone, clay, bricks, ore, iron, gold and tools: three times as fast loading. 1 berth for medium ships."
+  },
+  "proviantkai": {
+   "name": "Food quay",
+   "desc": "Quay with a cold cellar for all food: three times as fast loading. 1 berth for medium ships."
+  },
+  "wachturm": {
+   "name": "Watchtower",
+   "desc": "An archer keeps watch and shoots wild animals nearby. Settlers flee here when in danger."
+  },
+  "leuchtturm": {
+   "name": "Lighthouse",
+   "desc": "Its fire guides the boats: exploring takes half as long and all boats go faster."
+  },
+  "denkmal": {
+   "name": "Monument",
+   "desc": "A golden monument to the founders. On all islands more children are born and everyone lives 6 days longer."
+  },
+  "schule": {
+   "name": "School",
+   "desc": "Children learn to read and count here. Up to 8 pupils grow up twice as fast."
+  },
+  "glashuette": {
+   "name": "Glassworks",
+   "desc": "A hot furnace makes glass from clay and coal."
+  },
+  "papiermuehle": {
+   "name": "Paper mill",
+   "desc": "A water wheel pounds wood into pulp to make paper."
+  },
+  "universitaet": {
+   "name": "University",
+   "desc": "Scholars of all fields: four researchers work three and a half times as fast as in the writing room."
+  },
+  "stahlwerk": {
+   "name": "Steelworks",
+   "desc": "A blast furnace makes hard steel from iron and a lot of coal."
+  },
+  "fabrik": {
+   "name": "Factory",
+   "desc": "Steam machines build new machines from steel and wood."
+  },
+  "konservenfabrik": {
+   "name": "Cannery",
+   "desc": "Fish in tin cans: very filling and never spoils."
+  },
+  "mietshaus": {
+   "name": "Apartment house",
+   "desc": "Three floors of brick for 10 settlers. People living here have children 20% more often."
+  },
+  "kraftwerk": {
+   "name": "Power plant",
+   "desc": "Burns coal to make power for factories, labs and computers."
+  },
+  "gewaechshaus": {
+   "name": "Greenhouse",
+   "desc": "Apples grow under glass all year, even in winter."
+  },
+  "wohnblock": {
+   "name": "Apartment block",
+   "desc": "A tall building of concrete and glass for 16 settlers. People living here have children 40% more often."
+  },
+  "elektronikwerk": {
+   "name": "Electronics plant",
+   "desc": "Chips are made from glass, steel and power in a clean room."
+  },
+  "solarpark": {
+   "name": "Solar park",
+   "desc": "Turns sunlight into power without coal. A craftsman keeps the panels clean."
+  },
+  "labor": {
+   "name": "Research lab",
+   "desc": "Microscopes, computers and antennas: four researchers work six times as fast as in the writing room."
+  },
+  "ki_zentrum": {
+   "name": "AI center",
+   "desc": "An AI helps with research: four researchers ten times as fast as in the writing room. It gives idle settlers the jobs that are missing, and everyone works 20% faster."
+  },
+  "fusionsreaktor": {
+   "name": "Fusion reactor",
+   "desc": "A small sun in a hall: a lot of power without coal."
+  },
+  "zukunftsstadt": {
+   "name": "Future city",
+   "desc": "Glass towers, green roofs and a rocket: the goal of all ages. On all islands children come twice as often, everyone lives 20 days longer and works 30% faster."
+  }
+ },
+ "techs": {
+  "steinwerkzeuge": {
+   "name": "Stone tools",
+   "desc": "Sharp stone blades: cutting wood and stone is 25% faster."
+  },
+  "flechtkoerbe": {
+   "name": "Woven baskets",
+   "desc": "Settlers carry 2 more items at once."
+  },
+  "schrift": {
+   "name": "Writing",
+   "desc": "Knowledge can be written down. Unlocks the writing room."
+  },
+  "gartenbau": {
+   "name": "Gardening",
+   "desc": "Unlocks the orchard. Fields give 20% more."
+  },
+  "holzbearbeitung": {
+   "name": "Woodworking",
+   "desc": "Unlocks the saw pit. Wood becomes planks."
+  },
+  "zimmerei": {
+   "name": "Carpentry",
+   "desc": "Unlocks the wooden house for 4 settlers. Huts can be upgraded. Building is 20% faster."
+  },
+  "toepferei": {
+   "name": "Pottery",
+   "desc": "Unlocks the clay pit and brickworks."
+  },
+  "muehlenbau": {
+   "name": "Mill building",
+   "desc": "Unlocks the windmill, which grinds grain into flour."
+  },
+  "raeuchern": {
+   "name": "Smoking",
+   "desc": "Unlocks the smokehouse. Fishers catch 25% faster."
+  },
+  "steinbruch": {
+   "name": "Quarry",
+   "desc": "Unlocks the quarry, which gives endless stone."
+  },
+  "vorratshaltung": {
+   "name": "Storage",
+   "desc": "Better shelves and barrels: all stores hold 25% more."
+  },
+  "maurerei": {
+   "name": "Masonry",
+   "desc": "Unlocks the stone house (6 settlers) and the large store."
+  },
+  "backkunst": {
+   "name": "Baking",
+   "desc": "Unlocks the bakery. Bread keeps you full for long."
+  },
+  "tierhaltung": {
+   "name": "Animal keeping",
+   "desc": "Unlocks the chicken farm, which turns grain into eggs."
+  },
+  "bewaesserung": {
+   "name": "Irrigation",
+   "desc": "Ditches and jugs: fields and orchards grow 30% faster."
+  },
+  "koehlerei": {
+   "name": "Charcoal kiln",
+   "desc": "Unlocks the charcoal kiln, which gives charcoal for metal."
+  },
+  "heilkunde": {
+   "name": "Healing",
+   "desc": "Herbs and care: settlers live 8 days longer and get well twice as fast."
+  },
+  "unterricht": {
+   "name": "Teaching",
+   "desc": "Reading, writing, counting: unlocks the school, where children grow up twice as fast."
+  },
+  "handkarren": {
+   "name": "Handcarts",
+   "desc": "Settlers carry 3 more items and walk 15% faster."
+  },
+  "bergbau": {
+   "name": "Mining",
+   "desc": "Unlocks the ore mine."
+  },
+  "gelehrsamkeit": {
+   "name": "Scholarship",
+   "desc": "Unlocks the library. All researchers work 20% faster."
+  },
+  "eisenverhuettung": {
+   "name": "Iron smelting",
+   "desc": "Unlocks the smelter, which makes iron from ore and coal."
+  },
+  "schmiedekunst": {
+   "name": "Smithing",
+   "desc": "Unlocks the smithy, which makes tools."
+  },
+  "eisenwerkzeuge": {
+   "name": "Iron tools",
+   "desc": "Iron axes, hoes and sickles: all work is 30% faster."
+  },
+  "eisenpflug": {
+   "name": "Iron plow",
+   "desc": "Deeper plowing: fields and orchards give 50% more."
+  },
+  "baumeisterkunst": {
+   "name": "Building skill",
+   "desc": "Cranes and pulleys: building is 40% faster."
+  },
+  "schiffsbau": {
+   "name": "Shipbuilding",
+   "desc": "Unlocks the shipyard, the jetty and the sailor job. Rowboats explore the sea and carry settlers and goods to other islands."
+  },
+  "waffenkunde": {
+   "name": "Weapons",
+   "desc": "Spears and bows: unlocks the watchtower and the hunter job. Settlers fight wild animals twice as well."
+  },
+  "navigation": {
+   "name": "Navigation",
+   "desc": "Compass and star maps: ships go 50% faster and take 2 more settlers. Unlocks the harbor and the cog."
+  },
+  "seehandel": {
+   "name": "Sea trade",
+   "desc": "Large harbors, quays for certain goods, galleons and fast sailers."
+  },
+  "jagdkunst": {
+   "name": "Hunting skill",
+   "desc": "Traps and tracking: hunters hit 50% harder and killed animals give more meat."
+  },
+  "befestigung": {
+   "name": "Fortification",
+   "desc": "Stone walls: watchtowers shoot farther and 60% harder."
+  },
+  "pelzkleidung": {
+   "name": "Warm clothes",
+   "desc": "Fur coats and blankets: settlers get hungry 15% slower and live 4 days longer."
+  },
+  "leuchtfeuer": {
+   "name": "Beacon",
+   "desc": "Unlocks the lighthouse, which guides boats safely and faster across the sea."
+  },
+  "goldenes_zeitalter": {
+   "name": "Golden Age",
+   "desc": "The crown of your culture. Unlocks the monument, which brings more children and longer life on all islands."
+  },
+  "glasmacherei": {
+   "name": "Glassmaking",
+   "desc": "Unlocks the glassworks: clay and coal become glass."
+  },
+  "papier": {
+   "name": "Paper",
+   "desc": "Unlocks the paper mill: wood becomes paper."
+  },
+  "uhrwerk": {
+   "name": "Mechanical clock",
+   "desc": "Fixed work hours: everyone works 10% faster."
+  },
+  "astronomie": {
+   "name": "Astronomy",
+   "desc": "Telescope and star maps: ships go 30% faster, exploring is 30% faster."
+  },
+  "buchdruck": {
+   "name": "Printing",
+   "desc": "Movable type: knowledge spreads, research is 25% faster."
+  },
+  "hochschule": {
+   "name": "University",
+   "desc": "Unlocks the university, where four researchers work very fast."
+  },
+  "fruchtwechsel": {
+   "name": "Crop rotation",
+   "desc": "Fields change crops and recover: 40% more harvest."
+  },
+  "anatomie": {
+   "name": "Anatomy",
+   "desc": "Doctors understand the body: the sick heal faster, everyone lives 6 days longer."
+  },
+  "dampfmaschine": {
+   "name": "Steam engine",
+   "desc": "Steam drives saws and pumps: wood, stone and ore are 30% faster."
+  },
+  "stahl": {
+   "name": "Steel",
+   "desc": "Unlocks the steelworks: iron and coal become steel."
+  },
+  "konservendose": {
+   "name": "Tin can",
+   "desc": "Unlocks the cannery: canned fish never spoils."
+  },
+  "fabrik": {
+   "name": "Factories",
+   "desc": "Unlocks the factory, which builds machines. All workshops work 20% faster."
+  },
+  "eisenbahn": {
+   "name": "Railway",
+   "desc": "Rails and carts: settlers walk 30% faster and carry 4 more items."
+  },
+  "mietshaus": {
+   "name": "Apartment houses",
+   "desc": "Unlocks the apartment house for 10 settlers."
+  },
+  "kunstduenger": {
+   "name": "Fertilizer",
+   "desc": "Factory fertilizer: fields give 50% more."
+  },
+  "elektrizitaet": {
+   "name": "Electricity",
+   "desc": "Unlocks the power plant. Electric light: everyone works 10% faster."
+  },
+  "telegraf": {
+   "name": "Telegraph",
+   "desc": "Messages in seconds: exploring is 50% faster, research 20% faster."
+  },
+  "impfung": {
+   "name": "Vaccines",
+   "desc": "Vaccines protect: the sick heal twice as fast, everyone lives 8 days longer."
+  },
+  "kuehltechnik": {
+   "name": "Refrigeration",
+   "desc": "Fridges: fresh food spoils much slower."
+  },
+  "verbrennungsmotor": {
+   "name": "Combustion engine",
+   "desc": "Trucks and tractors: building is 50% faster, fields ripen 40% faster."
+  },
+  "wohnblock": {
+   "name": "Apartment blocks",
+   "desc": "Unlocks the apartment block for 16 settlers."
+  },
+  "gewaechshaus": {
+   "name": "Greenhouse",
+   "desc": "Unlocks the greenhouse, where apples grow all year."
+  },
+  "motorschiffe": {
+   "name": "Motor ships",
+   "desc": "Ship engines: all ships go 50% faster."
+  },
+  "computer": {
+   "name": "Computers",
+   "desc": "Unlocks the electronics plant. Computers help research: 30% faster."
+  },
+  "solarenergie": {
+   "name": "Solar power",
+   "desc": "Unlocks the solar park: power from sunlight, without coal."
+  },
+  "automatisierung": {
+   "name": "Automation",
+   "desc": "Controlled machines: workshops work 40% faster, wood and stone are 30% faster."
+  },
+  "internet": {
+   "name": "Internet",
+   "desc": "All knowledge linked: research 50% faster. Unlocks the research lab."
+  },
+  "logistik": {
+   "name": "Logistics",
+   "desc": "Computer storage: 50% more storage, settlers carry 4 more items and walk 20% faster."
+  },
+  "gentechnik": {
+   "name": "Genetic engineering",
+   "desc": "Strong plants and new medicine: fields give 50% more, everyone lives 10 days longer."
+  },
+  "ki": {
+   "name": "Artificial intelligence",
+   "desc": "Unlocks the AI center: it helps research and gives idle settlers the jobs that are missing."
+  },
+  "fusionsenergie": {
+   "name": "Nuclear fusion",
+   "desc": "Unlocks the fusion reactor: a lot of power without coal."
+  },
+  "robotik": {
+   "name": "Robotics",
+   "desc": "Robots help everywhere: everyone works 30% faster, building is 50% faster."
+  },
+  "zukunftsstadt": {
+   "name": "Future city",
+   "desc": "The goal of all ages: unlocks the future city."
+  }
+ },
+ "resources": {
+  "holz": "Wood",
+  "stein": "Stone",
+  "bretter": "Planks",
+  "lehm": "Clay",
+  "ziegel": "Bricks",
+  "kohle": "Coal",
+  "erz": "Ore",
+  "eisen": "Iron",
+  "werkzeug": "Tools",
+  "mehl": "Flour",
+  "beeren": "Berries",
+  "fisch": "Fish",
+  "weizen": "Grain",
+  "aepfel": "Apples",
+  "eier": "Eggs",
+  "raeucherfisch": "Smoked fish",
+  "brot": "Bread",
+  "felle": "Furs",
+  "gold": "Gold",
+  "boot": "Rowboat",
+  "kogge": "Cog",
+  "schnellsegler": "Clipper",
+  "galeone": "Galleon",
+  "fleisch": "Meat",
+  "kokos": "Coconuts",
+  "pilze": "Mushrooms",
+  "glas": "Glass",
+  "papier": "Paper",
+  "stahl": "Steel",
+  "maschinen": "Machines",
+  "strom": "Power",
+  "elektronik": "Electronics",
+  "konserven": "Canned food"
+ },
+ "nodes": {
+  "baum": "Tree",
+  "fels": "Rock",
+  "busch": "Berry bush",
+  "fischgrund": "Fishing spot",
+  "palme": "Coconut palm",
+  "pilzkreis": "Mushroom ring",
+  "erzader": "Ore vein",
+  "goldader": "Gold vein",
+  "wolfsbau": "Wolf den",
+  "eberbau": "Boar wallow",
+  "baerenhoehle": "Bear cave",
+  "beute": "Killed animal"
+ },
+ "jobs": {
+  "frei": {
+   "name": "Idle",
+   "desc": "Helps wherever help is needed."
+  },
+  "holzfaeller": {
+   "name": "Woodcutter",
+   "desc": "Cuts trees and brings wood."
+  },
+  "steinmetz": {
+   "name": "Stonecutter",
+   "desc": "Cuts stone, ore and gold from rocks; works in the quarry, clay pit and mine."
+  },
+  "sammler": {
+   "name": "Gatherer",
+   "desc": "Picks berries, coconuts and mushrooms."
+  },
+  "fischer": {
+   "name": "Fisher",
+   "desc": "Fishes at fishing spots on the shore."
+  },
+  "bauer": {
+   "name": "Farmer",
+   "desc": "Works grain fields and orchards."
+  },
+  "koch": {
+   "name": "Cook",
+   "desc": "Works in the mill, bakery, smokehouse and chicken farm."
+  },
+  "handwerker": {
+   "name": "Craftsman",
+   "desc": "Works in the saw pit, brickworks, charcoal kiln, smelter, smithy and shipyard."
+  },
+  "baumeister": {
+   "name": "Builder",
+   "desc": "Brings materials and builds buildings."
+  },
+  "forscher": {
+   "name": "Researcher",
+   "desc": "Does research at the campfire or in the writing room and library."
+  },
+  "jaeger": {
+   "name": "Hunter",
+   "desc": "Hunts wild animals, brings meat and furs and clears animal dens."
+  },
+  "seemann": {
+   "name": "Sailor",
+   "desc": "Sails as crew on the ships. No ship leaves without sailors. On land he fishes."
+  }
+ },
+ "skills": {
+  "holz": "Woodwork",
+  "stein": "Stonework",
+  "nahrung": "Food",
+  "bauen": "Build",
+  "handwerk": "Crafting",
+  "wissen": "Knowledge",
+  "jagd": "Hunting"
+ },
+ "animals": {
+  "wolf": "Wolf",
+  "eber": "Wild boar",
+  "baer": "Bear"
+ },
+ "ships": {
+  "boot": "Rowboat",
+  "kogge": "Cog",
+  "schnellsegler": "Clipper",
+  "galeone": "Galleon"
+ },
+ "islands": {
+  "heimat": "Home Island",
+  "tropen": "Palm Island",
+  "wald": "Forest Island",
+  "berg": "Rock Island"
+ },
+ "strategies": {
+  "nahrung": {
+   "name": "Secure food",
+   "desc": "More gatherers, fishers, farmers and cooks; new fields."
+  },
+  "winter": {
+   "name": "Stock up for winter",
+   "desc": "Lots of firewood, food that keeps (smokehouse, bakery), full stores."
+  },
+  "wachstum": {
+   "name": "Grow",
+   "desc": "New and better houses, a school, enough food for children."
+  },
+  "bauen": {
+   "name": "Building and workshops",
+   "desc": "Workshops and production chains, more wood and stone."
+  },
+  "wissen": {
+   "name": "Knowledge and research",
+   "desc": "More researchers, writing room, library and school."
+  },
+  "sicherheit": {
+   "name": "Protection from animals",
+   "desc": "Hunters and watchtowers against wild animals."
+  },
+  "seefahrt": {
+   "name": "Seafaring and trade",
+   "desc": "Shipyard, harbors and ships, find new islands."
+  }
+ },
+ "seasons": [
+  "spring",
+  "summer",
+  "autumn",
+  "winter"
+ ]
 }

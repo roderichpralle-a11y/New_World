@@ -167,8 +167,8 @@ func _process(_delta: float) -> void:
 	var t := Game.time_days
 	if not welcomed:
 		welcomed = true
-		Game.notify("KI-Version: Deine Siedler entscheiden selbst, was sie arbeiten. Jedes Haus schickt einen Sprecher in den Inselrat.", "ki")
-		Game.notify("Du bist der Herrscher. Unter „Rat“ findest du die Anliegen der Inseln: zustimmen, diskutieren oder bestimmen.", "glocke")
+		Game.notify(tr("KI-Version: Deine Siedler entscheiden selbst, was sie arbeiten. Jedes Haus schickt einen Sprecher in den Inselrat."), "ki")
+		Game.notify(tr("Du bist der Herrscher. Unter „Rat“ findest du die Anliegen der Inseln: zustimmen, diskutieren oder bestimmen."), "glocke")
 	for w in Sea.all_worlds():
 		if w.settlers.is_empty():
 			continue
@@ -396,16 +396,16 @@ func _think(w) -> void:
 	var free: Array = []
 	for s in w.settlers:
 		if not s.is_adult():
-			thoughts[s.id] = "Spielt und lernt." if w.school_of(s) == null else "Lernt in der Schule."
+			thoughts[s.id] = tr("Spielt und lernt.") if w.school_of(s) == null else tr("Lernt in der Schule.")
 			continue
 		if float(orders.get(s.id, 0.0)) > t:
-			thoughts[s.id] = "Der Herrscher hat mich zum %s bestimmt. Das mache ich." % s.job_name()
+			thoughts[s.id] = tr("Der Herrscher hat mich zum %s bestimmt. Das mache ich.") % s.job_name()
 			continue
 		if s.job == "seemann":
-			thoughts[s.id] = "Ich gehöre zur Besatzung unserer Schiffe."
+			thoughts[s.id] = tr("Ich gehöre zur Besatzung unserer Schiffe.")
 			continue
 		if s.mind.needs_bed():
-			thoughts[s.id] = "Ich bin krank und muss liegen."
+			thoughts[s.id] = tr("Ich bin krank und muss liegen.")
 			continue
 		free.append(s)
 	if free.is_empty():
@@ -455,8 +455,8 @@ func _think(w) -> void:
 			best.set_job(j)
 			last_change[best.id] = t
 			changes += 1
-			Game.notify_at(w, "%s denkt um: %s statt %s. %s" % [best.display_name, best.job_name(), old, _why_job(w, j, sit)], "ki")
-			decide(w, "%s wird %s (vorher %s). Gebraucht: %d, da waren %d. %s" % [best.display_name, best.job_name(), old,
+			Game.notify_at(w, tr("%s denkt um: %s statt %s. %s") % [best.display_name, best.job_name(), old, _why_job(w, j, sit)], "ki")
+			decide(w, tr("%s wird %s (vorher %s). Gebraucht: %d, da waren %d. %s") % [best.display_name, best.job_name(), old,
 				int(slots[j]), int(have[j]) - 1, _why_job(w, j, sit)])
 	# Wer in einem überbesetzten Beruf bleibt und nichts anderes findet, hilft frei aus
 	for s in free:
@@ -465,7 +465,7 @@ func _think(w) -> void:
 		if s.job != "frei" and slots.has(s.job) and int(have.get(s.job, 0)) > int(slots.get(s.job, 0)) + 1 \
 				and t - float(last_change.get(s.id, -99.0)) >= cd:
 			have[s.job] = int(have.get(s.job, 0)) - 1
-			decide(w, "%s hört als %s auf (zu viele dort) und hilft jetzt frei aus." % [s.display_name, s.job_name()])
+			decide(w, tr("%s hört als %s auf (zu viele dort) und hilft jetzt frei aus.") % [s.display_name, s.job_name()])
 			s.set_job("frei")
 			last_change[s.id] = t
 			changes += 1
@@ -477,41 +477,41 @@ func _why_job(w, j: String, sit: Dictionary) -> String:
 	match j:
 		"sammler", "fischer", "bauer":
 			if float(sit.food_head) < 5.0:
-				return "Das Essen wird knapp (%d je Kopf)." % int(sit.food_head)
+				return tr("Das Essen wird knapp (%d je Kopf).") % int(sit.food_head)
 			if int(sit.season) in [Seasons.SUMMER, Seasons.AUTUMN] and float(sit.food_ratio) < 1.0:
-				return "Wir brauchen Vorrat für den Winter (%d von %d)." % [int(sit.food), int(sit.food_target)]
-			return "Wir brauchen jeden Tag Essen."
+				return tr("Wir brauchen Vorrat für den Winter (%d von %d).") % [int(sit.food), int(sit.food_target)]
+			return tr("Wir brauchen jeden Tag Essen.")
 		"koch":
-			return "Die Küche macht haltbares, sättigendes Essen."
+			return tr("Die Küche macht haltbares, sättigendes Essen.")
 		"holzfaeller":
 			if int(sit.season) in [Seasons.SUMMER, Seasons.AUTUMN]:
-				return "Wir brauchen Brennholz für den Winter."
-			return "Holz wird für Bauten gebraucht."
+				return tr("Wir brauchen Brennholz für den Winter.")
+			return tr("Holz wird für Bauten gebraucht.")
 		"steinmetz":
-			return "Stein wird gebraucht."
+			return tr("Stein wird gebraucht.")
 		"baumeister":
-			return ("%d Baustellen warten." % int(sit.sites)) if int(sit.sites) > 0 else "Gerade ist keine Baustelle offen."
+			return (tr("%d Baustellen warten.") % int(sit.sites)) if int(sit.sites) > 0 else tr("Gerade ist keine Baustelle offen.")
 		"handwerker":
-			return "Die Werkstätten brauchen Hände."
+			return tr("Die Werkstätten brauchen Hände.")
 		"forscher":
-			return "Wir wollen %s erforschen." % Data.techs.get(Game.research.current, {}).get("name", "Neues")
+			return tr("Wir wollen %s erforschen.") % Data.techs.get(Game.research.current, {}).get("name", tr("Neues"))
 		"jaeger":
-			return "Wilde Tiere bedrohen uns."
-	return "Ich helfe, wo es gerade fehlt."
+			return tr("Wilde Tiere bedrohen uns.")
+	return tr("Ich helfe, wo es gerade fehlt.")
 
 
 func _thought(s, w, sit: Dictionary, domain: String) -> String:
-	var text := "Ich bin %s. %s" % [s.job_name(), _why_job(w, s.job, sit)]
+	var text := tr("Ich bin %s. %s") % [s.job_name(), _why_job(w, s.job, sit)]
 	var sk: String = Data.jobs.get(s.job, {}).get("skill", "")
 	if sk != "" and float(s.mind.talents.get(sk, 1.0)) >= 1.3:
-		text += " Das liegt mir."
+		text += tr(" Das liegt mir.")
 	elif sk != "" and float(s.mind.talents.get(sk, 1.0)) < 0.8:
-		text += " Eigentlich liegt mir das nicht, aber es muss sein."
+		text += tr(" Eigentlich liegt mir das nicht, aber es muss sein.")
 	if domain != "" and s.job in DOMAINS.get(domain, []):
-		text += " Unser Haus kümmert sich um %s." % DOMAIN_NAMES[domain]
+		text += tr(" Unser Haus kümmert sich um %s.") % DOMAIN_NAMES[domain]
 	var fav: String = s.best_job()
 	if fav != s.job and fav != "frei" and Data.jobs.has(fav):
-		text += " Am liebsten wäre ich %s." % Data.jobs[fav].name
+		text += tr(" Am liebsten wäre ich %s.") % Data.jobs[fav].name
 	return text
 
 
@@ -543,7 +543,7 @@ func _make_households(w, sit: Dictionary) -> void:
 			sp = adults[0]
 			st.speakers[hid] = sp.id
 		var home = w.building_by_id(hid) if hid != 0 else null
-		var name: String = ("%s von %s" % [home.def.name, sp.display_name]) if home else "Am Lagerfeuer"
+		var name: String = (tr("%s von %s") % [home.def.name, sp.display_name]) if home else tr("Am Lagerfeuer")
 		list.append({"home": hid, "name": name, "speaker": sp, "members": mem.map(func(s): return s.id),
 			"adults": adults.size(), "size": mem.size(), "domain": "", "cap": home.housing() if home else 0})
 	# Absprache: Bedarf je Bereich, größte Häuser wählen zuerst nach Begabung
@@ -602,7 +602,7 @@ func _care(w, days: float) -> void:
 			var o = _settler(w, sid)
 			if o and o != s and o.is_adult() and not o.mind.needs_bed():
 				s.mind.sick_left -= days * float(cfg("care_heal_bonus", 0.4))
-				thoughts[o.id] = "Ich pflege %s (%s). %s" % [s.display_name, s.mind.illness_name(), thoughts.get(o.id, "")]
+				thoughts[o.id] = tr("Ich pflege %s (%s). %s") % [s.display_name, s.mind.illness_name(), thoughts.get(o.id, "")]
 				break
 
 
@@ -637,26 +637,26 @@ func opinion(s, w, sc: Dictionary) -> Dictionary:
 		match k:
 			"nahrung":
 				v += (60.0 - hunger) / 100.0 + (0.15 if float(m.talents.get("nahrung", 1.0)) >= 1.3 else 0.0)
-				why = "Wir haben Hunger." if hunger < 45.0 else "Die Vorräte sind zu knapp."
+				why = tr("Wir haben Hunger.") if hunger < 45.0 else tr("Die Vorräte sind zu knapp.")
 			"winter":
 				v += (6.0 - m.trait_value("konst")) / 12.0
-				why = "Der Winter kommt, wir brauchen Holz und Vorräte." if int(Seasons.season()) != Seasons.WINTER else "Wir frieren, wir brauchen Holz."
+				why = tr("Der Winter kommt, wir brauchen Holz und Vorräte.") if int(Seasons.season()) != Seasons.WINTER else tr("Wir frieren, wir brauchen Holz.")
 			"wachstum":
 				v += (0.4 if crowded else 0.0) + (0.15 if s.age < 20.0 else 0.0)
-				why = "Unser Haus ist zu eng." if crowded else "Wir wollen eine größere Familie."
+				why = tr("Unser Haus ist zu eng.") if crowded else tr("Wir wollen eine größere Familie.")
 			"bauen":
 				v += (m.trait_value("fleiss") - 5.0) / 12.0 + (0.15 if float(m.talents.get("bauen", 1.0)) >= 1.3 or float(m.talents.get("handwerk", 1.0)) >= 1.3 else 0.0)
-				why = "Mit Werkstätten geht alles leichter."
+				why = tr("Mit Werkstätten geht alles leichter.")
 			"wissen":
 				v += (m.trait_value("iq") - 5.0) / 8.0
-				why = "Wissen bringt uns weiter."
+				why = tr("Wissen bringt uns weiter.")
 			"sicherheit":
 				if float(sc.get("sicherheit", 0.0)) > 0.0:
 					v += (5.0 - m.trait_value("gemuet")) / 12.0
-				why = "Die wilden Tiere machen mir Angst."
+				why = tr("Die wilden Tiere machen mir Angst.")
 			"seefahrt":
 				v += (m.trait_value("gemuet") - 5.0) / 12.0
-				why = "Hinter dem Meer warten neue Inseln."
+				why = tr("Hinter dem Meer warten neue Inseln.")
 		if k == st.strategy:
 			v += 0.1
 		v += r.randf_range(-0.08, 0.08)
@@ -711,15 +711,15 @@ func _council(w) -> void:
 		votes.append({"sid": s.id, "name": s.display_name, "house": household_of(s).get("name", ""), "strat": best, "why": op[best][1]})
 	st.votes = votes
 	for v in votes:
-		decide(w, "Rat: %s stimmt für „%s“. „%s“" % [v.name, strat_name(v.strat), v.why])
+		decide(w, tr("Rat: %s stimmt für „%s“. „%s“") % [v.name, strat_name(v.strat), v.why])
 	var win := _winner(votes, st.strategy, sc)
 	var where := Sea.island_name(w)
 	if win == st.strategy:
-		log_line(w, "Der Rat bleibt bei „%s“ (%s)." % [strat_name(win), tally_text(votes)])
-		Game.notify_at(w, "Der Inselrat hat getagt und bleibt bei „%s“." % strat_name(win), "glocke")
+		log_line(w, tr("Der Rat bleibt bei „%s“ (%s).") % [strat_name(win), tally_text(votes)])
+		Game.notify_at(w, tr("Der Inselrat hat getagt und bleibt bei „%s“.") % strat_name(win), "glocke")
 	else:
-		add_request(w, "strategie", "Neue Strategie: %s" % strat_name(win),
-			"Der Rat von %s möchte die Strategie ändern: „%s“ statt „%s“. Abstimmung: %s." % [where, strat_name(win), strat_name(st.strategy), tally_text(votes)],
+		add_request(w, "strategie", tr("Neue Strategie: %s") % strat_name(win),
+			tr("Der Rat von %s möchte die Strategie ändern: „%s“ statt „%s“. Abstimmung: %s.") % [where, strat_name(win), strat_name(st.strategy), tally_text(votes)],
 			{"strat": win}, ["ja", "besprechen", "bestimmen"])
 	_council_requests(w, sit)
 	changed.emit()
@@ -731,8 +731,8 @@ func set_strategy(w, k: String, how: String) -> void:
 	st.since = Game.time_days
 	# Wer für diese Strategie gestimmt hat, fühlt sich gehört
 	st.heard = st.votes.filter(func(v): return v.strat == k).map(func(v): return int(v.sid))
-	log_line(w, "Neue Strategie: „%s“. %s" % [strat_name(k), how])
-	Game.notify_at(w, "Neue Strategie: %s. %s" % [strat_name(k), how], "glocke")
+	log_line(w, tr("Neue Strategie: „%s“. %s") % [strat_name(k), how])
+	Game.notify_at(w, tr("Neue Strategie: %s. %s") % [strat_name(k), how], "glocke")
 	st.next_think = 0.0
 	changed.emit()
 
@@ -753,8 +753,8 @@ func add_request(w, kind: String, title: String, text: String, data: Dictionary 
 	requests.append({"id": next_req, "isl": id, "kind": kind, "title": title, "text": text, "who": who,
 		"made": Game.time_days, "until": Game.time_days + float(cfg("request_days", 1.0)), "data": data, "opts": opts})
 	next_req += 1
-	decide(w, "Anliegen an dich: %s" % title)
-	Game.notify_at(w, "Anliegen an den Herrscher: %s" % title, "glocke")
+	decide(w, tr("Anliegen an dich: %s") % title)
+	Game.notify_at(w, tr("Anliegen an den Herrscher: %s") % title, "glocke")
 	changed.emit()
 
 
@@ -785,21 +785,21 @@ func _close(r: Dictionary) -> void:
 func answer(rid: int, ans: String) -> String:
 	var r := request_by_id(rid)
 	if r.is_empty():
-		return "Dieses Anliegen gibt es nicht mehr."
+		return tr("Dieses Anliegen gibt es nicht mehr.")
 	var w = _world_of(int(r.isl))
 	if w == null:
 		_close(r)
 		return ""
 	var msg := ""
 	if ans == "ja":
-		msg = _carry_out(w, r, "der Herrscher hat zugestimmt")
+		msg = _carry_out(w, r, tr("der Herrscher hat zugestimmt"))
 		if msg == "":
 			_add_trust(w, "agree")
-			log_line(w, "Herrscher stimmt zu: %s." % r.title)
+			log_line(w, tr("Herrscher stimmt zu: %s.") % r.title)
 	else:
 		_add_trust(w, "reject")
-		log_line(w, "Herrscher lehnt ab: %s." % r.title)
-		Game.notify_at(w, "Der Herrscher lehnt ab: %s." % r.title, "glocke")
+		log_line(w, tr("Herrscher lehnt ab: %s.") % r.title)
+		Game.notify_at(w, tr("Der Herrscher lehnt ab: %s.") % r.title, "glocke")
 	if msg == "":
 		_close(r)
 	return msg
@@ -815,12 +815,12 @@ func _expire_requests() -> void:
 			continue
 		# Ohne Antwort entscheidet der Rat selbst
 		if r.kind in ["strategie", "bau", "forschung", "ueberstunden"]:
-			_carry_out(w, r, "ohne Antwort hat der Rat selbst entschieden")
+			_carry_out(w, r, tr("ohne Antwort hat der Rat selbst entschieden"))
 			if r.kind != "strategie":
-				log_line(w, "Ohne Antwort entschieden: %s." % r.title)
+				log_line(w, tr("Ohne Antwort entschieden: %s.") % r.title)
 		else:
 			_add_trust(w, "ignored")
-			log_line(w, "Keine Antwort auf: %s." % r.title)
+			log_line(w, tr("Keine Antwort auf: %s.") % r.title)
 		_close(r)
 
 
@@ -834,35 +834,35 @@ func _carry_out(w, r: Dictionary, how: String) -> String:
 			if d.has("upgrade"):
 				var b = w.building_by_id(int(d.upgrade))
 				if b == null or not b.complete or w.upgrade_building(b) == null:
-					return "Das Haus kann gerade nicht ausgebaut werden."
-				Game.notify_at(w, "Der Rat lässt %s ausbauen (%s)." % [b.def.name, how], "hammer")
+					return tr("Das Haus kann gerade nicht ausgebaut werden.")
+				Game.notify_at(w, tr("Der Rat lässt %s ausbauen (%s).") % [b.def.name, how], "hammer")
 			else:
 				var c := find_spot(w, d.type)
 				if c.x < 0:
-					return "Es gibt keinen freien Platz für %s." % Data.buildings[d.type].name
+					return tr("Es gibt keinen freien Platz für %s.") % Data.buildings[d.type].name
 				w.place_building(d.type, c, false)
-				Game.notify_at(w, "Der Rat lässt bauen: %s (%s)." % [Data.buildings[d.type].name, how], "hammer")
+				Game.notify_at(w, tr("Der Rat lässt bauen: %s (%s).") % [Data.buildings[d.type].name, how], "hammer")
 		"forschung":
 			if Game.research.current != "":
 				return ""
 			var err := Game.start_research(d.tech)
 			if err != "":
-				Game.notify_at(w, "Forschung %s: %s" % [Data.techs[d.tech].name, err], "wissen")
-				return err if how.begins_with("der Herrscher") else ""
-			Game.notify_at(w, "Die Siedler forschen jetzt an %s (%s)." % [Data.techs[d.tech].name, how], "wissen")
+				Game.notify_at(w, tr("Forschung %s: %s") % [Data.techs[d.tech].name, err], "wissen")
+				return err if how.begins_with(tr("der Herrscher")) else ""
+			Game.notify_at(w, tr("Die Siedler forschen jetzt an %s (%s).") % [Data.techs[d.tech].name, how], "wissen")
 		"fest":
 			_festival(w)
 		"freizeit":
 			state(w).leisure_until = Game.time_days + float(cfg("leisure_days", 2.0))
-			Game.notify_at(w, "Mehr Freizeit auf %s: die Siedler arbeiten zwei Tage gemütlicher." % Sea.island_name(w), "sonne")
+			Game.notify_at(w, tr("Mehr Freizeit auf %s: die Siedler arbeiten zwei Tage gemütlicher.") % Sea.island_name(w), "sonne")
 		"ueberstunden":
 			state(w).overtime_until = Game.time_days + float(cfg("overtime_days", 2.0))
-			Game.notify_at(w, "Die Siedler auf %s machen Überstunden." % Sea.island_name(w), "hammer")
+			Game.notify_at(w, tr("Die Siedler auf %s machen Überstunden.") % Sea.island_name(w), "hammer")
 		"hilfe":
 			var from = _world_of(int(d.from))
 			var sh := Sea.ship_by_id(int(d.ship))
 			if from == null or sh.is_empty():
-				return "Das Schiff ist nicht mehr da."
+				return tr("Das Schiff ist nicht mehr da.")
 			Sea.fill_crew(sh)
 			if Sea.crew_missing(sh) > 0:
 				Sea.hire_sailor(sh)
@@ -889,7 +889,7 @@ func _festival(w) -> void:
 			break
 		need -= Game.take_stock(id, min(need, Game.amount(id, w)), w)
 	st.festival_until = Game.time_days + float(cfg("festival_days", 1.0))
-	Game.notify_at(w, "Fest auf %s! Die Siedler feiern, essen gut und arbeiten heute weniger." % Sea.island_name(w), "musik")
+	Game.notify_at(w, tr("Fest auf %s! Die Siedler feiern, essen gut und arbeiten heute weniger.") % Sea.island_name(w), "musik")
 	Sound.play_on("glocke", w)
 
 
@@ -904,18 +904,18 @@ func _council_requests(w, sit: Dictionary) -> void:
 	mood /= maxf(1.0, w.settlers.size())
 	var st := state(w)
 	if mood < 45.0 and float(sit.food_head) > 6.0 and Game.time_days > float(st.festival_until) + 3.0:
-		add_request(w, "fest", "Ein Fest feiern",
-			"Die Stimmung ist schlecht. Die Siedler wünschen sich ein Fest. Kosten: etwa %d Essen, einen halben Arbeitstag." % (int(cfg("festival_food_per_head", 2)) * w.settlers.size()))
+		add_request(w, "fest", tr("Ein Fest feiern"),
+			tr("Die Stimmung ist schlecht. Die Siedler wünschen sich ein Fest. Kosten: etwa %d Essen, einen halben Arbeitstag.") % (int(cfg("festival_food_per_head", 2)) * w.settlers.size()))
 	elif int(Seasons.season()) == Seasons.AUTUMN and Seasons.day_in_season() == 1 and float(sit.food_head) > 10.0:
-		add_request(w, "fest", "Erntefest",
-			"Die Ernte ist eingebracht. Die Siedler möchten ein Erntefest feiern (etwa %d Essen)." % (int(cfg("festival_food_per_head", 2)) * w.settlers.size()))
+		add_request(w, "fest", tr("Erntefest"),
+			tr("Die Ernte ist eingebracht. Die Siedler möchten ein Erntefest feiern (etwa %d Essen).") % (int(cfg("festival_food_per_head", 2)) * w.settlers.size()))
 	if tired >= max(2, int(sit.adults) / 3) and Game.time_days > float(st.leisure_until):
-		add_request(w, "freizeit", "Weniger Arbeit",
-			"%d Siedler sind überarbeitet. Sie fordern zwei Tage mit mehr Freizeit (es wird langsamer gearbeitet)." % tired)
+		add_request(w, "freizeit", tr("Weniger Arbeit"),
+			tr("%d Siedler sind überarbeitet. Sie fordern zwei Tage mit mehr Freizeit (es wird langsamer gearbeitet).") % tired)
 	var wood_short: bool = int(sit.season) in [Seasons.SUMMER, Seasons.AUTUMN] and float(sit.wood) < float(sit.wood_target) * 0.6
 	if (wood_short or float(sit.food_head) < 4.0) and Game.time_days > float(st.overtime_until):
-		add_request(w, "ueberstunden", "Angebot: Überstunden",
-			"Die Siedler bieten an, zwei Tage lang mehr zu arbeiten, damit %s reicht. Das drückt die Laune." % ("das Holz" if wood_short else "das Essen"))
+		add_request(w, "ueberstunden", tr("Angebot: Überstunden"),
+			tr("Die Siedler bieten an, zwei Tage lang mehr zu arbeiten, damit %s reicht. Das drückt die Laune.") % (tr("das Holz") if wood_short else tr("das Essen")))
 
 
 # ================================================================== KI baut
@@ -934,8 +934,8 @@ func _plan_buildings(w) -> void:
 		var fc := find_spot(w, t)
 		if fc.x >= 0:
 			w.place_building(t, fc, false)
-			log_line(w, "Der Rat legt an: %s." % Data.buildings[t].name)
-			Game.notify_at(w, "Der Rat legt an: %s. Mehr Felder bringen mehr Essen." % Data.buildings[t].name, "weizen")
+			log_line(w, tr("Der Rat legt an: %s.") % Data.buildings[t].name)
+			Game.notify_at(w, tr("Der Rat legt an: %s. Mehr Felder bringen mehr Essen.") % Data.buildings[t].name, "weizen")
 			return
 	if w.construction_sites().size() >= 2:
 		return
@@ -946,19 +946,19 @@ func _plan_buildings(w) -> void:
 	var def: Dictionary = Data.buildings[pick.type]
 	for id in def.get("cost", {}):
 		cost += int(def.cost[id])
-	var title: String = ("%s ausbauen" % Data.buildings[w.building_by_id(int(pick.upgrade)).type].name) if pick.has("upgrade") \
-		else "%s bauen" % def.name
+	var title: String = (tr("%s ausbauen") % Data.buildings[w.building_by_id(int(pick.upgrade)).type].name) if pick.has("upgrade") \
+		else tr("%s bauen") % def.name
 	if cost <= int(cfg("small_build_cost", 30)) and not pick.has("upgrade"):
 		var c := find_spot(w, pick.type)
 		if c.x >= 0:
 			w.place_building(pick.type, c, false)
-			log_line(w, "Der Rat lässt bauen: %s. %s" % [def.name, pick.why])
-			Game.notify_at(w, "Der Rat lässt bauen: %s. %s" % [def.name, pick.why], "hammer")
+			log_line(w, tr("Der Rat lässt bauen: %s. %s") % [def.name, pick.why])
+			Game.notify_at(w, tr("Der Rat lässt bauen: %s. %s") % [def.name, pick.why], "hammer")
 		return
 	var costs := []
 	for id in def.get("cost", {}):
 		costs.append("%d %s" % [int(def.cost[id]), Data.resource_name(id)])
-	add_request(w, "bau", title, "%s Kosten: %s." % [pick.why, ", ".join(costs)], pick)
+	add_request(w, "bau", title, tr("%s Kosten: %s.") % [pick.why, ", ".join(costs)], pick)
 
 
 func _count(w, types: Array) -> int:
@@ -974,18 +974,18 @@ func _choose_building(w, sit: Dictionary) -> Dictionary:
 		for b in w.buildings:
 			var to: String = b.def.get("upgrade", "")
 			if b.complete and b.housing() > 0 and to != "" and Game.is_unlocked(to) and Game.can_afford(Data.buildings[to].cost, w):
-				cands.append({"type": to, "upgrade": b.id, "why": "Mehr Platz für Familien.", "cat": "wohnen"})
+				cands.append({"type": to, "upgrade": b.id, "why": tr("Mehr Platz für Familien."), "cat": "wohnen"})
 				break
 		for t in HOUSE_ORDER:
 			if Game.is_unlocked(t) and Data.buildings[t].get("buildable", true) and Game.can_afford(Data.buildings[t].cost, w):
-				cands.append({"type": t, "why": "Die Häuser sind voll (%d Siedler, %d Plätze)." % [int(sit.pop), int(sit.housing)], "cat": "wohnen"})
+				cands.append({"type": t, "why": tr("Die Häuser sind voll (%d Siedler, %d Plätze).") % [int(sit.pop), int(sit.housing)], "cat": "wohnen"})
 				break
 	# Lager: wenn es voll wird
 	# (Nicht, wenn das Lager nur voller Holz und Stein im Überfluss ist)
 	if float(sit.storage_full) > 0.85 and float(sit.wood) < float(sit.wood_target) * 3.0 and float(sit.stone) < float(sit.stone_target) * 5.0:
 		var t := "grosslager" if Game.is_unlocked("grosslager") and Game.can_afford(Data.buildings.grosslager.cost, w) else "lager"
 		if Game.can_afford(Data.buildings[t].cost, w):
-			cands.append({"type": t, "why": "Das Lager ist fast voll.", "cat": "lager"})
+			cands.append({"type": t, "why": tr("Das Lager ist fast voll."), "cat": "lager"})
 	# Felder und Gärten
 	if int(sit.season) in [Seasons.SPRING, Seasons.SUMMER] and int(sit.farms) < ceili(int(sit.pop) / 3.0) \
 			and (strat in ["nahrung", "wachstum", "winter"] or float(sit.food_head) < 8.0):
@@ -993,7 +993,7 @@ func _choose_building(w, sit: Dictionary) -> Dictionary:
 		if Game.is_unlocked("obstgarten") and _count(w, ["obstgarten"]) * 3 < int(sit.farms) and int(sit.vit_low) > 0:
 			t = "obstgarten"
 		if Game.can_afford(Data.buildings[t].cost, w):
-			cands.append({"type": t, "why": "Mehr Felder bringen mehr Essen.", "cat": "nahrung"})
+			cands.append({"type": t, "why": tr("Mehr Felder bringen mehr Essen."), "cat": "nahrung"})
 	# Werkstätten und Ketten: was freigeschaltet, aber noch nicht da ist
 	for t in PROD_ORDER:
 		if Game.is_unlocked(t) and _count(w, [t]) == 0 and Game.can_afford(Data.buildings[t].cost, w):
@@ -1001,23 +1001,23 @@ func _choose_building(w, sit: Dictionary) -> Dictionary:
 				continue
 			if t == "muehle" and int(sit.farms) == 0:
 				continue
-			cands.append({"type": t, "why": "%s fehlt noch auf der Insel." % Data.buildings[t].name, "cat": Data.buildings[t].category})
+			cands.append({"type": t, "why": tr("%s fehlt noch auf der Insel.") % Data.buildings[t].name, "cat": Data.buildings[t].category})
 	# Wissen
 	for t in ["schreibstube", "bibliothek", "universitaet", "labor"]:
 		if Game.is_unlocked(t) and _count(w, [t]) == 0 and Game.can_afford(Data.buildings[t].cost, w):
-			cands.append({"type": t, "why": "Ein Ort zum Forschen und Lernen.", "cat": "wissen"})
+			cands.append({"type": t, "why": tr("Ein Ort zum Forschen und Lernen."), "cat": "wissen"})
 			break
 	if Game.is_unlocked("schule") and int(sit.kids) >= 3 and _count(w, ["schule"]) == 0 and Game.can_afford(Data.buildings.schule.cost, w):
-		cands.append({"type": "schule", "why": "%d Kinder sollen lernen." % int(sit.kids), "cat": "wohnen"})
+		cands.append({"type": "schule", "why": tr("%d Kinder sollen lernen.") % int(sit.kids), "cat": "wohnen"})
 	# Schutz
 	if Game.is_unlocked("wachturm") and int(sit.predators) > 0 and _count(w, ["wachturm"]) < 1 + int(sit.predators) / 4 \
 			and Game.can_afford(Data.buildings.wachturm.cost, w):
-		cands.append({"type": "wachturm", "why": "Wilde Tiere greifen an.", "cat": "schutz"})
+		cands.append({"type": "wachturm", "why": tr("Wilde Tiere greifen an."), "cat": "schutz"})
 	# Seefahrt
 	if strat == "seefahrt":
 		for t in ["werft", "anlegesteg", "hafen"]:
 			if Game.is_unlocked(t) and _count(w, [t]) == 0 and Game.can_afford(Data.buildings[t].cost, w):
-				cands.append({"type": t, "why": "Für Schiffe und Handel.", "cat": "see"})
+				cands.append({"type": t, "why": tr("Für Schiffe und Handel."), "cat": "see"})
 				break
 	if cands.is_empty():
 		return {}
@@ -1080,8 +1080,8 @@ func _check_research(w) -> void:
 	var t := choose_research(state(w).strategy, w)
 	if t == "":
 		return
-	add_request(w, "forschung", "Forschung: %s" % Data.techs[t].name,
-		"Die Gelehrten möchten %s erforschen. %s" % [Data.techs[t].name, Data.techs[t].get("desc", "")], {"tech": t})
+	add_request(w, "forschung", tr("Forschung: %s") % Data.techs[t].name,
+		tr("Die Gelehrten möchten %s erforschen. %s") % [Data.techs[t].name, Data.techs[t].get("desc", "")], {"tech": t})
 
 
 func choose_research(strat: String, w) -> String:
@@ -1147,8 +1147,8 @@ func _check_help(w) -> void:
 			continue
 		for sh in Sea.idle_ships(int(o.island_id)):
 			if Sea.can_visit(sh.type, int(w.island_id)):
-				add_request(w, "hilfe", "Hilfe von %s" % Sea.island_name(o),
-					"%s ist in Not. Die Siedler bitten: %s soll mit der %s %s schicken." % [Sea.island_name(w), Sea.island_name(o), sh.name, Sea.goods_text(goods)],
+				add_request(w, "hilfe", tr("Hilfe von %s") % Sea.island_name(o),
+					tr("%s ist in Not. Die Siedler bitten: %s soll mit der %s %s schicken.") % [Sea.island_name(w), Sea.island_name(o), sh.name, Sea.goods_text(goods)],
 					{"from": int(o.island_id), "ship": int(sh.id), "goods": goods})
 				return
 
@@ -1175,9 +1175,9 @@ func start_debate(w, strat: String, rid: int = 0) -> void:
 	debate = {"isl": int(w.island_id), "strat": strat, "rid": rid, "reps": reps, "used": [], "lines": [], "done": false, "won": false}
 	for r in reps:
 		if r.yes:
-			debate.lines.append([r.name, "Ich bin sowieso für „%s“." % strat_name(strat)])
+			debate.lines.append([r.name, tr("Ich bin sowieso für „%s“.") % strat_name(strat)])
 		else:
-			debate.lines.append([r.name, "Ich bin für „%s“. %s" % [strat_name(r.own), r.why]])
+			debate.lines.append([r.name, tr("Ich bin für „%s“. %s") % [strat_name(r.own), r.why]])
 	_check_majority()
 	changed.emit()
 
@@ -1188,8 +1188,8 @@ func arguments() -> Array:
 		return []
 	var w = _world_of(int(debate.isl))
 	var out := []
-	for a in [["lage", "Auf die Lage zeigen"], ["gemeinwohl", "An das Gemeinwohl appellieren"],
-			["fest", "Ein Fest versprechen"], ["freizeit", "Mehr Freizeit versprechen"]]:
+	for a in [["lage", tr("Auf die Lage zeigen")], ["gemeinwohl", tr("An das Gemeinwohl appellieren")],
+			["fest", tr("Ein Fest versprechen")], ["freizeit", tr("Mehr Freizeit versprechen")]]:
 		if a[0] in debate.used:
 			continue
 		var text: String = a[1]
@@ -1204,19 +1204,19 @@ func fact(w, strat: String) -> String:
 	var sit := situation(w)
 	match strat:
 		"nahrung":
-			return "Wir haben nur %d Essen je Kopf." % int(sit.food_head)
+			return tr("Wir haben nur %d Essen je Kopf.") % int(sit.food_head)
 		"winter":
-			return "Wir haben %d Holz, bis zum Frühling brauchen wir etwa %d." % [int(sit.wood), int(sit.wood_target)]
+			return tr("Wir haben %d Holz, bis zum Frühling brauchen wir etwa %d.") % [int(sit.wood), int(sit.wood_target)]
 		"wachstum":
-			return "%d Siedler wohnen auf %d Plätzen." % [int(sit.pop), int(sit.housing)]
+			return tr("%d Siedler wohnen auf %d Plätzen.") % [int(sit.pop), int(sit.housing)]
 		"bauen":
-			return "Mit Werkstätten wird jede Arbeit leichter."
+			return tr("Mit Werkstätten wird jede Arbeit leichter.")
 		"wissen":
-			return "Jede Forschung macht uns stärker."
+			return tr("Jede Forschung macht uns stärker.")
 		"sicherheit":
-			return "Auf der Insel leben %d Raubtiere." % int(sit.predators)
+			return tr("Auf der Insel leben %d Raubtiere.") % int(sit.predators)
 		"seefahrt":
-			return "Auf anderen Inseln gibt es neue Rohstoffe."
+			return tr("Auf anderen Inseln gibt es neue Rohstoffe.")
 	return ""
 
 
@@ -1230,10 +1230,10 @@ func argue(arg: String) -> void:
 	var sc := situation_scores(w)
 	var tr := lerpf(0.4, 1.4, trust(w) / 100.0)
 	var any := false
-	var said := {"lage": "Seht euch die Lage an: %s" % fact(w, debate.strat),
-		"gemeinwohl": "Denkt an alle Inseln und an eure Kinder. Wir schaffen das nur gemeinsam.",
-		"fest": "Wenn ihr zustimmt, feiern wir ein Fest.",
-		"freizeit": "Wenn ihr zustimmt, bekommt ihr zwei Tage mehr Freizeit."}
+	var said := {"lage": tr("Seht euch die Lage an: %s") % fact(w, debate.strat),
+		"gemeinwohl": tr("Denkt an alle Inseln und an eure Kinder. Wir schaffen das nur gemeinsam."),
+		"fest": tr("Wenn ihr zustimmt, feiern wir ein Fest."),
+		"freizeit": tr("Wenn ihr zustimmt, bekommt ihr zwei Tage mehr Freizeit.")}
 	debate.lines.append(["Du", said[arg]])
 	for r in debate.reps:
 		if r.yes:
@@ -1255,9 +1255,9 @@ func argue(arg: String) -> void:
 		if float(r.power) >= float(r.resist):
 			r.yes = true
 			any = true
-			debate.lines.append([r.name, ["Gut, das überzeugt mich.", "Du hast recht, ich stimme zu.", "Na gut, versuchen wir es."][_rng.randi() % 3]])
+			debate.lines.append([r.name, [tr("Gut, das überzeugt mich."), tr("Du hast recht, ich stimme zu."), tr("Na gut, versuchen wir es.")][_rng.randi() % 3]])
 		else:
-			debate.lines.append([r.name, "Das überzeugt mich nicht. %s" % r.why])
+			debate.lines.append([r.name, tr("Das überzeugt mich nicht. %s") % r.why])
 	if not any:
 		_add_trust(w, "argument_failed")
 	if arg in ["fest", "freizeit"]:
@@ -1281,7 +1281,7 @@ func _check_majority() -> void:
 	debate.done = true
 	debate.won = true
 	var w = _world_of(int(debate.isl))
-	debate.lines.append(["Rat", "Der Rat stimmt „%s“ zu (%d von %d)." % [strat_name(debate.strat), debate_yes(), n]])
+	debate.lines.append(["Rat", tr("Der Rat stimmt „%s“ zu (%d von %d).") % [strat_name(debate.strat), debate_yes(), n]])
 	if w:
 		_add_trust(w, "persuaded")
 		for p in debate.get("promises", []):
@@ -1290,7 +1290,7 @@ func _check_majority() -> void:
 			else:
 				state(w).leisure_until = Game.time_days + float(cfg("leisure_days", 2.0))
 			_add_trust(w, "promise_kept")
-		set_strategy(w, debate.strat, "Der Herrscher hat den Rat überzeugt.")
+		set_strategy(w, debate.strat, tr("Der Herrscher hat den Rat überzeugt."))
 		_close_debate_request()
 
 
@@ -1304,7 +1304,7 @@ func _close_debate_request() -> void:
 func command(w, strat: String) -> void:
 	_add_trust(w, "command")
 	state(w).resent_until = Game.time_days + float(cfg("resent_days", 2.0))
-	set_strategy(w, strat, "Der Herrscher hat es bestimmt.")
+	set_strategy(w, strat, tr("Der Herrscher hat es bestimmt."))
 	if not debate.is_empty() and int(debate.isl) == int(w.island_id):
 		debate.done = true
 		_close_debate_request()
@@ -1354,17 +1354,17 @@ func mood_reasons(s) -> Array:
 	var r := []
 	var tv := (float(st.trust) - 50.0) * float(md.get("trust_per_point", 0.2))
 	if absf(tv) >= 2.0:
-		r.append(["Vertraut dem Herrscher" if tv > 0 else "Misstraut dem Herrscher", tv])
+		r.append([tr("Vertraut dem Herrscher") if tv > 0 else tr("Misstraut dem Herrscher"), tv])
 	if t < float(st.festival_until):
-		r.append(["Feiert ein Fest", float(md.get("festival", 14))])
+		r.append([tr("Feiert ein Fest"), float(md.get("festival", 14))])
 	if t < float(st.leisure_until):
-		r.append(["Hat mehr Freizeit", float(md.get("leisure", 6))])
+		r.append([tr("Hat mehr Freizeit"), float(md.get("leisure", 6))])
 	if t < float(st.overtime_until) and s.is_adult():
-		r.append(["Macht Überstunden", float(md.get("overtime", -8))])
+		r.append([tr("Macht Überstunden"), float(md.get("overtime", -8))])
 	if t < float(st.resent_until):
-		r.append(["Der Herrscher hat über den Rat hinweg bestimmt", float(md.get("resent", -8))])
+		r.append([tr("Der Herrscher hat über den Rat hinweg bestimmt"), float(md.get("resent", -8))])
 	if int(s.id) in st.get("heard", []):
-		r.append(["Der Rat ist seiner Meinung gefolgt", float(md.get("heard", 3))])
+		r.append([tr("Der Rat ist seiner Meinung gefolgt"), float(md.get("heard", 3))])
 	return r
 
 
@@ -1377,4 +1377,4 @@ func on_attack(w) -> void:
 func order_job(s) -> void:
 	if enabled:
 		orders[s.id] = Game.time_days + 1.0
-		thoughts[s.id] = "Der Herrscher hat mich zum %s bestimmt. Das mache ich." % s.job_name()
+		thoughts[s.id] = tr("Der Herrscher hat mich zum %s bestimmt. Das mache ich.") % s.job_name()
