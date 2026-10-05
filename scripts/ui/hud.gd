@@ -802,8 +802,8 @@ func _on_placement(active: bool, type: String, valid: bool) -> void:
 # ================================================================== Siedlerliste
 const DIM := Color("#6e5a50")
 ## Sortierbare Spalten: Schluessel, Text, Breite (0 = dehnbar; breit / schmal)
-const SETTLER_COLS := [["name", "Name", 0, 0], ["age", "Alter", 62, 40], ["act", "Tätigkeit", 0, -1],
-	["job", "Beruf", 150, 84], ["hunger", "Satt", 120, 44], ["mood", "Laune", 120, 44]]
+const SETTLER_COLS := [["name", "Name", 0, 0], ["age", "Alter", 62, 30], ["act", "Tätigkeit", 0, -1],
+	["job", "Beruf", 150, 84], ["busy", "Auslastung", 110, 40], ["hunger", "Satt", 120, 44], ["mood", "Laune", 120, 44]]
 var _settler_scroll: ScrollContainer
 var _settler_updaters: Array = []
 var _settler_tick: float = 0.0
@@ -1016,6 +1016,9 @@ func _refresh_settler_list() -> void:
 			"job":
 				va = _settler_job_label(a)
 				vb = _settler_job_label(b)
+			"busy":
+				va = a.busy_percent() if a.is_adult() else -2
+				vb = b.busy_percent() if b.is_adult() else -2
 			"hunger":
 				va = a.hunger
 				vb = b.hunger
@@ -1034,7 +1037,7 @@ func _refresh_settler_list() -> void:
 		b.text = col[1] + ((" ▼" if _settler_desc else " ▲") if col[0] == _settler_sort else "")
 	var stage := SettlerMind.comfort_stage()
 	var sick_n := pool.filter(func(x): return x.mind.sick != "").size()
-	_settler_count.text = "%d von %d Siedlern%s. Lebensstil: %s. Spaltenkopf antippen sortiert. Satt zeigt, wie voll der Magen ist; rot heißt Hunger oder krank." % [
+	_settler_count.text = "%d von %d Siedlern%s. Lebensstil: %s. Spaltenkopf antippen sortiert. Auslastung: Anteil der eigenen Arbeit am Tag, hoch heißt, mehr Leute für diese Arbeit lohnen sich. Satt zeigt, wie voll der Magen ist; rot heißt Hunger oder krank." % [
 		list.size(), pool.size(), (", %d krank" % sick_n) if sick_n > 0 else "", stage[0]]
 	if list.is_empty():
 		_settler_list.add_child(UiTheme.label("Niemand passt zu dieser Auswahl." if not pool.is_empty() else "Auf dieser Insel lebt niemand.", 14))
@@ -1103,9 +1106,22 @@ func _refresh_settler_list() -> void:
 			var kl := UiTheme.label("Kind", 14, DIM)
 			kl.custom_minimum_size.x = jw
 			h.add_child(kl)
+		# Auslastung: Anteil der eigenen Arbeit an der Tageszeit
+		var bz := VBoxContainer.new()
+		bz.custom_minimum_size.x = SETTLER_COLS[4][3] if narrow else SETTLER_COLS[4][2]
+		bz.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		bz.add_theme_constant_override("separation", 1)
+		bz.mouse_filter = Control.MOUSE_FILTER_PASS
+		var bl := UiTheme.label("", 12)
+		bl.mouse_filter = Control.MOUSE_FILTER_PASS
+		bz.add_child(bl)
+		var bbar := UiTheme.bar(Color("#5a9a4a"), 8)
+		bbar.custom_minimum_size.x = 0
+		bz.add_child(bbar)
+		h.add_child(bz)
 		# Saettigung: Balken mit Prozentzahl
 		var sat := VBoxContainer.new()
-		sat.custom_minimum_size.x = SETTLER_COLS[4][3] if narrow else SETTLER_COLS[4][2]
+		sat.custom_minimum_size.x = SETTLER_COLS[5][3] if narrow else SETTLER_COLS[5][2]
 		sat.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		sat.add_theme_constant_override("separation", 1)
 		var pl := UiTheme.label("", 12)
@@ -1116,7 +1132,7 @@ func _refresh_settler_list() -> void:
 		h.add_child(sat)
 		# Laune, rot bei Krankheit
 		var md := VBoxContainer.new()
-		md.custom_minimum_size.x = SETTLER_COLS[5][3] if narrow else SETTLER_COLS[5][2]
+		md.custom_minimum_size.x = SETTLER_COLS[6][3] if narrow else SETTLER_COLS[6][2]
 		md.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		md.add_theme_constant_override("separation", 1)
 		var ml := UiTheme.label("", 12)
@@ -1134,6 +1150,17 @@ func _refresh_settler_list() -> void:
 			al.text = str(int(sref.age))
 			if act:
 				act.text = sref.activity
+			var bp: int = sref.busy_percent() if sref.is_adult() else -1
+			bbar.visible = bp >= 0
+			bbar.value = max(bp, 0)
+			bl.text = "%d%%" % bp if bp >= 0 else "–"
+			if bp >= 0:
+				var bd: Dictionary = sref.busy
+				var tot: float = max(0.0001, float(bd.get("job", 0.0)) + float(bd.get("other", 0.0)) + float(bd.get("idle", 0.0)))
+				bz.tooltip_text = "Eigene Arbeit %d %%, etwas anderes %d %%, nichts zu tun %d %% der Tageszeit (ohne Essen, Pausen und Krankheit)." % [
+					bp, int(round(float(bd.get("other", 0.0)) / tot * 100.0)), int(round(float(bd.get("idle", 0.0)) / tot * 100.0))]
+			else:
+				bz.tooltip_text = "Noch nicht gemessen." if sref.is_adult() else ""
 			hb.value = sref.hunger
 			var hungry: bool = sref.hunger < 30.0
 			fill.bg_color = Color("#d04a3a") if hungry else Color("#e0a040")
