@@ -54,6 +54,11 @@ var _danger_t: float = 0.0
 var _attack_t: float = 0.0
 var _hurt: float = 0.0
 var _hiding = null  # Gebaeude, in dem sich der Siedler vor Tieren versteckt
+# KI-Variante: Arbeitsstatistik. Tageszeit in Tagen je Art (job = eigene Arbeit, other = etwas
+# anderes, idle = nichts zu tun, needs = Essen, Freizeit, Krankheit, Flucht), erledigte
+# Arbeitsschritte und abgelieferte Waren. KiMind liest und leert sie bei jeder Ratssitzung.
+var stat: Dictionary = {}
+var _stat_kind: String = "needs"
 
 var _body: Node2D
 var _layers: Dictionary = {}
@@ -234,6 +239,8 @@ func _process(delta: float) -> void:
 			_think()
 	else:
 		_run_action(delta)
+	if Society.enabled and is_adult() and not Game.is_night():
+		stat[_stat_kind] = float(stat.get(_stat_kind, 0.0)) + days
 	_animate(delta)
 
 
@@ -286,6 +293,8 @@ func on_break() -> bool:
 func _think() -> void:
 	_think_cooldown = 0.6 + _rng.randf() * 0.6
 	_release()
+	var prev_kind := _stat_kind
+	_stat_kind = "needs"
 	if sleeping and (Game.is_night()):
 		return
 	# Schwer krank: im Bett bleiben, nur zum Essen aufstehen
@@ -297,10 +306,12 @@ func _think() -> void:
 		return
 	if sleeping:
 		_wake_up()
-	# 1. Getragenes abliefern
+	# 1. Getragenes abliefern (zählt zur Arbeit, aus der es stammt)
 	if carry_n > 0:
+		_stat_kind = prev_kind if prev_kind in ["job", "other"] else "job"
 		if _plan_deliver():
 			return
+		_stat_kind = "needs"
 	# 2. Essen
 	if hunger < float(Data.bal("eat_below")) and Game.total_food(world) > 0:
 		if _plan_eat():
@@ -327,6 +338,7 @@ func _think() -> void:
 	# 6. Arbeit
 	if _plan_work():
 		return
+	_stat_kind = "idle"
 	_plan_wander(4, tr("Hat nichts zu tun"))
 
 
@@ -405,6 +417,10 @@ func _do_deliver() -> void:
 	if carry_n <= 0:
 		return
 	var added := Game.add_stock(carry_res, carry_n, world)
+	if added > 0 and Society.enabled:
+		var gd: Dictionary = stat.get("goods", {})
+		gd[carry_res] = int(gd.get(carry_res, 0)) + added
+		stat["goods"] = gd
 	if added > 0:
 		world.float_text(position + Vector2(0, -26), "+%d" % added, carry_res)
 	if added < carry_n:
@@ -606,24 +622,39 @@ func _plan_wander(radius: int, text: String, at = null) -> void:
 
 # ------------------------------------------------------------------ Arbeit
 func _plan_work() -> bool:
+	# Erst die eigene Arbeit; was danach kommt, zählt in der Statistik als "etwas anderes"
+	_stat_kind = "job"
 	match job:
 		"frei":
 			return _plan_free()
 		"baumeister":
-			return _plan_construction() or _plan_free_gather()
+			if _plan_construction():
+				return true
+			_stat_kind = "other"
+			return _plan_free_gather()
 		"bauer":
-			return _plan_farm() or _plan_gather(["busch", "palme", "pilzkreis"])
+			if _plan_farm():
+				return true
+			_stat_kind = "other"
+			return _plan_gather(["busch", "palme", "pilzkreis"])
 		"forscher":
-			return _plan_research() or _plan_free_gather()
+			if _plan_research():
+				return true
+			_stat_kind = "other"
+			return _plan_free_gather()
 		"jaeger":
 			if Data.job_unlocked("jaeger"):
 				if _plan_hunt() or _plan_gather(["beute"]):
 					return true
+			_stat_kind = "other"
 			return _plan_free_gather()
 		_:
 			var targets: Array = Data.jobs.get(job, {}).get("targets", [])
+			if _plan_gather(targets):
+				return true
 			# Ist das eigene Lager voll, hilft der Siedler woanders aus
-			return _plan_gather(targets) or _plan_construction() or _plan_free_gather()
+			_stat_kind = "other"
+			return _plan_construction() or _plan_free_gather()
 
 
 func _plan_free() -> bool:
@@ -979,6 +1010,9 @@ func _run_action(delta: float) -> void:
 				_working = false
 				_plan.pop_front()
 				var cb: Callable = a.get("done", Callable())
+				if _stat_kind in ["job", "other"]:
+					var sk := "acts_" + _stat_kind
+					stat[sk] = int(stat.get(sk, 0)) + 1
 				if cb.is_valid():
 					cb.call()
 		"wait":
@@ -1053,6 +1087,7 @@ func _check_danger(delta: float) -> void:
 	if sleeping:
 		_wake_up()
 	abort_plan()
+	_stat_kind = "job" if job == "jaeger" else "needs"
 	if _can_fight():
 		_plan.append({"a": "hunt", "target": an, "start": cell})
 		activity = tr("Kämpft gegen: %s") % an.def.name

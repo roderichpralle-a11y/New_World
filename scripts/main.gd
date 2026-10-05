@@ -277,9 +277,9 @@ func _maybe_autotest() -> void:
 						sp._on_map_input(drag)
 						sp._pressed = false
 						print("Seekarte Zoom: ", sp._zoom, " Verschiebung: ", sp._pan)
-				"rat", "debatte", "ki", "chat", "vorgaben", "prio":
+				"rat", "debatte", "ki", "chat", "vorgaben", "prio", "lernen":
 					hud._open_council()
-					if args.panel in ["chat", "vorgaben", "prio"]:
+					if args.panel in ["chat", "vorgaben", "prio", "lernen"]:
 						hud._council_panel._view = args.panel
 						hud._council_panel.refresh()
 					if args.has("prompt"):
@@ -401,8 +401,15 @@ func _report_society(auto: String) -> void:
 			print("   LLM %s: Schwerpunkt %s, Sitzungen %d, Plätze %s, eigene Wahl %d/%d, Lehren %d, Erfahrung %d, Handel %d | Plan: %s" % [
 				Sea.island_name(w), m.focus, int(m.councils), m.get("slots", {}), own, KiMind.sdec.size(), m.lessons.size(), m.exp.size(),
 				KiMind.trades.size(), m.plan])
-			for l in m.lessons:
+			for l in m.lessons.slice(maxi(0, m.lessons.size() - 3)):
 				print("     Lehre (%s): %s" % [l[2], l[1]])
+			var caps := {}
+			for j in m.get("cap", {}):
+				caps[j] = int(m.cap[j].n)
+			print("     Arbeit bis zur Sitzung: %s | Lager %d %% | Auslastung gelernt: %s | Archiv %d, Regeln %d" % [caps,
+				int(float(Society.situation(w).storage_full) * 100.0), m.get("fit", {}), m.archive.size(), m.knowledge.size()])
+			for l in KiMind.stats_lines(w, true):
+				print("     ", l)
 	if Llm.state != "aus":
 		print("   ", Llm.status_text(), " Anfragen: ", Llm.stats, " offen: ", Llm.pending.size(), " | Anfrage Rat %d Zeichen, Siedler %d Zeichen | " % [str(KiMind.last_prompt.get("rat", "")).length(), str(KiMind.last_prompt.get("siedler", "")).length()], KiMind.activity)
 	if _args.has("kichat") and KiMind.active() and not _args.has("_chatted"):
@@ -895,7 +902,7 @@ func _lang_check() -> void:
 		func(): Game.select(world.settlers[0]),
 		func(): Game.select(world.buildings[0])]
 	if Society.enabled:
-		for v in ["rat", "ki", "chat", "vorgaben", "prio", "debatte"]:
+		for v in ["rat", "ki", "chat", "vorgaben", "prio", "debatte", "lernen"]:
 			opens.append(func():
 				hud._open_council()
 				hud._council_panel._view = v

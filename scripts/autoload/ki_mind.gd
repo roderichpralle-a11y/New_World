@@ -177,7 +177,8 @@ func mem(w) -> Dictionary:
 	var m: Dictionary = st.llm
 	var defaults := {"next_council": Game.time_days + float(cfg("first_council_day", 0.15)), "focus": st.get("strategy", "nahrung"),
 		"plan": "", "shares": {}, "orders": {}, "last": {}, "binding": [], "prios": {}, "wishes": [], "chat": [],
-		"records": [], "lessons": [], "exp": {}, "councils": 0, "waiting": false}
+		"records": [], "lessons": [], "exp": {}, "councils": 0, "waiting": false,
+		"archive": [], "knowledge": [], "lesson_new": 0, "stats": [], "stat_total": {}, "fit": {}, "stat_from": Game.time_days}
 	for k in defaults:
 		if not m.has(k):
 			m[k] = defaults[k]
@@ -192,6 +193,13 @@ func mem(w) -> Dictionary:
 		# geschrieben, darum fallen die alten deutschen weg (die nächste Messung ersetzt sie).
 		m["en_v1"] = true
 		m.lessons = m.lessons.filter(func(l): return str(l[2]) != "Messung")
+	if not m.has("archive_v1"):
+		# Seit 2026-10-05 bleiben alle Lehren das ganze Spiel über im Archiv
+		m["archive_v1"] = true
+		if m.archive.is_empty():
+			for l in m.lessons:
+				m.archive.append([l[0], l[1], l[2], l[3] if l.size() > 3 else "", -1])
+			m.lesson_new = m.lessons.size()
 	return m
 
 
@@ -520,11 +528,17 @@ func council_system(w) -> String:
 func memory_text(w) -> String:
 	var m := mem(w)
 	var parts := []
+	if not m.knowledge.is_empty():
+		parts.append("What you have learned in this whole game (summary of all your lessons):\n" + "\n".join(m.knowledge.map(func(k): return "- " + str(k))))
 	if not m.lessons.is_empty():
 		var ls := []
-		for l in m.lessons:
+		var nl: int = int(cfg("lessons_in_prompt", 3)) if not m.knowledge.is_empty() else m.lessons.size()
+		for l in m.lessons.slice(maxi(0, m.lessons.size() - nl)):
 			ls.append("- " + str(l[1]))
-		parts.append("Your lessons from earlier decisions:\n" + "\n".join(ls))
+		parts.append("Your newest lessons:\n" + "\n".join(ls))
+	var st := stats_lines(w, true)
+	if not st.is_empty():
+		parts.append("How your workers spent the daytime since the last meeting:\n" + "\n".join(st))
 	var ex := experience_lines(w, 5, true)
 	if not ex.is_empty():
 		parts.append("Measured experience (change per day after your decision):\n" + "\n".join(ex))
@@ -630,6 +644,7 @@ func _council(w, ep: int) -> void:
 	var sit: Dictionary = Society.situation(w)
 	var sit0 := sit  # Lage zu Beginn der Sitzung (für die Messung danach)
 	Society._make_households(w, sit)
+	_collect_stats(w)
 	_evaluate(w, sit)
 	_prune_binding(w)
 	var system := council_system(w)
@@ -665,13 +680,17 @@ func _council(w, ep: int) -> void:
 	sit = Society.situation(w)
 	system = council_system(w)
 	report = island_report(w)
-	# 2. Welche Arbeit ist wie wichtig? Daraus bekommt jeder Siedler einen Auftrag.
+	# 2. Welche Arbeit ist wie wichtig? Daraus bekommt jeder Siedler einen Auftrag,
+	# aber nur so viele je Beruf, wie bis zur nächsten Sitzung Arbeit da ist.
+	m["cap"] = job_capacity(w)
+	m["cap_day"] = Game.time_days
 	var jobs := _job_options(w, sit)
 	if not jobs.is_empty():
 		var want: Dictionary = Society.desired_jobs(w, sit)
 		jobs.sort_custom(func(a, b): return float(want.get(a, 0.0)) > float(want.get(b, 0.0)))
 		jobs = jobs.slice(0, 9)
-		var opts := jobs.map(func(j): return "%s: %s" % [en_job(j), en_desc("jobs", j)])
+		var cap: Dictionary = m.cap
+		var opts := jobs.map(func(j): return "%s: %s Work until the next meeting for at most %d (%s)." % [en_job(j), en_desc("jobs", j), int(cap[j].n), cap[j].en])
 		var hint := jobs.map(func(j): return 0.1 + float(want.get(j, 0.0)))
 		var r := await _council_choose(w, ep, system, report, tr("Arbeit"), "Which work do your settlers need most urgently now?", opts, hint)
 		if not r.ok:
@@ -684,6 +703,9 @@ func _council(w, ep: int) -> void:
 		last.jobs = {"probs": _probs_text(labels, r.probs, 5), "mass": r.mass, "en": _probs_text(jobs.map(func(j): return en_job(j)), r.probs, 5)}
 		_make_orders(w, sit)
 		Society.decide(w, tr("Rat: Arbeit verteilt nach %s.") % last.jobs.probs)
+	else:
+		m.shares = {}
+		_make_orders(w, sit)
 
 	# 3. Bauen
 	if not await _alive(ep):
@@ -699,6 +721,9 @@ func _council(w, ep: int) -> void:
 		_build(w, {"type": bforced, "why": tr("Vorgabe des Herrschers.")}, tr("auf Befehl des Herrschers"))
 		_drop_binding(w, "bau")
 		last.build = {"choice": Data.buildings[bforced].name, "id": bforced, "en": en_name("buildings", bforced), "why": tr("Vorgabe des Herrschers")}
+	elif w.fire_building() != null and _storage_rule(w, sit):
+		last.build = {"choice": Data.buildings[str(m.get("store_built", "lager"))].name, "id": str(m.get("store_built", "lager")),
+			"en": en_name("buildings", str(m.get("store_built", "lager"))), "why": tr("Lager fast voll")}
 	elif w.fire_building() != null and w.construction_sites().size() < 2:
 		var cands := build_options(w, sit)
 		if not cands.is_empty():
@@ -804,6 +829,8 @@ func _council(w, ep: int) -> void:
 	# Alle paar Sitzungen zieht der Rat selbst eine Lehre
 	if int(m.councils) % int(cfg("reflect_every", 3)) == 0 and m.records.size() >= 2:
 		await _reflect(w, ep, system)
+	if ep == epoch and int(m.lesson_new) >= int(cfg("summarize_every", 4)):
+		await _summarize(w, ep)
 	Society.changed.emit()
 	changed.emit()
 
@@ -875,26 +902,156 @@ func _clean(t: String) -> String:
 # ------------------------------------------------------------------ Arbeit
 ## Berufe, die auf der Insel gerade überhaupt etwas zu tun haben.
 func _job_options(w, sit: Dictionary) -> Array:
-	var want: Dictionary = Society.desired_jobs(w, sit)
-	var caps: Dictionary = Society._caps
+	var cap: Dictionary = mem(w).get("cap", {})
 	var out := []
 	for j in JOB_ORDER:
-		if not Data.job_unlocked(j):
+		if not Data.job_unlocked(j) and not cap.has(j):
 			continue
-		match j:
-			"sammler", "fischer", "bauer":
-				if float(caps.get(j, 0.0)) <= 0.0:
-					continue
-			"koch", "handwerker":
-				if float(want.get(j, 0.0)) <= 0.0:
-					continue
-			"forscher":
-				if not w.buildings.any(func(b): return b.complete and b.def.has("research")):
-					continue
-			"jaeger":
-				if int(sit.predators) == 0 and not w.animals.any(func(a): return is_instance_valid(a)):
-					continue
+		if int(cap.get(j, {}).get("n", 0)) <= 0:
+			continue
 		out.append(j)
+	return out
+
+
+## Wie viele Siedler haben in jedem Beruf bis zur nächsten Ratssitzung wirklich etwas zu tun?
+## Gezählt wird die Arbeit, die es in dieser Zeit gibt (reife und säbare Felder, Früchte und
+## Fische samt Nachwuchs, Platz im Lager, Bauarbeit, Werkstätten mit Rohstoffen), geteilt durch
+## das, was ein Siedler in der Zeit schafft. Die gemessene Auslastung (Statistik) korrigiert das.
+## Ergebnis: Beruf -> {"n": Plätze, "en": Begründung fürs Modell, "de": für die Anzeige}
+func job_capacity(w) -> Dictionary:
+	var m := mem(w)
+	var h := clampf(float(m.next_council) - Game.time_days, 0.3, 2.0)
+	var day_secs := float(Data.bal("day_length")) * maxf(0.3, Seasons.night_start() - Seasons.night_end())
+	var pace := float(Data.bal("work_pace", 1.0)) * Seasons.work_mult(w) * Society.work_mult(w)
+	# Sekunden echter Arbeit, die ein Siedler bis zur nächsten Sitzung leistet (Wege, Essen, Pausen abgezogen)
+	var secs := maxf(10.0, day_secs * h * float(cfg("work_share", 0.5)))
+	var out := {}
+	var need := func(j: String, work_s: float, en: String, de: String):
+		var n := 0 if work_s <= 0.0 else int(ceil(work_s / secs - 0.15))
+		if work_s > 0.0:
+			n = maxi(1, n)
+		out[j] = {"n": n, "en": en, "de": de, "secs": work_s}
+	# Felder: nur säen und ernten ist Arbeit
+	var tasks := 0
+	var tsecs := 0.0
+	var fields := 0
+	for b in w.buildings:
+		if not b.complete or not b.def.has("farm"):
+			continue
+		fields += 1
+		var fd: Dictionary = b.farm_def()
+		var room := Game.space_for(str(fd.yield), w) > 0
+		var sow_s := float(fd.sow_time) / pace + 6.0
+		var harv_s := float(fd.harvest_time) * 2.0 / pace + 6.0
+		if b.farm_state == "fallow":
+			if Seasons.can_sow(b.type):
+				tasks += 1
+				tsecs += sow_s
+				if b.grow_days() < h * 0.8 and room:
+					tasks += 1
+					tsecs += harv_s
+		elif b.farm_state == "ripe" or float(b.farm_time) + b.grow_days() <= Game.time_days + h:
+			if room:
+				tasks += 1
+				tsecs += harv_s
+	if Data.job_unlocked("bauer") or fields > 0:
+		need.call("bauer", tsecs, "%d of %d fields need sowing or harvest" % [tasks, fields],
+			tr("%d von %d Feldern brauchen Saat oder Ernte") % [tasks, fields])
+	# Sammeln, Fischen, Holz, Stein: was nachwächst und ins Lager passt
+	var gather := {"sammler": ["busch", "palme", "pilzkreis"], "fischer": ["fischgrund"], "holzfaeller": ["baum"],
+		"steinmetz": ["fels", "erzader", "goldader"]}
+	var bare: Array = Seasons.cfg.get("winter_bare", [])
+	for j in gather:
+		var units := {}
+		var wsecs := {}
+		for n in w.nodes:
+			if not n.type in gather[j] or (Seasons.is_winter() and n.type in bare):
+				continue
+			var res: String = str(n.def.get("yield", ""))
+			var u := 0
+			if n.amount > 0:
+				u = n.amount
+			elif n.regrow_at >= 0.0 and float(n.regrow_at) <= Game.time_days + h:
+				u = int(n.def.capacity)
+			if u <= 0:
+				continue
+			units[res] = int(units.get(res, 0)) + u
+			wsecs[res] = float(n.def.work_time) / pace + 1.0
+		var total := 0.0
+		var got := 0
+		var full := []
+		for res in units:
+			var room := Game.space_for(res, w)
+			if room < int(units[res]):
+				full.append(res)
+			var u2 := mini(int(units[res]), room)
+			got += u2
+			total += u2 * float(wsecs[res])
+		var en := "%d units to gather" % got
+		var de := tr("%d Einheiten zu holen") % got
+		if not full.is_empty():
+			en += ", storage nearly full for %s" % ", ".join(full.map(func(r): return en_res(r)))
+			de += tr(", Lager fast voll für %s") % ", ".join(full.map(func(r): return Data.resource_name(r)))
+		if j in ["holzfaeller", "steinmetz"] or not units.is_empty() or Data.job_unlocked(j):
+			need.call(j, total, en, de)
+	# Werkstätten: nur, solange Rohstoffe da sind und Platz für das Erzeugnis
+	var wjob := {"kueche": "koch", "handwerk": "handwerker", "stein": "steinmetz"}
+	for b in w.buildings:
+		var p: Dictionary = b.prod_def() if b.complete else {}
+		var j: String = wjob.get(str(p.get("job", "")), "")
+		if j == "" or b.prod_blocker() != "":
+			continue
+		var cycles := 99
+		for res in p.get("inputs", {}):
+			cycles = mini(cycles, int(Game.amount(res, w) / maxi(1, int(p.inputs[res]))))
+		var t := float(p.get("time", 10.0)) / pace + 3.0
+		var per := maxf(1.0, floor(secs / t))
+		var wn := mini(b.slots(), int(ceil(float(cycles) / per)))
+		if wn <= 0:
+			continue
+		var e: Dictionary = out.get(j, {"n": 0, "en": "", "de": "", "secs": 0.0})
+		e.n = int(e.n) + wn
+		e.secs = float(e.secs) + wn * secs
+		e.en = (str(e.en) + "; " if str(e.en) != "" else "") + "%s can use %d" % [en_name("buildings", b.type), wn]
+		e.de = (str(e.de) + "; " if str(e.de) != "" else "") + tr("%s braucht %d") % [b.def.name, wn]
+		out[j] = e
+	# Bauen: Restarbeit und noch fehlendes Material aller Baustellen
+	var bsecs := 0.0
+	var sites: Array = w.construction_sites()
+	for b in sites:
+		bsecs += maxf(0.0, float(b.def.work) - float(b.progress)) * 1.5 / maxf(0.1, pace * Seasons.build_mult())
+		for res in b.def.cost:
+			bsecs += maxf(0.0, int(b.def.cost[res]) - int(b.delivered.get(res, 0))) * 2.0
+	if not sites.is_empty():
+		need.call("baumeister", bsecs, "%d construction sites" % sites.size(), tr("%d Baustellen") % sites.size())
+		out.baumeister.n = mini(int(out.baumeister.n), sites.size() * 3)
+	# Forschen: so viele, wie Plätze da sind (auch wenn der Rat gleich erst ein Ziel wählt)
+	var places := 0
+	for b in w.buildings:
+		if b.complete and b.def.has("research"):
+			places += b.slots()
+	if places > 0 and (Game.research.current != "" or (int(w.island_id) == 0 and not research_options(w).is_empty())):
+		out["forscher"] = {"n": places, "en": "%d research places" % places, "de": tr("%d Forschungsplätze") % places, "secs": places * secs}
+	# Jagen: nur, was gejagt werden darf (die letzten Tiere jeder Art bleiben)
+	if Data.job_unlocked("jaeger"):
+		var prey := 0
+		var keep := int(Data.bal("hunt_min_keep", 2))
+		var types := {}
+		for a in w.animals:
+			if is_instance_valid(a) and not a.dead:
+				types[a.type] = true
+		for t in types:
+			prey += maxi(0, w.adult_count(t) - keep)
+		var n := mini(2, prey)
+		out["jaeger"] = {"n": n, "en": "%d animals may be hunted" % prey, "de": tr("%d Tiere dürfen gejagt werden") % prey, "secs": n * secs}
+	# Gemessene Auslastung: Wer zuletzt viel Leerlauf hatte, bekommt weniger Plätze
+	var fit: Dictionary = m.get("fit", {})
+	for j in out:
+		var f := float(fit.get(j, 1.0))
+		if f < 0.95 and int(out[j].n) > 1:
+			out[j].n = maxi(1, int(round(float(out[j].n) * f)))
+			out[j].en = str(out[j].en) + " (reduced to %d%% after measured idle time)" % int(f * 100.0)
+			out[j].de = str(out[j].de) + tr(" (auf %d %% gesenkt nach gemessenem Leerlauf)") % int(f * 100.0)
 	return out
 
 
@@ -908,7 +1065,10 @@ func _make_orders(w, sit: Dictionary) -> void:
 	var n := free.size()
 	if n == 0:
 		return
-	var caps: Dictionary = Society._caps
+	if not m.has("cap") or Game.time_days - float(m.get("cap_day", -9.0)) > 0.2:
+		m["cap"] = job_capacity(w)
+		m["cap_day"] = Game.time_days
+	var cap: Dictionary = m.cap
 	var pj: Dictionary = cfg("priority_jobs", {})
 	var weights := {}
 	var total := 0.0
@@ -921,14 +1081,13 @@ func _make_orders(w, sit: Dictionary) -> void:
 		total += float(weights[j])
 	var slots := {}
 	if total > 0.0:
-		# Größte Reste: n Plätze nach Anteil, Natur begrenzt Sammler, Fischer, Bauern
+		# Größte Reste: n Plätze nach Anteil, aber nie mehr, als es bis zur nächsten Sitzung
+		# Arbeit gibt (job_capacity). Wer übrig bleibt, wird Helfer (frei).
 		var rem := []
 		var used := 0
 		for j in weights:
 			var exact := float(weights[j]) / total * n
-			var lim := 99
-			if j in ["sammler", "fischer", "bauer"]:
-				lim = int(ceil(float(caps.get(j, 0.0)) * (1.0 if j == "bauer" else 0.7)))
+			var lim := int(cap.get(j, {}).get("n", 0))
 			var k := mini(int(floor(exact)), lim)
 			slots[j] = k
 			used += k
@@ -958,7 +1117,7 @@ func _make_orders(w, sit: Dictionary) -> void:
 			food_now += int(slots.get(j, 0))
 		var need := mini(n, int(ceil((float(sit.adults) + float(sit.kids) * 0.5) / float(Society.cfg("gatherer_feeds", 1.5)) * 0.5)))
 		for j in ["fischer", "sammler", "bauer"]:
-			while food_now < need and float(caps.get(j, 0.0)) > float(slots.get(j, 0)):
+			while food_now < need and int(cap.get(j, {}).get("n", 0)) > int(slots.get(j, 0)):
 				slots[j] = int(slots.get(j, 0)) + 1
 				food_now += 1
 		if food_now > 0:
@@ -1034,6 +1193,10 @@ func build_options(w, sit: Dictionary) -> Array:
 		if not seen.has(key) and Data.buildings.has(c.type) and Game.can_afford(Data.buildings[c.type].get("cost", {}), w):
 			seen[key] = true
 			out.append(c)
+	# Lager zuerst, wenn es eng wird: Ist es voll, hören Sammler, Holzfäller und Steinmetze auf
+	var store := storage_option(w, sit)
+	if not store.is_empty() and float(sit.storage_full) >= float(cfg("storage_urgent", 0.8)):
+		add.call(store)
 	var first: Dictionary = Society._choose_building(w, sit)
 	if not first.is_empty():
 		add.call(first)
@@ -1056,8 +1219,8 @@ func build_options(w, sit: Dictionary) -> Array:
 	for t in ["schreibstube", "bibliothek", "universitaet", "labor", "schule"]:
 		if Game.is_unlocked(t) and Society._count(w, [t]) == 0:
 			add.call({"type": t, "why": tr("Ein Ort zum Forschen und Lernen."), "why_en": "A place for research and learning."})
-	if float(sit.storage_full) > 0.7:
-		add.call({"type": "lager", "why": tr("Das Lager ist zu %d %% voll.") % int(float(sit.storage_full) * 100.0), "why_en": "Storage is %d %% full." % int(float(sit.storage_full) * 100.0)})
+	if not store.is_empty():
+		add.call(store)
 	if Game.is_unlocked("wachturm") and int(sit.predators) > 0:
 		add.call({"type": "wachturm", "why": tr("%d Raubtiere auf der Insel.") % int(sit.predators), "why_en": "%d predators on the island." % int(sit.predators)})
 	for t in ["werft", "anlegesteg", "hafen"]:
@@ -1065,6 +1228,40 @@ func build_options(w, sit: Dictionary) -> Array:
 			add.call({"type": t, "why": tr("Für Schiffe und Handel."), "why_en": "For ships and trade."})
 			break
 	return out
+
+
+## Notregel: Ist das Lager fast voll und kein neues im Bau, baut der Rat sofort eins, wenn das
+## Material reicht (sonst steht ein Lager ganz oben unter den Bauvorschlägen).
+func _storage_rule(w, sit: Dictionary) -> bool:
+	if float(sit.storage_full) < float(cfg("storage_rule", 0.9)):
+		return false
+	var c := storage_option(w, sit)
+	if c.is_empty() or not Game.can_afford(Data.buildings[c.type].get("cost", {}), w):
+		return false
+	var n: int = w.construction_sites().size()
+	_build(w, c, tr("Notregel: Lager fast voll"))
+	if w.construction_sites().size() <= n:
+		return false
+	mem(w)["store_built"] = c.type
+	Society.decide(w, tr("Rat: Notregel, das Lager ist zu %d %% voll, also wird %s gebaut.") % [int(float(sit.storage_full) * 100.0), Data.buildings[c.type].name])
+	return true
+
+
+## Ein weiteres Lager, wenn das vorhandene zu mehr als storage_watch voll ist (das größte erforschte).
+func storage_option(w, sit: Dictionary) -> Dictionary:
+	var full := float(sit.storage_full)
+	if full < float(cfg("storage_watch", 0.65)):
+		return {}
+	for b in w.construction_sites():
+		if int(b.def.get("storage", 0)) > 0:
+			return {}  # wird schon gebaut
+	for t in ["grosslager", "lager"]:
+		if Game.is_unlocked(t) and Data.buildings[t].get("buildable", true):
+			var add := int(Data.buildings[t].storage)
+			return {"type": t, "storage": true,
+				"why": tr("Das Lager ist zu %d %% voll (%d von %d). %s bringt %d Platz.") % [int(full * 100.0), Game.used_volume(w), Game.storage_volume(w), Data.buildings[t].name, add],
+				"why_en": "Storage is %d %% full (%d of %d). When it is full, gatherers, woodcutters and stonecutters must stop. %s adds %d space." % [int(full * 100.0), Game.used_volume(w), Game.storage_volume(w), en_name("buildings", t), add]}
+	return {}
 
 
 func _build(w, c: Dictionary, how: String) -> void:
@@ -1757,6 +1954,202 @@ func _measure_lesson(w, r: Dictionary, o: Dictionary) -> void:
 		add_lesson(w, text, "Messung", "%s|%d" % [kind, int(r.s)])
 
 
+# ------------------------------------------------------------------ Arbeitsstatistik
+## Liest die Zeiten der Siedler seit der letzten Sitzung (settler.stat), legt sie je Beruf ab,
+## misst die Auslastung (fit, für job_capacity) und macht aus auffälligem Leerlauf eine Lehre.
+func _collect_stats(w) -> void:
+	var m := mem(w)
+	var d0 := float(m.get("stat_from", Game.time_days))
+	m.stat_from = Game.time_days
+	var jobs := {}
+	var people := []
+	var orders: Dictionary = m.orders
+	for s in w.settlers:
+		if not s.is_adult() or s.stat.is_empty():
+			s.stat = {}
+			continue
+		var st: Dictionary = s.stat
+		s.stat = {}
+		var e: Dictionary = jobs.get(s.job, {"n": 0, "job": 0.0, "other": 0.0, "idle": 0.0, "needs": 0.0, "acts": 0, "goods": {}, "off": 0})
+		e.n = int(e.n) + 1
+		for k in ["job", "other", "idle", "needs"]:
+			e[k] = float(e[k]) + float(st.get(k, 0.0))
+		e.acts = int(e.acts) + int(st.get("acts_job", 0))
+		var gsum := 0
+		for g in st.get("goods", {}):
+			e.goods[g] = int(e.goods.get(g, 0)) + int(st.goods[g])
+			gsum += int(st.goods[g])
+		var order := str(orders.get(str(s.id), ""))
+		if order != "" and order != s.job:
+			e.off = int(e.off) + 1
+		jobs[s.job] = e
+		people.append([s.display_name, s.job, snappedf(float(st.get("job", 0.0)), 0.001), snappedf(float(st.get("other", 0.0)), 0.001),
+			snappedf(float(st.get("idle", 0.0)), 0.001), gsum, order])
+	if jobs.is_empty() or Game.time_days - d0 < 0.05:
+		return
+	var caps := {}
+	for j in m.get("cap", {}):
+		caps[j] = int(m.cap[j].n)
+	var per := {"d0": snappedf(d0, 0.01), "d1": snappedf(Game.time_days, 0.01), "s": int(Seasons.season()), "jobs": jobs,
+		"people": people, "cap": caps}
+	m.stats.append(per)
+	var mx := int(cfg("stats_max", 12))
+	if m.stats.size() > mx:
+		m.stats = m.stats.slice(m.stats.size() - mx)
+	# Summe über das ganze Spiel
+	for j in jobs:
+		var t: Dictionary = m.stat_total.get(j, {"job": 0.0, "other": 0.0, "idle": 0.0, "needs": 0.0, "acts": 0, "goods": {}, "n": 0})
+		for k in ["job", "other", "idle", "needs"]:
+			t[k] = float(t[k]) + float(jobs[j][k])
+		t.acts = int(t.acts) + int(jobs[j].acts)
+		t.n = int(t.n) + int(jobs[j].n)
+		for g in jobs[j].goods:
+			t.goods[g] = int(t.goods.get(g, 0)) + int(jobs[j].goods[g])
+		m.stat_total[j] = t
+	# Auslastung lernen: eigene Arbeit unter 70 % der Tageszeit heißt, es waren zu viele
+	var target := float(cfg("busy_target", 0.7))
+	for j in jobs:
+		if j in ["frei", "seemann"]:
+			continue
+		var e: Dictionary = jobs[j]
+		var day := float(e.job) + float(e.other) + float(e.idle)
+		if day <= 0.0:
+			continue
+		var share := float(e.job) / day
+		var f := float(m.fit.get(j, 1.0))
+		if share >= target:
+			f = minf(1.0, f + 0.25)
+		elif int(e.n) >= 2:
+			f = clampf(f * 0.5 + clampf(share / target, 0.3, 1.0) * 0.5, 0.3, 1.0)
+		m.fit[j] = snappedf(f, 0.01)
+	_stat_lessons(w, per)
+
+
+## Anteile eines Berufs an der Tageszeit: [eigene Arbeit, anderes, untätig] in Prozent.
+func _shares(e: Dictionary) -> Array:
+	var day := maxf(0.0001, float(e.job) + float(e.other) + float(e.idle))
+	return [int(round(float(e.job) / day * 100.0)), int(round(float(e.other) / day * 100.0)), int(round(float(e.idle) / day * 100.0))]
+
+
+## Statistik als Text (en: fürs Modell), die Berufe mit den meisten Siedlern zuerst.
+func stats_lines(w, en: bool = false, idx: int = -1) -> Array:
+	var m := mem(w)
+	if m.stats.is_empty():
+		return []
+	var per: Dictionary = m.stats[idx]
+	var jobs: Dictionary = per.jobs
+	var keys: Array = jobs.keys()
+	keys.sort_custom(func(a, b): return int(jobs[a].n) > int(jobs[b].n))
+	var out := []
+	for j in keys:
+		var e: Dictionary = jobs[j]
+		var sh := _shares(e)
+		var goods: Dictionary = e.goods
+		if en:
+			var g := en_goods(goods) if not goods.is_empty() else "nothing"
+			out.append("- %s x%d: own work %d%%, other work %d%%, idle %d%%; delivered %s" % [en_job(j), int(e.n), sh[0], sh[1], sh[2], g])
+		else:
+			var g2 := Sea.goods_text(goods) if not goods.is_empty() else tr("nichts")
+			out.append(tr("%s ×%d: eigene Arbeit %d %%, anderes %d %%, untätig %d %%; geliefert: %s") % [_jname(j), int(e.n), sh[0], sh[1], sh[2], g2])
+	return out
+
+
+func _stat_lessons(w, per: Dictionary) -> void:
+	var season := en_season(int(per.s))
+	var jobs: Dictionary = per.jobs
+	var worst := ""
+	var worst_share := 101
+	var all_day := 0.0
+	var all_idle := 0.0
+	for j in jobs:
+		var e: Dictionary = jobs[j]
+		all_day += float(e.job) + float(e.other) + float(e.idle)
+		all_idle += float(e.idle)
+		if j in ["frei", "seemann"] or int(e.n) < 2:
+			continue
+		var sh := _shares(e)
+		if sh[0] < 50 and sh[0] < worst_share:
+			worst = j
+			worst_share = sh[0]
+	if worst != "":
+		var e2: Dictionary = jobs[worst]
+		var sh2 := _shares(e2)
+		var why := ""
+		var cap: Dictionary = mem(w).get("cap", {})
+		if cap.has(worst):
+			why = " (%s)" % str(cap[worst].en)
+		add_lesson(w, "In %s, %d %s had their own work only %d%% of the daytime, %d%% other work, %d%% idle%s. Fewer %s are enough then." % [
+			season, int(e2.n), en_job(worst), sh2[0], sh2[1], sh2[2], why, en_job(worst)], "Messung", "leer|%s|%d" % [worst, int(per.s)])
+	elif all_day > 0.0 and all_idle / all_day > 0.3:
+		add_lesson(w, "In %s, settlers were idle %d%% of the daytime. Build workshops or houses so everyone has work." % [
+			season, int(all_idle / all_day * 100.0)], "Messung", "untaetig|%d" % int(per.s))
+
+
+## Fasst alle Lehren zu wenigen Regeln zusammen, die das ganze Spiel über bleiben.
+func _summarize(w, ep: int) -> void:
+	var m := mem(w)
+	var n := int(m.lesson_new)
+	var fresh: Array = m.archive.slice(maxi(0, m.archive.size() - n))
+	var fallback := _fallback_knowledge(w)
+	var lines := []
+	for l in fresh:
+		lines.append("- " + str(l[1]))
+	var before: String = "\n".join(m.knowledge.map(func(k): return "- " + str(k))) if not m.knowledge.is_empty() else "(nothing yet)"
+	var mx := int(cfg("knowledge_max", 8))
+	activity = tr("Rat von %s fasst zusammen, was er gelernt hat") % Sea.island_name(w)
+	var system := "You are the island council of %s in a settlement building game. You keep a short list of rules you have learned about the game. Always answer in English." % Sea.island_name(w)
+	var user := "Your rules so far:\n%s\n\nNew lessons:\n%s\n\nWrite your updated rules: at most %d rules, one per line, each starting with \"- \". Keep what is still true, merge rules that say the same, and drop what the new lessons show is wrong. Each rule is one short sentence with the concrete numbers or seasons that matter. %s" % [
+		before, "\n".join(lines), mx, length_rule("summary_tokens")]
+	var msgs := [{"role": "system", "content": system}, {"role": "user", "content": user}]
+	last_prompt["rat"] = system + "\n\n" + user
+	var j = Llm.generate("rat", msgs, int(cfg("summary_tokens", 220)), 0.0, "\n".join(fallback.map(func(k): return "- " + k)))
+	var g: Dictionary = await j.wait()
+	trace({"who": tr("Rat"), "isl": Sea.island_name(w), "role": "rat", "topic": tr("Lehren zusammenfassen"), "prompt": last_prompt["rat"], "text": str(g.get("text", g.get("error", ""))), "ms": float(g.get("ms", 0.0))})
+	if ep != epoch:
+		return
+	var rules := []
+	if g.get("ok", false):
+		for line in str(g.get("text", "")).split("\n"):
+			var t := line.strip_edges()
+			var rx := RegEx.create_from_string("^(-|\\*|•|\\d+[.)])\\s*")
+			t = rx.sub(t, "").strip_edges()
+			if t.length() < 12:
+				continue
+			t = _clean(t)
+			if t != "" and not t.ends_with("…") and not rules.has(t):
+				rules.append(t)
+	if rules.is_empty():
+		rules = fallback
+	m.knowledge = rules.slice(0, mx)
+	m["knowledge_day"] = snappedf(Game.time_days, 0.01)
+	m.lesson_new = 0
+	Society.decide(w, tr("Rat: Lehren zusammengefasst (%d Regeln aus %d Lehren).") % [m.knowledge.size(), m.archive.size()])
+	changed.emit()
+
+
+## Ohne Modellantwort: je Art von Beobachtung die neueste Lehre, die häufigsten zuerst.
+func _fallback_knowledge(w) -> Array:
+	var m := mem(w)
+	var latest := {}
+	var count := {}
+	for l in m.archive:
+		var k := str(l[3]) if l.size() > 3 and str(l[3]) != "" else str(l[1])
+		latest[k] = str(l[1])
+		count[k] = int(count.get(k, 0)) + 1
+	var keys: Array = latest.keys()
+	keys.sort_custom(func(a, b): return int(count[a]) > int(count[b]))
+	var out := []
+	for k in m.knowledge:
+		if out.size() < int(cfg("knowledge_max", 8)) / 2:
+			out.append(str(k))
+	for k in keys:
+		if out.size() >= int(cfg("knowledge_max", 8)):
+			break
+		if not out.has(latest[k]):
+			out.append(latest[k])
+	return out
+
+
 func add_lesson(w, text: String, source: String, key: String = "") -> void:
 	var m := mem(w)
 	text = _clean(text)
@@ -1768,6 +2161,12 @@ func add_lesson(w, text: String, source: String, key: String = "") -> void:
 		if key != "" and l.size() > 3 and str(l[3]) == key:
 			m.lessons.erase(l)
 	m.lessons.append([snappedf(Game.time_days, 0.01), text, source, key])
+	# Archiv: jede Lehre bleibt das ganze Spiel über (zum Nachlesen und für die Zusammenfassung)
+	m.archive.append([snappedf(Game.time_days, 0.01), text, source, key, int(Seasons.season())])
+	var amx := int(cfg("archive_max", 400))
+	if m.archive.size() > amx:
+		m.archive = m.archive.slice(m.archive.size() - amx)
+	m.lesson_new = int(m.lesson_new) + 1
 	var mx := int(cfg("lessons_max", 10))
 	while m.lessons.size() > mx:
 		# Die älteste Lehre derselben Herkunft fällt weg, sonst die älteste überhaupt

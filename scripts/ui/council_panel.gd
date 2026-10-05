@@ -146,10 +146,12 @@ func refresh() -> void:
 			_fill_binding(w)
 		"prio":
 			_fill_prio(w)
+		"lernen":
+			_fill_learn(w)
 		_:
 			_fill_overview(w)
 	# Beim Neuaufbau derselben Ansicht an der Stelle bleiben, an der der Spieler liest
-	if _view == _filled_view and _view in ["ki", "rat", "vorgaben", "prio", "waehlen"] and keep > 0:
+	if _view == _filled_view and _view in ["ki", "rat", "vorgaben", "prio", "waehlen", "lernen"] and keep > 0:
 		_restore_scroll(keep)
 	_filled_view = _view
 
@@ -633,15 +635,22 @@ func _fill_overview_llm(w) -> void:
 		for r in reqs:
 			_request_card(w, r)
 
-	# Letzte Lehren
-	if not m.lessons.is_empty():
-		_section(tr("Was der Rat gelernt hat") + (tr(" (die neuesten 3 von %d)") % m.lessons.size() if m.lessons.size() > 3 else ""))
+	# Was der Rat gelernt hat: Zusammenfassung, ganz unter "Gelernt und Statistik"
+	_section(tr("Was der Rat gelernt hat"))
+	if not m.knowledge.is_empty():
+		for k in m.knowledge.slice(0, 3):
+			_text("• " + str(k), 13)
+	elif not m.lessons.is_empty():
 		var ls: Array = m.lessons.duplicate()
 		ls.reverse()
 		for l in ls.slice(0, 3):
-			_text("%s (%s)" % [l[1], l[2]], 13)
-		if m.lessons.size() > 3:
-			_text(tr("Alle Lehren und die gemessene Erfahrung stehen unter „KI beobachten“."), 12, DIM)
+			_text("• " + str(l[1]), 13)
+	else:
+		_text(tr("Noch keine Lehren."), 13, DIM)
+	var rl := _row()
+	_btn(rl, tr("Gelernt und Statistik"), "buch", tr("Alles, was der Rat gelernt hat, und wie die Arbeiter beschäftigt waren."), func():
+		_view = "lernen"
+		refresh())
 
 	_section(tr("Chronik"))
 	var lines: Array = st.log.duplicate()
@@ -781,6 +790,73 @@ func _fill_prio(w) -> void:
 			b.add_theme_font_size_override("font_size", 12)
 
 
+# ------------------------------------------------------------------ Gelernt und Statistik
+func _fill_learn(w) -> void:
+	var m: Dictionary = KiMind.mem(w)
+	_back_row()
+	_section(tr("Was der Rat gelernt hat"))
+	if m.knowledge.is_empty():
+		_text(tr("Noch keine Zusammenfassung. Der Rat fasst seine Lehren nach je %d neuen zusammen (bisher %d).") % [int(KiMind.cfg("summarize_every", 4)), m.archive.size()], 13, DIM)
+	else:
+		_text(tr("Zusammenfassung aller %d Lehren, zuletzt an Tag %d. Diese Regeln liest der Rat bei jeder Entscheidung.") % [m.archive.size(), int(float(m.get("knowledge_day", 0.0))) + 1], 12, DIM)
+		for k in m.knowledge:
+			_text("• " + str(k), 14)
+
+	_section(tr("Arbeit bis zur nächsten Sitzung"))
+	var sit: Dictionary = Society.situation(w)
+	_text(tr("Lager: %d von %d belegt (%d %%).") % [Game.used_volume(w), Game.storage_volume(w), int(float(sit.storage_full) * 100.0)], 13,
+		UiTheme.BAD if float(sit.storage_full) >= float(KiMind.cfg("storage_urgent", 0.8)) else UiTheme.TEXT)
+	var cap: Dictionary = m.get("cap", {})
+	var slots: Dictionary = m.get("slots", {})
+	if cap.is_empty():
+		_text(tr("Der Rat hat noch nicht getagt."), 13, DIM)
+	for j in cap:
+		var c: Dictionary = cap[j]
+		_text(tr("%s: Arbeit für höchstens %d, eingeteilt %d (%s)") % [Data.jobs.get(j, {}).get("name", j), int(c.n), int(slots.get(j, 0)), str(c.de)], 13,
+			DIM if int(c.n) == 0 else UiTheme.TEXT)
+
+	_section(tr("Arbeitsstatistik"))
+	if m.stats.is_empty():
+		_text(tr("Die erste Statistik gibt es nach der nächsten Ratssitzung."), 13, DIM)
+	else:
+		var per: Dictionary = m.stats[-1]
+		_text(tr("Tag %d bis Tag %d, Anteil der hellen Tageszeit je Beruf. Eigene Arbeit = was der Beruf tun soll, anderes = hilft woanders aus, untätig = nichts zu tun.") % [
+			int(float(per.d0)) + 1, int(float(per.d1)) + 1], 12, DIM)
+		for l in KiMind.stats_lines(w):
+			_text(l, 13)
+		_text(tr("Je Siedler:"), 13, UiTheme.TEXT, true)
+		for p in per.get("people", []):
+			var day := maxf(0.0001, float(p[2]) + float(p[3]) + float(p[4]))
+			var t := tr("%s (%s): eigene Arbeit %d %%, anderes %d %%, untätig %d %%, %d Waren geliefert") % [p[0], Data.jobs.get(p[1], {}).get("name", p[1]),
+				int(round(float(p[2]) / day * 100.0)), int(round(float(p[3]) / day * 100.0)), int(round(float(p[4]) / day * 100.0)), int(p[5])]
+			if str(p[6]) != "" and str(p[6]) != str(p[1]):
+				t += tr(" (Auftrag: %s)") % Data.jobs.get(str(p[6]), {}).get("name", p[6])
+			_text(t, 12, UiTheme.BAD if float(p[4]) / day > 0.4 else UiTheme.TEXT)
+	if not m.stat_total.is_empty():
+		_text(tr("Über das ganze Spiel:"), 13, UiTheme.TEXT, true)
+		for j in m.stat_total:
+			var e: Dictionary = m.stat_total[j]
+			var sh: Array = KiMind._shares(e)
+			_text(tr("%s: eigene Arbeit %d %%, anderes %d %%, untätig %d %%; geliefert: %s") % [Data.jobs.get(j, {}).get("name", j), sh[0], sh[1], sh[2],
+				Sea.goods_text(e.goods) if not e.goods.is_empty() else tr("nichts")], 12, DIM)
+		var fit: Dictionary = m.get("fit", {})
+		var fl := []
+		for j in fit:
+			if float(fit[j]) < 0.95:
+				fl.append("%s %d %%" % [Data.jobs.get(j, {}).get("name", j), int(float(fit[j]) * 100.0)])
+		if not fl.is_empty():
+			_text(tr("Gelernt aus dem Leerlauf, weniger Plätze für: %s.") % ", ".join(fl), 12, RULER)
+
+	_section(tr("Alle Lehren (%d)") % m.archive.size())
+	if m.archive.is_empty():
+		_text(tr("Noch keine Lehren."), 13, DIM)
+	var arc: Array = m.archive.duplicate()
+	arc.reverse()
+	for l in arc:
+		var season: String = (", " + Seasons.season_name(int(l[4]))) if l.size() > 4 and int(l[4]) >= 0 else ""
+		_text(tr("Tag %d%s, %s: %s") % [int(float(l[0])) + 1, season, tr("selbst gezogen") if str(l[2]) == "Rat" else tr("aus Messung"), l[1]], 12)
+
+
 # ------------------------------------------------------------------ Beobachten
 func _fill_watch_llm(w) -> void:
 	var m: Dictionary = KiMind.mem(w)
@@ -835,6 +911,10 @@ func _fill_watch_llm(w) -> void:
 		_jump_on_tap(l, s)
 
 	_section(tr("Gedächtnis des Rats"))
+	var gl := _row()
+	_btn(gl, tr("Gelernt und Statistik"), "buch", tr("Zusammenfassung, alle Lehren des Spiels und die Arbeitsstatistik."), func():
+		_view = "lernen"
+		refresh())
 	if m.lessons.is_empty():
 		_text(tr("Noch keine Lehren."), 13, DIM)
 	for l in m.lessons:
