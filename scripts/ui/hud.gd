@@ -1190,6 +1190,19 @@ func _build_menu_panel() -> void:
 		v.add_child(fs)
 	var info := UiTheme.label("Das Spiel speichert automatisch.", 12)
 	v.add_child(info)
+	v.add_child(_version_label())
+
+
+## Versionsnummer steht nur in project.godot (application/config/version).
+static func version_text() -> String:
+	var ver := str(ProjectSettings.get_setting("application/config/version", "?"))
+	return "Version %s%s" % [ver, " (Testversion)" if Game.is_test_build else ""]
+
+
+func _version_label() -> Label:
+	var l := UiTheme.label(version_text(), 12, Color("#6e5a50"))
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	return l
 
 
 func _volume_row(text: String, icon_name: String, value: float, on_change: Callable) -> HBoxContainer:
@@ -1886,6 +1899,7 @@ func show_title(has_save: bool) -> void:
 	var hb := UiTheme.button("Spielanleitung", "menu", 40)
 	hb.pressed.connect(func(): _toggle(_help_panel))
 	v.add_child(hb)
+	v.add_child(_version_label())
 	root.move_child(_help_panel, -1)
 
 
