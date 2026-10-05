@@ -22,6 +22,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Versionsnummer setzen (1.0.N, N = Anzahl Stände auf dem Zweig)
+        run: |
+          n=$(git rev-list --count --first-parent HEAD)
+          base=$(sed -n 's/^config\/version="\([0-9]*\.[0-9]*\)\..*"/\1/p' project.godot)
+          sed -i "s/^config\/version=\".*\"/config\/version=\"$base.$n\"/" project.godot
+          grep '^config/version' project.godot
 
       - name: Godot und Web-Vorlagen laden
         run: |
