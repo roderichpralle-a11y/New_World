@@ -319,7 +319,7 @@ einmal aufgebaut ist. Dafür gilt:
 
 - **Zwei Werte je Speise** (`resources.json`): `nutrition` = Sättigung, `vitamins` = Vitamine.
   Obst und Beeren sättigen wenig, haben aber viele Vitamine; Brot, Räucherfisch, Fleisch sättigen
-  lange, haben kaum Vitamine. Rohes Getreide sättigt schlecht (10), Brot sehr gut (42).
+  lange, haben kaum Vitamine. Rohes Getreide sättigt schlecht (10), Brot sehr gut (84, 6 Vitamine).
   Abfragen: `Data.food_satiety(id)`, `Data.food_vitamins(id)`.
 - **Siedler**: `hunger` (Sättigung 0–100, sinkt um `hunger_per_day` = 75). Vitamine, Speiseplan,
   Skorbut und Arbeitskraft gehören zum Charakter-Modell (`settler.mind.vit`, `mind.meals`, siehe
