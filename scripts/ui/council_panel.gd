@@ -635,11 +635,13 @@ func _fill_overview_llm(w) -> void:
 
 	# Letzte Lehren
 	if not m.lessons.is_empty():
-		_section("Was der Rat gelernt hat")
+		_section("Was der Rat gelernt hat" + (" (die neuesten 3 von %d)" % m.lessons.size() if m.lessons.size() > 3 else ""))
 		var ls: Array = m.lessons.duplicate()
 		ls.reverse()
 		for l in ls.slice(0, 3):
 			_text("%s (%s)" % [l[1], l[2]], 13)
+		if m.lessons.size() > 3:
+			_text("Alle Lehren und die gemessene Erfahrung stehen unter „KI beobachten“.", 12, DIM)
 
 	_section("Chronik")
 	var lines: Array = st.log.duplicate()
