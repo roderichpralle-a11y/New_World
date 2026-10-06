@@ -28,9 +28,24 @@ const TRADE_GOODS := ["holz", "stein", "bretter", "lehm", "ziegel", "werkzeug", 
 var trades: Array = []  # laufende Handelsrouten zwischen Inseln
 var next_trade := 1
 var _next_orders: Dictionary = {}  # Insel-ID -> wann die Siedler ihre Aufträge wieder prüfen (nicht gespeichert)
+## Trainiertes Netz (Reinforcement Learning, data/ki_policy.json); null = nur Regeln.
+var net: CouncilNet = null
+var use_net := true  # Schalter im Rat-Fenster, je Gerät in user://ki_mind.cfg
+const NET_PATH := "res://data/ki_policy.json"
 
 
 func _ready() -> void:
+	var cf := ConfigFile.new()
+	if cf.load("user://ki_mind.cfg") == OK:
+		use_net = bool(cf.get_value("ki", "net", true))
+	var path := NET_PATH
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--policy="):
+			path = a.trim_prefix("--policy=")  # Training: Netz aus einer Datei
+	if "--policy=none" in OS.get_cmdline_user_args():
+		path = ""
+	if path != "":
+		net = CouncilNet.load_file(path)
 	# Aufräumen nach der Zeit mit Sprachmodellen: deren Downloads (etwa 1,2 GB im Browser-Speicher
 	# "transformers-cache") und Absturzmerker werden nicht mehr gebraucht.
 	if OS.has_feature("web") and Game.is_ki_build:
@@ -39,6 +54,19 @@ func _ready() -> void:
 			try { localStorage.removeItem('kiLlmPending'); localStorage.removeItem('kiLlmTooBig'); } catch (e) { }
 			try { indexedDB.deleteDatabase('kiLlm'); } catch (e) { }
 		})();""", true)
+
+
+func net_active() -> bool:
+	return net != null and use_net
+
+
+func set_use_net(on: bool) -> void:
+	use_net = on
+	var cf := ConfigFile.new()
+	cf.load("user://ki_mind.cfg")
+	cf.set_value("ki", "net", on)
+	cf.save("user://ki_mind.cfg")
+	changed.emit()
 
 
 func cfg(key: String, default = null):
@@ -160,10 +188,23 @@ func _council(w) -> void:
 	_prune_binding(w)
 	var last := {"day": Game.time_days}
 
+	# Das trainierte Netz sieht die Lage samt Arbeit bis zur nächsten Sitzung und verschiebt
+	# Lagebewertung und Arbeitsanteile (ohne Netz bleibt alles bei den Regeln).
+	m["cap"] = job_capacity(w)
+	m["cap_day"] = Game.time_days
+	var y := PackedFloat32Array()
+	if net_active():
+		y = net.forward(CouncilNet.features(w, sit, m.cap))
+		last.net = true
 	# 1. Schwerpunkt: die Strategie, für die die Lage am meisten spricht
 	var forced := _binding_value(w, "fokus")
 	var keys: Array = Society.strategies().keys().filter(func(k): return Society.strategy_allowed(k))
 	var sc: Dictionary = Society.situation_scores(w, sit)
+	if not y.is_empty():
+		for k in sc:
+			var i := CouncilNet.STRATS.find(k)
+			if i >= 0:
+				sc[k] = float(sc[k]) + y[i]
 	keys.sort_custom(func(a, b): return float(sc.get(a, 0.0)) > float(sc.get(b, 0.0)))
 	if forced != "":
 		m.focus = forced
@@ -177,13 +218,14 @@ func _council(w) -> void:
 
 	# 2. Arbeit: nach Bedarf und Schwerpunkt gewichtet, aber je Beruf nur so viele, wie bis zur
 	# nächsten Sitzung Arbeit da ist. Daraus bekommt jeder Siedler einen Auftrag.
-	m["cap"] = job_capacity(w)
-	m["cap_day"] = Game.time_days
 	var want: Dictionary = Society.desired_jobs(w, sit)
 	var sw: Dictionary = Society.strategies().get(m.focus, {}).get("jobs", {})
 	var shares := {}
 	for j in _job_options(w, sit):
 		shares[j] = (0.1 + float(want.get(j, 0.0))) * float(sw.get(j, 1.0))
+		var ji := CouncilNet.JOBS.find(j)
+		if not y.is_empty() and ji >= 0:
+			shares[j] = float(shares[j]) * exp(clampf(y[CouncilNet.STRATS.size() + ji], -2.0, 2.0))
 	m.shares = shares
 	_make_orders(w, sit)
 	last.jobs = {"slots": slots_text(m.get("slots", {}))}

@@ -55,6 +55,9 @@ var _birth_timer: float = 0.0
 var _autosave_timer: float = 0.0
 var _last_day: int = 0
 var _rng := RandomNumberGenerator.new()
+## Trainingsläufe (--rl): fester Startwert, damit derselbe Lauf gleich ausgeht.
+var det_seed := -1
+var _det_n := 0
 
 
 func _ready() -> void:
@@ -171,9 +174,26 @@ func _process(delta: float) -> void:
 			_try_birth()
 	# Autosave in Echtzeit
 	var now := Time.get_ticks_msec() / 1000.0
-	if now - _autosave_timer >= float(Data.bal("autosave_seconds")):
+	if det_seed < 0 and now - _autosave_timer >= float(Data.bal("autosave_seconds")):
 		_autosave_timer = now
 		save_game()
+
+
+## Zufallsgenerator vorbereiten: im Training fest aus det_seed, sonst wie immer zufällig.
+func seed_rng(r: RandomNumberGenerator) -> void:
+	if det_seed < 0:
+		r.randomize()
+		return
+	_det_n += 1
+	r.seed = hash([det_seed, _det_n])
+
+
+## Training starten: alle Zufallszahlen hängen ab jetzt nur noch von s ab.
+func set_det_seed(s: int) -> void:
+	det_seed = s
+	_det_n = 0
+	seed(s)
+	seed_rng(_rng)
 
 
 # ---------------------------------------------------------------- Vorraete

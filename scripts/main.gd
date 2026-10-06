@@ -40,6 +40,65 @@ func _ready() -> void:
 	else:
 		hud.show_title(not save.is_empty())
 	_maybe_autotest()
+	_maybe_rl_episode()
+
+
+# ---------------------------------------------------------------- Training (Reinforcement Learning)
+## Eine Spielrunde ohne Bild für das Training des Ratsnetzes (tools/rl/train.py):
+## --rl=<Tage> --seed=<Insel> [--policy=<netz.json>|none] --rlout=<ergebnis.json> [--scale=40]
+## Neues Spiel mit fester Insel, läuft bis zum Tag, schreibt Kennzahlen und beendet sich.
+var _rl_seed := -1
+
+
+func _maybe_rl_episode() -> void:
+	var args := {}
+	for a in OS.get_cmdline_user_args():
+		var kv := a.trim_prefix("--").split("=", true, 1)
+		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
+	if not args.has("rl"):
+		return
+	var days := float(args.rl)
+	_rl_seed = int(args.get("seed", "1"))
+	Game.set_det_seed(_rl_seed)
+	Game.seed_rng(Society._rng)
+	hud._overlay_clear()
+	_on_new_game()
+	Game.set_speed(1)
+	Engine.time_scale = float(args.get("scale", "40"))
+	var fd_sum := 0.0
+	var fd_min := 99.0
+	var hungry := 0.0
+	var samples := 0
+	var peak := 0
+	while Game.time_days < days and not Game.is_over:
+		await get_tree().create_timer(5.0, true, false, false).timeout  # eine halbe Spielstunde (Tag = 240 s)
+		samples += 1
+		var fd := maxf(0.0, Game.food_days(Game.world)) if Game.world else 0.0
+		fd_sum += minf(fd, 10.0)
+		fd_min = minf(fd_min, fd)
+		var n := 0
+		for w in Sea.all_worlds():
+			for s in w.settlers:
+				if s.hunger < 25.0:
+					n += 1
+		hungry += float(n) / maxf(1.0, Game.population())
+		peak = maxi(peak, Game.population())
+	var idle := 0.0
+	var day := 0.0
+	for w in Sea.all_worlds():
+		var tot: Dictionary = KiMind.mem(w).get("stat_total", {})
+		for j in tot:
+			idle += float(tot[j].idle)
+			day += float(tot[j].job) + float(tot[j].other) + float(tot[j].idle)
+	var res := {"seed": _rl_seed, "day": Game.time_days, "over": Game.is_over, "pop": Game.population(), "peak": peak,
+		"techs": Game.research.done.size(), "deaths": int(Game.stats.deaths), "births": int(Game.stats.births),
+		"buildings": Game.world.buildings.filter(func(b): return b.complete).size() if Game.world else 0,
+		"food_avg": fd_sum / maxf(1.0, samples), "food_min": fd_min, "hungry": hungry / maxf(1.0, samples),
+		"idle": idle / maxf(0.0001, day), "net": KiMind.net_active()}
+	var f := FileAccess.open(str(args.get("rlout", "user://rl_result.json")), FileAccess.WRITE)
+	f.store_string(JSON.stringify(res))
+	f.close()
+	get_tree().quit()
 
 
 # ---------------------------------------------------------------- Selbsttest
@@ -797,7 +856,7 @@ func _update_ui_scale() -> void:
 
 
 func _new_world() -> void:
-	var seed_value := randi() % 1000000
+	var seed_value := _rl_seed if _rl_seed >= 0 else randi() % 1000000
 	Game.reset_state(seed_value)
 	world = Sea.create_world_node(0)
 	world.visible = true

@@ -83,7 +83,7 @@ static func sheet(name: String) -> Texture2D:
 
 func setup(p_world, data: Dictionary) -> void:
 	world = p_world
-	_rng.randomize()
+	Game.seed_rng(_rng)
 	id = int(data.get("id", Game.new_id()))
 	display_name = data.get("name", tr("Siedler"))
 	sex = data.get("sex", "m")

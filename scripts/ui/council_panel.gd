@@ -240,6 +240,13 @@ func _fill_overview(w) -> void:
 	_btn(r2, tr("Prioritäten"), "wissen", tr("Was dir wichtig ist. Der Rat verteilt die Arbeit danach."), func():
 		_view = "prio"
 		refresh())
+	if KiMind.net != null:
+		var r3 := _row()
+		_btn(r3, tr("Trainiertes Netz: an") if KiMind.use_net else tr("Trainiertes Netz: aus"), "ki",
+			tr("An: Ein durch Reinforcement Learning trainiertes Netz verschiebt die Entscheidungen des Rats. Aus: Der Rat entscheidet nur nach festen Regeln."), func():
+			KiMind.set_use_net(not KiMind.use_net)
+			refresh())
+		_text(tr("Das trainierte Netz hat in vielen schnellen Probespielen gelernt, wann der Rat besser anders entscheidet als nach seinen Regeln."), 12, DIM)
 
 	# Aufträge
 	var slots: Dictionary = m.get("slots", {})
@@ -422,6 +429,8 @@ func _fill_watch(w) -> void:
 	_section(tr("Letzte Ratssitzung"))
 	if last.is_empty():
 		_text(tr("Der Rat hat noch nicht getagt."), 13, DIM)
+	else:
+		_text(tr("Entschieden mit: trainiertem Netz und Regeln") if last.get("net", false) else tr("Entschieden mit: nur Regeln"), 13, DIM)
 	for k in [["focus", tr("Schwerpunkt")], ["build", tr("Bauen")], ["research", tr("Forschung")]]:
 		if last.has(k[0]):
 			var d: Dictionary = last[k[0]]

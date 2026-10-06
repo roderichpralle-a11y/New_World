@@ -459,6 +459,26 @@ an `KiMind._council` andocken (Lage aus `Society.situation`, Möglichkeiten aus 
 - **Sprache**: alles läuft über das gemeinsame Sprachsystem (`tr()` + `data/i18n/en.json`). Gespeicherte
   Schlüssel bleiben deutsch und stehen in `SKIP` von `tools/i18n.py` (Quelle einer Lehre "Rat"/"Messung").
 
+### Trainiertes Netz (Reinforcement Learning, `scripts/ai/council_net.gd`, `tools/rl/train.py`)
+- **Was es tut**: kleines Netz (33 Eingänge, 16 versteckte tanh, 17 Ausgänge), in GDScript gerechnet,
+  also auch im Browser und auf dem Handy. Es ersetzt die Regeln nicht, sondern verschiebt sie:
+  7 Werte kommen auf `Society.situation_scores` (Schwerpunkt), 10 Werte geben je Beruf einen Faktor
+  `exp(clamp(y, -2, 2))` auf den Arbeitsanteil. Alle Ausgänge 0 = genau der Regel-Rat.
+  Eingänge: `CouncilNet.features` (Jahreszeit, Siedler, Wohnraum, Essenstage, Holz/Stein, Lager,
+  Bauplätze, Raubtiere, Vitamine, Laune, Kranke, Felder, Forschung, Inseln, Arbeit je Beruf).
+- **Gewichte**: `data/ki_policy.json` {params, info}; fehlt die Datei, gelten nur die Regeln.
+  Schalter im Rat-Fenster („Trainiertes Netz: an/aus“, `KiMind.use_net`, `user://ki_mind.cfg`).
+  `last.net` zeigt unter „KI beobachten“, ob das Netz mitentschieden hat.
+- **Training** (komplett in der Cloud): `python3 tools/rl/train.py` (numpy, godot im Pfad).
+  Evolution Strategies (OpenAI-ES, antithetisch, Adam, Ränge), je Generation 8 Paare auf 2 Inseln
+  plus Regel-Rat als Vergleich; jede Runde ein eigener Godot-Prozess:
+  `godot --headless --fixed-fps 60 -- --kimode=1 --rl=36 --seed=N --policy=Datei|none --scale=16 --rlout=x.json`
+  (main.gd `_maybe_rl_episode`, 36 Spieltage in ~35 s). Belohnung in `reward()`: Siedler, Höchststand,
+  Forschung, Gebäude, minus Tote, Hunger, Leerlauf, Spielende. `--eval Datei --seeds 100-115` vergleicht
+  Netz und Regeln auf neuen Inseln. Größere Zeitschritte (scale 24+) verfälschen das Spiel (weniger Siedler).
+- **Gleicher Zufall**: `Game.set_det_seed` / `Game.seed_rng(rng)` statt `randomize()`; im Training hängt
+  aller Zufall am Startwert, gleicher Startwert = gleicher Spielverlauf. Autosave ist dann aus.
+
 ### Society (`scripts/autoload/society.gd`, Zahlen in `data/society.json`)
 - `situation(w)` sammelt die Lage (Essen je Kopf, Heizholz bis zum Frühling, Baustellen, Raubtiere,
   Felder ...), `situation_scores` bewertet die Strategien, `desired_jobs` rechnet, wie viele Arbeiter

@@ -53,7 +53,7 @@ func setup(p_world, p_type: String, p_cell: Vector2i, p_home: Vector2i, p_hp: fl
 	food = clamp(p_food, 0.0, 1.0)
 	hp = p_hp if p_hp > 0.0 else max_hp()
 	position = world.cell_to_pos(cell)
-	_rng.randomize()
+	Game.seed_rng(_rng)
 	_shadow = Sprite2D.new()
 	_shadow.texture = Data.object_tex("shadow")
 	_shadow.position = Vector2(0, 1)

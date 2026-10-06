@@ -58,7 +58,7 @@ var _school_of: Dictionary = {}  # Kind-ID -> Schule
 
 
 func _ready() -> void:
-	_rng.randomize()
+	Game.seed_rng(_rng)
 
 
 # ================================================================== Aufbau
@@ -785,7 +785,7 @@ func spawn_settler(data: Dictionary) -> Settler:
 
 func spawn_child(mother, father) -> Settler:
 	var rng := RandomNumberGenerator.new()
-	rng.randomize()
+	Game.seed_rng(rng)
 	var sex := "f" if rng.randf() < 0.5 else "m"
 	var name := unique_name(sex, rng)
 	# Charakter und Begabungen teils von den Eltern; Faehigkeiten wachsen mit Spiel und Schule
@@ -821,7 +821,7 @@ func unique_name(sex: String, rng: RandomNumberGenerator) -> String:
 
 func spawn_newcomer(sex: String) -> Settler:
 	var rng := RandomNumberGenerator.new()
-	rng.randomize()
+	Game.seed_rng(rng)
 	var best = beach_near(rng)
 	if best == null:
 		return null
