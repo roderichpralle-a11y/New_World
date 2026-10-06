@@ -485,7 +485,7 @@ func can_place(type: String, c: Vector2i, ignore = null) -> bool:
 
 
 func on_building_completed(b: Building) -> void:
-	Game.notify_at(self, "%s ist fertig!" % b.def.name, "hammer")
+	Game.notify_at(self, tr("%s ist fertig!") % b.def.name, "hammer")
 	Sound.play_on("fertig", self)
 	spawn_effect("dust", b.position)
 	spawn_effect("dust", b.position + Vector2(-12, -6))
@@ -992,7 +992,7 @@ func float_text(p: Vector2, text: String, icon_res: String) -> void:
 func warn_storage_full(res: String) -> void:
 	if Game.time_days - _storage_warn_time > 1.0:
 		_storage_warn_time = Game.time_days
-		Game.notify("Kein Platz mehr für %s. Baue ein Lager oder stelle im Lager mehr Platz dafür ein." % Data.resource_name(res), "haus")
+		Game.notify(tr("Kein Platz mehr für %s. Baue ein Lager oder stelle im Lager mehr Platz dafür ein.") % Data.resource_name(res), "haus")
 
 
 # ================================================================== Tag und Nacht
@@ -1166,10 +1166,10 @@ func confirm_placement() -> bool:
 	Game.player_action.emit("place", b.type)
 	spawn_effect("dust", b.position)
 	if not Game.can_afford(b.def.cost, self):
-		Game.notify("Baustelle angelegt. Es fehlt noch Material.", "hammer")
+		Game.notify(tr("Baustelle angelegt. Es fehlt noch Material."), "hammer")
 	var has_builder := settlers.any(func(s): return s.is_adult() and (s.job == "baumeister" or s.job == "frei"))
 	if not has_builder:
-		Game.notify("Tipp: Mache einen Siedler zum Baumeister, damit gebaut wird.", "hammer")
+		Game.notify(tr("Tipp: Mache einen Siedler zum Baumeister, damit gebaut wird."), "hammer")
 	cancel_placement()
 	return true
 
@@ -1503,7 +1503,7 @@ func _process_dens(delta: float) -> void:
 				born += 1
 		_den_breed[key] = Game.time_days
 		if born > 0:
-			Game.notify_at(self, "Nachwuchs bei den %s: %d %s." % [def.get("plural_dat", def.name), born, "Jungtier" if born == 1 else "Jungtiere"], n.def.spawns, "tiere")
+			Game.notify_at(self, tr("Nachwuchs bei den %s: %d %s.") % [def.get("plural_dat", def.name), born, tr("Jungtier") if born == 1 else tr("Jungtiere")], n.def.spawns, "tiere")
 
 
 func _find_mate(den, have: int) -> void:
@@ -1529,7 +1529,7 @@ func on_animal_escaped(a) -> void:
 		return
 	_escape_note[a.type] = Game.time_days
 	if a.is_adult():
-		Game.notify_at(self, "%s entkommt verwundet. Die letzten %d %s werden geschont." % [a.def.name, int(Data.bal("hunt_min_keep", 2)), a.def.get("plural", a.def.name)], "schild")
+		Game.notify_at(self, tr("%s entkommt verwundet. Die letzten %d %s werden geschont.") % [a.def.name, int(Data.bal("hunt_min_keep", 2)), a.def.get("plural", a.def.name)], "schild")
 
 
 func on_animal_starved(a) -> void:
@@ -1537,7 +1537,7 @@ func on_animal_starved(a) -> void:
 	if Game.selected == a:
 		Game.select(null)
 	if is_visible_in_tree():
-		Game.notify_at(self, "%s ist verhungert. Für so viele Tiere gibt es nicht genug Futter." % a.def.name, "schild")
+		Game.notify_at(self, tr("%s ist verhungert. Für so viele Tiere gibt es nicht genug Futter.") % a.def.name, "schild")
 	_check_extinct(a.type)
 	a.queue_free()
 
@@ -1545,7 +1545,7 @@ func on_animal_starved(a) -> void:
 func _check_extinct(type: String) -> void:
 	if animals.any(func(b): return b.type == type and not b.dead):
 		return
-	Game.notify_at(self, "Hier gibt es keine %s mehr." % Data.animals[type].get("plural", Data.animals[type].name), "schild")
+	Game.notify_at(self, tr("Hier gibt es keine %s mehr.") % Data.animals[type].get("plural", Data.animals[type].name), "schild")
 
 
 func on_animal_killed(a: Animal, by) -> void:
@@ -1571,10 +1571,10 @@ func on_animal_killed(a: Animal, by) -> void:
 	spawn_effect("blood", a.position + Vector2(0, -6))
 	var who := ""
 	if by is Settler:
-		who = " von %s" % by.display_name
+		who = tr(" von %s") % by.display_name
 	elif by is Building:
-		who = " vom Wachturm"
-	Game.notify_at(self, "%s wurde%s erlegt." % [a.def.name, who], "fleisch")
+		who = tr(" vom Wachturm")
+	Game.notify_at(self, tr("%s wurde%s erlegt.") % [a.def.name, who], "fleisch")
 	_check_extinct(a.type)
 	a.queue_free()
 

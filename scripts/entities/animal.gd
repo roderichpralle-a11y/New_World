@@ -109,20 +109,20 @@ func _aggro_px() -> float:
 ## Satt, hungrig oder am Verhungern, fuer das Infofenster.
 func state_text() -> String:
 	if _hibernates():
-		return "Hält Winterruhe in der Höhle." if not visible else "Zieht sich für den Winter in die Höhle zurück."
+		return tr("Hält Winterruhe in der Höhle.") if not visible else tr("Zieht sich für den Winter in die Höhle zurück.")
 	if _scared > 0.0:
-		return "Verwundet, flieht in den Bau."
+		return tr("Verwundet, flieht in den Bau.")
 	if target and is_instance_valid(target):
-		return "Greift %s an!" % target.display_name
+		return tr("Greift %s an!") % target.display_name
 	if _eat_node != null and is_instance_valid(_eat_node) and _eat_t > 0.0:
-		return "Frisst."
+		return tr("Frisst.")
 	if food <= 0.0:
-		return "Verhungert langsam!"
+		return tr("Verhungert langsam!")
 	if is_hungry():
-		return "Hungrig, sucht weit nach Futter."
+		return tr("Hungrig, sucht weit nach Futter.")
 	if food < 0.6:
-		return "Sucht Futter."
-	return "Satt, streift umher."
+		return tr("Sucht Futter.")
+	return tr("Satt, streift umher.")
 
 
 func _process(delta: float) -> void:

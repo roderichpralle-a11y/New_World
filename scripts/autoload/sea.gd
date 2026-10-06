@@ -21,7 +21,7 @@ var world_root: Node = null  # Knoten, unter dem die Inseln haengen (main)
 # ---------------------------------------------------------------- Inseln
 func reset(home_seed: int) -> void:
 	clear_worlds()
-	islands = [{"id": 0, "name": "Heimatinsel", "biome": "heimat", "seed": home_seed, "size": int(Data.bal("map_size", 64)),
+	islands = [{"id": 0, "name": tr("Heimatinsel"), "biome": "heimat", "seed": home_seed, "size": int(Data.bal("map_size", 64)),
 		"pos": [0.0, 0.0], "state": "settled", "found_day": 1, "dens": []}]
 	voyages = []
 	ships = []
@@ -50,7 +50,7 @@ func biome_def(m: Dictionary) -> Dictionary:
 
 
 func biome_name(m: Dictionary) -> String:
-	return biome_def(m).get("name", "Insel")
+	return biome_def(m).get("name", tr("Insel"))
 
 
 func all_worlds() -> Array:
@@ -62,7 +62,7 @@ func settled_islands() -> Array:
 
 
 func island_name(w) -> String:
-	return meta(w.island_id).get("name", "Insel") if w else ""
+	return meta(w.island_id).get("name", tr("Insel")) if w else ""
 
 
 ## Alle lebenden Siedler, auch die auf See.
@@ -107,7 +107,7 @@ func make_island(index: int) -> Dictionary:
 		if n > 0:
 			dens.append([e[0], n])
 	var used := islands.map(func(m): return m.name)
-	var pool: Array = b.get("names", ["Insel"])
+	var pool: Array = b.get("names", [tr("Insel")])
 	var name: String = pool[rng.randi() % pool.size()]
 	for i in 12:
 		if not name in used:
@@ -165,7 +165,7 @@ func island_lost(w) -> void:
 	m.state = "lost"
 	worlds.erase(w.island_id)
 	_ships_lost(int(w.island_id))
-	Game.notify("%s ist verloren! Dort lebt niemand mehr." % m.name, "abriss")
+	Game.notify(tr("%s ist verloren! Dort lebt niemand mehr.") % m.name, "abriss")
 	Sound.play("verloren")
 	var others := all_worlds()
 	if Game.world == w and not others.is_empty():
@@ -209,7 +209,7 @@ func ship_by_id(id: int) -> Dictionary:
 
 
 func ship_label(sh: Dictionary) -> String:
-	return "%s (%s)" % [sh.name, ship_def(sh).get("name", "Schiff")]
+	return "%s (%s)" % [sh.name, ship_def(sh).get("name", tr("Schiff"))]
 
 
 ## Schiffe, die gerade bei einer Insel liegen (nicht auf See).
@@ -231,7 +231,7 @@ func harbor_level(w) -> int:
 
 
 func harbor_level_name(lv: int) -> String:
-	return ["kein Hafen (nur Ruderboote am Strand)", "Steg (Ruderboote)", "Hafen (bis mittlere Schiffe)", "Großer Hafen (alle Schiffe)"][clamp(lv, 0, 3)]
+	return [tr("kein Hafen (nur Ruderboote am Strand)"), tr("Steg (Ruderboote)"), tr("Hafen (bis mittlere Schiffe)"), tr("Großer Hafen (alle Schiffe)")][clamp(lv, 0, 3)]
 
 
 ## Kann ein Schiff dieser Art bei der Insel anlegen? Ruderboote landen ueberall am Strand.
@@ -275,7 +275,7 @@ func free_berth(w, size: int) -> bool:
 
 
 func berth_text(w) -> String:
-	return "Liegeplätze: %d belegt von %d" % [ships_of(w.island_id).size(), berths(w).size()]
+	return tr("Liegeplätze: %d belegt von %d") % [ships_of(w.island_id).size(), berths(w).size()]
 
 
 ## Ladetempo einer Ware an dieser Insel (Stauraum je Stunde). Spezielle Kais laden ihre Waren schneller.
@@ -315,11 +315,11 @@ func voyage_days(from_id: int, to_id: int, type: String = "boot") -> float:
 
 func _new_ship(type: String, island_id: int) -> Dictionary:
 	var used := ships.map(func(s): return s.name)
-	var name: String = SHIP_NAMES[(next_ship * 7) % SHIP_NAMES.size()]
+	var name: String = tr(SHIP_NAMES[(next_ship * 7) % SHIP_NAMES.size()])
 	if name in used:
 		for n in SHIP_NAMES:
-			if not n in used:
-				name = n
+			if not tr(n) in used:
+				name = tr(n)
 				break
 	if name in used:
 		name = "%s %d" % [name, next_ship]
@@ -376,18 +376,18 @@ func crew_missing(sh: Dictionary) -> int:
 func hire_sailor(sh: Dictionary) -> String:
 	var w = worlds.get(int(sh.at))
 	if w == null or sh.state == "sea":
-		return "Das Schiff ist auf See."
+		return tr("Das Schiff ist auf See.")
 	fill_crew(sh)
 	if crew_missing(sh) <= 0:
 		return ""
 	var taken := _assigned_ids()
 	var cands: Array = w.settlers.filter(func(s): return s.is_adult() and not taken.has(int(s.id)) and s.job != "seemann")
 	if cands.size() <= 1:
-		return "Auf %s ist niemand mehr frei, der anheuern kann." % island_name(w)
+		return tr("Auf %s ist niemand mehr frei, der anheuern kann.") % island_name(w)
 	cands.sort_custom(func(a, b): return _hire_score(a) < _hire_score(b))
 	cands[0].set_job("seemann")
 	fill_crew(sh)
-	Game.notify("%s heuert auf der %s an." % [cands[0].display_name, sh.name], "boot")
+	Game.notify(tr("%s heuert auf der %s an.") % [cands[0].display_name, sh.name], "boot")
 	return ""
 
 
@@ -403,16 +403,16 @@ func _hire_score(s) -> float:
 ## Warum das Schiff nicht ablegen kann ("" = bereit).
 func ship_blocker(sh: Dictionary) -> String:
 	if sh.state == "sea":
-		return "Das Schiff ist auf See."
+		return tr("Das Schiff ist auf See.")
 	if sh.state == "load":
-		return "Das Schiff wird gerade beladen."
+		return tr("Das Schiff wird gerade beladen.")
 	fill_crew(sh)
 	var miss := crew_missing(sh)
 	if miss > 0:
-		return "Es fehlen %d Seeleute. Gib Siedlern auf %s den Beruf Seemann." % [miss, island_name(worlds.get(int(sh.at)))]
+		return tr("Es fehlen %d Seeleute. Gib Siedlern auf %s den Beruf Seemann.") % [miss, island_name(worlds.get(int(sh.at)))]
 	var w = worlds.get(int(sh.at))
 	if w and crew_present(sh).size() >= w.settlers.size():
-		return "Die Seeleute sind die letzten Siedler auf %s und bleiben dort." % island_name(w)
+		return tr("Die Seeleute sind die letzten Siedler auf %s und bleiben dort.") % island_name(w)
 	return ""
 
 
@@ -486,7 +486,7 @@ func goods_text(goods: Dictionary) -> String:
 	for id in goods:
 		if int(goods[id]) > 0:
 			parts.append("%d %s" % [int(goods[id]), Data.resource_name(id)])
-	return ", ".join(parts) if not parts.is_empty() else "nichts"
+	return ", ".join(parts) if not parts.is_empty() else tr("nichts")
 
 
 ## Kurzer Zustand fuer die Liste.
@@ -494,18 +494,18 @@ func ship_status(sh: Dictionary) -> String:
 	if sh.state == "sea":
 		for v in voyages:
 			if int(v.get("ship", -1)) == int(sh.id):
-				var to: String = meta(int(v.to)).get("name", "?") if v.kind != "explore" else "unbekannte Gewässer"
+				var to: String = meta(int(v.to)).get("name", "?") if v.kind != "explore" else tr("unbekannte Gewässer")
 				var h := int(ceil(max(0.0, float(v.arrive) - Game.time_days) * 24.0))
-				return "Unterwegs nach %s, noch %d Std." % [to, h] if v.kind != "explore" else "Erkundet das Meer, zurück in %d Std." % h
-		return "Auf See"
+				return tr("Unterwegs nach %s, noch %d Std.") % [to, h] if v.kind != "explore" else tr("Erkundet das Meer, zurück in %d Std.") % h
+		return tr("Auf See")
 	var where: String = meta(int(sh.at)).get("name", "?")
 	if sh.state == "load":
-		return "Lädt in %s" % where
+		return tr("Lädt in %s") % where
 	if sh.note != "":
 		return "%s: %s" % [where, sh.note]
 	if not sh.route.is_empty() and not sh.paused:
-		return "In %s" % where
-	return "Liegt in %s" % where
+		return tr("In %s") % where
+	return tr("Liegt in %s") % where
 
 
 func _ship_tick_all() -> void:
@@ -518,7 +518,7 @@ func _ship_tick_all() -> void:
 				for i in n:
 					var sh := _new_ship(t, w.island_id)
 					fill_crew(sh)
-					Game.notify_at(w, "Stapellauf! Die %s liegt bereit." % ship_label(sh), Data.ships[t].get("icon", "boot"), "see")
+					Game.notify_at(w, tr("Stapellauf! Die %s liegt bereit.") % ship_label(sh), Data.ships[t].get("icon", "boot"), "see")
 					Sound.play_on("entdeckt", w)
 				w.sync_ships()
 				islands_changed.emit()
@@ -542,14 +542,14 @@ func _ship_tick_all() -> void:
 			if not got.is_empty():
 				sh.state = "load"
 				sh.until = Game.time_days + _handling_days(w, got)
-			sh.note = "" if sh.cargo.is_empty() else "Lager voll, Ladung bleibt an Bord"
+			sh.note = "" if sh.cargo.is_empty() else tr("Lager voll, Ladung bleibt an Bord")
 
 
 func _route_step(sh: Dictionary, w) -> void:
 	# Halte auf verlorenen Inseln fallen weg
 	sh.route = sh.route.filter(func(st): return meta(int(st.island)).get("state", "") == "settled")
 	if sh.route.size() < 2:
-		sh.note = "Route braucht zwei Inseln"
+		sh.note = tr("Route braucht zwei Inseln")
 		return
 	sh.leg = int(sh.leg) % sh.route.size()
 	var stop: Dictionary = sh.route[sh.leg]
@@ -568,12 +568,12 @@ func _route_step(sh: Dictionary, w) -> void:
 		sh.note = ""
 		return
 	if not can_visit(sh.type, target):
-		sh.note = "%s hat keinen passenden Hafen" % meta(target).get("name", "?")
+		sh.note = tr("%s hat keinen passenden Hafen") % meta(target).get("name", "?")
 		sh.leg = (int(sh.leg) + 1) % sh.route.size()
 		return
 	var why := ship_blocker(sh)
 	if why != "":
-		sh.note = "wartet auf Besatzung (%d fehlen)" % crew_missing(sh)
+		sh.note = tr("wartet auf Besatzung (%d fehlen)") % crew_missing(sh)
 		return
 	_depart(sh, target, "ship")
 
@@ -605,11 +605,11 @@ func can_explore(from_world = null) -> String:
 	if from_world == null:
 		from_world = Game.world
 	if exploring():
-		return "Ein Schiff ist schon auf Erkundungsfahrt."
+		return tr("Ein Schiff ist schon auf Erkundungsfahrt.")
 	if idle_ships(from_world.island_id).is_empty():
-		return "Hier liegt kein freies Schiff. Baue eines in der Werft."
+		return tr("Hier liegt kein freies Schiff. Baue eines in der Werft.")
 	if explore_ship(from_world).is_empty():
-		return "Dem Schiff fehlen Seeleute. Gib Siedlern den Beruf Seemann."
+		return tr("Dem Schiff fehlen Seeleute. Gib Siedlern den Beruf Seemann.")
 	return ""
 
 
@@ -624,7 +624,7 @@ func start_explore(from_world) -> String:
 	var days := (float(Data.bal("explore_days_base")) + float(Data.bal("explore_days_per_dist")) * d) / Game.eff("explore")
 	days = days / float(ship_def(sh).get("speed", 1.0)) * Seasons.sail_mult()
 	_depart(sh, next, "explore", [], days)
-	Game.notify("Die %s sticht in See und sucht nach neuen Inseln." % ship_label(sh), "boot")
+	Game.notify(tr("Die %s sticht in See und sucht nach neuen Inseln.") % ship_label(sh), "boot")
 	Sound.play("glocke")
 	return ""
 
@@ -633,26 +633,26 @@ func start_explore(from_world) -> String:
 func can_send(from_world, to_id: int, people: Array, sh: Dictionary = {}) -> String:
 	var m := meta(to_id)
 	if m.is_empty() or m.state == "lost":
-		return "Diese Insel ist verloren."
+		return tr("Diese Insel ist verloren.")
 	if from_world.island_id == to_id:
-		return "Das Schiff ist schon dort."
+		return tr("Das Schiff ist schon dort.")
 	if sh.is_empty():
-		return "Hier liegt kein freies Schiff. Baue eines in der Werft."
+		return tr("Hier liegt kein freies Schiff. Baue eines in der Werft.")
 	if int(sh.at) != from_world.island_id or sh.state != "dock":
-		return "Das Schiff liegt nicht hier."
+		return tr("Das Schiff liegt nicht hier.")
 	var why := ship_blocker(sh)
 	if why != "":
 		return why
 	if not can_visit(sh.type, to_id):
-		return "Die %s ist zu groß für %s. Dort braucht es erst einen %s." % [sh.name, m.name,
-			"Großen Hafen" if int(ship_def(sh).size) >= 3 else "Hafen"]
+		return tr("Die %s ist zu groß für %s. Dort braucht es erst einen %s.") % [sh.name, m.name,
+			tr("Großen Hafen") if int(ship_def(sh).size) >= 3 else tr("Hafen")]
 	if m.state != "settled" and people.is_empty():
-		return "Wähle Siedler, die die Insel besiedeln."
+		return tr("Wähle Siedler, die die Insel besiedeln.")
 	if people.size() > passenger_capacity(sh):
-		return "Auf die %s passen nur %d Fahrgäste." % [sh.name, passenger_capacity(sh)]
+		return tr("Auf die %s passen nur %d Fahrgäste.") % [sh.name, passenger_capacity(sh)]
 	var crew_n := crew_present(sh).size()
 	if not people.is_empty() and people.size() + crew_n >= from_world.settlers.size():
-		return "Mindestens ein Siedler muss auf der Insel bleiben."
+		return tr("Mindestens ein Siedler muss auf der Insel bleiben.")
 	return ""
 
 
@@ -668,11 +668,11 @@ func send_ship(from_world, to_id: int, people: Array, sh: Dictionary, goods: Dic
 	_depart(sh, to_id, "settle" if n > 0 else "ship", people)
 	var what := []
 	if n > 0:
-		what.append("%d Siedler" % n)
+		what.append(tr("%d Siedler") % n)
 	if not got.is_empty():
 		what.append(goods_text(got))
-	Game.notify("Die %s sticht in See nach %s%s." % [sh.name, meta(to_id).name,
-		(" mit " + " und ".join(what)) if not what.is_empty() else ""], "boot")
+	Game.notify(tr("Die %s sticht in See nach %s%s.") % [sh.name, meta(to_id).name,
+		(tr(" mit ") + tr(" und ").join(what)) if not what.is_empty() else ""], "boot")
 	Sound.play("glocke")
 	return ""
 
@@ -720,8 +720,8 @@ func _arrive(v: Dictionary) -> void:
 		var m := make_island(int(v.to))
 		islands.append(m)
 		var danger := dangers(m).map(func(a): return Data.animals[a].name)
-		var text := "Entdeckt: %s, eine %s!" % [m.name, biome_name(m)]
-		text += " Gefahr: %s." % ", ".join(danger) if not danger.is_empty() else " Keine wilden Tiere gesichtet."
+		var text := tr("Entdeckt: %s, eine %s!") % [m.name, biome_name(m)]
+		text += tr(" Gefahr: %s.") % ", ".join(danger) if not danger.is_empty() else tr(" Keine wilden Tiere gesichtet.")
 		Game.notify(text, "kompass")
 		Sound.play("entdeckt")
 		var back := int(v.from)
@@ -761,12 +761,12 @@ func _arrive(v: Dictionary) -> void:
 		_dock(sh, w, v.get("crew", []))
 	var n: int = v.settlers.size()
 	if founded:
-		Game.notify("Land in Sicht! %d Siedler gründen eine Siedlung auf %s." % [n, m.name], "boot")
+		Game.notify(tr("Land in Sicht! %d Siedler gründen eine Siedlung auf %s.") % [n, m.name], "boot")
 		Sound.play("entdeckt")
 	elif n > 0:
-		Game.notify("%d Siedler sind auf %s angekommen." % [n, m.name], "boot")
+		Game.notify(tr("%d Siedler sind auf %s angekommen.") % [n, m.name], "boot")
 	elif not sh.is_empty() and sh.route.is_empty():
-		Game.notify_at(w, "Die %s hat in %s angelegt." % [ship_label(sh), m.name], "anker")
+		Game.notify_at(w, tr("Die %s hat in %s angelegt.") % [ship_label(sh), m.name], "anker")
 	if Game.world == null or not is_instance_valid(Game.world) or Game.world.settlers.is_empty():
 		switch_to(dest)
 	if n > 0:
@@ -818,12 +818,13 @@ func build_from_save(d: Dictionary) -> void:
 	voyages = []
 	var list: Array = d.get("islands", [])
 	if list.is_empty():
-		list = [{"id": 0, "name": "Heimatinsel", "biome": "heimat", "seed": int(d.seed),
+		list = [{"id": 0, "name": tr("Heimatinsel"), "biome": "heimat", "seed": int(d.seed),
 			"size": int(Data.bal("map_size", 64)), "pos": [0.0, 0.0], "state": "settled", "found_day": 1,
 			"dens": [], "world": d.world}]
 	for e in list:
 		var m: Dictionary = e.duplicate()
 		m.erase("world")
+		m.name = Loc.name_of(str(m.get("name", "")))  # Name in der gewaehlten Sprache
 		m.id = int(m.id)
 		m.seed = int(m.seed)
 		m.size = int(m.size)
@@ -836,6 +837,7 @@ func build_from_save(d: Dictionary) -> void:
 	ships = []
 	for e in d.get("ships", []):
 		var sh: Dictionary = e.duplicate(true)
+		sh.name = Loc.name_of(str(sh.get("name", "")))
 		for k in ["id", "home", "at", "leg"]:
 			sh[k] = int(sh.get(k, 0))
 		sh.crew = sh.get("crew", []).map(func(x): return int(x))

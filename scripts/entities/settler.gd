@@ -34,7 +34,7 @@ var world
 var mind: SettlerMind  # Charakter, Gesundheit, Laune (settler_mind.gd)
 
 var cell: Vector2i
-var activity: String = "Schaut sich um"
+var activity: String = tr("Schaut sich um")
 var sleeping: bool = false
 
 var _plan: Array = []
@@ -82,7 +82,7 @@ func setup(p_world, data: Dictionary) -> void:
 	world = p_world
 	_rng.randomize()
 	id = int(data.get("id", Game.new_id()))
-	display_name = data.get("name", "Siedler")
+	display_name = data.get("name", tr("Siedler"))
 	sex = data.get("sex", "m")
 	age = float(data.get("age", 18.0))
 	max_age = float(data.get("max_age", _rng.randf_range(Data.bal("old_age_min"), Data.bal("old_age_max"))))
@@ -195,8 +195,8 @@ func gain_xp(sk: String, amount: float = 1.0, quiet: bool = false) -> void:
 		skills[sk] = skill_level(sk) + 1.0
 		if quiet:
 			return
-		Game.notify("%s ist besser geworden: %s Stufe %d." % [display_name, Data.skills[sk].name, int(skills[sk])], "sonne", "siedler")
-		world.float_text(position + Vector2(0, -30), "Stufe %d!" % int(skills[sk]), "")
+		Game.notify(tr("%s ist besser geworden: %s Stufe %d.") % [display_name, Data.skills[sk].name, int(skills[sk])], "sonne", "siedler")
+		world.float_text(position + Vector2(0, -30), tr("Stufe %d!") % int(skills[sk]), "")
 		Sound.play_on("stufe", world)
 
 
@@ -286,15 +286,15 @@ func _needs(days: float) -> void:
 	if not was_adult and is_adult():
 		job = "frei"
 		var tal := mind.best_talents().map(func(k): return Data.skills[k].name)
-		Game.notify("%s ist erwachsen und kann jetzt arbeiten.%s" % [display_name,
-			(" Begabt für: %s." % ", ".join(tal)) if not tal.is_empty() else ""], "person")
+		Game.notify(tr("%s ist erwachsen und kann jetzt arbeiten.%s") % [display_name,
+			(tr(" Begabt für: %s.") % ", ".join(tal)) if not tal.is_empty() else ""], "person")
 		abort_plan()
 	_update_scale()
 	if health <= 0.0:
 		var why := mind.death_reason()
-		world.kill_settler(self, why if why != "" else "verhungert")
+		world.kill_settler(self, why if why != "" else tr("verhungert"))
 	elif age >= max_age + Game.eff_add("life"):
-		world.kill_settler(self, "im hohen Alter von %d Jahren gestorben" % int(age))
+		world.kill_settler(self, tr("im hohen Alter von %d Jahren gestorben") % int(age))
 
 
 ## Kinder lernen beim Spielen ein wenig, in der Schule viel, vor allem in ihren Begabungen.
@@ -320,7 +320,7 @@ func _think() -> void:
 	# Schwer krank: im Bett bleiben, nur zum Essen aufstehen
 	if mind.needs_bed() and not (hunger < float(Data.bal("eat_below")) and Game.total_food(world) > 0):
 		if sleeping:
-			activity = "Liegt krank im Bett (%s)" % mind.illness_name()
+			activity = tr("Liegt krank im Bett (%s)") % mind.illness_name()
 			return
 		_plan_sick_bed()
 		return
@@ -348,9 +348,9 @@ func _think() -> void:
 	if not is_adult():
 		var sc = world.school_of(self)
 		if sc:
-			_plan_wander(3, "Lernt in der Schule", sc.entrance_cell())
+			_plan_wander(3, tr("Lernt in der Schule"), sc.entrance_cell())
 		else:
-			_plan_wander(5, "Spielt")
+			_plan_wander(5, tr("Spielt"))
 		return
 	# 5. Freizeit (erst wenn die Siedlung weiter entwickelt ist)
 	if mind.wants_break() and _plan_leisure():
@@ -359,7 +359,7 @@ func _think() -> void:
 	if _plan_work():
 		return
 	_stat_kind = "idle"
-	_plan_wander(4, "Hat nichts zu tun")
+	_plan_wander(4, tr("Hat nichts zu tun"))
 
 
 func abort_plan() -> void:
@@ -428,8 +428,8 @@ func _plan_deliver() -> bool:
 		return false
 	if not _push_move_to(st.cells()):
 		return false
-	_plan.append({"a": "work", "t": 0.4, "act": "Liefert ab", "done": _do_deliver})
-	activity = "Bringt %s zum Lager" % Data.resource_name(carry_res)
+	_plan.append({"a": "work", "t": 0.4, "act": tr("Liefert ab"), "done": _do_deliver})
+	activity = tr("Bringt %s zum Lager") % Data.resource_name(carry_res)
 	return true
 
 
@@ -451,8 +451,8 @@ func _plan_eat() -> bool:
 		return false
 	if not _push_move_to(st.cells()):
 		return false
-	_plan.append({"a": "work", "t": 1.6, "act": "Isst", "done": _do_eat})
-	activity = "Geht essen"
+	_plan.append({"a": "work", "t": 1.6, "act": tr("Isst"), "done": _do_eat})
+	activity = tr("Geht essen")
 	return true
 
 
@@ -467,7 +467,7 @@ func _do_eat() -> void:
 		mind.on_meal(id, Data.food_vitamins(id))
 		eaten += 1
 	if eaten > 0:
-		world.float_text(position + Vector2(0, -26), "Mahlzeit", "nahrung")
+		world.float_text(position + Vector2(0, -26), tr("Mahlzeit"), "nahrung")
 
 
 const FORAGE_NODES := ["busch", "pilzkreis", "palme", "fischgrund"]
@@ -488,9 +488,9 @@ func _plan_forage() -> bool:
 		world.mark_unreachable(best)
 		return false
 	_reserve(best)
-	_plan.append({"a": "work", "t": float(best.def.work_time) / work_factor(best.def.skill), "act": "Isst unterwegs",
+	_plan.append({"a": "work", "t": float(best.def.work_time) / work_factor(best.def.skill), "act": tr("Isst unterwegs"),
 		"tool": _tool_for_node(best.type), "face": best.position, "done": _do_forage.bind(best)})
-	activity = "Sucht sich etwas zu essen"
+	activity = tr("Sucht sich etwas zu essen")
 	return true
 
 
@@ -504,23 +504,23 @@ func _do_forage(node) -> void:
 	mind.on_meal(res, Data.food_vitamins(res))
 	Game.eaten[res] = int(Game.eaten.get(res, 0)) + 1
 	if hunger < float(Data.bal("eat_until")) and node.is_available() and not Game.is_night():
-		_plan.push_front({"a": "work", "t": float(node.def.work_time) / work_factor(node.def.skill), "act": "Isst unterwegs",
+		_plan.push_front({"a": "work", "t": float(node.def.work_time) / work_factor(node.def.skill), "act": tr("Isst unterwegs"),
 			"tool": _cur_tool, "face": node.position, "done": _do_forage.bind(node)})
 	else:
-		world.float_text(position + Vector2(0, -26), "Mahlzeit", "nahrung")
+		world.float_text(position + Vector2(0, -26), tr("Mahlzeit"), "nahrung")
 
 
 func _plan_sleep() -> void:
 	var home = world.building_by_id(home_id)
 	if home and home.complete:
 		if _push_move_to([home.entrance_cell()], false):
-			_plan.append({"a": "work", "t": 0.2, "act": "Geht schlafen", "done": _do_sleep_inside})
-			activity = "Geht nach Hause"
+			_plan.append({"a": "work", "t": 0.2, "act": tr("Geht schlafen"), "done": _do_sleep_inside})
+			activity = tr("Geht nach Hause")
 			return
 	var fire = world.nearest_storage(cell)
 	if fire and _push_move_to(fire.cells()):
-		_plan.append({"a": "work", "t": 0.2, "act": "Legt sich hin", "done": _do_sleep_outside})
-		activity = "Sucht einen Schlafplatz"
+		_plan.append({"a": "work", "t": 0.2, "act": tr("Legt sich hin"), "done": _do_sleep_outside})
+		activity = tr("Sucht einen Schlafplatz")
 		return
 	_do_sleep_outside()
 
@@ -528,7 +528,7 @@ func _plan_sleep() -> void:
 func _do_sleep_inside() -> void:
 	sleeping = true
 	visible = false
-	activity = "Schläft in der Hütte"
+	activity = tr("Schläft in der Hütte")
 
 
 func _do_sleep_outside() -> void:
@@ -536,7 +536,7 @@ func _do_sleep_outside() -> void:
 	_body.rotation = -PI / 2
 	_body.position = Vector2(-6, -4)
 	_zzz.visible = true
-	activity = "Schläft unter freiem Himmel"
+	activity = tr("Schläft unter freiem Himmel")
 
 
 func _wake_up() -> void:
@@ -550,19 +550,19 @@ func _wake_up() -> void:
 ## Krank ins Bett: nach Hause, sonst ans Lagerfeuer.
 func _plan_sick_bed() -> void:
 	var home = world.building_by_id(home_id)
-	var txt := "Liegt krank im Bett (%s)" % mind.illness_name()
+	var txt := tr("Liegt krank im Bett (%s)") % mind.illness_name()
 	if home and home.complete and _push_move_to([home.entrance_cell()], false):
-		_plan.append({"a": "work", "t": 0.2, "act": "Legt sich hin", "done": func():
+		_plan.append({"a": "work", "t": 0.2, "act": tr("Legt sich hin"), "done": func():
 			_do_sleep_inside()
 			activity = txt})
-		activity = "Geht krank nach Hause"
+		activity = tr("Geht krank nach Hause")
 		return
 	var fire = world.nearest_storage(cell)
 	if fire and _push_move_to(fire.cells()):
-		_plan.append({"a": "work", "t": 0.2, "act": "Legt sich hin", "done": func():
+		_plan.append({"a": "work", "t": 0.2, "act": tr("Legt sich hin"), "done": func():
 			_do_sleep_outside()
-			activity = "Liegt krank am Feuer (%s)" % mind.illness_name()})
-		activity = "Schleppt sich krank zum Feuer"
+			activity = tr("Liegt krank am Feuer (%s)") % mind.illness_name()})
+		activity = tr("Schleppt sich krank zum Feuer")
 		return
 	_do_sleep_outside()
 
@@ -577,22 +577,22 @@ func _plan_leisure() -> bool:
 	var g := mind.trait_value("gemuet")
 	var fire = world.fire_building()
 	if fire:
-		opts.append([1.0 + g * 0.25, fire.cell, "Sitzt am Feuer und plaudert", true])
+		opts.append([1.0 + g * 0.25, fire.cell, tr("Sitzt am Feuer und plaudert"), true])
 	var home = world.building_by_id(home_id)
 	if home and home.complete:
-		opts.append([2.0, home.entrance_cell(), "Ruht sich zu Hause aus", false])
+		opts.append([2.0, home.entrance_cell(), tr("Ruht sich zu Hause aus"), false])
 	if _beach == null or not world.is_walkable(_beach):
 		_beach = world.beach_near(_rng)
 	var beach = _beach
 	if beach != null:
-		opts.append([1.5, beach, "Geht am Strand spazieren", false])
+		opts.append([1.5, beach, tr("Geht am Strand spazieren"), false])
 	var kids: Array = world.settlers.filter(func(o): return not o.is_adult() and o.visible)
 	if not kids.is_empty():
 		var k = kids[_rng.randi() % kids.size()]
-		opts.append([1.0 + g * 0.15, k.cell, "Spielt mit %s" % k.display_name, false])
+		opts.append([1.0 + g * 0.15, k.cell, tr("Spielt mit %s") % k.display_name, false])
 	for b in world.buildings:
 		if b.complete and b.def.get("base", b.type) in ["bibliothek", "schreibstube"] and b.def.has("research"):
-			opts.append([mind.trait_value("iq") * 0.4, b.entrance_cell(), "Liest in: %s" % b.def.name, false])
+			opts.append([mind.trait_value("iq") * 0.4, b.entrance_cell(), tr("Liest in: %s") % b.def.name, false])
 			break
 	if opts.is_empty():
 		return false
@@ -615,7 +615,7 @@ func _plan_leisure() -> bool:
 			return false
 		_plan.append({"a": "move", "cell": dest})
 	_plan.append({"a": "wait", "t": mind.break_length(), "rest": true, "act": pick[2]})
-	activity = "Freizeit: " + pick[2]
+	activity = tr("Freizeit: ") + pick[2]
 	return true
 
 
@@ -738,10 +738,10 @@ func _tool_for_node(t: String) -> String:
 
 
 func _verb(t: String) -> String:
-	return {"baum": "Fällt einen Baum", "fels": "Schlägt Steine", "busch": "Pflückt Beeren",
-		"fischgrund": "Angelt", "palme": "Pflückt Kokosnüsse", "pilzkreis": "Sammelt Pilze",
-		"erzader": "Schlägt Erz", "goldader": "Schürft Gold", "beute": "Zerlegt die Beute",
-		"wolfsbau": "Räumt den Bau aus", "eberbau": "Räumt den Bau aus", "baerenhoehle": "Räumt die Höhle aus"}.get(t, "Arbeitet")
+	return {"baum": tr("Fällt einen Baum"), "fels": tr("Schlägt Steine"), "busch": tr("Pflückt Beeren"),
+		"fischgrund": tr("Angelt"), "palme": tr("Pflückt Kokosnüsse"), "pilzkreis": tr("Sammelt Pilze"),
+		"erzader": tr("Schlägt Erz"), "goldader": tr("Schürft Gold"), "beute": tr("Zerlegt die Beute"),
+		"wolfsbau": tr("Räumt den Bau aus"), "eberbau": tr("Räumt den Bau aus"), "baerenhoehle": tr("Räumt die Höhle aus")}.get(t, tr("Arbeitet"))
 
 
 func _do_harvest(node) -> void:
@@ -772,8 +772,8 @@ func _plan_deliver_after() -> void:
 	_release()
 	var st = world.delivery_storage(cell)
 	if st and _push_move_to(st.cells()):
-		_plan.append({"a": "work", "t": 0.4, "act": "Liefert ab", "done": _do_deliver})
-		activity = "Bringt %s zum Lager" % Data.resource_name(carry_res)
+		_plan.append({"a": "work", "t": 0.4, "act": tr("Liefert ab"), "done": _do_deliver})
+		activity = tr("Bringt %s zum Lager") % Data.resource_name(carry_res)
 
 
 func _plan_farm() -> bool:
@@ -794,13 +794,13 @@ func _plan_farm() -> bool:
 		return false
 	_reserve(field)
 	if task == "sow":
-		_plan.append({"a": "work", "t": float(fd.sow_time) / work_factor("nahrung"), "act": "Sät",
+		_plan.append({"a": "work", "t": float(fd.sow_time) / work_factor("nahrung"), "act": tr("Sät"),
 			"tool": "sickle", "done": _do_sow.bind(field)})
-		activity = fd.get("sow_verb", "Sät")
+		activity = fd.get("sow_verb", tr("Sät"))
 	else:
-		_plan.append({"a": "work", "t": float(fd.harvest_time) * 2.0 / work_factor("nahrung"), "act": "Erntet",
+		_plan.append({"a": "work", "t": float(fd.harvest_time) * 2.0 / work_factor("nahrung"), "act": tr("Erntet"),
 			"tool": "sickle", "done": _do_field_harvest.bind(field)})
-		activity = fd.get("harvest_verb", "Erntet")
+		activity = fd.get("harvest_verb", tr("Erntet"))
 	return true
 
 
@@ -826,9 +826,9 @@ func _plan_construction() -> bool:
 	for site in sites:
 		if site.materials_complete():
 			if _push_move_to(site.cells(), not site.is_ground()):
-				_plan.append({"a": "work", "t": 1.5, "act": "Baut", "tool": "hammer",
+				_plan.append({"a": "work", "t": 1.5, "act": tr("Baut"), "tool": "hammer",
 					"face": site.position, "done": _do_build.bind(site)})
-				activity = "Baut: %s" % site.def.name
+				activity = tr("Baut: %s") % site.def.name
 				return true
 	# Dann Material liefern
 	for site in sites:
@@ -843,14 +843,14 @@ func _plan_construction() -> bool:
 			if not _push_move_to(st.cells()):
 				continue
 			var mark := _plan.size()
-			_plan.append({"a": "work", "t": 0.5, "act": "Holt Material", "done": _do_pickup.bind(site, res, n)})
+			_plan.append({"a": "work", "t": 0.5, "act": tr("Holt Material"), "done": _do_pickup.bind(site, res, n)})
 			if not _push_move_to(site.cells(), not site.is_ground()):
 				_plan.resize(mark - 1)
 				continue
-			_plan.append({"a": "work", "t": 0.5, "act": "Liefert Material", "tool": "hammer", "done": _do_site_deliver.bind(site)})
+			_plan.append({"a": "work", "t": 0.5, "act": tr("Liefert Material"), "tool": "hammer", "done": _do_site_deliver.bind(site)})
 			site.incoming[res] = int(site.incoming.get(res, 0)) + n
 			_incoming.append([site, res, n])
-			activity = "Bringt %s zur Baustelle" % Data.resource_name(res)
+			activity = tr("Bringt %s zur Baustelle") % Data.resource_name(res)
 			return true
 	return false
 
@@ -891,7 +891,7 @@ func _do_build(site) -> void:
 	world.spawn_effect("dust", site.position + Vector2(_rng.randf_range(-12, 12), -4))
 	Sound.play_at("hammer", world, site.position)
 	if not site.complete and not Game.is_night() and hunger >= float(Data.bal("eat_below")) * 0.6:
-		_plan.push_front({"a": "work", "t": 1.5, "act": "Baut", "tool": "hammer",
+		_plan.push_front({"a": "work", "t": 1.5, "act": tr("Baut"), "tool": "hammer",
 			"face": site.position, "done": _do_build.bind(site)})
 
 
@@ -906,10 +906,10 @@ func _plan_production(kind: String) -> bool:
 	_occupy(b)
 	var p: Dictionary = b.prod_def()
 	var tool_name: String = p.get("tool", Data.jobs.get(job, {}).get("tool", "hammer"))
-	_plan.append({"a": "work", "t": 0.3, "act": "Holt Rohstoffe", "done": _do_take_inputs.bind(b)})
-	_plan.append({"a": "work", "t": float(p.time) / work_factor(p.get("skill", "handwerk"), "production"), "act": p.get("verb", "Arbeitet"),
+	_plan.append({"a": "work", "t": 0.3, "act": tr("Holt Rohstoffe"), "done": _do_take_inputs.bind(b)})
+	_plan.append({"a": "work", "t": float(p.time) / work_factor(p.get("skill", "handwerk"), "production"), "act": p.get("verb", tr("Arbeitet")),
 		"tool": tool_name, "face": b.position, "done": _do_produce.bind(b)})
-	activity = "%s (%s)" % [p.get("verb", "Arbeitet"), b.def.name]
+	activity = "%s (%s)" % [p.get("verb", tr("Arbeitet")), b.def.name]
 	return true
 
 
@@ -963,12 +963,12 @@ func _plan_research() -> bool:
 		return false
 	_occupy(b)
 	_push_research_step(b)
-	activity = "Forscht: %s" % Data.techs[Game.research.current].name
+	activity = tr("Forscht: %s") % Data.techs[Game.research.current].name
 	return true
 
 
 func _push_research_step(b) -> void:
-	_plan.append({"a": "work", "t": float(Data.bal("research_work_time", 2.5)), "act": "Forscht",
+	_plan.append({"a": "work", "t": float(Data.bal("research_work_time", 2.5)), "act": tr("Forscht"),
 		"tool": "book", "face": b.position, "done": _do_research.bind(b)})
 
 
@@ -981,9 +981,9 @@ func _do_research(b) -> void:
 	gain_xp("wissen", 0.5)
 	b.mark_active(3.0)
 	if _rng.randf() < 0.2:
-		world.float_text(position + Vector2(0, -28), "Idee!", "")
+		world.float_text(position + Vector2(0, -28), tr("Idee!"), "")
 	if Game.has_research_goal() and not Game.is_night() and hunger >= float(Data.bal("eat_below")) * 0.6:
-		_plan.push_front({"a": "work", "t": float(Data.bal("research_work_time", 2.5)), "act": "Forscht",
+		_plan.push_front({"a": "work", "t": float(Data.bal("research_work_time", 2.5)), "act": tr("Forscht"),
 			"tool": "book", "face": b.position, "done": _do_research.bind(b)})
 
 
@@ -1034,7 +1034,7 @@ func _run_action(delta: float) -> void:
 			if a.get("rest", false):
 				if not a.get("started", false):
 					a.started = true
-					activity = "Freizeit: " + String(a.get("act", "Ruht sich aus"))
+					activity = tr("Freizeit: ") + String(a.get("act", tr("Ruht sich aus")))
 				mind.relax(delta / float(Data.bal("day_length")))
 			a.t = float(a.t) - delta
 			if a.t <= 0.0:
@@ -1103,13 +1103,13 @@ func _check_danger(delta: float) -> void:
 	_stat_kind = "job" if job == "jaeger" else "needs"
 	if _can_fight():
 		_plan.append({"a": "hunt", "target": an, "start": cell})
-		activity = "Kämpft gegen: %s" % an.def.name
+		activity = tr("Kämpft gegen: %s") % an.def.name
 		return
 	var r = world.nearest_refuge(cell)
 	if r and not world.find_path(cell, r.entrance_cell()).is_empty():
 		_plan.append({"a": "move", "cell": r.entrance_cell(), "flee": true})
 		_plan.append({"a": "hide", "b": r, "flee": true})
-		activity = "Flieht vor: %s" % an.def.name
+		activity = tr("Flieht vor: %s") % an.def.name
 		return
 	# Kein Haus in der Naehe: ans Lagerfeuer, das haelt die Tiere fern
 	var fire = world.fire_building()
@@ -1118,14 +1118,14 @@ func _check_danger(delta: float) -> void:
 		if spot != null:
 			_plan.append({"a": "move", "cell": spot, "flee": true})
 			_plan.append({"a": "wait", "t": 4.0, "flee": true})
-			activity = "Flieht ans Lagerfeuer vor: %s" % an.def.name
+			activity = tr("Flieht ans Lagerfeuer vor: %s") % an.def.name
 			return
 	var away: Vector2 = (position - an.position).normalized()
 	for i in 6:
 		var c := cell + Vector2i(roundi(away.x * 6 + _rng.randi_range(-2, 2)), roundi(away.y * 6 + _rng.randi_range(-2, 2)))
 		if world.is_walkable(c):
 			_plan.append({"a": "move", "cell": c, "flee": true})
-			activity = "Rennt weg!"
+			activity = tr("Rennt weg!")
 			return
 
 
@@ -1137,7 +1137,7 @@ func _plan_hunt() -> bool:
 	if an == null:
 		return false
 	_plan.append({"a": "hunt", "target": an, "start": cell})
-	activity = "Jagt: %s" % an.def.name
+	activity = tr("Jagt: %s") % an.def.name
 	return true
 
 
@@ -1185,7 +1185,7 @@ func _run_hide(a: Dictionary, delta: float) -> void:
 		visible = false
 		_moving = false
 		_working = false
-		activity = "Versteckt sich in: %s" % b.def.name
+		activity = tr("Versteckt sich in: %s") % b.def.name
 	a.t = float(a.t) + delta
 	if a.t < 2.0:
 		return
@@ -1207,8 +1207,8 @@ func take_damage(n: float, by) -> void:
 	_danger_t = 0.0
 	world.spawn_effect("blood", position + Vector2(0, -8))
 	if health <= 0.0:
-		var who: String = by.def.get("by", "von einem Tier") if by is Animal else "von einem Tier"
-		world.kill_settler(self, "%s getötet worden" % who)
+		var who: String = by.def.get("by", tr("von einem Tier")) if by is Animal else tr("von einem Tier")
+		world.kill_settler(self, tr("%s getötet worden") % who)
 
 
 func _face(v: Vector2) -> void:

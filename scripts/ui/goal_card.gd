@@ -38,13 +38,13 @@ func setup(p_hud) -> void:
 	_head = UiTheme.label("", 12, Color("#8a5a3a"), true)
 	_head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hr.add_child(_head)
-	_skip = UiTheme.button("Überspringen", "", 22)
+	_skip = UiTheme.button(tr("Überspringen"), "", 22)
 	_skip.add_theme_font_size_override("font_size", 11)
-	_skip.tooltip_text = "Einführung überspringen"
+	_skip.tooltip_text = tr("Einführung überspringen")
 	_skip.pressed.connect(_skip_tutorial)
 	hr.add_child(_skip)
 	var close := UiTheme.button("", "abriss", 22)
-	close.tooltip_text = "Ziel ausblenden, bis das nächste kommt"
+	close.tooltip_text = tr("Ziel ausblenden, bis das nächste kommt")
 	close.pressed.connect(_dismiss)
 	hr.add_child(close)
 	_text = UiTheme.label("", 14, UiTheme.TEXT, true)
@@ -59,7 +59,7 @@ func setup(p_hud) -> void:
 	_hint.custom_minimum_size.x = 170
 	_hint.visible = false
 	v.add_child(_hint)
-	tooltip_text = "Tippen: Erklärung ein- und ausblenden"
+	tooltip_text = tr("Tippen: Erklärung ein- und ausblenden")
 	gui_input.connect(func(ev):
 		if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
 			_hint.visible = not _hint.visible and _hint.text != ""
@@ -109,15 +109,15 @@ func milestone(i: int) -> Dictionary:
 	match k % 3:
 		0:
 			var n := 40 + 15 * lvl
-			return {"id": "e%d" % k, "text": "Wachse auf %d Siedler." % n, "check": {"type": "pop", "n": n},
+			return {"id": "e%d" % k, "text": tr("Wachse auf %d Siedler.") % n, "check": {"type": "pop", "n": n},
 				"reward": {"brot": 10 + 5 * lvl, "werkzeug": 2 + lvl}}
 		1:
 			var n := 2 + 2 * lvl
-			return {"id": "e%d" % k, "text": "Entdecke %d Inseln." % n, "hint": "Hinter dem Horizont warten immer neue Inseln.",
+			return {"id": "e%d" % k, "text": tr("Entdecke %d Inseln.") % n, "hint": tr("Hinter dem Horizont warten immer neue Inseln."),
 				"check": {"type": "islands_found", "n": n}, "reward": {"boot": 1, "eisen": 4 + 2 * lvl}}
 		_:
 			var n := 30 + 30 * lvl
-			return {"id": "e%d" % k, "text": "Feiere %d Geburten." % n, "check": {"type": "births", "n": n},
+			return {"id": "e%d" % k, "text": tr("Feiere %d Geburten.") % n, "check": {"type": "births", "n": n},
 				"reward": {"fleisch": 10 + 5 * lvl, "ziegel": 10 + 5 * lvl}}
 
 
@@ -191,16 +191,16 @@ func _advance(g: Dictionary, silent: bool) -> void:
 	Sound.play("ziel")
 	if was_tut:
 		if not in_tutorial():
-			hud.toast("Einführung geschafft! Jetzt warten Ziele mit Belohnungen auf dich.", "ziel")
+			hud.toast(tr("Einführung geschafft! Jetzt warten Ziele mit Belohnungen auf dich."), "ziel")
 	else:
 		var parts := []
 		for res in g.get("reward", {}):
 			var got := Game.add_stock(res, int(g.reward[res]))
 			if got > 0:
 				parts.append("%d %s" % [got, Data.resource_name(res)])
-		var text: String = "Ziel erreicht: %s" % g.text
+		var text: String = tr("Ziel erreicht: %s") % g.text
 		if not parts.is_empty():
-			text += " Belohnung: " + ", ".join(parts) + "."
+			text += tr(" Belohnung: ") + ", ".join(parts) + "."
 		hud.toast(text, "ziel")
 	var tw := create_tween()
 	tw.set_ignore_time_scale(true)
@@ -212,7 +212,7 @@ func _advance(g: Dictionary, silent: bool) -> void:
 func _dismiss() -> void:
 	Game.goals["hide"] = _cur_id
 	Sound.play("zu")
-	hud.toast("Ziel ausgeblendet. Das nächste Ziel erscheint wieder. Ganz abschalten: Menü > Meldungen.", "ziel", "tag")
+	hud.toast(tr("Ziel ausgeblendet. Das nächste Ziel erscheint wieder. Ganz abschalten: Menü > Meldungen."), "ziel", "tag")
 
 
 func shown() -> bool:
@@ -223,7 +223,7 @@ func _skip_tutorial() -> void:
 	Game.goals.tut = Data.goals.get("tutorial", []).size()
 	_actions.clear()
 	_cur_id = ""
-	hud.toast("Einführung übersprungen. Die Spielanleitung findest du im Menü.", "ziel")
+	hud.toast(tr("Einführung übersprungen. Die Spielanleitung findest du im Menü."), "ziel")
 
 
 # ---------------------------------------------------------------- Anzeige
@@ -268,7 +268,7 @@ func _check() -> void:
 	if g.id != _cur_id:
 		_cur_id = g.id
 		var tut_n: int = Data.goals.get("tutorial", []).size()
-		_head.text = ("Einführung %d/%d" % [int(Game.goals.tut) + 1, tut_n]) if t else "Ziel"
+		_head.text = (tr("Einführung %d/%d") % [int(Game.goals.tut) + 1, tut_n]) if t else tr("Ziel")
 		_text.text = g.text
 		_hint.text = g.get("hint", "")
 		# In der Einfuehrung ist die Erklaerung immer offen

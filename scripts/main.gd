@@ -76,7 +76,7 @@ func _autotest_move(wait: float) -> void:
 				if not bc.has(oc) and world.building_at.has(oc):
 					old_free = false
 		print("Verschieben ", b.type, " ", old, " -> ", b.cell, " ok=", ok, " raster=", grid_ok, " alt_frei=", old_free,
-			" bewohner=", b.residents().size(), " platzierung_aus=", not world.is_placing(), " tuer=", b.entrance_cell())
+			tr(" bewohner="), b.residents().size(), tr(" platzierung_aus="), not world.is_placing(), tr(" tuer="), b.entrance_cell())
 	print("Nach dem Verschieben: ", world.settlers.map(func(s): return "%s schläft=%s %s" % [s.display_name, s.sleeping, s.cell]))
 	Game.save_game()
 
@@ -123,7 +123,7 @@ func _maybe_autotest() -> void:
 		for i in js.size():
 			if i >= world.settlers.size():
 				var c: Vector2i = world.settlers[0].cell
-				world.spawn_settler({"name": "Test%d" % i, "sex": "f" if i % 2 else "m", "age": 20.0, "max_age": 60.0, "skills": {}, "x": c.x, "y": c.y})
+				world.spawn_settler({"name": tr("Test%d") % i, "sex": "f" if i % 2 else "m", "age": 20.0, "max_age": 60.0, "skills": {}, "x": c.x, "y": c.y})
 			world.settlers[i].set_job(js[i])
 		if args.has("nofruit"):
 			for n in world.nodes.duplicate():
@@ -136,7 +136,7 @@ func _maybe_autotest() -> void:
 		print("Knoten: ", counts)
 	if args.has("crowd"):
 		# Testhilfe: viele Siedler fuer die Siedlerliste
-		var names := ["Anna", "Ben", "Clara", "Dirk", "Emma", "Finn", "Greta", "Hugo", "Ida", "Karl", "Mia", "Ole", "Paula", "Rudi", "Sina", "Tom"]
+		var names := [tr("Anna"), tr("Ben"), tr("Clara"), tr("Dirk"), tr("Emma"), tr("Finn"), tr("Greta"), tr("Hugo"), tr("Ida"), tr("Karl"), tr("Mia"), tr("Ole"), tr("Paula"), tr("Rudi"), tr("Sina"), tr("Tom")]
 		for i in int(args.crowd):
 			var c: Vector2i = world.settlers[0].cell
 			var s = world.spawn_settler({"name": names[i % names.size()], "sex": "f" if i % 2 else "m",
@@ -200,7 +200,7 @@ func _maybe_autotest() -> void:
 				var isl := []
 				for m in Sea.islands:
 					var w = Sea.worlds.get(int(m.id))
-					isl.append("%s[%s]:%s pop=%d tiere=%d holz=%d essen=%d" % [m.name, m.biome, m.state, w.settlers.size() if w else 0, w.animals.size() if w else 0,
+					isl.append(tr("%s[%s]:%s pop=%d tiere=%d holz=%d essen=%d") % [m.name, m.biome, m.state, w.settlers.size() if w else 0, w.animals.size() if w else 0,
 						Game.amount("holz", w) if w else 0, Game.total_food(w) if w else 0])
 				if args.has("wildlife"):
 					_report_wildlife()
@@ -226,6 +226,8 @@ func _maybe_autotest() -> void:
 			break
 	if args.has("storetest"):
 		_autotest_store()
+	if args.has("langcheck"):
+		await _lang_check()
 	if args.has("shot"):
 		Engine.time_scale = 1.0
 		if args.has("night"):
@@ -371,7 +373,7 @@ func _report_wildlife() -> void:
 			var food := 0.0
 			for a in all:
 				food += a.food
-			out.append("%s %d+%d jung satt=%d%%" % [t, w.adult_count(t), all.size() - w.adult_count(t), int(food / all.size() * 100.0)])
+			out.append(tr("%s %d+%d jung satt=%d%%") % [t, w.adult_count(t), all.size() - w.adult_count(t), int(food / all.size() * 100.0)])
 		var dens := []
 		for n in w.nodes:
 			if n.def.has("spawns"):
@@ -500,20 +502,20 @@ func _autotest_store() -> void:
 	world.store_limits = {}
 	var vol := Game.storage_volume()
 	print("   Lager Stauraum ", vol)
-	ok.call(Game.space_for("holz") == vol / 2, "Holz frei: %d" % Game.space_for("holz"))
-	ok.call(Game.space_for("bretter") == vol / 3, "Bretter frei: %d" % Game.space_for("bretter"))
-	ok.call(Game.set_limit("holz", 40) == 40, "Holz auf 40")
-	ok.call(Game.space_for("beeren") == vol - 80, "Beeren nach Reservierung: %d" % Game.space_for("beeren"))
-	ok.call(Game.add_stock("holz", 100) == 40, "Holz nur bis 40 eingelagert")
-	ok.call(Game.set_limit("stein", 100000) == (vol - 80) / 2, "Stein hoechstens Restraum: %d" % Game.limit_of("stein"))
-	ok.call(Game.space_for("beeren") == 0, "Beeren ohne Platz")
-	ok.call(Game.add_stock("beeren", 5) == 0, "Beeren abgewiesen")
+	ok.call(Game.space_for("holz") == vol / 2, tr("Holz frei: %d") % Game.space_for("holz"))
+	ok.call(Game.space_for("bretter") == vol / 3, tr("Bretter frei: %d") % Game.space_for("bretter"))
+	ok.call(Game.set_limit("holz", 40) == 40, tr("Holz auf 40"))
+	ok.call(Game.space_for("beeren") == vol - 80, tr("Beeren nach Reservierung: %d") % Game.space_for("beeren"))
+	ok.call(Game.add_stock("holz", 100) == 40, tr("Holz nur bis 40 eingelagert"))
+	ok.call(Game.set_limit("stein", 100000) == (vol - 80) / 2, tr("Stein hoechstens Restraum: %d") % Game.limit_of("stein"))
+	ok.call(Game.space_for("beeren") == 0, tr("Beeren ohne Platz"))
+	ok.call(Game.add_stock("beeren", 5) == 0, tr("Beeren abgewiesen"))
 	Game.set_limit("holz", 10)
-	ok.call(Game.excess("holz") == 30, "Ueberschuss 30")
-	ok.call(Game.discard_excess("holz") == 30 and Game.amount("holz") == 10, "weggeworfen, 10 bleiben")
-	ok.call(Game.space_for("boot") > 1000, "Boote ohne Lagerraum")
+	ok.call(Game.excess("holz") == 30, tr("Ueberschuss 30"))
+	ok.call(Game.discard_excess("holz") == 30 and Game.amount("holz") == 10, tr("weggeworfen, 10 bleiben"))
+	ok.call(Game.space_for("boot") > 1000, tr("Boote ohne Lagerraum"))
 	Game.set_limit("stein", -1)
-	ok.call(Game.space_for("beeren") == vol - 20, "Stein frei, Beeren wieder Platz: %d" % Game.space_for("beeren"))
+	ok.call(Game.space_for("beeren") == vol - 20, tr("Stein frei, Beeren wieder Platz: %d") % Game.space_for("beeren"))
 	world.store_limits = {}
 
 
@@ -602,7 +604,7 @@ func _autotest_school() -> void:
 	Game.day_started.connect(func(d):
 		var kids := world.settlers.filter(func(s): return not s.is_adult())
 		print("   Tag %d: Geburten %d, Kinder %s" % [d, Game.stats.births,
-			kids.map(func(k): return "%s %.2f %s" % [k.display_name, k.age, "Schule" if world.school_of(k) else "-"])]))
+			kids.map(func(k): return "%s %.2f %s" % [k.display_name, k.age, tr("Schule") if world.school_of(k) else "-"])]))
 
 
 var _args := {}
@@ -712,13 +714,13 @@ func _on_new_game() -> void:
 	_focus_start()
 	Game.set_speed(1)
 	Game.save_game()
-	Game.notify("Willkommen auf deiner Insel! Lena und Jonas brauchen ein Zuhause für Nachwuchs.", "sonne")
+	Game.notify(tr("Willkommen auf deiner Insel! Lena und Jonas brauchen ein Zuhause für Nachwuchs."), "sonne")
 
 
 func _on_continue() -> void:
 	Sound.in_title = false
 	Game.set_speed(1)
-	Game.notify("Willkommen zurück! Tag %d." % Game.day(), "sonne")
+	Game.notify(tr("Willkommen zurück! Tag %d.") % Game.day(), "sonne")
 
 
 func _on_tap(p: Vector2, touch: bool = false) -> void:
@@ -751,12 +753,12 @@ func _unhandled_key_input(event: InputEvent) -> void:
 func _autotest_food() -> void:
 	var s = world.settlers[0]
 	var cases := [
-		["Hunger 50, alles da", 50.0, 70.0, {"beeren": 10, "fisch": 10, "brot": 10, "weizen": 10, "aepfel": 10}],
-		["Hunger 10, alles da", 10.0, 70.0, {"beeren": 10, "fisch": 10, "brot": 10, "weizen": 10, "aepfel": 10}],
-		["Hunger 80, kaum Bedarf", 80.0, 70.0, {"beeren": 10, "fisch": 10, "brot": 10, "aepfel": 10}],
-		["Hunger 40, Vitamine fehlen (10)", 40.0, 10.0, {"beeren": 10, "fisch": 10, "brot": 10, "aepfel": 10}],
-		["Hunger 40, nur Weizen und Brot", 40.0, 70.0, {"weizen": 20, "brot": 3}],
-		["Hunger 40, nur Weizen", 40.0, 70.0, {"weizen": 20}],
+		[tr("Hunger 50, alles da"), 50.0, 70.0, {"beeren": 10, "fisch": 10, "brot": 10, "weizen": 10, "aepfel": 10}],
+		[tr("Hunger 10, alles da"), 10.0, 70.0, {"beeren": 10, "fisch": 10, "brot": 10, "weizen": 10, "aepfel": 10}],
+		[tr("Hunger 80, kaum Bedarf"), 80.0, 70.0, {"beeren": 10, "fisch": 10, "brot": 10, "aepfel": 10}],
+		[tr("Hunger 40, Vitamine fehlen (10)"), 40.0, 10.0, {"beeren": 10, "fisch": 10, "brot": 10, "aepfel": 10}],
+		[tr("Hunger 40, nur Weizen und Brot"), 40.0, 70.0, {"weizen": 20, "brot": 3}],
+		[tr("Hunger 40, nur Weizen"), 40.0, 70.0, {"weizen": 20}],
 	]
 	for c in cases:
 		var st: Dictionary = Game._stock_of(world)
@@ -775,3 +777,49 @@ func _autotest_food() -> void:
 			s.mind.on_meal(id, Data.food_vitamins(id))
 			seq.append(id)
 		print("Wahl: ", c[0], " -> ", seq, " Hunger danach ", int(s.hunger), " Vitamine ", int(s.mind.vit))
+
+
+## Testhilfe: alle Fenster oeffnen und Texte melden, die noch deutsch aussehen.
+func _lang_check() -> void:
+	var german := RegEx.create_from_string("[äöüßÄÖÜ]|\\b(der|die|das|und|ist|nicht|noch|mit|für|auf|ein|eine|kein|Siedler)\\b")
+	var seen := {}
+	var opens := [func(): pass, func(): hud._toggle(hud._build_panel),
+		func():
+			hud._fill_research_list()
+			hud._toggle(hud._research_panel),
+		func():
+			hud._refresh_stock(true)
+			hud._toggle(hud._stock_panel),
+		func():
+			hud._toggle(hud._settler_panel)
+			hud._refresh_settler_list(),
+		func(): hud._toggle(hud._menu_panel), func(): hud._toggle(hud._help_panel),
+		func(): Game.select(world.settlers[0]),
+		func(): Game.select(world.buildings[0])]
+	for o in opens:
+		o.call()
+		await get_tree().process_frame
+		await get_tree().process_frame
+		var stack: Array = [hud.root]
+		while not stack.is_empty():
+			var n: Node = stack.pop_back()
+			stack.append_array(n.get_children())
+			if not (n is Control and n.is_visible_in_tree()):
+				continue
+			var texts := []
+			if n is Label or n is Button or n is RichTextLabel:
+				texts.append(n.text)
+			if n is Control and n.tooltip_text != "":
+				texts.append(n.tooltip_text)
+			if n is OptionButton:
+				for i in n.item_count:
+					texts.append(n.get_item_text(i))
+			for t in texts:
+				var shown: String = n.atr(t) if n.can_auto_translate() else t
+				if german.search(shown) and not seen.has(shown):
+					seen[shown] = true
+					print("DEUTSCH: ", shown.replace("\n", " | ").left(160))
+		Game.select(null)
+		for pnl in hud._panels():
+			pnl.visible = false
+	print("Sprachpruefung: %d deutsche Texte sichtbar" % seen.size())
