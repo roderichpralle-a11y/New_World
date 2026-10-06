@@ -388,11 +388,6 @@ func _maybe_autotest() -> void:
 		await RenderingServer.frame_post_draw
 		get_viewport().get_texture().get_image().save_png(args.shot)
 		print("Screenshot: ", args.shot)
-	if args.has("kireport"):
-		var f := FileAccess.open(str(args.kireport), FileAccess.WRITE)
-		f.store_string(KiMind.report_text())
-		f.close()
-		print("KI-Bericht: ", args.kireport)
 	Game.save_game()
 	get_tree().quit()
 
@@ -413,32 +408,25 @@ func _report_society(auto: String) -> void:
 		print("   Berufe: ", counts, " Laune: ", w.settlers.map(func(s): return int(s.mind.mood)))
 		if KiMind.active():
 			var m: Dictionary = KiMind.mem(w)
-			var own := 0
-			for k in KiMind.sdec:
-				if KiMind.sdec[k].get("own", false):
-					own += 1
-			print("   LLM %s: Schwerpunkt %s, Sitzungen %d, Plätze %s, eigene Wahl %d/%d, Lehren %d, Erfahrung %d, Handel %d | Plan: %s" % [
-				Sea.island_name(w), m.focus, int(m.councils), m.get("slots", {}), own, KiMind.sdec.size(), m.lessons.size(), m.exp.size(),
+			print("   Rat %s: Schwerpunkt %s, Sitzungen %d, Plätze %s, Lehren %d, Erfahrung %d, Handel %d | Plan: %s" % [
+				Sea.island_name(w), m.focus, int(m.councils), m.get("slots", {}), m.lessons.size(), m.exp.size(),
 				KiMind.trades.size(), m.plan])
 			for l in m.lessons.slice(maxi(0, m.lessons.size() - 3)):
-				print("     Lehre (%s): %s" % [l[2], l[1]])
+				print("     Lehre (%s): %s" % [l[2], KiMind.lesson_text(l)])
 			var caps := {}
 			for j in m.get("cap", {}):
 				caps[j] = int(m.cap[j].n)
 			print("     Arbeit bis zur Sitzung: %s | Lager %d %% | Auslastung gelernt: %s | Archiv %d, Regeln %d" % [caps,
 				int(float(Society.situation(w).storage_full) * 100.0), m.get("fit", {}), m.archive.size(), m.knowledge.size()])
-			for l in KiMind.stats_lines(w, true):
+			for k in m.knowledge:
+				print("     Regel: ", KiMind.lesson_text(k))
+			for l in KiMind.stats_lines(w):
 				print("     ", l)
-	if Llm.state != "aus":
-		print("   ", Llm.status_text(), " Anfragen: ", Llm.stats, " offen: ", Llm.pending.size(), " | Anfrage Rat %d Zeichen, Siedler %d Zeichen | " % [str(KiMind.last_prompt.get("rat", "")).length(), str(KiMind.last_prompt.get("siedler", "")).length()], KiMind.activity)
-	if _args.has("kichat") and KiMind.active() and not _args.has("_chatted"):
-		_args["_chatted"] = "1"
-		KiMind.chat(Game.world, str(_args.kichat))
-		KiMind.bind(Game.world, "beruf", "holzfaeller", 2)
+	if _args.has("kibind") and KiMind.active() and not _args.has("_bound"):
+		# Test: feste Vorgabe und Priorität des Herrschers
+		_args["_bound"] = "1"
+		print("     Vorgabe: ", KiMind.bind(Game.world, "beruf", "holzfaeller", 2))
 		KiMind.set_prio(Game.world, "forschung", 3)
-	if _args.has("_chatted"):
-		for c in KiMind.mem(Game.world).chat:
-			print("     Chat %s: %s" % [c[0], c[1]])
 	for r in Society.requests.duplicate():
 		print("   Anliegen: ", r.title, " | ", r.text)
 		if auto == "ja" or (auto == "rede" and r.kind != "strategie"):
@@ -921,7 +909,7 @@ func _lang_check() -> void:
 		func(): Game.select(world.settlers[0]),
 		func(): Game.select(world.buildings[0])]
 	if Society.enabled:
-		for v in ["rat", "ki", "chat", "vorgaben", "prio", "debatte", "lernen"]:
+		for v in ["rat", "ki", "vorgaben", "prio", "debatte", "lernen"]:
 			opens.append(func():
 				hud._open_council()
 				hud._council_panel._view = v

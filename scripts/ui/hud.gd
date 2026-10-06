@@ -1263,14 +1263,6 @@ func _build_menu_panel() -> void:
 			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED if full else DisplayServer.WINDOW_MODE_FULLSCREEN)
 			_menu_panel.visible = false)
 		v.add_child(fs)
-	if Game.is_ki_build:
-		# Vorübergehend zur Kontrolle der Sprachmodelle
-		var rep := UiTheme.button(tr("KI-Bericht herunterladen"), "buch", 44)
-		rep.tooltip_text = tr("Lädt eine Textdatei mit allen Überlegungen und Entscheidungen der KI herunter.")
-		rep.pressed.connect(func():
-			var f := KiMind.download_report()
-			toast(tr("KI-Bericht gespeichert: %s") % f, "buch"))
-		v.add_child(rep)
 	v.add_child(_language_row())
 	var info := UiTheme.label(tr("Das Spiel speichert automatisch."), 12)
 	v.add_child(info)
@@ -1489,13 +1481,11 @@ func _volume_row(text: String, icon_name: String, value: float, on_change: Calla
 
 
 const HELP_KI := """[b]KI-Version: Du bist der Herrscher[/b]
-[b]Mit Sprachmodellen:[/b] Jede Insel hat einen Rat, den das Sprachmodell Llama-3.2-1B spielt. Er bekommt die ganze Lage (Siedler und ihre Fähigkeiten, Gebäude und wo sie stehen, alle Inseln mit Rohstoffen und Bedarf, alle Schiffe, Jahreszeiten und ihre Regeln) und entscheidet Schwerpunkt, Aufträge für jeden Bewohner, Bauten, Forschung (Hauptinsel) und Handel mit anderen Inseln. Jeder Siedler ist ein eigenes kleines Modell (SmolLM-135M): Es kennt seine Fähigkeiten, Bedürfnisse, den Auftrag des Rats und was er zuletzt getan hat, und entscheidet selbst, auch gegen den Rat.
-Unter [b]Rat[/b] kannst du mit jedem Rat schreiben, feste Vorgaben machen und Prioritäten verschieben. Der Rat merkt sich seine Entscheidungen, misst, was sie bewirkt haben, und schreibt sich daraus Lehren auf, die in seine nächsten Entscheidungen einfließen. Unter „KI beobachten“ siehst du alles, auch die Wahrscheinlichkeiten der Modelle und die letzte Anfrage.
-[b]Ohne Sprachmodelle[/b] (oder wenn dein Gerät sie nicht laden kann) entscheidet die Regel-KI:
-Deine Siedler denken selbst. Jeder wählt seine Arbeit nach dem, was gerade fehlt, und nach dem, was er gut kann. Was er denkt, steht im Infofenster.
-Die Bewohner eines Hauses halten zusammen: sie sprechen sich mit den anderen Häusern ab, wer sich um Nahrung, Holz und Stein, Bauen, Forschung oder Schutz kümmert, und pflegen Kranke im Haus.
-Jedes Haus schickt einen Sprecher in den [b]Inselrat[/b]. Alle zwei Tage stimmt der Rat über die Strategie ab: Nahrung sichern, Vorrat für den Winter, Wachsen, Bauen, Wissen, Schutz oder Seefahrt. Danach richten sich Berufe, Bauten und Forschung.
-Unter [b]Rat[/b] findest du die Anliegen der Inseln: neue Strategien, große Bauten, Forschung, Feste, mehr Freizeit, Überstunden, Hilfe von anderen Inseln. Du kannst zustimmen, ablehnen, mit Argumenten diskutieren oder bestimmen. Bestimmen kostet Vertrauen und drückt die Laune. Ohne Antwort entscheidet der Rat nach einem Tag selbst.
+Jede Insel hat einen [b]Inselrat[/b], der etwa einmal am Tag tagt. Er wählt den Schwerpunkt (Nahrung sichern, Vorrat für den Winter, Wachsen, Bauen, Wissen, Schutz oder Seefahrt), verteilt die Arbeit, lässt bauen, wählt die Forschung (Hauptinsel) und handelt per Schiff mit anderen Inseln.
+Der Rat rechnet aus, wie viele Siedler in jedem Beruf bis zur nächsten Sitzung wirklich etwas zu tun haben: Bauern nur für Felder, die gesät oder geerntet werden, Sammler nach dem, was nachwächst und ins Lager passt, Werkstätten nur mit Rohstoffen. Wer keinen Platz bekommt, hilft frei aus. Jeder Siedler macht, was der Rat ihm aufträgt. Wird das Lager voll, baut der Rat ein neues.
+Der Rat führt eine Statistik, wie die Arbeiter beschäftigt waren (eigene Arbeit, anderes, untätig, geliefert). Hatte ein Beruf zu wenig zu tun, bekommt er beim nächsten Mal weniger Plätze. Was der Rat misst, schreibt er sich als Lehren auf (Rat > „Gelernt und Statistik“).
+Die Bewohner eines Hauses halten zusammen, pflegen Kranke und schicken einen Sprecher in den Rat.
+Unter [b]Rat[/b] machst du feste Vorgaben (Schwerpunkt, Arbeiter, Bauen, Forschen) und verschiebst Prioritäten. Vorgaben kosten Vertrauen und drücken die Laune. Dort stehen auch die Anliegen der Inseln (Feste, mehr Freizeit, Überstunden). Ohne Antwort entscheidet der Rat nach einem Tag selbst.
 Du kannst weiter selbst bauen, forschen und Schiffe schicken. Gibst du einem Siedler einen Beruf, gilt dein Befehl einen Tag lang.
 
 """
@@ -2166,10 +2156,9 @@ func show_title(has_save: bool) -> void:
 	st.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(st)
 	if Game.is_ki_build:
-		var kb := UiTheme.label(tr("KI-Version mit eigenem Spielstand: Die Siedler denken selbst,\njede Insel hat einen Rat, du bist der Herrscher.\nDein normales Spiel bleibt unverändert."), 14, Color("#2a5a9a"), true)
+		var kb := UiTheme.label(tr("KI-Version mit eigenem Spielstand: Jede Insel hat einen Rat,\nder die Arbeit verteilt, baut und forscht. Du bist der Herrscher.\nDein normales Spiel bleibt unverändert."), 14, Color("#2a5a9a"), true)
 		kb.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		v.add_child(kb)
-		_ki_choice_box(v)
 	if Game.is_test_build:
 		var tb := UiTheme.label(tr("Testversion mit eigenem Spielstand.\nDein normales Spiel bleibt unverändert."), 14, Color("#c03a2a"), true)
 		tb.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -2199,49 +2188,6 @@ func show_title(has_save: bool) -> void:
 	v.add_child(_language_row())
 	v.add_child(_version_label())
 	root.move_child(_help_panel, -1)
-
-
-## KI-Version: Sprachmodelle laden (einmal etwa 1,2 GB) oder die Regel-KI nehmen. Gilt je Gerät.
-func _ki_choice_box(v: VBoxContainer) -> void:
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 6)
-	v.add_child(box)
-	var fill := func(self_ref: Callable):
-		for c in box.get_children():
-			c.queue_free()
-		var txt := ""
-		if Llm.choice == "":
-			txt = tr("Rat und Siedler können von echten Sprachmodellen gesteuert werden\n(Llama-3.2-1B für die Inselräte, SmolLM-135M für jeden Siedler).\nSie laufen in deinem Browser, einmalig etwa %d MB Download.") % int(Llm.cfg("download_mb", 1250))
-			if Llm.small_first():
-				txt = tr("Rat und Siedler können von echten Sprachmodellen gesteuert werden.\nAuf dem Handy denkt der Rat mit einem kleineren Modell (SmolLM2-360M),\nweil Llama-3.2-1B zu viel Speicher braucht. Siedler: SmolLM-135M.\nEinmalig etwa %d MB Download.") % int(Llm.cfg("download_mb_small", 400))
-			if not Llm.probe.get("webgpu", true):
-				txt += tr("\nDein Browser hat kein WebGPU: Die Modelle rechnen dann langsam auf dem Prozessor.")
-			if Llm.probe.get("mobile", false):
-				txt += tr("\nAuf dem Handy kann der Speicher knapp werden.")
-		else:
-			txt = Llm.status_text()
-		var l := UiTheme.label(txt, 13, Color("#2a5a9a"))
-		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		l.custom_minimum_size.x = 420
-		box.add_child(l)
-		var h := HBoxContainer.new()
-		h.alignment = BoxContainer.ALIGNMENT_CENTER
-		h.add_theme_constant_override("separation", 6)
-		box.add_child(h)
-		if Llm.choice != "llm":
-			var a := UiTheme.button(tr("Sprachmodelle laden"), "ki", 38)
-			a.pressed.connect(func():
-				Llm.set_choice("llm")
-				self_ref.call(self_ref))
-			h.add_child(a)
-		if Llm.choice != "regel":
-			var b := UiTheme.button(tr("Ohne Sprachmodelle (Regel-KI)"), "", 38)
-			b.pressed.connect(func():
-				Llm.set_choice("regel")
-				self_ref.call(self_ref))
-			h.add_child(b)
-	fill.call(fill)
 
 
 func _show_game_over() -> void:

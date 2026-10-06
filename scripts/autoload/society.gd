@@ -1,14 +1,14 @@
 extends Node
 ## KI-Variante (Webadresse mit /ki/): Die Siedler steuern sich selbst.
 ##
-## - Jeder Siedler denkt selbst: Er wählt seine Arbeit nach dem, was auf seiner Insel
-##   gerade fehlt, nach seinen Begabungen und nach der Absprache seines Hauses
-##   (`_think`). Was er denkt, steht in `thoughts` (Infofenster).
+## - Jeder Siedler bekommt vom Inselrat einen Auftrag und befolgt ihn (KiMind, ki_mind.gd).
+##   Was er denkt, steht in `thoughts` (Infofenster).
 ## - Die Bewohner eines Hauses sind die kleinste Gruppe. Die Häuser sprechen sich ab,
 ##   wer sich um welchen Bereich kümmert (Nahrung, Rohstoffe, Bauen, Wissen, Schutz).
 ##   Mitglieder einer kranken Person pflegen sie (heilt schneller).
-## - Jede Insel hat einen Rat aus je einem Sprecher pro Haus. Er stimmt regelmäßig über
-##   die Strategie ab (`_council`). Die Strategie gewichtet Berufe, Bauten und Forschung.
+## - Jede Insel hat einen Rat aus je einem Sprecher pro Haus. Er tagt in KiMind (Schwerpunkt,
+##   Arbeit, Bauen, Forschung, Handel). Die Strategie gewichtet Berufe, Bauten und Forschung;
+##   die Sprecher reden in Diskussionen mit dem Herrscher mit (`opinion`).
 ## - Der Spieler ist der Herrscher. Die Inseln schicken ihm Anliegen (Forderungen und
 ##   Angebote, `requests`). Er stimmt zu, lehnt ab, diskutiert mit Argumenten
 ##   (`argue`) oder bestimmt (`command`). Was daraus folgt, setzt die KI selbst um.
@@ -26,7 +26,6 @@ const DOMAINS := {
 }
 const DOMAIN_NAMES := {"nahrung": "Nahrung", "rohstoffe": "Holz und Stein", "bau": "Bauen und Werkstätten",
 	"wissen": "Forschung", "schutz": "Schutz"}
-const FOOD_JOBS := ["sammler", "fischer", "bauer"]
 ## Berufe, die die KI vergibt (Seeleute bleiben, wie sie sind)
 const AI_JOBS := ["sammler", "fischer", "bauer", "koch", "holzfaeller", "steinmetz", "baumeister",
 	"handwerker", "forscher", "jaeger", "frei"]
@@ -47,7 +46,6 @@ var thoughts: Dictionary = {}  # Siedler-ID -> was er gerade denkt (nicht gespei
 var households: Dictionary = {}  # Insel-ID -> Liste der Häuser (zur Anzeige, nicht gespeichert)
 var debate: Dictionary = {}  # laufende Diskussion (nicht gespeichert)
 var welcomed := false  # Begrüßung der KI-Variante gezeigt
-var _caps: Dictionary = {}  # wie viele Nahrungsarbeiter die Natur gerade trägt (aus desired_jobs)
 var _rng := RandomNumberGenerator.new()
 var _cfg: Dictionary = {}
 
@@ -167,32 +165,18 @@ func _process(_delta: float) -> void:
 	var t := Game.time_days
 	if not welcomed:
 		welcomed = true
-		Game.notify(tr("KI-Version: Deine Siedler entscheiden selbst, was sie arbeiten. Jedes Haus schickt einen Sprecher in den Inselrat."), "ki", "rat")
+		Game.notify(tr("KI-Version: Der Inselrat verteilt die Arbeit, baut und forscht. Jedes Haus schickt einen Sprecher in den Rat."), "ki", "rat")
 		Game.notify(tr("Du bist der Herrscher. Unter „Rat“ findest du die Anliegen der Inseln: zustimmen, diskutieren oder bestimmen."), "glocke", "rat")
 	for w in Sea.all_worlds():
 		if w.settlers.is_empty():
 			continue
 		var st := state(w)
-		# Mit Sprachmodellen entscheiden Rat und Siedler in KiMind, hier bleibt nur die Pflege
-		var llm := KiMind.active()
+		# Rat und Aufträge der Siedler kommen aus KiMind, hier bleibt die Pflege der Häuser
 		if t >= float(st.next_think):
 			st.next_think = t + float(cfg("think_days", 0.25))
-			if llm:
-				_make_households(w, situation(w))
-			else:
-				_think(w)
+			_make_households(w, situation(w))
 			_care(w, float(cfg("think_days", 0.25)))
 			st.attacks = maxf(0.0, float(st.attacks) - 0.5 * float(cfg("think_days", 0.25)))
-		if llm:
-			continue
-		if t >= float(st.next_council) and not Game.is_night():
-			st.next_council = t + float(cfg("council_days", 2.0))
-			_council(w)
-		if t >= float(st.next_build):
-			st.next_build = t + float(cfg("build_check_days", 0.5))
-			_plan_buildings(w)
-			_check_research(w)
-			_check_help(w)
 	_expire_requests()
 
 
@@ -303,7 +287,6 @@ func desired_jobs(w, sit: Dictionary) -> Dictionary:
 	var rest := food_n - bauer
 	var fischer := minf(rest * 0.5 if bush > 0 else rest, maxf(1.0, fish / 2.0) if fish > 0 else 0.0)
 	var sammler := minf(rest - fischer, maxf(0.0, bush / 2.0))
-	_caps = {"bauer": float(int(sit.farms)), "fischer": float(fish), "sammler": float(bush)}
 	if Data.job_unlocked("bauer") or farm_n > 0:
 		want["bauer"] = bauer
 	want["fischer"] = fischer
@@ -332,187 +315,6 @@ func desired_jobs(w, sit: Dictionary) -> Dictionary:
 	if Data.job_unlocked("jaeger") and int(sit.predators) > 0:
 		want["jaeger"] = 1.0 + (1.0 if float(sit.attacks) > 1.0 else 0.0)
 	return want
-
-
-## Plätze je Beruf nach Strategie, passend zur Zahl der verfügbaren Siedler.
-func job_slots(w, sit: Dictionary, avail: int) -> Dictionary:
-	var want := desired_jobs(w, sit)
-	var sw: Dictionary = strategies().get(state(w).strategy, {}).get("jobs", {})
-	var famine := float(sit.food_head) < 3.0
-	var total := 0.0
-	for j in want:
-		want[j] = float(want[j]) * float(sw.get(j, 1.0))
-		total += float(want[j])
-	var slots := {}
-	var scale := 1.0 if total <= avail else float(avail) / total
-	for j in want:
-		var v := float(want[j]) * scale
-		if famine and j in FOOD_JOBS:
-			v = float(want[j])  # Hungersnot: Nahrung zuerst, ganz
-		slots[j] = int(round(v)) if v >= 0.5 or j in FOOD_JOBS else 0
-	# Übrige Hände: solange Essen nicht reichlich da ist, zuerst dorthin, wo die Natur noch trägt
-	var used := 0
-	for j in slots:
-		used += int(slots[j])
-	var spare := avail - used
-	if float(sit.food_ratio) < 1.5:
-		for j in ["bauer", "fischer", "sammler"]:
-			while spare > 0 and float(slots.get(j, 0)) < float(_caps.get(j, 0.0)) * (1.0 if j == "bauer" else 0.7):
-				slots[j] = int(slots.get(j, 0)) + 1
-				spare -= 1
-	# Ohne Holz geht nichts: mindestens ein Holzfäller, wenn es fast keins mehr gibt
-	if float(sit.wood) < 15.0 and avail >= 2 and int(slots.get("holzfaeller", 0)) == 0:
-		slots["holzfaeller"] = 1
-	# Mindestens ein Nahrungsarbeiter, solange Nahrung nicht reichlich ist
-	var food_slots := 0
-	for j in FOOD_JOBS:
-		food_slots += int(slots.get(j, 0))
-	if food_slots == 0 and float(sit.food_head) < 20.0 and avail > 0:
-		slots["fischer" if float(want.get("fischer", 0.0)) >= float(want.get("sammler", 0.0)) else "sammler"] = 1
-	return slots
-
-
-## Wie gern macht ein Siedler einen Beruf? (Begabung, Können, Gewohnheit, Absprache des Hauses)
-func preference(s, job: String, domain: String) -> float:
-	if job == "frei":
-		return 0.3
-	var sk: String = Data.jobs.get(job, {}).get("skill", "")
-	var p := 0.0
-	if sk != "":
-		p += float(s.mind.talents.get(sk, 1.0)) + s.skill_level(sk) * 0.06
-	if s.job == job:
-		p += 0.35
-	if domain != "" and job in DOMAINS.get(domain, []):
-		p += 0.25
-	if s.best_job() == job:
-		p += 0.15
-	return p
-
-
-func _think(w) -> void:
-	var sit := situation(w)
-	_make_households(w, sit)
-	var t := Game.time_days
-	var free: Array = []
-	for s in w.settlers:
-		if not s.is_adult():
-			thoughts[s.id] = tr("Spielt und lernt.") if w.school_of(s) == null else tr("Lernt in der Schule.")
-			continue
-		if float(orders.get(s.id, 0.0)) > t:
-			thoughts[s.id] = tr("Der Herrscher hat mich zum %s bestimmt. Das mache ich.") % s.job_name()
-			continue
-		if s.job == "seemann":
-			thoughts[s.id] = tr("Ich gehöre zur Besatzung unserer Schiffe.")
-			continue
-		if s.mind.needs_bed():
-			thoughts[s.id] = tr("Ich bin krank und muss liegen.")
-			continue
-		free.append(s)
-	if free.is_empty():
-		return
-	var slots := job_slots(w, sit, free.size())
-	var dom_of := {}
-	for h in households.get(int(w.island_id), []):
-		for sid in h.members:
-			dom_of[sid] = h.domain
-	# Wer macht gerade was? Zu viele in einem Beruf = jemand kann wechseln.
-	var have := {}
-	for s in free:
-		have[s.job] = int(have.get(s.job, 0)) + 1
-	var changes := 0
-	var max_changes := int(cfg("max_changes_per_think", 3))
-	var cd := float(cfg("change_cooldown_days", 1.0))
-	# Absprache: offene Plätze, das dringendste (größte Lücke) zuerst
-	var open := []
-	for j in slots:
-		var gap := int(slots[j]) - int(have.get(j, 0))
-		if gap > 0 and Data.job_unlocked(j):
-			open.append([gap + (1 if j in FOOD_JOBS and float(sit.food_head) < 5.0 else 0), j])
-	open.sort_custom(func(x, y): return x[0] > y[0])
-	for o in open:
-		var j: String = o[1]
-		for _n in int(o[0]):
-			if changes >= max_changes:
-				break
-			# Wer wechselt? Freie oder jemand aus einem Beruf mit zu vielen Leuten, wer es am liebsten tut
-			var best = null
-			var best_v := -INF
-			for s in free:
-				if s.job == j or t - float(last_change.get(s.id, -99.0)) < cd:
-					continue
-				var surplus: bool = s.job == "frei" or not slots.has(s.job) or int(have.get(s.job, 0)) > int(slots.get(s.job, 0))
-				if not surplus:
-					continue
-				var v := preference(s, j, dom_of.get(s.id, "")) - preference(s, s.job, dom_of.get(s.id, "")) * 0.3
-				if v > best_v:
-					best_v = v
-					best = s
-			if best == null:
-				break
-			var old: String = best.job_name()
-			have[best.job] = int(have.get(best.job, 0)) - 1
-			have[j] = int(have.get(j, 0)) + 1
-			best.set_job(j)
-			last_change[best.id] = t
-			changes += 1
-			Game.notify_at(w, tr("%s denkt um: %s statt %s. %s") % [best.display_name, best.job_name(), old, _why_job(w, j, sit)], "ki", "rat")
-			decide(w, tr("%s wird %s (vorher %s). Gebraucht: %d, da waren %d. %s") % [best.display_name, best.job_name(), old,
-				int(slots[j]), int(have[j]) - 1, _why_job(w, j, sit)])
-	# Wer in einem überbesetzten Beruf bleibt und nichts anderes findet, hilft frei aus
-	for s in free:
-		if changes >= max_changes:
-			break
-		if s.job != "frei" and slots.has(s.job) and int(have.get(s.job, 0)) > int(slots.get(s.job, 0)) + 1 \
-				and t - float(last_change.get(s.id, -99.0)) >= cd:
-			have[s.job] = int(have.get(s.job, 0)) - 1
-			decide(w, tr("%s hört als %s auf (zu viele dort) und hilft jetzt frei aus.") % [s.display_name, s.job_name()])
-			s.set_job("frei")
-			last_change[s.id] = t
-			changes += 1
-	for s in free:
-		thoughts[s.id] = _thought(s, w, sit, dom_of.get(s.id, ""))
-
-
-func _why_job(w, j: String, sit: Dictionary) -> String:
-	match j:
-		"sammler", "fischer", "bauer":
-			if float(sit.food_head) < 5.0:
-				return tr("Das Essen wird knapp (%d je Kopf).") % int(sit.food_head)
-			if int(sit.season) in [Seasons.SUMMER, Seasons.AUTUMN] and float(sit.food_ratio) < 1.0:
-				return tr("Wir brauchen Vorrat für den Winter (%d von %d).") % [int(sit.food), int(sit.food_target)]
-			return tr("Wir brauchen jeden Tag Essen.")
-		"koch":
-			return tr("Die Küche macht haltbares, sättigendes Essen.")
-		"holzfaeller":
-			if int(sit.season) in [Seasons.SUMMER, Seasons.AUTUMN]:
-				return tr("Wir brauchen Brennholz für den Winter.")
-			return tr("Holz wird für Bauten gebraucht.")
-		"steinmetz":
-			return tr("Stein wird gebraucht.")
-		"baumeister":
-			return (tr("%d Baustellen warten.") % int(sit.sites)) if int(sit.sites) > 0 else tr("Gerade ist keine Baustelle offen.")
-		"handwerker":
-			return tr("Die Werkstätten brauchen Hände.")
-		"forscher":
-			return tr("Wir wollen %s erforschen.") % Data.techs.get(Game.research.current, {}).get("name", tr("Neues"))
-		"jaeger":
-			return tr("Wilde Tiere bedrohen uns.")
-	return tr("Ich helfe, wo es gerade fehlt.")
-
-
-func _thought(s, w, sit: Dictionary, domain: String) -> String:
-	var text := tr("Ich bin %s. %s") % [s.job_name(), _why_job(w, s.job, sit)]
-	var sk: String = Data.jobs.get(s.job, {}).get("skill", "")
-	if sk != "" and float(s.mind.talents.get(sk, 1.0)) >= 1.3:
-		text += tr(" Das liegt mir.")
-	elif sk != "" and float(s.mind.talents.get(sk, 1.0)) < 0.8:
-		text += tr(" Eigentlich liegt mir das nicht, aber es muss sein.")
-	if domain != "" and s.job in DOMAINS.get(domain, []):
-		text += tr(" Unser Haus kümmert sich um %s.") % DOMAIN_NAMES[domain]
-	var fav: String = s.best_job()
-	if fav != s.job and fav != "frei" and Data.jobs.has(fav):
-		text += tr(" Am liebsten wäre ich %s.") % Data.jobs[fav].name
-	return text
 
 
 # ================================================================== Häuser
@@ -671,58 +473,12 @@ func _tally(votes: Array) -> Dictionary:
 	return c
 
 
-func _winner(votes: Array, prefer: String, sc: Dictionary) -> String:
-	var c := _tally(votes)
-	var top := 0
-	for k in c:
-		top = max(top, int(c[k]))
-	var tied: Array = c.keys().filter(func(k): return int(c[k]) == top)
-	if prefer in tied:
-		return prefer  # Gleichstand: es bleibt, wie es ist
-	tied.sort_custom(func(a, b): return float(sc.get(a, 0.0)) > float(sc.get(b, 0.0)))
-	return tied[0] if not tied.is_empty() else prefer
-
-
 func tally_text(votes: Array) -> String:
 	var c := _tally(votes)
 	var parts := []
 	for k in c:
 		parts.append("%s %d" % [strat_name(k), int(c[k])])
 	return ", ".join(parts)
-
-
-func _council(w) -> void:
-	var sit := situation(w)
-	_make_households(w, sit)
-	var reps := representatives(w)
-	if reps.is_empty():
-		return
-	var st := state(w)
-	var sc := situation_scores(w, sit)
-	var votes := []
-	for s in reps:
-		var op := opinion(s, w, sc)
-		var best := ""
-		var bv := -INF
-		for k in op:
-			if float(op[k][0]) > bv:
-				bv = float(op[k][0])
-				best = k
-		votes.append({"sid": s.id, "name": s.display_name, "house": household_of(s).get("name", ""), "strat": best, "why": op[best][1]})
-	st.votes = votes
-	for v in votes:
-		decide(w, tr("Rat: %s stimmt für „%s“. „%s“") % [v.name, strat_name(v.strat), v.why])
-	var win := _winner(votes, st.strategy, sc)
-	var where := Sea.island_name(w)
-	if win == st.strategy:
-		log_line(w, tr("Der Rat bleibt bei „%s“ (%s).") % [strat_name(win), tally_text(votes)])
-		Game.notify_at(w, tr("Der Inselrat hat getagt und bleibt bei „%s“.") % strat_name(win), "glocke", "rat")
-	else:
-		add_request(w, "strategie", tr("Neue Strategie: %s") % strat_name(win),
-			tr("Der Rat von %s möchte die Strategie ändern: „%s“ statt „%s“. Abstimmung: %s.") % [where, strat_name(win), strat_name(st.strategy), tally_text(votes)],
-			{"strat": win}, ["ja", "besprechen", "bestimmen"])
-	_council_requests(w, sit)
-	changed.emit()
 
 
 func set_strategy(w, k: String, how: String) -> void:
@@ -919,46 +675,6 @@ func _council_requests(w, sit: Dictionary) -> void:
 
 
 # ================================================================== KI baut
-## Was soll auf der Insel als nächstes gebaut werden? Kleine Bauten setzt der Rat selbst,
-## große legt er dem Herrscher vor.
-func _plan_buildings(w) -> void:
-	if w.fire_building() == null:
-		return
-	var sit := situation(w)
-	# Essen geht vor: fehlen Felder, legt der Rat sofort eines an (kostet wenig)
-	if int(sit.season) in [Seasons.SPRING, Seasons.SUMMER] \
-			and _count(w, ["feld", "obstgarten"]) < ceili(int(sit.pop) / 2.5) and Game.can_afford(Data.buildings.feld.cost, w):
-		var t := "feld"
-		if Game.is_unlocked("obstgarten") and _count(w, ["obstgarten"]) * 3 < _count(w, ["feld"]) and int(sit.vit_low) > 0:
-			t = "obstgarten"
-		var fc := find_spot(w, t)
-		if fc.x >= 0:
-			w.place_building(t, fc, false)
-			log_line(w, tr("Der Rat legt an: %s.") % Data.buildings[t].name)
-			Game.notify_at(w, tr("Der Rat legt an: %s. Mehr Felder bringen mehr Essen.") % Data.buildings[t].name, "weizen", "rat_bau")
-			return
-	if w.construction_sites().size() >= 2:
-		return
-	var pick := _choose_building(w, sit)
-	if pick.is_empty():
-		return
-	var cost := 0
-	var def: Dictionary = Data.buildings[pick.type]
-	for id in def.get("cost", {}):
-		cost += int(def.cost[id])
-	var title: String = (tr("%s ausbauen") % Data.buildings[w.building_by_id(int(pick.upgrade)).type].name) if pick.has("upgrade") \
-		else tr("%s bauen") % def.name
-	if cost <= int(cfg("small_build_cost", 30)) and not pick.has("upgrade"):
-		var c := find_spot(w, pick.type)
-		if c.x >= 0:
-			w.place_building(pick.type, c, false)
-			log_line(w, tr("Der Rat lässt bauen: %s. %s") % [def.name, pick.why])
-			Game.notify_at(w, tr("Der Rat lässt bauen: %s. %s") % [def.name, pick.why], "hammer", "rat_bau")
-		return
-	var costs := []
-	for id in def.get("cost", {}):
-		costs.append("%d %s" % [int(def.cost[id]), Data.resource_name(id)])
-	add_request(w, "bau", title, tr("%s Kosten: %s.") % [pick.why, ", ".join(costs)], pick)
 
 
 func _count(w, types: Array) -> int:
@@ -1070,18 +786,6 @@ func _has_margin(w, c: Vector2i, sz: Vector2i) -> bool:
 
 
 # ================================================================== KI forscht
-func _check_research(w) -> void:
-	if Game.research.current != "":
-		return
-	# Forschung ist gemeinsam: die Insel mit den meisten Siedlern schlägt vor
-	for o in Sea.all_worlds():
-		if o.settlers.size() > w.settlers.size():
-			return
-	var t := choose_research(state(w).strategy, w)
-	if t == "":
-		return
-	add_request(w, "forschung", tr("Forschung: %s") % Data.techs[t].name,
-		tr("Die Gelehrten möchten %s erforschen. %s") % [Data.techs[t].name, Data.techs[t].get("desc", "")], {"tech": t})
 
 
 func choose_research(strat: String, w) -> String:
@@ -1120,37 +824,6 @@ func choose_research(strat: String, w) -> String:
 			best_v = v
 			best = t
 	return best
-
-
-# ================================================================== Hilfe zwischen Inseln
-func _check_help(w) -> void:
-	var sit := situation(w)
-	var need := {}
-	if float(sit.food_head) < 3.0:
-		need["food"] = int(sit.pop) * 6
-	if int(sit.season) in [Seasons.AUTUMN, Seasons.WINTER] and float(sit.wood) < float(sit.heat) * 0.4:
-		need["holz"] = int(float(sit.heat) * 0.6)
-	if need.is_empty():
-		return
-	for o in Sea.all_worlds():
-		if o == w or o.settlers.is_empty():
-			continue
-		var osit := situation(o)
-		var goods := {}
-		if need.has("food") and float(osit.food_head) > 15.0:
-			var foods := Data.resources.keys().filter(func(id): return Data.resources[id].get("category", "") == "food")
-			foods.sort_custom(func(a, b): return Game.amount(a, o) > Game.amount(b, o))
-			goods[foods[0]] = min(int(need.food), Game.amount(foods[0], o) / 3)
-		if need.has("holz") and float(osit.wood) > float(osit.wood_target) + 20.0:
-			goods["holz"] = min(int(need.holz), int(float(osit.wood) - float(osit.wood_target)))
-		if goods.is_empty():
-			continue
-		for sh in Sea.idle_ships(int(o.island_id)):
-			if Sea.can_visit(sh.type, int(w.island_id)):
-				add_request(w, "hilfe", tr("Hilfe von %s") % Sea.island_name(o),
-					tr("%s ist in Not. Die Siedler bitten: %s soll mit der %s %s schicken.") % [Sea.island_name(w), Sea.island_name(o), sh.name, Sea.goods_text(goods)],
-					{"from": int(o.island_id), "ship": int(sh.id), "goods": goods})
-				return
 
 
 # ================================================================== Diskussion
@@ -1234,7 +907,7 @@ func argue(arg: String) -> void:
 		"gemeinwohl": tr("Denkt an alle Inseln und an eure Kinder. Wir schaffen das nur gemeinsam."),
 		"fest": tr("Wenn ihr zustimmt, feiern wir ein Fest."),
 		"freizeit": tr("Wenn ihr zustimmt, bekommt ihr zwei Tage mehr Freizeit.")}
-	debate.lines.append(["Du", said[arg]])
+	debate.lines.append([tr("Du"), said[arg]])
 	for r in debate.reps:
 		if r.yes:
 			continue

@@ -14,7 +14,7 @@ var tiers: Array = []
 var ages: Array = []  # Zeitalter: {name, tiers, desc}, siehe techs.json "_ages"
 var islands: Dictionary = {}  # Inselarten (Biome)
 var society: Dictionary = {}  # KI-Variante (data/society.json)
-var ki_llm: Dictionary = {}  # KI-Variante mit Sprachmodellen (data/ki_llm.json)
+var ki_rat: Dictionary = {}  # KI-Variante: Einstellungen des Inselrats (data/ki_rat.json)
 var ships: Dictionary = {}  # Schiffsarten (data/ships.json)
 var animals: Dictionary = {}
 var goals: Dictionary = {}  # Einfuehrung und Ziele
@@ -101,7 +101,7 @@ func _ready() -> void:
 	animals = _load("animals")
 	people = _load("people")
 	society = _load("society")
-	ki_llm = _load("ki_llm")
+	ki_rat = _load("ki_rat")
 	var f := FileAccess.open("res://assets/sprites/icons.txt", FileAccess.READ)
 	if f:
 		var i := 0

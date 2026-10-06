@@ -20,7 +20,6 @@ Sea="*res://scripts/autoload/sea.gd"
 Sound="*res://scripts/autoload/sound.gd"
 Seasons="*res://scripts/autoload/seasons.gd"
 Society="*res://scripts/autoload/society.gd"
-Llm="*res://scripts/autoload/llm.gd"
 KiMind="*res://scripts/autoload/ki_mind.gd"
 
 [display]

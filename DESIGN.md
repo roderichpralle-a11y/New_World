@@ -389,190 +389,98 @@ neues Zeitalter meldet `_finish_research` es. Im Forschungsmenü steht über jed
 - **Grafik**: `tools/gen_art_ages.py` (Gebäude ab Zelle 35 in buildings.png, Symbole `ICONS_AGES`).
 - **Test**: `--prodtest=1 --ages=1` baut nur die Gebäude der neuen Zeitalter.
 
-## KI-Variante (Siedler denken selbst, Inselrat, Herrscher)
+## KI-Variante (Inselrat nach Regeln, Herrscher)
 
 Eigene Ausgabe unter `/New_World/ki/` (Zweig `claude/ki-variante-oexba8`, Workflow legt ihn nach
 `gh-pages/ki`). Erkennung in `Game._detect_test_build`: Webadresse mit `/ki/` (lokal `--kimode=1`) setzt
 `Game.is_ki_build` und `Society.enabled`, speichert in `user://savegame_ki.json` (kopiert beim ersten Start
-den normalen Spielstand) und lässt die Einführung weg. Ohne `/ki/` tut `Society` nichts, das normale
-Spiel bleibt unverändert. Der letzte Stand vor der KI-Variante liegt im Zweig `version-1.0`.
+den normalen Spielstand) und lässt die Einführung weg. Ohne `/ki/` tun `Society` und `KiMind` nichts, das
+normale Spiel bleibt unverändert. Der letzte Stand vor der KI-Variante liegt im Zweig `version-1.0`.
 
-### Sprachmodelle (Llama-3.2-1B für die Räte, SmolLM-135M für die Siedler)
-- **Freier Wille der Siedler** (`settler_free_will`, josh 2026-10-05: vorerst aus): Aus heißt, jeder
-  Siedler übernimmt den Auftrag des Rats (`_settler_obey`), ohne Auftrag bleibt er bei seiner Arbeit, und
-  SmolLM wird nicht gefragt. Die Siedler-Entscheidung mit SmolLM (`_settler_turn` ab `settler_options`)
-  bleibt unverändert im Code; `true` in `data/ki_llm.json` oder `--freewill=1` schaltet sie wieder ein.
-- **Arbeit nach Bedarf** (josh 2026-10-05): `KiMind.job_capacity(w)` rechnet vor jeder Arbeitsfrage, wie
-  viele Siedler je Beruf bis zur nächsten Sitzung beschäftigt sind: Felder nur für Saat und Ernte, die
-  in dieser Zeit anfallen; Sammeln, Fischen, Holz, Stein aus Vorrat plus Nachwuchs, begrenzt durch den
-  Platz im Lager; Werkstätten nach Rohstoffen; Baustellen nach Restarbeit und fehlendem Material;
-  Forschungsplätze; jagdbare Tiere. Arbeitszeit eines Siedlers = helle Tageszeit × `work_share`.
-  `_make_orders` vergibt nie mehr Plätze, der Rest wird Helfer (frei). Das Modell sieht bei jedem Beruf
-  „work for at most N“ mit Grund. Die gemessene Auslastung korrigiert das (`fit`, unten).
+**Ohne Sprachmodelle** (josh 2026-10-06): Von 2026-10-04 bis 2026-10-06 entschieden Llama-3.2-1B (Rat)
+und SmolLM-135M (Siedler) im Browser. josh will stattdessen später Reinforcement Learning ausprobieren
+und ließ die Sprachmodelle ganz aus dem Code nehmen (Worker `web/ki_llm.js`, Autoload `Llm`, Anfragen,
+Gespräch mit dem Rat, KI-Bericht, Zeitbremse, `data/ki_en.json`; der letzte Stand mit Modellen ist
+Commit `ccd089d` im KI-Zweig). Geblieben ist alles, was ohne Modell rechnet; ein trainierter Rat würde
+an `KiMind._council` andocken (Lage aus `Society.situation`, Möglichkeiten aus `job_capacity`,
+`build_options`, `research_options`, Belohnung aus `_metrics`/`records` und der Arbeitsstatistik).
+
+### Inselrat (`scripts/autoload/ki_mind.gd`, Einstellungen in `data/ki_rat.json`)
+- Autoload `KiMind`, läuft, wenn `Society.enabled`. Je Insel (Hauptinsel zuerst) tagt der Rat alle
+  `council_days` am Tag (`_council`, ohne Warten, alles in einem Bild). Alle `settler_days` befolgt
+  jeder Erwachsene seinen Auftrag (`_follow_order`); ohne Auftrag bleibt er bei seiner Arbeit. Ausnahmen:
+  Befehl des Herrschers (`Society.orders`), krank im Bett, Seeleute. `Society.thoughts` zeigt das.
+- **Sitzung**: 1. Schwerpunkt = Strategie mit der besten `Society.situation_scores` (oder Vorgabe).
+  2. Arbeit: Anteile je Beruf = (0,1 + `Society.desired_jobs`) × Strategiegewicht, mal Prioritäten des
+  Herrschers (`priority_jobs`, `PRIO_FACTOR`); `_make_orders` verteilt Plätze nach größten Resten, nie
+  mehr als `job_capacity`, Rest wird Helfer (frei), Notregel bei fast leerem Essen, dann jedem Siedler
+  nach Begabung einen Auftrag. 3. Bau: Vorgabe, sonst Lager-Notregel, sonst der erste bezahlbare
+  Vorschlag aus `build_options` (höchstens zwei Baustellen). 4. Forschung (nur Hauptinsel): Vorgabe,
+  sonst erste aus `research_options`. 5. Handel. 6. Ansage `plan` (Zusammenfassung der Sitzung) in
+  Chronik und Meldung. Danach `Society._council_requests` (Feste, Freizeit, Überstunden).
+- **Arbeit nach Bedarf** (josh 2026-10-05): `job_capacity(w)` rechnet, wie viele Siedler je Beruf bis
+  zur nächsten Sitzung beschäftigt sind: Felder nur für Saat und Ernte, die in dieser Zeit anfallen;
+  Sammeln, Fischen, Holz, Stein aus Vorrat plus Nachwuchs, begrenzt durch den Platz im Lager; Werkstätten
+  nach Rohstoffen; Baustellen nach Restarbeit und fehlendem Material; Forschungsplätze; jagdbare Tiere.
+  Arbeitszeit eines Siedlers = helle Tageszeit × `work_share`. Ergebnis je Beruf `{n, why, secs}`.
 - **Arbeitsstatistik:** Siedler zählen ihre helle Tageszeit in `settler.stat` (job = eigene Arbeit,
   other = Ausweicharbeit, idle = nichts zu tun, needs = Essen, Freizeit, Krankheit, Flucht), dazu
   Arbeitsschritte und abgelieferte Waren. `_collect_stats` liest das bei jeder Sitzung je Beruf und je
-  Siedler (`mem.stats`, die letzten 12 Abschnitte; `mem.stat_total` fürs ganze Spiel). Liegt die
-  eigene Arbeit unter `busy_target`, sinkt `fit[Beruf]` und damit die Zahl der Plätze; dazu wird eine
-  Lehre gemessen. Der Rat bekommt die Statistik in jeder Anfrage („How your workers spent the daytime“).
+  Siedler (`mem.stats`, die letzten `stats_max` Abschnitte; `mem.stat_total` fürs ganze Spiel). Liegt die
+  eigene Arbeit unter `busy_target`, sinkt `fit[Beruf]` und damit die Zahl der Plätze; dazu eine Lehre.
 - **Lager:** ab `storage_watch` steht ein Lager (Großes Lager, sonst Lagerhaus) unter den
   Bauvorschlägen, ab `storage_urgent` ganz oben, ab `storage_rule` baut der Rat es sofort (Notregel).
-- **Lehren fürs ganze Spiel:** Jede Lehre kommt ins Archiv (`mem.archive`). Nach `summarize_every` neuen
-  fasst Llama alles zu höchstens `knowledge_max` Regeln zusammen (`mem.knowledge`, ohne Modell die
-  neueste Lehre je Art). In der Anfrage stehen die Regeln und die 3 neuesten Lehren. Rat > „Gelernt und
-  Statistik“ zeigt Regeln, Arbeit bis zur nächsten Sitzung, Statistik und alle Lehren (`--panel=lernen`).
-- **Meldungen:** Ansagen des Rats, Bau/Forschung durch den Rat und Handel haben eigene Arten
-  (`rat`, `rat_bau`, `handel`, nur in der KI-Version im Menü „Meldungen“).
-- **Sprache der KI: immer Englisch** (josh 2026-10-05), unabhängig von der Sprache der Oberfläche:
-  alle Anfragen (Rat, Siedler, Chat, Lehre, Ansage) und damit alle Antworten der Modelle. Englische
-  Namen und Kurzbeschreibungen der Spieldaten stehen in `data/ki_en.json` (Gebäude, Forschung, Waren,
-  Rohstoffe, Berufe, Fähigkeiten, Tiere, Schiffe, Inseltypen, Schwerpunkte), Zugriff über
-  `KiMind.en_name/en_desc/en_res/en_job/en_strat/en_goods`. Was nur angezeigt wird (Chronik,
-  Entscheidungen, Wahrscheinlichkeiten) bleibt in der Sprache der Oberfläche; `record_text` und
-  `experience_lines` haben dafür einen Schalter `en`. Gespeicherte Entscheidungen tragen `build_en`,
-  `research_en`, `trade_en`. Die Oberfläche (Rat-Fenster, KI beobachten, KI-Bericht, Chronik) übersetzt das
-  gemeinsame Sprachsystem (Abschnitt Feinschliff, `tr()` + `data/i18n/en.json`). In `ki_mind.gd` und `llm.gd`
-  stehen die englischen Anfragetexte ohne `tr()`; `tools/i18n.py wrap` lässt diese beiden Dateien deshalb aus
-  (`WRAP_SKIP`), neue Anzeigetexte dort von Hand in `tr()` packen. Gespeicherte Schlüssel bleiben deutsch und
-  werden erst beim Anzeigen übersetzt: Sprecher "Rat"/"Du" in Chat und Debatte, Quelle einer Lehre
-  ("Rat"/"Messung"), die Regel einer Siedlerentscheidung ("Modell", "… (freier Wille aus)"); sie stehen in
-  `SKIP` von `tools/i18n.py`. Die Namen in `ki_en.json` sind dieselben wie in `en.json`.
-
-Wunsch von josh (2026-10-04): Jeder Siedler ist ein eigenes kleines Sprachmodell, jeder Inselrat ein
-größeres. Beide laufen im Browser des Spielers (kein Server, kein Schlüssel). Kann das Gerät sie nicht
-laden oder will der Spieler nicht, entscheidet die Regel-KI unten wie bisher.
-- `web/ki_llm.js` (im Export über `include_filter`): `window.KiLlm` startet einen Web Worker
-  (Blob, Modul), der transformers.js 4.3.0 vom CDN lädt (`lib_urls`) und beide Modelle lädt
-  (Modell-IDs und `dtypes` je Gerät in `data/ki_llm.json`, die Liste wird der Reihe nach probiert;
-  WebGPU wenn möglich, sonst WASM). `choose`: Chatvorlage + Frage mit nummerierten Möglichkeiten,
-  ein Schritt `generate` mit einem `LogitsProcessor`, der die Wahrscheinlichkeiten der Ziffern 1–9 abliest
-  (`probs`, dazu `mass` = Anteil der Ziffern an allem, was das Modell schreiben wollte). `generate`: freier
-  Text. Getestet in Node mit winzigen Zufallsmodellen (gleicher Code, `cfg.local_path`).
-- Autoload `Llm` (`scripts/autoload/llm.gd`): Status (aus, laden, bereit, fehler), Fortschritt,
-  Wahl je Gerät in `user://ki_llm.cfg` (Titelbild und Rat-Fenster fragen vor dem Download).
-  `choose(role, messages, n, hint)` und `generate(...)` geben einen `Job` zurück, `await job.done`.
-  `--llmmock=1` ersetzt die Modelle durch eine Attrappe (wählt nach `hint` mit Zufall), für Tests.
-- **Speicher und Abstürze** (josh, iPhone 16 Pro: Llama-3.2-1B lässt Safari abstürzen): Auf Handys
-  (`Llm.small_first`) denkt der Rat zuerst mit `models.rat_small` (SmolLM2-360M, sonst Qwen2.5-0.5B).
-  Absturzschutz in `ki_llm.js`: vor jedem Ladeversuch steht `rolle:modell` in `localStorage.kiLlmPending`,
-  gelöscht nach der ersten erfolgreichen Antwort. Steht es beim nächsten Start noch da, ist die Seite
-  abgestürzt, das Modell kommt nach `kiLlmTooBig` und wird übersprungen. Geht kein Ratsmodell, denkt der
-  Rat mit dem Siedlermodell (`shared`). „Llama trotzdem versuchen“ im Rat-Fenster (`Llm.retry_big`)
-  vergisst die Abstürze. Der Merker steht in localStorage und IndexedDB (verlässlich auf der Platte);
-  der Worker lädt erst weiter, wenn er gespeichert ist (`trying` → `go`). `crash_test.mjs` und
-  `crash_idb_test.mjs` in `tools/ki_llm_test` prüfen das in Chromium.
-- **Stückweises Einlesen** (`runGen`): Ein ONNX-Modell ohne Eingang `num_logits_to_keep` rechnet für jedes
-  Wort der Anfrage Wahrscheinlichkeiten über den ganzen Wortschatz aus (Llama: 2000 Wörter × 128 000 ≈ 1 GB).
-  Darum liest der Worker die Anfrage in Stücken von `chunk` (64) Wörtern mit `forward` und
-  `past_key_values` ein und lässt erst den Rest `generate` machen. Gleiches Ergebnis wie am Stück
-  (`chunk_test.mjs`).
-- Autoload `KiMind` (`scripts/autoload/ki_mind.gd`), läuft nur wenn `Llm.active()`; dann macht
-  `Society` nur noch Häuser, Pflege, Feste und Anliegen. Eine Runde geht Insel für Insel (Hauptinsel
-  zuerst): ist der Rat dran (`council_days`), bekommt Llama `council_system` (Rolle, Ziel: Hauptinsel
-  wachsen und forschen, andere wachsen; Jahreszeitenregeln; Prioritäten, Wünsche und feste Vorgaben
-  des Herrschers; Gedächtnis) und `island_report` (Siedler mit Fähigkeiten und letzter Entscheidung,
-  Gebäude mit Zellen, Vorräte und Bedarf, alle Inseln mit Lage, Rohstoffen und Bedarf, alle Schiffe mit
-  Heimat und Route). Der Rat wählt nacheinander Schwerpunkt, Arbeit (Wahrscheinlichkeiten = Anteile, mal
-  Prioritäten, Natur begrenzt Sammler/Fischer/Bauern, Notregel bei fast leerem Essen; `_make_orders` gibt
-  jedem Siedler nach Begabung einen Auftrag), Bau (`build_options`, auch „nichts“), Forschung (nur
-  Hauptinsel, `research_options`), Handel und sagt zum Schluss in einem Satz, was die Bewohner tun sollen.
-  Freie Texte (Ansage, Lehren, Chat) haben `reason_tokens`/`chat_tokens` Wortstücke Platz; die Anfrage nennt
-  die Grenze als halb so viele Wörter (`length_rule`). `_clean` kürzt eine
-  mitten im Satz abgebrochene Antwort auf den letzten ganzen Satz (sonst „…“). Die Ansage geht nicht an
-  die Siedler (sie bekommen ihren Auftrag), Lehren aber in jede Ratsanfrage.
-  Danach fragt SmolLM jeden Erwachsenen (höchstens alle `settler_days`, `settler_prompt`), auf
-  **Englisch**, weil SmolLM-135M fast nur Englisch kann (auf Deutsch waren die Nummern fast gleich
-  wahrscheinlich, die Wahl gewürfelt): Jahreszeit, Hunger, Laune, Fähigkeiten, Inselzahlen, Auftrag des
-  Rats, letzte Arbeiten; jede Möglichkeit mit kurzen Stichworten dafür (`_option_facts`: Auftrag,
-  aktuelle Arbeit, wie gut er darin ist, was die Insel braucht). Möglichkeiten: Auftrag zuerst, dann
-  aktueller Beruf, Lieblingsberuf, gefragte Berufe, „frei“. Die Antwort beginnt mit „My choice:“, damit
-  als Nächstes die Nummer kommt. Jeder Siedler wird **zweimal** gefragt, das zweite Mal in umgekehrter
-  Reihenfolge, und die Wahrscheinlichkeiten werden gemittelt (kleine Modelle nehmen gern die 1).
-  **Klarheit** = höchste Wahrscheinlichkeit mal Anzahl (1 = alle gleich). Unter `undecided_clarity`
-  wird nicht gewürfelt: der Siedler folgt dem Auftrag oder bleibt bei seiner Arbeit, der Rat nimmt die
-  stärkste Nummer. Sonst wird nach den Wahrscheinlichkeiten mit `settler_temperature`
-  (`council_temperature`) gewählt; Abweichen vom Auftrag heißt „eigene Wahl“.
-  Siedler mit Befehl des Herrschers, Kranke und Seeleute werden nicht gefragt. Die Runde ist eine
-  Koroutine; `epoch` bricht sie bei Neustart oder Laden ab, Pause hält sie an.
-- **Handel** (`_trade`): Der Rat sieht, was anderen Inseln übrig ist und ihm fehlt, und bittet um eine
-  Ware. Der Rat der anderen Insel nennt seinen Preis (eine Ware, nichts oder ablehnen), der bittende Rat
-  nimmt an oder nicht. Dann fährt ein freies Schiff der gebenden Insel (sonst der eigenen; jedes Schiff
-  hat seine Heimatinsel) eine Route hin und her, bis `trade_days` vorbei sind (`trades`).
-- **Herrscher**: `chat(w, text)` (Llama antwortet, der Wunsch steht drei Tage im Systemtext, der Rat
-  tagt bald neu), `bind(w, fokus|bau|forschung|beruf, wert, n)` feste Vorgaben (kosten Vertrauen,
-  Schwerpunkt und Arbeiter gelten drei Tage, Bau und Forschung bis erledigt), `set_prio(w, key, 0..3)`.
+- **Handel** (`_trade`): Fehlt der Insel etwas, das eine andere übrig hat, bittet der Rat dort darum; die
+  andere Insel verlangt eine Ware, die ihr fehlt und die wir übrig haben, sonst hilft sie umsonst. Ein
+  freies Schiff der gebenden (sonst der eigenen) Insel fährt die Route, bis `trade_days` vorbei sind.
 - **Lernen**: Jede Sitzung wird als `records` mit Kennzahlen gespeichert. Bei der nächsten misst
   `_evaluate` die Veränderung je Tag (Essen, Holz, Stein, Siedler, Laune, Forschung), führt `exp` je
-  Jahreszeit und Schwerpunkt und schreibt bei auffälligen Messungen eine Lehre (`_measure_lesson`).
-  Alle `reflect_every` Sitzungen zieht Llama aus den letzten Entscheidungen und Folgen selbst eine Lehre
-  (`_reflect`). Lehren (höchstens `lessons_max`), Erfahrung und die letzten Entscheidungen mit Folgen
-  stehen in jedem Systemtext. Alles liegt im Society-Zustand der Insel (`state(w).llm`) und im Spielstand.
-- Rat-Fenster mit Sprachmodellen: Schwerpunkt, Satz des Rats, „Mit dem Rat sprechen“, „Feste
-  Vorgaben“, „Prioritäten“, Aufträge und eigene Entscheidungen, Lehren. „KI beobachten“ zeigt Status
-  und Rechenzeit, die letzte Sitzung mit Wahrscheinlichkeiten, jeden Siedler mit Auftrag und Wahl,
-  das Gedächtnis und die letzte Anfrage an jedes Modell im Wortlaut.
-  Zeilen zum Siedler springen nur bei echtem Klick oder Tipp (`_jump_on_tap`); vorher schloss das
-  Mausrad über einer Siedlerzeile das Fenster. Beim Scrollen und beim Lesen der Anfrage baut sich die
-  Ansicht nicht neu auf, die Scrollposition bleibt.
-- **Zeit und Geschwindigkeit**: Die Modelle brauchen echte Sekunden, das Spiel läuft weiter (bei
-  „Schnell“ dreimal so schnell). Darum: Der Rat bekommt vor jeder Frage einer Sitzung die frische Lage
-  (`council_system`/`island_report` neu; jede Frage wird ohnehin ganz neu eingelesen); Forschung und Bau
-  prüfen nach der Antwort, ob inzwischen schon etwas begonnen wurde. Siedler-Antworten werden vor dem
-  Umsetzen geprüft (`_settler_stale`: Befehl des Herrschers, krank, neuer Auftrag des Rats, Arbeit hat
-  nichts mehr zu tun) und sonst verworfen; der Siedler kommt in der nächsten Runde frisch dran. Die
-  Reihenfolge der Siedler richtet sich nach `_urgency` (nie entschieden, neuer Auftrag, Hunger, frei,
-  älteste Entscheidung). `lag` misst das Alter der Antworten in Spielstunden (Anzeige im Rat und im
-  Bericht). **Zeitbremse** „Zeit wartet auf die KI“ (`brake`, Standard an, `user://ki_mind.cfg`): Bei
-  Geschwindigkeit 2 oder 3 läuft `Engine.time_scale` auf 1, solange der Rat tagt oder ein Siedler länger
-  als doppelt `settler_days` auf seine Entscheidung wartet. Test: `--gamespeed=3 --llmdelay=6,0.5`
-  (Attrappe rechnet wie ein echtes Modell nacheinander, Sekunden je Anfrage Rat/Siedler), `--kibrake=0`.
-- **KI-Bericht (vorübergehend zur Kontrolle)**: `KiMind.trace` hält jede Anfrage an ein Modell fest
-  (Möglichkeiten, Wahrscheinlichkeiten A/B, Klarheit, Nummernanteil, Entscheidung und Regel, Antworttexte,
-  volle Anfrage für die letzten 150), nur im Speicher. „KI-Bericht herunterladen“ im Menü und in
-  „KI beobachten“ lädt `report_text()` als Textdatei herunter (Zusammenfassung, Gedächtnis je Insel,
-  Verlauf). Test: `--kireport=pfad`; Mausrad-Test: `--panel=ki --wheeltest=1 --shot=...`.
+  Jahreszeit und Schwerpunkt und schreibt bei auffälligen Messungen eine Lehre (`_measure_lesson`,
+  `_stat_lessons`). Eine Lehre speichert Art, Jahreszeit und Zahlen (`{t, s, v, ...}` als letztes Element
+  der Einträge in `lessons`/`archive`); den Text baut `lesson_text` erst beim Anzeigen, damit er in jeder
+  Sprache stimmt. Alte Spielstände haben nur fertigen (englischen) Text, der so angezeigt wird. Alle
+  Lehren bleiben im Archiv (`archive_max`); nach `summarize_every` neuen fasst `_summarize` sie zu
+  höchstens `knowledge_max` Regeln zusammen (je Art die neueste, die häufigsten zuerst). Die Lehren
+  steuern den Rat nicht direkt; was wirkt, ist `fit` aus der Statistik.
+- **Herrscher**: `bind(w, fokus|bau|forschung|beruf, wert, n)` feste Vorgaben (kosten Vertrauen,
+  Schwerpunkt und Arbeiter gelten drei Tage, Bau und Forschung bis erledigt), `set_prio(w, key, 0..3)`.
+- **Meldungen:** Ansagen des Rats, Bau/Forschung durch den Rat und Handel haben eigene Arten
+  (`rat`, `rat_bau`, `handel`, nur in der KI-Version im Menü „Meldungen“).
+- **Spielstand**: Gedächtnis je Insel im Society-Zustand unter `state(w).llm` (der Name stammt aus der
+  Zeit mit Sprachmodellen und bleibt für alte Spielstände; `rule_v1` räumt Gespräch und Wünsche weg),
+  `KiMind.serialize` {trades, next_trade}. Alte Felder (smem, chat, en-Texte) werden ignoriert.
+- **Sprache**: alles läuft über das gemeinsame Sprachsystem (`tr()` + `data/i18n/en.json`). Gespeicherte
+  Schlüssel bleiben deutsch und stehen in `SKIP` von `tools/i18n.py` (Quelle einer Lehre "Rat"/"Messung").
 
-### Regel-KI (ohne Sprachmodelle)
-
-Autoload `Society` (`scripts/autoload/society.gd`), alle Zahlen in `data/society.json`:
-- **Denken** (`_think`, alle `think_days` je Insel): `situation(w)` sammelt Lage (Essen je Kopf,
-  Heizholz bis zum Frühling, Baustellen, Raubtiere, Felder ...). `desired_jobs` rechnet, wie viele
-  Arbeiter jeder Beruf bräuchte (ein Sammler ernährt `gatherer_feeds` Esser), `job_slots` gewichtet mit
-  der Strategie und passt auf die verfügbaren Siedler an (Seeleute, Kranke im Bett und vom Herrscher
-  Bestimmte zählen nicht). Offene Plätze füllt, wer frei ist oder aus einem überbesetzten Beruf kommt,
-  nach `preference` (Begabung, Können, Gewohnheit, Absprache des Hauses, Lieblingsberuf). Höchstens
-  `max_changes_per_think` Wechsel, jeder Siedler höchstens alle `change_cooldown_days`. `thoughts[id]`
-  ist der Gedanke im Infofenster. Das KI-Zentrum (`AiJobs`) ist in dieser Variante aus.
-- **Häuser** (`_make_households`): Bewohner eines Hauses (`home_id`, ohne Haus „Am Lagerfeuer“) mit
-  einem Sprecher (bleibt, solange er dort wohnt). Die Häuser teilen sich die Bereiche `DOMAINS` nach
-  Bedarf und Begabung, das gibt Vorrang bei der Berufswahl. Kranke im Bett heilen schneller, wenn
-  jemand im Haus sie pflegt (`care_heal_bonus`).
-- **Inselrat** (`_council`, alle `council_days`): jeder Sprecher stimmt nach `opinion` (Lage aus
-  `situation_scores` plus eigene Sicht: Hunger im Haus, enges Haus, Klugheit, Fleiß, Gemüt, Gesundheit)
-  für eine Strategie aus `strategies`. Gleichstand behält die alte. Eine neue Mehrheit wird ein Anliegen.
-- **Anliegen** (`requests`, `add_request`, je Insel und Art nur eines, danach Pause): `strategie`, `bau`
-  (große Bauten über `small_build_cost`; kleine baut der Rat selbst, `_plan_buildings` und `find_spot`),
-  `forschung` (Insel mit den meisten Siedlern, `choose_research` nach Strategie), `fest`, `freizeit`,
-  `ueberstunden`, `hilfe` (eine reiche Insel schickt ein freies Schiff mit Essen oder Holz). Antwort über
-  `answer(id, "ja"|"nein")`; nach `request_days` entscheidet der Rat bei Strategie, Bau, Forschung und
-  Überstunden selbst, sonst sinkt das Vertrauen leicht.
-- **Herrscher**: Vertrauen je Insel 0–100 (`trust`), wirkt auf Laune und Überzeugungskraft.
-  `start_debate(w, strategie)` → `argue("lage"|"gemeinwohl"|"fest"|"freizeit")`: jedes Argument gibt je
-  Sprecher Kraft (Lage nur, wenn sie wirklich dafür spricht, mal Klugheit; Gemeinwohl mal Gemüt;
-  Versprechen für alle) mal Vertrauen; überzeugt ist, wessen Kraft seinen Widerstand (Abstand seiner
-  Lieblingsstrategie) erreicht. Mehrheit = neue Strategie, Versprechen werden eingelöst. `command`
-  setzt durch (Vertrauen −12, zwei Tage schlechte Laune). `order_job` (Beruf im Infofenster) gilt einen Tag.
+### Society (`scripts/autoload/society.gd`, Zahlen in `data/society.json`)
+- `situation(w)` sammelt die Lage (Essen je Kopf, Heizholz bis zum Frühling, Baustellen, Raubtiere,
+  Felder ...), `situation_scores` bewertet die Strategien, `desired_jobs` rechnet, wie viele Arbeiter
+  jeder Beruf bräuchte (ein Sammler ernährt `gatherer_feeds` Esser). `_choose_building`, `find_spot`
+  und `choose_research` liefern Bau und Forschung nach Strategie. Das KI-Zentrum (`AiJobs`) ist aus.
+  Die frühere Regel-KI mit eigener Berufswahl der Siedler (`_think`) und Abstimmung im Rat ist seit
+  2026-10-06 entfernt; ihre Aufgaben macht der Inselrat in `KiMind`.
+- **Häuser** (`_make_households`, alle `think_days`): Bewohner eines Hauses (`home_id`, ohne Haus „Am
+  Lagerfeuer“) mit einem Sprecher. Die Häuser teilen sich die Bereiche `DOMAINS` nach Bedarf und
+  Begabung. Kranke im Bett heilen schneller, wenn jemand im Haus sie pflegt (`care_heal_bonus`).
+- **Anliegen** (`requests`, `add_request`, je Insel und Art nur eines): `fest`, `freizeit`,
+  `ueberstunden` (aus `_council_requests`); alte Spielstände können noch `strategie`, `bau`, `forschung`,
+  `hilfe` haben. Antwort über `answer(id, "ja"|"nein")`; nach `request_days` entscheidet der Rat selbst.
+- **Herrscher**: Vertrauen je Insel 0–100 (`trust`), wirkt auf Laune und Überzeugungskraft. Diskussion
+  (`start_debate`, `argue`, `command`) gibt es noch für Strategie-Anliegen alter Spielstände.
+  `order_job` (Beruf im Infofenster) gilt einen Tag.
 - **Wirkungen**: `Society.work_mult(w)` in `Settler.work_factor` (Fest, Freizeit, Überstunden),
   `Society.mood_reasons(s)` in `SettlerMind._update_mood`, `Society.on_attack` aus `Settler.take_damage`.
-- **Beobachten**: `decide(w, text)` schreibt jede Entscheidung (Berufswechsel mit Bedarf, Stimmen im Rat,
-  Bauten, Anliegen) ins Protokoll `dlog` je Insel (40 Einträge, gespeichert). Im Rat-Fenster zeigt
-  „KI beobachten“ die Lage, Bedarf je Beruf (gebraucht/besetzt), den nächsten Bau, die Gedanken aller
-  Siedler (antippen springt hin) und das Protokoll. Bildschirmfoto `--panel=ki`.
-- **Oberfläche**: Knopf „Rat (n)“ und `scripts/ui/council_panel.gd` (Inselreiter, Strategie, Vertrauen,
-  Anliegen als Karten, Abstimmung, Häuser, Chronik, Diskussion). Spielanleitung beginnt mit `HELP_KI`.
-- **Spielstand**: `society` {isl, requests, next_req, orders, welcomed}; fehlt er, startet alles neu.
-- **Test**: `--kimode=1 --kitest=1 [--kiauto=ja|nein|rede|befehl] [--crowd=10]`, Bildschirmfoto
-  `--panel=rat` bzw. `--panel=debatte`.
+- **Beobachten**: `decide(w, text)` schreibt jede Entscheidung ins Protokoll `dlog` je Insel (40 Einträge,
+  gespeichert).
+- **Oberfläche** (`scripts/ui/council_panel.gd`, Knopf „Rat (n)“): Übersicht (Schwerpunkt, Ansage,
+  Vertrauen, Aufträge, Anliegen, Lehren, Chronik), „KI beobachten“ (letzte Sitzung, Gedanken aller
+  Siedler, Gedächtnis, Protokoll), „Feste Vorgaben“, „Prioritäten“, „Gelernt und Statistik“ (Regeln,
+  Arbeit bis zur nächsten Sitzung je Beruf, Statistik je Beruf und Siedler, alle Lehren). Zeilen zum
+  Siedler springen nur bei echtem Klick oder Tipp (`_jump_on_tap`); beim Scrollen baut sich die Ansicht
+  nicht neu auf. Spielanleitung beginnt mit `HELP_KI`.
+- **Spielstand**: `society` {isl, requests, next_req, orders, welcomed, mind}; fehlt er, startet alles neu.
+- **Test**: `--kimode=1 --kitest=1 [--kiauto=ja|nein|rede|befehl] [--kibind=1] [--crowd=10]`,
+  Bildschirmfoto `--panel=rat|ki|lernen|vorgaben|prio`, Sprachprüfung `--langcheck=1`.
 
 ## Testversion
 
@@ -590,9 +498,8 @@ Pushes auf den Zweig `claude/entwicklungsbaum-x33t1h` landen unter `/New_World/t
 | `scripts/autoload/game.gd` | Zeit, Vorräte, Nachwuchs, Abstammung, Forschung und Effekte, Speichern/Laden |
 | `scripts/autoload/seasons.gd` | Jahreszeiten: Kalender, Wachstum, Heizen, Verderb, Frost, Schnee |
 | `scripts/autoload/sea.gd` | Inseln, Welten je Insel, Schiffsreisen, Inselwechsel |
-| `scripts/autoload/society.gd` | KI-Variante: Siedler denken selbst, Häuser, Inselrat, Anliegen an den Herrscher |
-| `scripts/autoload/llm.gd`, `web/ki_llm.js` | KI-Variante: Sprachmodelle im Browser (Worker, transformers.js), Attrappe für Tests |
-| `scripts/autoload/ki_mind.gd` | KI-Variante: Inselräte (Llama) und Siedler (SmolLM) entscheiden, Handel, Chat, Vorgaben, Lernen |
+| `scripts/autoload/society.gd` | KI-Variante: Lage und Bewertung, Häuser, Anliegen an den Herrscher |
+| `scripts/autoload/ki_mind.gd` | KI-Variante: Inselrat nach Regeln (Arbeit nach Bedarf, Bauen, Forschung, Handel), Vorgaben, Statistik, Lernen |
 | `scripts/world/island_gen.gd` | Inselgenerator (Seed → Gelände + Rohstoffe) |
 | `scripts/world/world.gd` | Tilemaps, Wegfindung (AStarGrid2D), Entitäten, Bauen, Effekte, Tag/Nacht |
 | `scripts/world/game_camera.gd` | Ziehen, Zoom (Mausrad, zwei Finger), Tippen |

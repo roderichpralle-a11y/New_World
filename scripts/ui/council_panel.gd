@@ -1,18 +1,16 @@
 class_name CouncilPanel
 extends PanelContainer
 ## KI-Variante: Fenster „Rat“. Der Spieler ist der Herrscher über alle Inseln. Er sieht je
-## Insel Strategie, Vertrauen, Anliegen (Forderungen und Angebote), die Abstimmung im Rat,
-## die Häuser und ihre Absprachen und eine Chronik. Er stimmt zu, lehnt ab, diskutiert
-## mit Argumenten oder bestimmt. Logik in Society (scripts/autoload/society.gd).
+## Insel Schwerpunkt, Vertrauen, Aufträge, Anliegen, was der Rat gelernt hat und eine Chronik.
+## Er beantwortet Anliegen (zustimmen, ablehnen, diskutieren), macht feste Vorgaben und setzt
+## Prioritäten. Logik in KiMind (ki_mind.gd) und Society (society.gd).
 
 const DIM := Color("#6e5a50")
 const RULER := Color("#2a5a9a")
 
 var hud
 var _island: int = 0
-var _view: String = "rat"  # rat, waehlen, debatte, ki, chat, vorgaben, prio
-var _draft: String = ""  # angefangene Nachricht an den Rat
-var _show_prompt: String = ""  # rat/siedler: letzte Anfrage an das Modell anzeigen
+var _view: String = "rat"  # rat, waehlen, debatte, ki, vorgaben, prio, lernen
 var _tabs: HBoxContainer
 var _scroll: ScrollContainer
 var _body: VBoxContainer
@@ -56,11 +54,8 @@ func setup(p_hud) -> void:
 		if visible:
 			refresh())
 	KiMind.changed.connect(func():
-		if visible and _view in ["chat", "rat"]:
+		if visible and _view == "rat":
 			_tick = minf(_tick, 0.2))
-	Llm.status_changed.connect(func():
-		if visible:
-			refresh())
 	get_viewport().size_changed.connect(_fit)
 
 
@@ -89,7 +84,7 @@ func _process(delta: float) -> void:
 		_tick = 1.0
 		# Beim Beobachten nicht neu aufbauen, solange der Spieler scrollt oder die lange
 		# Anfrage liest: Das Neuaufbauen vieler Zeilen ließ die Liste springen.
-		if _view == "ki" and (Time.get_ticks_msec() - _scrolled_at < 2500 or _show_prompt != ""):
+		if _view == "ki" and (Time.get_ticks_msec() - _scrolled_at < 2500):
 			return
 		if _view == "ki":
 			_tick = 2.0
@@ -103,10 +98,8 @@ func _signature() -> String:
 	if w == null:
 		return ""
 	var st: Dictionary = Society.state(w)
-	var extra := ""
-	if KiMind.active() or Llm.state == "laden":
-		var m: Dictionary = KiMind.mem(w)
-		extra = "%s|%d|%d|%s|%d|%s|%s|%s" % [Llm.state, m.chat.size(), int(m.councils), str(m.waiting), m.binding.size(), KiMind.activity, Llm.status_text() if Llm.state == "laden" else "", str(KiMind.braking)]
+	var m: Dictionary = KiMind.mem(w)
+	var extra := "%d|%d|%s" % [int(m.councils), m.binding.size(), m.focus]
 	if _view == "ki":
 		# Beobachten: jede Sekunde neu, solange das Spiel läuft
 		extra += "%d|%d" % [st.dlog.size(), int(Game.time_days * 48.0)]
@@ -140,8 +133,6 @@ func refresh() -> void:
 			_fill_choose(w)
 		"debatte":
 			_fill_debate(w)
-		"chat":
-			_fill_chat(w)
 		"vorgaben":
 			_fill_binding(w)
 		"prio":
@@ -216,18 +207,18 @@ func _btn(parent: Control, text: String, icon: String, tip: String, cb: Callable
 
 # ================================================================== Übersicht
 func _fill_overview(w) -> void:
-	_ki_status()
-	if KiMind.active():
-		_fill_overview_llm(w)
-		return
+	var m: Dictionary = KiMind.mem(w)
 	var st: Dictionary = Society.state(w)
-	var sd: Dictionary = Society.strategies().get(st.strategy, {})
+	var sd: Dictionary = Society.strategies().get(m.focus, {})
 	var h := _row()
 	h.add_child(UiTheme.icon_rect(Data.icon(sd.get("icon", "ki")), 20))
-	var sl := UiTheme.label(tr("Strategie: %s") % Society.strat_name(st.strategy), 16, UiTheme.TEXT, true)
-	h.add_child(sl)
-	_text(tr("%s Gilt seit Tag %d. Nächste Ratssitzung: Tag %d.") % [sd.get("desc", ""), int(floor(float(st.since))) + 1,
-		int(floor(float(st.next_council))) + 1], 13, DIM)
+	h.add_child(UiTheme.label(tr("Schwerpunkt: %s") % Society.strat_name(m.focus), 16, UiTheme.TEXT, true))
+	if str(m.plan) != "":
+		_text(tr("Der Rat sagt: %s") % m.plan, 14, Color("#2a7a3a"))
+	_text(tr("Nächste Ratssitzung: Tag %d %s. Ziel: %s.") % [int(floor(float(m.next_council))) + 1, _clock(float(m.next_council)),
+		tr("wachsen und forschen") if _island == 0 else tr("wachsen")], 13, DIM)
+	if m.has("note"):
+		_text(str(m.note), 13, UiTheme.BAD)
 	var th := _row()
 	th.add_child(UiTheme.label(tr("Vertrauen in dich: %d") % int(st.trust), 14, UiTheme.TEXT, true))
 	var bar := UiTheme.bar(UiTheme.GOOD if float(st.trust) >= 50.0 else UiTheme.BAD, 10)
@@ -235,53 +226,47 @@ func _fill_overview(w) -> void:
 	bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	th.add_child(bar)
-	var mods := []
-	var t := Game.time_days
-	if t < float(st.festival_until):
-		mods.append(tr("Fest"))
-	if t < float(st.leisure_until):
-		mods.append(tr("mehr Freizeit"))
-	if t < float(st.overtime_until):
-		mods.append(tr("Überstunden"))
-	if not mods.is_empty():
-		_text(tr("Gerade: %s.") % ", ".join(mods), 13, RULER)
-	var wr := _row()
-	_btn(wr, tr("KI beobachten"), "ki", tr("Zeigt, was gebraucht wird, was jeder Siedler denkt und jede Entscheidung der KI."), func():
+	var r1 := _row()
+	_btn(r1, tr("KI beobachten"), "ki", tr("Was der Rat zuletzt entschieden hat, was jeder Siedler denkt, das Gedächtnis des Rats und alle Entscheidungen."), func():
 		_view = "ki"
 		refresh())
+	_btn(r1, tr("Gelernt und Statistik"), "buch", tr("Alles, was der Rat gelernt hat, und wie die Arbeiter beschäftigt waren."), func():
+		_view = "lernen"
+		refresh())
+	var r2 := _row()
+	_btn(r2, tr("Feste Vorgaben (%d)") % m.binding.size(), "hammer", tr("Befehle, die der Rat befolgen muss. Kostet Vertrauen."), func():
+		_view = "vorgaben"
+		refresh())
+	_btn(r2, tr("Prioritäten"), "wissen", tr("Was dir wichtig ist. Der Rat verteilt die Arbeit danach."), func():
+		_view = "prio"
+		refresh())
+
+	# Aufträge
+	var slots: Dictionary = m.get("slots", {})
+	if not slots.is_empty():
+		_section(tr("Aufträge an die Bewohner"))
+		_text(KiMind.slots_text(slots) + ".", 13)
 
 	# Anliegen
 	var reqs := Society.requests_of(_island)
-	_section(tr("Anliegen an dich (%d)") % reqs.size())
-	if reqs.is_empty():
-		_text(tr("Im Moment hat der Rat keine Anliegen. Ohne deine Antwort entscheidet er nach einem Tag selbst."), 13, DIM)
-	for r in reqs:
-		_request_card(w, r)
-	var own := _row()
-	_btn(own, tr("Eigener Vorschlag"), "glocke", tr("Schlage dem Rat eine Strategie vor und überzeuge ihn."), func():
-		Society.debate = {}
-		_view = "waehlen"
-		refresh())
+	if not reqs.is_empty():
+		_section(tr("Anliegen an dich (%d)") % reqs.size())
+		for r in reqs:
+			_request_card(w, r)
 
-	# Rat
-	var reps: Array = Society.representatives(w)
-	_section(tr("Inselrat (%d Sprecher)") % reps.size())
-	if st.votes.is_empty():
-		_text(tr("Der Rat hat noch nicht getagt."), 13, DIM)
+	# Was der Rat gelernt hat: Zusammenfassung, ganz unter "Gelernt und Statistik"
+	_section(tr("Was der Rat gelernt hat"))
+	if not m.knowledge.is_empty():
+		for k in m.knowledge.slice(0, 3):
+			_text("• " + KiMind.lesson_text(k), 13)
+	elif not m.lessons.is_empty():
+		var ls: Array = m.lessons.duplicate()
+		ls.reverse()
+		for l in ls.slice(0, 3):
+			_text("• " + KiMind.lesson_text(l), 13)
 	else:
-		_text(tr("Letzte Abstimmung: %s") % Society.tally_text(st.votes), 13, DIM)
-		for v in st.votes:
-			_text("%s (%s): %s. „%s“" % [v.name, v.house, Society.strat_name(v.strat), v.why], 13)
+		_text(tr("Noch keine Lehren."), 13, DIM)
 
-	# Häuser
-	var hs: Array = Society.households.get(_island, [])
-	_section(tr("Häuser und Absprachen"))
-	for hh in hs:
-		var sp = hh.speaker
-		_text(tr("%s: %d Bewohner, Sprecher %s. Kümmert sich um %s.") % [hh.name, hh.size,
-			sp.display_name if is_instance_valid(sp) else "?", Society.DOMAIN_NAMES.get(hh.domain, hh.domain)], 13)
-
-	# Chronik
 	_section(tr("Chronik"))
 	var lines: Array = st.log.duplicate()
 	lines.reverse()
@@ -378,7 +363,7 @@ func _fill_debate(w) -> void:
 	var n: int = d.reps.size()
 	_text(tr("Dafür: %d von %d Sprechern. Für eine Mehrheit braucht es %d.") % [Society.debate_yes(), n, n / 2 + 1], 14, UiTheme.TEXT, true)
 	for l in d.lines:
-		var you: bool = l[0] == "Du"
+		var you: bool = l[0] == tr("Du")
 		_text("%s: %s" % [tr("Du") if you else tr(l[0]), l[1]], 13, RULER if you else (Color("#2a7a3a") if l[0] == "Rat" else UiTheme.TEXT))
 	if d.won:
 		_text(tr("Der Rat folgt dir. Die Siedler setzen die neue Strategie selbst um."), 14, UiTheme.GOOD, true)
@@ -428,72 +413,61 @@ func _arg_tip(a: String) -> String:
 
 
 # ================================================================== KI beobachten
-## Was die KI gerade sieht und warum sie so entscheidet: Bedarf je Beruf, nächster Bau,
-## Gedanken jedes Siedlers und das Protokoll aller Entscheidungen.
+## Was der Rat zuletzt entschieden hat, was jeder Siedler denkt, das Gedächtnis des Rats
+## und das Protokoll aller Entscheidungen.
 func _fill_watch(w) -> void:
-	var back := _row()
-	_btn(back, tr("Zurück zum Rat"), "", "", func():
-		_view = "rat"
-		refresh())
-	if KiMind.active():
-		_fill_watch_llm(w)
-		return
-	var sit: Dictionary = Society.situation(w)
-	var st: Dictionary = Society.state(w)
-	_section(tr("Was die KI sieht"))
-	_text(tr("Strategie: %s. Essen: %d (Ziel %d, mit Wintervorrat). Holz: %d (Ziel %d, mit Heizholz bis zum Frühling). Stein: %d. Wohnplätze: %d Siedler auf %d Plätzen. Baustellen: %d. Raubtiere: %d.") % [
-		Society.strat_name(st.strategy), int(sit.food), int(sit.food_target), int(sit.wood), int(sit.wood_target),
-		int(sit.stone), int(sit.pop), int(sit.housing), int(sit.sites), int(sit.predators)], 13)
+	_back_row()
+	var m: Dictionary = KiMind.mem(w)
+	var last: Dictionary = m.get("last", {})
+	_section(tr("Letzte Ratssitzung"))
+	if last.is_empty():
+		_text(tr("Der Rat hat noch nicht getagt."), 13, DIM)
+	for k in [["focus", tr("Schwerpunkt")], ["build", tr("Bauen")], ["research", tr("Forschung")]]:
+		if last.has(k[0]):
+			var d: Dictionary = last[k[0]]
+			var t: String = "%s: %s" % [k[1], d.get("choice", "")]
+			if str(d.get("why", "")) != "":
+				t += " (%s)" % d.why
+			_text(t, 13)
+	if last.has("jobs") and last.jobs.has("slots"):
+		_text(tr("Arbeit: %s") % last.jobs.slots, 13)
+	if last.has("trade"):
+		_text(tr("Handel: %s") % last.trade, 13)
+	for t in KiMind.trades:
+		if int(t.to) == _island or int(t.from) == _island:
+			_text(tr("Handelsroute bis Tag %d: %s bringt %s, bekommt %s.") % [int(float(t.until)) + 1, Sea.meta(int(t.from)).get("name", "?"),
+				Sea.goods_text(t.get("get", {})), Sea.goods_text(t.give) if not t.give.is_empty() else tr("nichts")], 13)
 
-	# Bedarf je Beruf: gewünschte Plätze und wer sie gerade hat
-	var free := 0
-	var have := {}
-	for s in w.settlers:
-		if s.is_adult() and s.job != "seemann" and not s.mind.needs_bed():
-			free += 1
-			have[s.job] = int(have.get(s.job, 0)) + 1
-	var slots: Dictionary = Society.job_slots(w, sit, free)
-	_section(tr("Bedarf je Beruf (gebraucht / besetzt)"))
-	var jobs: Array = slots.keys()
-	for j in have:
-		if not j in jobs:
-			jobs.append(j)
-	jobs.sort_custom(func(a, b): return int(slots.get(a, 0)) - int(have.get(a, 0)) > int(slots.get(b, 0)) - int(have.get(b, 0)))
-	for j in jobs:
-		var want := int(slots.get(j, 0))
-		var got := int(have.get(j, 0))
-		if want == 0 and got == 0:
-			continue
-		var name: String = Data.jobs.get(j, {}).get("name", j)
-		var mark := "fehlt %d" % (want - got) if want > got else (tr("zu viele") if got > want and j != "frei" else "passt")
-		_text("%s: %d / %d (%s). %s" % [name, want, got, mark, Society._why_job(w, j, sit) if j != "frei" else tr("Freie helfen, wo es fehlt.")],
-			13, UiTheme.BAD if want > got else UiTheme.TEXT)
-
-	# Nächster Bau
-	_section(tr("Nächster Bau"))
-	var pick: Dictionary = Society._choose_building(w, sit)
-	if pick.is_empty():
-		_text(tr("Im Moment plant der Rat keinen Bau."), 13, DIM)
-	else:
-		_text("%s: %s" % [Data.buildings[pick.type].name + (tr(" (Ausbau)") if pick.has("upgrade") else ""), pick.why], 13)
-	if Game.research.current == "":
-		var t: String = Society.choose_research(st.strategy, w)
-		if t != "":
-			_text(tr("Nächste Forschung: %s.") % Data.techs[t].name, 13)
-
-	# Gedanken
 	_section(tr("Was die Siedler denken"))
 	for s in w.settlers:
 		if not s.is_adult():
 			continue
-		var hh: Dictionary = Society.household_of(s)
-		var l := _text("%s (%s, %s): %s" % [s.display_name, s.job_name(), hh.get("name", "?"),
-			Society.thoughts.get(s.id, tr("Überlegt noch."))], 13)
+		var l := _text("%s (%s): %s" % [s.display_name, s.job_name(), Society.thoughts.get(s.id, tr("Überlegt noch."))], 13)
 		_jump_on_tap(l, s)
 
-	# Protokoll
+	_section(tr("Gedächtnis des Rats"))
+	var gl := _row()
+	_btn(gl, tr("Gelernt und Statistik"), "buch", tr("Zusammenfassung, alle Lehren des Spiels und die Arbeitsstatistik."), func():
+		_view = "lernen"
+		refresh())
+	if m.lessons.is_empty():
+		_text(tr("Noch keine Lehren."), 13, DIM)
+	for l in m.lessons:
+		_text(tr("Lehre (Tag %d): %s") % [int(float(l[0])) + 1, KiMind.lesson_text(l)], 13)
+	var ex := KiMind.experience_lines(w, 8)
+	if not ex.is_empty():
+		_text(tr("Gemessene Erfahrung (je Tag nach der Entscheidung):"), 13, UiTheme.TEXT, true)
+		for e in ex:
+			_text(e, 12)
+	var recs: Array = m.records.duplicate()
+	recs.reverse()
+	if not recs.is_empty():
+		_text(tr("Entscheidungen und Folgen:"), 13, UiTheme.TEXT, true)
+	for r in recs.slice(0, 6):
+		_text(KiMind.record_text(r), 12, DIM)
+
 	_section(tr("Entscheidungen (neueste oben)"))
-	var lines: Array = st.dlog.duplicate()
+	var lines: Array = Society.state(w).dlog.duplicate()
 	lines.reverse()
 	if lines.is_empty():
 		_text(tr("Noch keine Entscheidung."), 13, DIM)
@@ -535,178 +509,11 @@ func _clock(t: float) -> String:
 	return "%02d:%02d" % [int(h), int(fposmod(h, 1.0) * 60.0)]
 
 
-# ================================================================== Sprachmodelle
-## Welche KI gerade entscheidet, und der Schalter dafür (gilt je Gerät).
-func _ki_status() -> void:
-	if not Society.enabled:
-		return
-	var color := UiTheme.GOOD if Llm.state == "bereit" else (UiTheme.BAD if Llm.state == "fehler" else DIM)
-	_text(Llm.status_text(), 13, color, Llm.state == "bereit")
-	if KiMind.activity != "" and KiMind.active():
-		_text(tr("Gerade: %s …") % KiMind.activity, 12, DIM)
-	var h := _row()
-	if Llm.choice != "llm" or Llm.state in ["fehler", "aus"]:
-		_btn(h, tr("Sprachmodelle laden"), "ki", tr("Llama-3.2-1B (Rat) und SmolLM-135M (Siedler) im Browser laden, einmalig etwa %d MB.") % int(Llm.cfg("download_mb", 1250)), func():
-			if Llm.state == "fehler":
-				Llm.stop()
-			Llm.set_choice("llm")
-			refresh())
-	if Llm.state == "bereit" and not Llm.big_council():
-		_btn(h, tr("Llama trotzdem versuchen"), "", tr("Lädt Llama-3.2-1B für den Rat (über 1 GB). Kann auf diesem Gerät abstürzen; dann nimmt das Spiel beim nächsten Start wieder das kleinere Modell."), func():
-			Llm.retry_big()
-			refresh())
-	if Llm.choice == "llm":
-		_btn(h, tr("Regel-KI nutzen"), "", tr("Sprachmodelle ausschalten, die eingebaute Regel-KI entscheidet."), func():
-			Llm.set_choice("regel")
-			refresh())
-	if KiMind.active():
-		var lg: Dictionary = KiMind.lag
-		_text(tr("Antworten kommen im Schnitt %.1f Spielstunden nach der Frage an (Rat: Sitzung %.1f Spielstunden, alle Siedler einmal: %.1f).") % [
-			float(lg.siedler), float(lg.rat), float(lg.runde)], 12, DIM)
-		if KiMind.braking:
-			_text(tr("Die Zeit läuft gerade nur normal schnell, bis die KI aufgeholt hat."), 12, RULER)
-		var b := CheckButton.new()
-		b.text = tr("Zeit wartet auf die KI")
-		b.tooltip_text = tr("Bei schneller Geschwindigkeit läuft die Zeit nur normal schnell, solange der Rat tagt oder Siedler auf ihre Entscheidung warten. So entscheidet die KI mit aktuellen Angaben.")
-		b.button_pressed = KiMind.brake
-		b.focus_mode = Control.FOCUS_NONE
-		b.add_theme_color_override("font_color", UiTheme.TEXT)
-		b.add_theme_color_override("font_pressed_color", UiTheme.TEXT)
-		b.toggled.connect(func(on): KiMind.set_brake(on))
-		_body.add_child(b)
-
-
-func _fill_overview_llm(w) -> void:
-	var m: Dictionary = KiMind.mem(w)
-	var st: Dictionary = Society.state(w)
-	var sd: Dictionary = Society.strategies().get(m.focus, {})
-	var h := _row()
-	h.add_child(UiTheme.icon_rect(Data.icon(sd.get("icon", "ki")), 20))
-	h.add_child(UiTheme.label(tr("Schwerpunkt: %s") % Society.strat_name(m.focus), 16, UiTheme.TEXT, true))
-	if str(m.plan) != "":
-		_text(tr("Der Rat sagt: „%s“") % m.plan, 14, Color("#2a7a3a"))
-	_text(tr("Nächste Ratssitzung: Tag %d %s. Ziel: %s.") % [int(floor(float(m.next_council))) + 1, _clock(float(m.next_council)),
-		tr("wachsen und forschen") if _island == 0 else "wachsen"], 13, DIM)
-	if m.has("note"):
-		_text(str(m.note), 13, UiTheme.BAD)
-	var th := _row()
-	th.add_child(UiTheme.label(tr("Vertrauen in dich: %d") % int(st.trust), 14, UiTheme.TEXT, true))
-	var bar := UiTheme.bar(UiTheme.GOOD if float(st.trust) >= 50.0 else UiTheme.BAD, 10)
-	bar.value = float(st.trust)
-	bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	th.add_child(bar)
-	var r1 := _row()
-	_btn(r1, tr("Mit dem Rat sprechen"), "glocke", tr("Schreibe dem Rat, was er tun soll. Er antwortet und berücksichtigt es."), func():
-		_view = "chat"
-		refresh())
-	_btn(r1, tr("KI beobachten"), "ki", tr("Was die Modelle sehen, wie wahrscheinlich jede Wahl war, das Gedächtnis des Rats und die letzte Anfrage."), func():
-		_view = "ki"
-		refresh())
-	var r2 := _row()
-	_btn(r2, tr("Feste Vorgaben (%d)") % m.binding.size(), "hammer", tr("Befehle, die der Rat befolgen muss. Kostet Vertrauen."), func():
-		_view = "vorgaben"
-		refresh())
-	_btn(r2, tr("Prioritäten"), "wissen", tr("Was dir wichtig ist. Der Rat sieht es und verteilt die Arbeit danach."), func():
-		_view = "prio"
-		refresh())
-
-	# Aufträge
-	var slots: Dictionary = m.get("slots", {})
-	if not slots.is_empty():
-		_section(tr("Aufträge an die Bewohner"))
-		var parts := []
-		for j in slots:
-			if int(slots[j]) > 0:
-				parts.append("%d %s" % [int(slots[j]), Data.jobs.get(j, {}).get("name", j)])
-		_text(", ".join(parts) + ".", 13)
-		var own := []
-		for s in w.settlers:
-			var d: Dictionary = KiMind.sdec.get(str(s.id), {})
-			if d.get("own", false):
-				own.append(tr("%s ist %s statt %s") % [s.display_name, Data.jobs.get(d.job, {}).get("name", d.job), Data.jobs.get(d.order, {}).get("name", d.order)])
-		if not own.is_empty():
-			_text(tr("Eigene Entscheidung: %s.") % "; ".join(own), 13, RULER)
-
-	# Anliegen
-	var reqs := Society.requests_of(_island)
-	if not reqs.is_empty():
-		_section(tr("Anliegen an dich (%d)") % reqs.size())
-		for r in reqs:
-			_request_card(w, r)
-
-	# Was der Rat gelernt hat: Zusammenfassung, ganz unter "Gelernt und Statistik"
-	_section(tr("Was der Rat gelernt hat"))
-	if not m.knowledge.is_empty():
-		for k in m.knowledge.slice(0, 3):
-			_text("• " + str(k), 13)
-	elif not m.lessons.is_empty():
-		var ls: Array = m.lessons.duplicate()
-		ls.reverse()
-		for l in ls.slice(0, 3):
-			_text("• " + str(l[1]), 13)
-	else:
-		_text(tr("Noch keine Lehren."), 13, DIM)
-	var rl := _row()
-	_btn(rl, tr("Gelernt und Statistik"), "buch", tr("Alles, was der Rat gelernt hat, und wie die Arbeiter beschäftigt waren."), func():
-		_view = "lernen"
-		refresh())
-
-	_section(tr("Chronik"))
-	var lines: Array = st.log.duplicate()
-	lines.reverse()
-	if lines.is_empty():
-		_text(tr("Noch nichts geschehen."), 13, DIM)
-	for l in lines.slice(0, 8):
-		_text(tr("Tag %d: %s") % [int(l[0]), l[1]], 13, DIM)
-
-
 func _back_row() -> void:
 	var back := _row()
 	_btn(back, tr("Zurück zum Rat"), "", "", func():
 		_view = "rat"
 		refresh())
-
-
-# ------------------------------------------------------------------ Chat
-func _fill_chat(w) -> void:
-	_back_row()
-	var m: Dictionary = KiMind.mem(w)
-	_section(tr("Gespräch mit dem Rat von %s") % Sea.island_name(w))
-	_text(tr("Schreib dem Rat, was er tun soll. Er antwortet und nimmt deinen Wunsch drei Tage lang in seine Entscheidungen mit. Er muss nicht gehorchen; dafür gibt es feste Vorgaben."), 12, DIM)
-	if m.chat.is_empty():
-		_text(tr("Noch kein Gespräch."), 13, DIM)
-	for c in m.chat.slice(maxi(0, m.chat.size() - 14)):
-		var you: bool = c[0] == "Du"
-		_text("%s: %s" % [tr("Du") if you else tr("Rat"), c[1]], 14, RULER if you else Color("#2a7a3a"))
-	if m.waiting:
-		_text(tr("Der Rat berät …"), 13, DIM)
-	var h := _row()
-	var le := LineEdit.new()
-	le.placeholder_text = tr("Deine Nachricht an den Rat")
-	le.text = _draft
-	le.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	le.custom_minimum_size.y = 34
-	le.add_theme_font_size_override("font_size", 15)
-	le.text_changed.connect(func(t): _draft = t)
-	h.add_child(le)
-	var send := func():
-		var t := le.text.strip_edges()
-		if t == "" or m.waiting:
-			return
-		_draft = ""
-		KiMind.chat(w, t)
-		refresh()
-	le.text_submitted.connect(func(_t): send.call())
-	_btn(h, tr("Senden"), "", "", send)
-	if not KiMind.active():
-		_text(tr("Ohne Sprachmodelle antwortet der Rat nicht, dein Wunsch wird aber notiert."), 12, DIM)
-	await get_tree().process_frame
-	if is_instance_valid(_scroll):
-		_scroll.scroll_vertical = int(_scroll.get_v_scroll_bar().max_value)
-	if is_instance_valid(le) and not OS.has_feature("mobile") and not Llm.probe.get("mobile", false):
-		le.grab_focus()
-		le.caret_column = le.text.length()
 
 
 # ------------------------------------------------------------------ Feste Vorgaben
@@ -771,18 +578,18 @@ func _fill_binding(w) -> void:
 func _fill_prio(w) -> void:
 	_back_row()
 	_section(tr("Prioritäten für %s") % Sea.island_name(w))
-	_text(tr("Der Rat sieht deine Prioritäten in jeder Anfrage, und die Arbeit wird danach gewichtet."), 12, DIM)
+	_text(tr("Der Rat verteilt die Arbeit nach deinen Prioritäten: Berufe in wichtigen Bereichen bekommen mehr Plätze, soweit es Arbeit für sie gibt."), 12, DIM)
 	var pr: Dictionary = KiMind.cfg("priorities", {})
 	for k in pr:
 		var h := _row()
-		var l := UiTheme.label(pr[k], 14, UiTheme.TEXT, true)
+		var l := UiTheme.label(tr(pr[k]), 14, UiTheme.TEXT, true)
 		l.custom_minimum_size.x = 120
 		h.add_child(l)
 		var cur := KiMind.prio(w, k)
 		for v in 4:
 			var key: String = k
 			var val: int = v
-			var b := _btn(h, KiMind.PRIO_WORDS[v], "", "", func():
+			var b := _btn(h, tr(KiMind.PRIO_WORDS[v]), "", "", func():
 				KiMind.set_prio(w, key, val)
 				refresh())
 			b.toggle_mode = true
@@ -798,9 +605,9 @@ func _fill_learn(w) -> void:
 	if m.knowledge.is_empty():
 		_text(tr("Noch keine Zusammenfassung. Der Rat fasst seine Lehren nach je %d neuen zusammen (bisher %d).") % [int(KiMind.cfg("summarize_every", 4)), m.archive.size()], 13, DIM)
 	else:
-		_text(tr("Zusammenfassung aller %d Lehren, zuletzt an Tag %d. Diese Regeln liest der Rat bei jeder Entscheidung.") % [m.archive.size(), int(float(m.get("knowledge_day", 0.0))) + 1], 12, DIM)
+		_text(tr("Zusammenfassung aller %d Lehren, zuletzt an Tag %d: je Art von Beobachtung die neueste, die häufigsten zuerst.") % [m.archive.size(), int(float(m.get("knowledge_day", 0.0))) + 1], 12, DIM)
 		for k in m.knowledge:
-			_text("• " + str(k), 14)
+			_text("• " + KiMind.lesson_text(k), 14)
 
 	_section(tr("Arbeit bis zur nächsten Sitzung"))
 	var sit: Dictionary = Society.situation(w)
@@ -812,7 +619,7 @@ func _fill_learn(w) -> void:
 		_text(tr("Der Rat hat noch nicht getagt."), 13, DIM)
 	for j in cap:
 		var c: Dictionary = cap[j]
-		_text(tr("%s: Arbeit für höchstens %d, eingeteilt %d (%s)") % [Data.jobs.get(j, {}).get("name", j), int(c.n), int(slots.get(j, 0)), str(c.de)], 13,
+		_text(tr("%s: Arbeit für höchstens %d, eingeteilt %d (%s)") % [Data.jobs.get(j, {}).get("name", j), int(c.n), int(slots.get(j, 0)), str(c.get("why", c.get("de", "")))], 13,
 			DIM if int(c.n) == 0 else UiTheme.TEXT)
 
 	_section(tr("Arbeitsstatistik"))
@@ -854,105 +661,4 @@ func _fill_learn(w) -> void:
 	arc.reverse()
 	for l in arc:
 		var season: String = (", " + Seasons.season_name(int(l[4]))) if l.size() > 4 and int(l[4]) >= 0 else ""
-		_text(tr("Tag %d%s, %s: %s") % [int(float(l[0])) + 1, season, tr("selbst gezogen") if str(l[2]) == "Rat" else tr("aus Messung"), l[1]], 12)
-
-
-# ------------------------------------------------------------------ Beobachten
-func _fill_watch_llm(w) -> void:
-	var m: Dictionary = KiMind.mem(w)
-	_section(tr("Sprachmodelle"))
-	_text(Llm.status_text(), 13)
-	_text(tr("Anfragen bisher: Rat %d (im Schnitt %.1f s), Siedler %d (im Schnitt %.2f s).") % [int(Llm.stats.rat[0]), Llm.avg_ms("rat") / 1000.0,
-		int(Llm.stats.siedler[0]), Llm.avg_ms("siedler") / 1000.0], 12, DIM)
-	if KiMind.activity != "":
-		_text(tr("Gerade: %s …") % KiMind.activity, 13, RULER)
-	var last: Dictionary = m.get("last", {})
-	_section(tr("Letzte Ratssitzung (Llama)"))
-	if last.is_empty():
-		_text(tr("Der Rat hat noch nicht getagt."), 13, DIM)
-	for k in [["focus", tr("Schwerpunkt")], ["jobs", tr("Arbeit")], ["build", tr("Bauen")], ["research", tr("Forschung")]]:
-		if last.has(k[0]):
-			var d: Dictionary = last[k[0]]
-			var t: String = ("%s: %s" % [k[1], d.get("choice", "")]) if d.has("choice") else str(k[1])
-			if d.has("probs"):
-				t += tr(". Modell: %s") % d.probs
-			if d.has("why"):
-				t += " (%s)" % d.why
-			if d.has("mass"):
-				t += tr(". Antwort als Nummer: %d %%") % int(float(d.mass) * 100.0)
-			_text(t, 13)
-	if last.has("trade"):
-		_text(tr("Handel: %s") % last.trade, 13)
-	if str(m.plan) != "":
-		_text(tr("Plan: „%s“") % m.plan, 13, Color("#2a7a3a"))
-	for t in KiMind.trades:
-		if int(t.to) == _island or int(t.from) == _island:
-			_text(tr("Handelsroute bis Tag %d: %s bringt %s, bekommt %s.") % [int(float(t.until)) + 1, Sea.meta(int(t.from)).get("name", "?"),
-				Sea.goods_text(t.get("get", {})), Sea.goods_text(t.give) if not t.give.is_empty() else tr("nichts")], 13)
-
-	_section(tr("Siedler (SmolLM): Auftrag und eigene Entscheidung"))
-	if not KiMind.free_will():
-		_text(tr("Freier Wille ist ausgeschaltet: Jeder Siedler macht, was der Rat ihm aufträgt. Ohne Auftrag bleibt er bei seiner Arbeit. SmolLM wird dafür nicht gefragt."), 12, DIM)
-	for s in w.settlers:
-		if not s.is_adult():
-			continue
-		var d: Dictionary = KiMind.sdec.get(str(s.id), {})
-		var t := "%s: " % s.display_name
-		if d.is_empty():
-			t += Society.thoughts.get(s.id, tr("hat noch nicht entschieden."))
-		elif str(d.get("rule", "")).ends_with("(freier Wille aus)"):
-			t += "%s: %s" % [Data.jobs.get(d.job, {}).get("name", d.job), tr(d.rule)]
-		else:
-			var order: String = d.get("order", "")
-			t += tr("Auftrag %s, entscheidet %s%s. Modell: %s. Klarheit %.1f%s") % [Data.jobs.get(order, {}).get("name", "keiner") if order != "" else "keiner",
-				Data.jobs.get(d.job, {}).get("name", d.job), tr(" (eigene Wahl)") if d.get("own", false) else "", d.get("probs", ""),
-				float(d.get("clarity", 0.0)), tr(", unentschlossen") if str(d.get("rule", "Modell")) != "Modell" else ""]
-		var l := _text(t, 13, RULER if d.get("own", false) else UiTheme.TEXT)
-		_jump_on_tap(l, s)
-
-	_section(tr("Gedächtnis des Rats"))
-	var gl := _row()
-	_btn(gl, tr("Gelernt und Statistik"), "buch", tr("Zusammenfassung, alle Lehren des Spiels und die Arbeitsstatistik."), func():
-		_view = "lernen"
-		refresh())
-	if m.lessons.is_empty():
-		_text(tr("Noch keine Lehren."), 13, DIM)
-	for l in m.lessons:
-		_text(tr("Lehre (Tag %d, %s): %s") % [int(float(l[0])) + 1, tr("selbst gezogen") if l[2] == "Rat" else tr("aus Messung"), l[1]], 13)
-	var ex := KiMind.experience_lines(w, 8)
-	if not ex.is_empty():
-		_text(tr("Gemessene Erfahrung (je Tag nach der Entscheidung):"), 13, UiTheme.TEXT, true)
-		for e in ex:
-			_text(e, 12)
-	var recs: Array = m.records.duplicate()
-	recs.reverse()
-	if not recs.is_empty():
-		_text(tr("Entscheidungen und Folgen:"), 13, UiTheme.TEXT, true)
-	for r in recs.slice(0, 6):
-		_text(KiMind.record_text(r), 12, DIM)
-
-	_section(tr("Bericht"))
-	var rr0 := _row()
-	_btn(rr0, tr("KI-Bericht herunterladen"), "buch", tr("Textdatei mit allen Anfragen, Wahrscheinlichkeiten und Entscheidungen seit dem Start."), func():
-		var f := KiMind.download_report()
-		if hud:
-			hud.toast(tr("KI-Bericht gespeichert: %s") % f, "buch"))
-	_text(tr("%d Anfragen festgehalten.") % KiMind.trace_count, 12, DIM)
-
-	_section(tr("Letzte Anfrage an ein Modell"))
-	var pr := _row()
-	for role in ["rat", "siedler"]:
-		var rr: String = role
-		var b := _btn(pr, tr("Rat (Llama)") if role == "rat" else tr("Siedler (SmolLM)"), "", tr("Zeigt den Text, den das Modell zuletzt bekommen hat."), func():
-			_show_prompt = "" if _show_prompt == rr else rr
-			refresh())
-		b.toggle_mode = true
-		b.button_pressed = _show_prompt == role
-	if _show_prompt != "":
-		_text(str(KiMind.last_prompt.get(_show_prompt, tr("Noch keine Anfrage."))), 11, DIM)
-
-	_section(tr("Entscheidungen (neueste oben)"))
-	var lines: Array = Society.state(w).dlog.duplicate()
-	lines.reverse()
-	for l in lines.slice(0, 25):
-		_text(tr("Tag %d %s  %s") % [int(floor(float(l[0]))) + 1, _clock(float(l[0])), l[1]], 12, DIM)
+		_text(tr("Tag %d%s: %s") % [int(float(l[0])) + 1, season, KiMind.lesson_text(l)], 12)
