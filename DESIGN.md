@@ -54,6 +54,11 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
   „Laden“ und „Neues Spiel“ in einem anderen Platz speichern erst, merken `autostart` und laden die
   Seite neu (Desktop: Neustart); main.gd überspringt dann das Titelbild. „Hier speichern“ kopiert das
   laufende Spiel in den Platz und spielt dort weiter. Testaufrufe `--panel=slots`, `--slottest=1`.
+- Export und Import je Platz: „Exportieren“ lädt den Platz als JSON-Datei herunter
+  (`JavaScriptBridge.download_buffer`, Desktop FileDialog). „Importieren“ prüft die Datei
+  (`Game.import_slot`: Version 1..SAVE_VERSION, `time_days`) und schreibt sie in den Platz. Im Browser
+  öffnet nur eine echte Nutzergeste die Dateiauswahl (iPhone): `button_down` setzt in JS einen
+  Capture-Listener auf `pointerup`/`touchend`, der das `<input type=file>` anklickt.
 
 ## Entwicklungsbaum und Wirtschaft (Etappe 2)
 
@@ -216,12 +221,14 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
   angelegte Busse bleiben dort stumm), Lautstärken im Menü, gespeichert in `user://settings.cfg`.
   Alle Klänge erzeugt `tools/gen_audio.py` (Ausgabe `assets/audio/`). Gebäude können mit
   `sound` einen eigenen Werkstatt-Klang haben, Tiere mit `sound` ihren Ruf.
-- **Einführung und Ziele** (`data/goals.json`, `scripts/ui/goal_card.gd`): sieben Schritte mit
+- **Einführung und Ziele** (`data/goals.json`, `scripts/ui/goal_card.gd`): neun Schritte mit
   Zeigerpfeil, danach feste Ziele mit Belohnungen und endlos erzeugte Ziele (Bevölkerung, Inseln,
   Geburten). Zustand `Game.goals {tut, ms}` im Spielstand; ältere Spielstände überspringen die
   Einführung und holen erreichte Ziele still nach. `Game.player_action(kind, what)` meldet
   Spieleraktionen. Statistik `kills` zählt erlegte Tiere. Das X auf der Zielkarte blendet das
-  aktuelle Ziel aus (`goals.hide` = Ziel-ID), das nächste erscheint wieder.
+  aktuelle Ziel aus (`goals.hide` = Ziel-ID), das nächste erscheint wieder. `goals.tv` = 2 markiert die
+  Einführung mit neun Schritten; Spielstände ohne `tv` rechnen ihren Schritt aus der alten
+  Siebener-Einführung um (`apply_save_header`). Prüfart `job`: Siedler mit Beruf `what`, alle Inseln.
 - **Nahrung in der Oberleiste**: Zahl der Nahrungsgüter und dahinter `Game.food_days()`, für wie viele
   Tage die Nahrung der angezeigten Insel reicht: Summe aus Menge mal Sättigung, geteilt durch die
   Siedler (Kinder zählen voll) und den Tagesbedarf `hunger_per_day` mit Jahreszeit und Kälte. Rot
@@ -476,3 +483,11 @@ godot --headless --export-release "Web" build/web/index.html
 
 Bei jedem Push auf `main` baut GitHub Actions die Web-Version und legt sie auf den
 Branch `gh-pages` (GitHub Pages).
+
+**Neueste Version laden:** Godots Service Worker (PWA) liefert beim Neuladen zuerst die alte Version
+aus dem Cache; sein Signal `pwa_update_available` kommt dabei nicht an. Darum schreibt der Build
+`version.txt` (gleiche Nummer wie im Spiel). Das HUD holt die Datei beim Start und alle 10 Minuten
+ohne Cache (`_watch_updates`). Ist sie neuer, lädt das Titelbild sofort neu, im laufenden Spiel kommt
+eine Meldung und der Menüknopf heißt „Neue Version laden!“. `Game.load_newest_version()` speichert,
+sperrt weiteres Speichern, löscht nur die Caches `Insel-Siedler-sw-cache-*` (die KI-Modelle liegen in
+anderen Caches), meldet den Service Worker ab, holt index.html/js/pck neu und lädt mit `?v=` neu.

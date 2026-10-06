@@ -20,7 +20,7 @@ TEXT_KEYS = {"name", "desc", "text", "hint", "verb", "sow_verb", "harvest_verb",
              "comfort_stages", "low", "high", "plural", "plural_dat", "by", "food_name", "deadly"}
 LIT = re.compile(r'"((?:[^"\\\n]|\\.)*)"')
 GERMAN = re.compile(r"[A-ZÄÖÜ][a-zäöüß]|[äöüßÄÖÜ]|\s[a-zäöü]{2}")
-SKIP_LINE = re.compile(r"^\s*(#|@|class_name|extends|signal|enum)|create_from_string\(|print\(|printerr\(|push_error\(|push_warning\(|preload\(|\bload\(")
+SKIP_LINE = re.compile(r"^\s*(#|@|class_name|extends|signal|enum)|create_from_string\(|JavaScriptBridge\.eval\(|print\(|printerr\(|push_error\(|push_warning\(|preload\(|\bload\(")
 
 
 def unescape(s):
@@ -111,6 +111,8 @@ def collect():
             keys.setdefault(unescape(m.group(1)), rel)
         # Texte in Konstanten und """-Bloecken, die zur Laufzeit uebersetzt werden
         for m in re.finditer(r'"""(.*?)"""', text, re.S):
+            if re.search(r"eval\(\s*$", text[:m.start()]):
+                continue  # JavaScript fuer den Browser, kein Text
             keys.setdefault(m.group(1), rel)
         for i, line, static, skip in iter_code(lines):
             if skip and not SKIP_LINE.search(line) and not re.match(r"^\s*(static\s+)?func ", line):
