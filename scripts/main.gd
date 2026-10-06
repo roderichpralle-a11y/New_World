@@ -114,6 +114,9 @@ func _maybe_autotest() -> void:
 		Game.switch_slot(1, "")
 		Game.delete_slot(2)
 		print("Slot aktiv=", Game.slot, " 2 da=", Game.slot_exists(2), " 1 info=", Game.slot_info(1))
+		var txt := Game.slot_text(1)
+		print("Import falsch: ", Game.import_slot(3, "{\"x\": 1}"), " | Import 3: '", Game.import_slot(3, txt), "' info=", Game.slot_info(3), " Datei=", Game.slot_file_name(3))
+		Game.delete_slot(3)
 	if args.has("build"):
 		_autotest_build()
 	if args.has("prodtest"):
@@ -389,6 +392,10 @@ func _maybe_autotest() -> void:
 		get_viewport().get_texture().get_image().save_png(args.shot)
 		print("Screenshot: ", args.shot)
 	Game.save_game()
+	if args.has("stay"):
+		# Testhilfe (Web): nach dem Lauf weiterspielen statt beenden
+		Engine.time_scale = 1.0
+		return
 	get_tree().quit()
 
 
@@ -641,6 +648,11 @@ func _autotest_tutorial() -> void:
 		"t_job":
 			world.settlers[0].set_job("holzfaeller")
 			Game.player_action.emit("job", "holzfaeller")
+		"t_builder":
+			world.settlers[1].set_job("baumeister")
+		"t_stone":
+			if world.settlers[1].job != "steinmetz":
+				world.settlers[1].set_job("steinmetz")
 		"t_hut", "t_field":
 			var type := "huette" if g.id == "t_hut" else "feld"
 			for rad in range(3, 12):

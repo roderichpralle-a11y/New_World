@@ -41,6 +41,11 @@ var _help_panel: PanelContainer
 var _notify_panel: PanelContainer
 var _slots_panel: PanelContainer
 var _slots_box: VBoxContainer
+var _slots_scroll: ScrollContainer
+var _import_cb  # JavaScriptObject: Rueckruf fuer die Dateiauswahl im Browser (muss leben bleiben)
+var _import_slot_n := 0
+var _update_btn: Button
+var _update_ready := false
 var _notify_grid: GridContainer
 var _info_panel: PanelContainer
 var _info_box: VBoxContainer
@@ -118,6 +123,7 @@ func setup(p_world: World, p_camera: GameCamera) -> void:
 	_refresh_top()
 	goal_card.attach_pointer(root)
 	_layout()
+	_watch_updates.call_deferred()
 
 
 # ================================================================== Oberleiste
@@ -1234,6 +1240,13 @@ func _build_menu_panel() -> void:
 	var sl := UiTheme.button(tr("Spielstände"), "kiste", 44)
 	sl.pressed.connect(func(): _open_slots())
 	v.add_child(sl)
+	if OS.has_feature("web"):
+		_update_btn = UiTheme.button(tr("Neueste Version laden"), "schnell", 44)
+		_update_btn.tooltip_text = tr("Speichert und lädt die neueste Version des Spiels.")
+		_update_btn.pressed.connect(func():
+			toast(tr("Lade die neueste Version ..."), "haus")
+			Game.load_newest_version())
+		v.add_child(_update_btn)
 	var help := UiTheme.button(tr("Spielanleitung"), "sonne", 44)
 	help.pressed.connect(func(): _toggle(_help_panel))
 	v.add_child(help)
@@ -1308,9 +1321,13 @@ func _language_row() -> HBoxContainer:
 func _build_slots_panel() -> void:
 	var r := _popup_panel(tr("Spielstände"))
 	_slots_panel = r[0]
+	_slots_scroll = ScrollContainer.new()
+	_slots_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	r[1].add_child(_slots_scroll)
 	_slots_box = VBoxContainer.new()
 	_slots_box.add_theme_constant_override("separation", 6)
-	r[1].add_child(_slots_box)
+	_slots_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_slots_scroll.add_child(_slots_box)
 
 
 func _open_slots() -> void:
@@ -1325,7 +1342,9 @@ func _fill_slots() -> void:
 	for c in _slots_box.get_children():
 		c.queue_free()
 	var in_title := has_overlay()
-	_slots_box.custom_minimum_size.x = min(640.0, get_viewport().get_visible_rect().size.x - 40.0)
+	var vs := get_viewport().get_visible_rect().size
+	_slots_box.custom_minimum_size.x = min(640.0, vs.x - 40.0)
+	_slots_scroll.custom_minimum_size = Vector2(_slots_box.custom_minimum_size.x, clampf(vs.y - 230.0, 200.0, 620.0))
 	_slots_panel.size = Vector2.ZERO
 	var hint := UiTheme.label(tr("Das Spiel speichert automatisch in den aktiven Spielstand."), 13, DIM)
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1390,7 +1409,159 @@ func _fill_slots() -> void:
 			h.add_child(_slot_confirm_button(tr("Löschen"), true, func():
 				Game.delete_slot(slot_n)
 				_fill_slots()))
+		# Datei auf die Festplatte und zurueck
+		var h2 := HBoxContainer.new()
+		h2.add_theme_constant_override("separation", 6)
+		if used:
+			var ex := _slot_button(tr("Exportieren"))
+			ex.tooltip_text = tr("Spielstand als Datei auf dem Gerät speichern")
+			ex.pressed.connect(func(): _export_slot(slot_n))
+			h2.add_child(ex)
+		var im := _slot_confirm_button(tr("Importieren"), used, func(): _import_slot(slot_n))
+		if OS.has_feature("web"):
+			# Browser oeffnen die Dateiauswahl nur direkt beim Tippen: beim Druecken vorbereiten,
+			# beim Loslassen (noch im Ereignis des Browsers) oeffnen
+			im.button_down.connect(func():
+				if not used or im.text == tr("Sicher?"):
+					_arm_import(slot_n))
+		im.tooltip_text = tr("Spielstand aus einer Datei in diesen Platz laden")
+		h2.add_child(im)
+		v.add_child(h2)
 		_slots_box.add_child(row)
+
+
+func _export_slot(n: int) -> void:
+	var text := Game.slot_text(n)
+	if text == "":
+		return
+	var fname := Game.slot_file_name(n)
+	if OS.has_feature("web"):
+		JavaScriptBridge.download_buffer(text.to_utf8_buffer(), fname, "application/json")
+		toast(tr("Spielstand %d exportiert: %s") % [n, fname], "haus")
+		return
+	var fd := _file_dialog(FileDialog.FILE_MODE_SAVE_FILE)
+	fd.current_file = fname
+	fd.file_selected.connect(func(path):
+		var f := FileAccess.open(path, FileAccess.WRITE)
+		if f:
+			f.store_string(text)
+			f.close()
+			toast(tr("Spielstand %d exportiert: %s") % [n, path.get_file()], "haus"))
+	fd.popup_centered_ratio(0.8)
+
+
+func _import_slot(n: int) -> void:
+	_import_slot_n = n
+	if OS.has_feature("web"):
+		# Falls das Loslassen schneller war als die Vorbereitung: jetzt oeffnen
+		JavaScriptBridge.eval("if (window.inselPickPending) { window.inselPickPending(); }", true)
+		return
+	var fd := _file_dialog(FileDialog.FILE_MODE_OPEN_FILE)
+	fd.file_selected.connect(func(path): _imported(FileAccess.get_file_as_string(path)))
+	fd.popup_centered_ratio(0.8)
+
+
+## Bereitet die Dateiauswahl des Browsers vor: sie oeffnet beim naechsten Loslassen des Fingers
+## oder der Maustaste, denn nur dort erlaubt der Browser sie. Der Text kommt per Rueckruf zurueck.
+func _arm_import(n: int) -> void:
+	_import_slot_n = n
+	_import_cb = JavaScriptBridge.create_callback(func(args): _imported(str(args[0]) if args.size() > 0 else ""))
+	JavaScriptBridge.get_interface("window").inselImport = _import_cb
+	JavaScriptBridge.eval("""(function () {
+		const open = function () {
+			window.removeEventListener('pointerup', open, true);
+			window.removeEventListener('touchend', open, true);
+			window.inselPickPending = null;
+			const i = document.createElement('input');
+			i.type = 'file';
+			i.accept = '.json,application/json,text/plain';
+			i.style.position = 'fixed';
+			i.style.left = '-1000px';
+			document.body.appendChild(i);
+			i.onchange = function () {
+				const f = i.files && i.files[0];
+				i.remove();
+				if (!f) { return; }
+				const r = new FileReader();
+				r.onload = function () { window.inselImport(String(r.result)); };
+				r.readAsText(f);
+			};
+			i.click();
+		};
+		window.inselPickPending = open;
+		window.addEventListener('pointerup', open, true);
+		window.addEventListener('touchend', open, true);
+	})();""", true)
+
+
+func _imported(text: String) -> void:
+	var n := _import_slot_n
+	var err := Game.import_slot(n, text)
+	if err != "":
+		toast(err, "abriss")
+		return
+	if n == Game.slot:
+		# Der aktive Platz wurde ersetzt: neu laden, ohne das laufende Spiel darueber zu speichern
+		Game.switch_slot(n, "continue")
+		return
+	toast(tr("Spielstand %d importiert. Mit Laden spielst du ihn.") % n, "haus")
+	if _slots_panel.visible:
+		_fill_slots()
+
+
+func _file_dialog(mode: int) -> FileDialog:
+	var fd := FileDialog.new()
+	fd.file_mode = mode
+	fd.access = FileDialog.ACCESS_FILESYSTEM
+	fd.filters = PackedStringArray(["*.json"])
+	fd.use_native_dialog = true
+	root.add_child(fd)
+	fd.close_requested.connect(fd.queue_free)
+	fd.file_selected.connect(func(_p): fd.queue_free.call_deferred())
+	return fd
+
+
+## Neue Version: Die Web-App liefert aus ihrem Offline-Speicher oft noch die alte Version. Darum
+## fragt das Spiel beim Start und alle 10 Minuten version.txt vom Server ab (schreibt der Web-Build).
+## Ist sie neuer: auf dem Titelbild sofort laden, im Spiel melden.
+var _version_cb  # JavaScriptObject, muss leben bleiben
+var _version_timer := 0.0
+
+
+func _watch_updates() -> void:
+	if not OS.has_feature("web"):
+		return
+	JavaScriptBridge.pwa_update_available.connect(_on_update_available)
+	if JavaScriptBridge.pwa_needs_update():
+		_on_update_available()
+	_version_cb = JavaScriptBridge.create_callback(func(args): _on_server_version(str(args[0]) if args.size() > 0 else ""))
+	JavaScriptBridge.get_interface("window").inselVersion = _version_cb
+	_ask_server_version()
+
+
+func _ask_server_version() -> void:
+	_version_timer = 600.0
+	JavaScriptBridge.eval("fetch('version.txt', { cache: 'no-store' }).then((r) => r.ok ? r.text() : '').then((t) => window.inselVersion(t.trim())).catch(() => {});", true)
+
+
+func _on_server_version(v: String) -> void:
+	var mine := str(ProjectSettings.get_setting("application/config/version", ""))
+	# Nur eine Versionsnummer wie 1.0.43 zaehlt (keine Fehlerseite)
+	if v == mine or v.length() > 20 or not v.replace(".", "").is_valid_int():
+		return
+	_on_update_available()
+
+
+func _on_update_available() -> void:
+	if _update_ready:
+		return
+	_update_ready = true
+	if has_overlay() and Sound.in_title:
+		Game.load_newest_version()
+		return
+	if _update_btn:
+		_update_btn.text = tr("Neue Version laden!")
+	toast(tr("Eine neue Version des Spiels ist da. Menü > Neue Version laden."), "sonne")
 
 
 func _slot_button(text: String) -> Button:
@@ -2308,6 +2479,10 @@ func _process(delta: float) -> void:
 	if root == null:
 		return
 	_tick_settler_list(delta)
+	if _version_cb != null and not _update_ready:
+		_version_timer -= delta / max(Engine.time_scale, 0.001)
+		if _version_timer <= 0.0:
+			_ask_server_version()
 	_day_label.text = tr("Tag %d  %s") % [Game.day(), Game.clock_text()]
 	_day_icon.texture = Data.icon("mond" if Game.is_night() else "sonne")
 	_season_icon.texture = Seasons.icon()

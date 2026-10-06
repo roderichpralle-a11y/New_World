@@ -171,6 +171,13 @@ func progress(g: Dictionary) -> Array:
 			return [int(Game.stats.get("births", 0)), n]
 		"stock":
 			return [Game.amount_all(what), n]
+		"job":
+			var cnt := 0
+			for w in Sea.all_worlds():
+				for s in w.settlers:
+					if s.job == what:
+						cnt += 1
+			return [cnt, n]
 	return [0, 1]
 
 

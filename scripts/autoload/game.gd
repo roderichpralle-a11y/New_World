@@ -27,6 +27,8 @@ var slot := 1
 var _slot_base := LIVE_SAVE_PATH
 ## Nach dem Neuladen der Seite (Spielstand wechseln): "continue" oder "new" statt Titelbild
 var autostart := ""
+## Vor dem Neuladen der Seite: nichts mehr speichern (sonst landet das laufende Spiel im neuen Platz)
+var save_locked := false
 const SAVE_VERSION := 3
 
 var world = null  # aktive (sichtbare) Insel, siehe Sea fuer alle Inseln
@@ -45,7 +47,7 @@ var lineage: Dictionary = {}  # Siedler-ID -> [Eltern-IDs], auch fuer Verstorben
 ## Forschung: aktuelles Ziel, Fortschritt je Forschung, erforschte und bezahlte Forschungen
 var research: Dictionary = {"current": "", "progress": {}, "done": [], "paid": []}
 ## Einfuehrung und Ziele: Schritt der Einfuehrung (tut), Index des Ziels (ms)
-var goals: Dictionary = {"tut": 0, "ms": 0}
+var goals: Dictionary = {"tut": 0, "ms": 0, "tv": 2}
 var eaten: Dictionary = {}  # gegessene Speisen seit Spielbeginn (fuer Statistik und Tests)
 var effects: Dictionary = {}  # Summe aller Forschungs-Effekte, z. B. {"build": 0.2}
 
@@ -97,7 +99,7 @@ func reset_state(new_seed: int) -> void:
 	stats = {"births": 0, "deaths": 0, "max_pop": 0}
 	lineage = {}
 	research = {"current": "", "progress": {}, "done": [], "paid": []}
-	goals = {"tut": 0, "ms": 0}
+	goals = {"tut": 0, "ms": 0, "tv": 2}
 	if is_ki_build:
 		goals.tut = 999  # KI-Variante: keine Einführung mit Berufe-Vergeben, der Rat erklärt sich selbst
 	Sea.reset(new_seed)
@@ -840,6 +842,8 @@ func switch_slot(n: int, mode: String) -> void:
 	if mode != "":
 		cf.set_value("game", "autostart", mode)
 	cf.save("user://settings.cfg")
+	if mode != "":
+		save_locked = true
 	slot = n
 	SAVE_PATH = slot_path(n)
 	if mode == "":
@@ -859,6 +863,73 @@ func save_to_slot(n: int) -> void:
 	save_game()
 
 
+## Inhalt eines Spielstands als Text (zum Exportieren), "" wenn leer
+func slot_text(n: int) -> String:
+	if n == slot and world != null and not is_over:
+		save_game()
+	if not slot_exists(n):
+		return ""
+	return FileAccess.get_file_as_string(slot_path(n))
+
+
+func slot_file_name(n: int) -> String:
+	var info = []
+	var cf := ConfigFile.new()
+	cf.load("user://settings.cfg")
+	info = cf.get_value("slots", slot_path(n).get_file(), [])
+	var d: int = int(info[0]) if info is Array and info.size() > 0 else 0
+	return "insel-siedler-spielstand-%d%s.json" % [n, ("-tag-%d" % d) if d > 0 else ""]
+
+
+## Prueft einen importierten Text und legt ihn in Platz n ab. Gibt "" oder einen Fehlertext zurueck.
+func import_slot(n: int, text: String) -> String:
+	var d = JSON.parse_string(text)
+	if not (d is Dictionary) or not int(d.get("version", 0)) in [1, 2, SAVE_VERSION] or not d.has("time_days"):
+		return tr("Das ist kein Spielstand von Insel-Siedler.")
+	var f := FileAccess.open(slot_path(n), FileAccess.WRITE)
+	if f == null:
+		return tr("Der Spielstand konnte nicht gespeichert werden.")
+	f.store_string(text)
+	f.close()
+	# Kurzinfo fuer die Liste: Siedler und besiedelte Inseln zaehlen
+	var pop := Array(d.get("settlers", [])).size()
+	var settled := 0
+	for isl in d.get("islands", []):
+		if isl is Dictionary and isl.get("world") is Dictionary:
+			var n_here := Array(isl.world.get("settlers", [])).size()
+			pop += n_here
+			settled += 1 if n_here > 0 else 0
+	var cf := ConfigFile.new()
+	cf.load("user://settings.cfg")
+	cf.set_value("slots", slot_path(n).get_file(), [int(floor(float(d.time_days))) + 1, pop, max(1, settled),
+		int(Time.get_unix_time_from_system())])
+	cf.save("user://settings.cfg")
+	return ""
+
+
+## Laedt die neueste Version der Seite. Die Web-Version ist eine installierbare App, deren
+## Offline-Speicher (Service Worker) sonst beim Neuladen die alte Version liefert.
+func load_newest_version() -> void:
+	if not OS.has_feature("web"):
+		return
+	save_game()
+	save_locked = true
+	# Nur den eigenen Offline-Speicher leeren (die KI-Modelle liegen in anderen Speichern), den
+	# Service Worker abmelden und die Spieldateien am Browser-Zwischenspeicher vorbei neu holen
+	JavaScriptBridge.eval("""(async function () {
+		try {
+			const keys = await caches.keys();
+			await Promise.all(keys.filter((k) => k.startsWith('Insel-Siedler-sw-cache-')).map((k) => caches.delete(k)));
+			const reg = await navigator.serviceWorker.getRegistration();
+			if (reg) { await reg.unregister(); }
+			await Promise.all(['index.html', 'index.js', 'index.pck'].map((f) => fetch(f, { cache: 'reload' }).catch(() => null)));
+		} catch (e) { console.error(e); }
+		const u = new URL(window.location.href);
+		u.searchParams.set('v', String(Date.now()));
+		window.location.replace(u.toString());
+	})();""", true)
+
+
 func delete_slot(n: int) -> void:
 	if n != slot and slot_exists(n):
 		DirAccess.remove_absolute(slot_path(n))
@@ -870,7 +941,7 @@ func has_save() -> bool:
 
 
 func save_game() -> void:
-	if world == null or is_over:
+	if world == null or is_over or save_locked:
 		return
 	var data := {
 		"version": SAVE_VERSION,
@@ -937,7 +1008,10 @@ func apply_save_header(d: Dictionary) -> void:
 	# Aeltere Spielstaende kennen keine Ziele: Einfuehrung ueberspringen, erreichte Ziele nachholen
 	var g = d.get("goals", null)
 	if g is Dictionary:
-		goals = {"tut": int(g.get("tut", 0)), "ms": int(g.get("ms", 0)), "hide": str(g.get("hide", ""))}
+		goals = {"tut": int(g.get("tut", 0)), "ms": int(g.get("ms", 0)), "hide": str(g.get("hide", "")), "tv": 2}
+		# Einfuehrung mit 7 Schritten (bis Oktober 2026) auf die neue mit 9 Schritten umrechnen
+		if int(g.get("tv", 1)) < 2:
+			goals.tut = [0, 1, 3, 4, 7, 6, 8, 9][clampi(goals.tut, 0, 7)]
 	else:
 		goals = {"tut": 999, "ms": 0, "catchup": true}
 	Society.load_from(d.get("society", {}))

@@ -31,6 +31,7 @@ jobs:
           base=$(sed -n 's/^config\/version="\([0-9]*\.[0-9]*\)\..*"/\1/p' project.godot)
           sed -i "s/^config\/version=\".*\"/config\/version=\"$base.$n\"/" project.godot
           grep '^config/version' project.godot
+          echo "GAME_VERSION=$base.$n" >> $GITHUB_ENV
 
       - name: Godot und Web-Vorlagen laden
         run: |
@@ -50,6 +51,7 @@ jobs:
         run: |
           sed -i 's/^config\/version=.*/config\/version="1.0.${{ github.run_number }}"/' project.godot
           grep '^config/version' project.godot
+          echo "GAME_VERSION=1.0.${{ github.run_number }}" >> $GITHUB_ENV
 
       - name: Exportieren
         run: |
@@ -57,6 +59,8 @@ jobs:
           mkdir -p build/web
           ./godot-bin --headless --export-release "Web" build/web/index.html
           test -f build/web/index.wasm
+          # Das Spiel fragt diese Datei ab, um eine neuere Version zu erkennen
+          echo "$GAME_VERSION" > build/web/version.txt
           touch build/web/.nojekyll
 
       - name: Auf gh-pages veröffentlichen

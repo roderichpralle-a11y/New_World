@@ -54,6 +54,11 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
   „Laden“ und „Neues Spiel“ in einem anderen Platz speichern erst, merken `autostart` und laden die
   Seite neu (Desktop: Neustart); main.gd überspringt dann das Titelbild. „Hier speichern“ kopiert das
   laufende Spiel in den Platz und spielt dort weiter. Testaufrufe `--panel=slots`, `--slottest=1`.
+- Export und Import je Platz: „Exportieren“ lädt den Platz als JSON-Datei herunter
+  (`JavaScriptBridge.download_buffer`, Desktop FileDialog). „Importieren“ prüft die Datei
+  (`Game.import_slot`: Version 1..SAVE_VERSION, `time_days`) und schreibt sie in den Platz. Im Browser
+  öffnet nur eine echte Nutzergeste die Dateiauswahl (iPhone): `button_down` setzt in JS einen
+  Capture-Listener auf `pointerup`/`touchend`, der das `<input type=file>` anklickt.
 
 ## Entwicklungsbaum und Wirtschaft (Etappe 2)
 
@@ -201,7 +206,7 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
 
 **Sprache (Englisch/Deutsch):** Der Quelltext bleibt deutsch, Englisch ist die Standardsprache. `data/i18n/en.json` ordnet jedem deutschen Text (Schlüssel) den englischen zu. Im Code stehen Anzeigetexte in `tr("...")` (in statischen Funktionen `Loc.t("...")`); Texte aus `data/*.json` (Felder name, desc, text, hint, verb ... siehe `Data.TEXT_KEYS`) übersetzt Data beim Laden. `scripts/autoload/loc.gd` lädt die Sprache aus `user://settings.cfg` ([game] language, Standard "en"), die Wahl steht im Menü und auf dem Startbild und startet das Spiel nach dem Speichern neu. Gespeicherte Insel- und Schiffsnamen zeigt `Loc.name_of` in der gewählten Sprache. Werkzeug: `python3 tools/i18n.py wrap` packt neue deutsche Texte im Code in tr(), `missing` listet Texte ohne Übersetzung (data/i18n/missing.json), `check` prüft Platzhalter. Neue Texte also immer auch in en.json eintragen. Testaufruf: `--langcheck=1` meldet sichtbare deutsche Texte im englischen Spiel.
 
-**Versionsnummer:** steht in `project.godot` unter `application/config/version`. Die ersten beiden Stellen (1.0) zählt man dort von Hand hoch; die letzte setzt der Web-Build selbst auf die Zahl der Stände des Zweigs (`git rev-list --count --first-parent HEAD`), jeder Build von main zählt also eins weiter. Das Menü und der Titelbildschirm zeigen sie unten an, die Testversion mit dem Zusatz „(Testversion)“. Im KI-Zweig setzt web.yml die letzte Stelle bei jedem Bau auf die Laufnummer des Ablaufs („Version 1.0.N KI“).
+**Versionsnummer:** steht in `project.godot` unter `application/config/version`. Die ersten beiden Stellen (1.0) zählt man dort von Hand hoch; die letzte setzt der Web-Build selbst auf die Zahl der Stände des Zweigs (`git rev-list --count --first-parent HEAD`), jeder Build von main zählt also eins weiter. Das Menü und der Titelbildschirm zeigen sie unten an, die Testversion mit dem Zusatz „(Testversion)“. Im KI-Zweig setzt web.yml die letzte Stelle bei jedem Bau auf die Laufnummer des Ablaufs („Version 1.0.N KI“) und schreibt dieselbe Nummer in `/ki/version.txt`; die KI-Version prüft also ihre eigene Datei. Beim Start räumt `KiMind._ready` im Browser die Downloads der früheren Sprachmodelle weg (Speicher `transformers-cache`, IndexedDB `kiLlm`).
 
 **Siedlerliste:** fast bildschirmfüllend mit kompakten Zeilen; Spaltenköpfe Name, Alter, Beruf, Satt sortieren (nochmal tippen dreht um), Filter für Beruf, Erwachsene/Kinder, Nur Hungrige (unter 30 % satt) und, bei mehreren Inseln, Diese Insel/Alle Inseln. Testaufruf: `--crowd=24 --panel=settlers [--sfilter=1]`. Spalte Auslastung: `Settler.busy_percent()` = eigene Arbeit / (eigene Arbeit + anderes + nichts zu tun) der Tageszeit eines Erwachsenen, gleiche Einteilung wie die Statistik der KI-Version (`_stat_kind`: job, other, idle, needs zählt nicht), hier als gleitender Wert, der mit `BUSY_DAYS` (1 Tag) verblasst; wird beim Berufswechsel geleert und gespeichert.
 
@@ -216,12 +221,14 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
   angelegte Busse bleiben dort stumm), Lautstärken im Menü, gespeichert in `user://settings.cfg`.
   Alle Klänge erzeugt `tools/gen_audio.py` (Ausgabe `assets/audio/`). Gebäude können mit
   `sound` einen eigenen Werkstatt-Klang haben, Tiere mit `sound` ihren Ruf.
-- **Einführung und Ziele** (`data/goals.json`, `scripts/ui/goal_card.gd`): sieben Schritte mit
+- **Einführung und Ziele** (`data/goals.json`, `scripts/ui/goal_card.gd`): neun Schritte mit
   Zeigerpfeil, danach feste Ziele mit Belohnungen und endlos erzeugte Ziele (Bevölkerung, Inseln,
   Geburten). Zustand `Game.goals {tut, ms}` im Spielstand; ältere Spielstände überspringen die
   Einführung und holen erreichte Ziele still nach. `Game.player_action(kind, what)` meldet
   Spieleraktionen. Statistik `kills` zählt erlegte Tiere. Das X auf der Zielkarte blendet das
-  aktuelle Ziel aus (`goals.hide` = Ziel-ID), das nächste erscheint wieder.
+  aktuelle Ziel aus (`goals.hide` = Ziel-ID), das nächste erscheint wieder. `goals.tv` = 2 markiert die
+  Einführung mit neun Schritten; Spielstände ohne `tv` rechnen ihren Schritt aus der alten
+  Siebener-Einführung um (`apply_save_header`). Prüfart `job`: Siedler mit Beruf `what`, alle Inseln.
 - **Nahrung in der Oberleiste**: Zahl der Nahrungsgüter und dahinter `Game.food_days()`, für wie viele
   Tage die Nahrung der angezeigten Insel reicht: Summe aus Menge mal Sättigung, geteilt durch die
   Siedler (Kinder zählen voll) und den Tagesbedarf `hunger_per_day` mit Jahreszeit und Kälte. Rot
@@ -571,3 +578,11 @@ godot --headless --export-release "Web" build/web/index.html
 
 Bei jedem Push auf `main` baut GitHub Actions die Web-Version und legt sie auf den
 Branch `gh-pages` (GitHub Pages).
+
+**Neueste Version laden:** Godots Service Worker (PWA) liefert beim Neuladen zuerst die alte Version
+aus dem Cache; sein Signal `pwa_update_available` kommt dabei nicht an. Darum schreibt der Build
+`version.txt` (gleiche Nummer wie im Spiel). Das HUD holt die Datei beim Start und alle 10 Minuten
+ohne Cache (`_watch_updates`). Ist sie neuer, lädt das Titelbild sofort neu, im laufenden Spiel kommt
+eine Meldung und der Menüknopf heißt „Neue Version laden!“. `Game.load_newest_version()` speichert,
+sperrt weiteres Speichern, löscht nur die Caches `Insel-Siedler-sw-cache-*` (die KI-Modelle liegen in
+anderen Caches), meldet den Service Worker ab, holt index.html/js/pck neu und lädt mit `?v=` neu.

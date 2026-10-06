@@ -30,6 +30,17 @@ var next_trade := 1
 var _next_orders: Dictionary = {}  # Insel-ID -> wann die Siedler ihre Aufträge wieder prüfen (nicht gespeichert)
 
 
+func _ready() -> void:
+	# Aufräumen nach der Zeit mit Sprachmodellen: deren Downloads (etwa 1,2 GB im Browser-Speicher
+	# "transformers-cache") und Absturzmerker werden nicht mehr gebraucht.
+	if OS.has_feature("web") and Game.is_ki_build:
+		JavaScriptBridge.eval("""(async function () {
+			try { await caches.delete('transformers-cache'); } catch (e) { }
+			try { localStorage.removeItem('kiLlmPending'); localStorage.removeItem('kiLlmTooBig'); } catch (e) { }
+			try { indexedDB.deleteDatabase('kiLlm'); } catch (e) { }
+		})();""", true)
+
+
 func cfg(key: String, default = null):
 	return Data.ki_rat.get(key, default)
 
