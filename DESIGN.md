@@ -396,6 +396,82 @@ neues Zeitalter meldet `_finish_research` es. Im Forschungsmenü steht über jed
 - **Grafik**: `tools/gen_art_ages.py` (Gebäude ab Zelle 35 in buildings.png, Symbole `ICONS_AGES`).
 - **Test**: `--prodtest=1 --ages=1` baut nur die Gebäude der neuen Zeitalter.
 
+## Regeln ab Version 2 (Herausforderung)
+
+Grundgerüst für die Erweiterung „Mehr Herausforderung“ (Bedürfnisse, Schriften, Klima, Ereignisse,
+Aufträge, Prüfungen, Händler). josh: „Die neuen Regeln greifen ab dem Laden“, alte Spielstände laden also
+weiter und bekommen die neuen Regeln ab dem Ladezeitpunkt.
+
+- **Regelstand**: `Game.RULES` (= 1). Der Spielstand bekommt die Schlüssel `rules` (int) und `rules_day`
+  (float, `time_days`, ab dem die Regeln für diesen Spielstand gelten). `SAVE_VERSION` bleibt 3: eine alte,
+  im Browser zwischengespeicherte Version lehnt unbekannte Versionen ab und würde den Spielstand löschen.
+  Speichert so eine alte Version erneut, fehlen die neuen Schlüssel wieder; jede Übernahme muss also
+  wiederholbar sein. Alter Spielstand: `rules` fehlt (= 0), `rules_day` = Ladezeitpunkt. `Game.rules_old`
+  ist der Regelstand des geladenen Spielstands; `rules_day` steht schon fest, wenn `state_load` kommt.
+- **Systeme**: Autoloads melden sich in `_ready` mit `Game.register_system(self)` an (`Game.systems`).
+  Signale in `Game`:
+  - `state_reset()` am Ende von `reset_state` (neues Spiel; die neue Welt entsteht erst danach),
+  - `state_save(data: Dictionary)` in `save_game` kurz vor dem Schreiben: eigene Schlüssel oben in
+    `data` eintragen (nicht in `research` oder `goals`, die baut `apply_save_header` neu),
+  - `state_load(data: Dictionary, old_rules: int)` aus `Game.after_load(data)`, das main.gd direkt nach
+    `Sea.build_from_save` aufruft (alle Welten existieren). Danach gilt `rules = RULES`.
+  JSON liefert Zahlen als float und Schlüssel als Text: immer mit `int()`/`str()` umwandeln.
+- **Selbsttest der Systeme**: main.gd ruft für jedes angemeldete System `autotest_setup(args, main)`
+  (nach den normalen Testvorbereitungen, vor der Schleife; darf `await` benutzen) und bei jedem
+  20-Sekunden-Bericht `autotest_report()` (Text oder „“). So bekommen neue Systeme eigene Testschalter,
+  ohne main.gd zu ändern. Systeme ticken über `Game.time_days`, nie über `Game.set_speed()`.
+- **Meldungen beim Laden**: `Game.queue_note(text, icon, cat)` merkt sich Meldungen, solange das Spiel noch
+  nicht sichtbar läuft (Laden, Titelbild: dort würden sie unter dem Titelbild verschwinden).
+  `Game.flush_notes()` zeigt sie: in `main._on_continue` (nach dem Fenster „Neue Regeln“),
+  `_on_new_game` und im Selbsttest; danach wirkt `queue_note` wie `notify`.
+- **Fenster „Neue Regeln“**: Jedes System hängt in seinem `state_load`-Handler bei `old_rules < 1` ein bis
+  zwei Zeilen in einfachem Deutsch (mit `tr()`) an `Game.rules_lines` an. Bei einem alten Spielstand ist
+  `Game.rules_due` gesetzt; sobald das Spiel weiterläuft (nicht auf dem Titelbild), zeigt
+  `Hud.show_rules_dialog(lines, on_close, pause)` die Zeilen einmal an, das Spiel steht so lange
+  („Verstanden“). Wird vorher gespeichert, liegen die Zeilen als `rules_due` im Spielstand und kommen beim
+  nächsten Laden wieder. Ohne Zeilen erscheint kein Fenster. Der Selbsttest gibt stattdessen
+  `NEUE REGELN (...)` und die Zeilen aus (`Game.rules_seen()`).
+- **Statistik**: `stats.starved` (Hungertote) und `stats.starve_day` (`time_days` des letzten Hungertods,
+  alte Spielstände: `rules_day`), immer mit `stats.get(k, 0)` lesen. `World.kill_settler(s, reason, cause)`
+  bekommt neben dem Anzeigetext einen Schlüssel: `starve` (verhungert), `sick`, `old`, `killed`.
+  Signal `Game.settler_died(settler, cause)`.
+- **Belohnungen** (für Ereignisse, Aufträge, Prüfungen):
+  - `Game.grant_reward(w, reward, opts = {}) -> String`: `reward` = {Waren-ID: Menge, "settlers": n}.
+    Waren kommen auf Insel `w`, was dort keinen Platz hat, auf andere Inseln mit Platz, der Rest ist
+    verloren. Einwanderer über `spawn_immigrants` (mit `opts`), wer nicht landen kann, wird zu
+    10 Brettern. Liefert eine kurze Zusammenfassung („2 Einwanderer, 10 Bretter“); melden muss der Aufrufer.
+  - `Game.spawn_immigrants(w, n, opts = {}) -> Array`: Erwachsene über `World.spawn_newcomer(sex, opts)`,
+    abwechselnd Frau und Mann, zuerst das auf der Insel seltenere Geschlecht, mit niemandem verwandt.
+    Kann niemand auf `w` landen: besiedelte Insel mit den meisten freien Wohnplätzen
+    (`Game.immigrant_world(exclude)`), sonst 10 Bretter je Person (`opts.convert = false` schaltet das ab).
+    `opts`: `talent` (Fähigkeit), `talent_val` (Begabung, Standard 1,5 bis `talent_max`), `skill`
+    (Stufe darin, Standard 4 + Zeitalter/2, höchstens 7), `hunger` (Standard 80).
+  - `Game.give_goods(w, id, n) -> [untergebracht, davon auf anderen Inseln]`.
+- **Meldungsart** `ereignis` („Ereignisse und Händler“); Symbole `ereignis`, `haendler`, `feuer`, `ratte`
+  gehören ohne Angabe zu dieser Art.
+- **Preise**: jede Ware in `resources.json` hat `price` (Gold je Einheit, für Händler und Belohnungen);
+  Schiffe und Strom haben keinen.
+- **Neue Inhalte, vorerst nur Daten und Grafik** (die Regeln dazu bauen die einzelnen Erweiterungen):
+  Waren `tontafel` (Tontafeln) und `gewuerze` (Gewürze, kein Essen); Rohstoffquelle `gewuerzstrauch`
+  (2 Gewürze, wächst in 4 Tagen nach; noch nirgends platziert); Gebäude `tafelmacherei` (Wissen, nach
+  Töpferei, Lehm 2 → Tontafeln 3 über die normale Werkstatt-Logik) und `brunnen` (1x1, Seefahrt und Schutz,
+  nach Brunnenbau); Forschungen `brunnenbau` (Stufe 2) und `deichbau` (Stufe 4, Wirkung `flood`).
+- **Grafik**: `tools/gen_art_challenge.py` (von `gen_art.py` und `gen_art_sea.py` aufgerufen, hängt nur
+  hinten an): buildings.png Zelle 51 `tablets` (Tafelmacherei), 52 `well` (Brunnen); Symbole `tontafel`,
+  `gewuerze`, `ereignis`, `haendler`, `feuer`, `ratte`; objects2.png `spice_full`/`spice_empty`
+  (x 112/128, y 48); animals.png Zeile 3 (Höhe jetzt 96) mit dem Piraten (`Data.ANIMAL_ROWS`, kein Eintrag
+  in animals.json; `Data.animal_tex("pirat", frame)`).
+- **Alte Spielstände prüfen**: Mit dem Stand vor der Erweiterung (Commit 5851837) in einem eigenen
+  `XDG_DATA_HOME` je Lauf `--build=1 --research=1` (2 Jahre), `--seatest=1`, `--schooltest=1` und
+  `--prodtest=1 --ages=1` laufen lassen und `savegame.json` aufheben. Neue Version:
+  `--fixture=<datei> --autotest=60` (einmal `NEUE REGELN`, kein SCRIPT ERROR), danach `--keep`
+  (keine zweite Ausgabe).
+- **Testhilfen**: `--seed=N` (feste Insel für neue Spiele), `--fixture=<pfad>` (Spielstand vor dem Laden in
+  den aktiven Platz kopieren, weiter wie `--keep`), `--rulesdialog=1` (Bildschirmfoto des Fensters, ohne
+  alten Spielstand mit Beispielzeilen), `--place=brunnen,tafelmacherei` (fertige Gebäude hinstellen),
+  `--panel=build --cat=see --buildscroll=brunnen` (Bauliste bis zum Gebäude rollen), `--rewardtest=1`
+  (Belohnung mit Einwanderern, Lagerüberlauf und ein Hungertod).
+
 ## Testversion
 
 Pushes auf den Zweig `claude/entwicklungsbaum-x33t1h` landen unter `/New_World/test/`, main unter `/`
@@ -430,7 +506,7 @@ Pushes auf den Zweig `claude/entwicklungsbaum-x33t1h` landen unter `/New_World/t
 
 ## Datenformate
 
-- **resources.json**: `{id: {name, icon, category: "material"|"food", nutrition?, vitamins?, size, order}}`.
+- **resources.json**: `{id: {name, icon, category: "material"|"food", nutrition?, vitamins?, size, order, price?}}`.
   Alles mit `category: food` wird gegessen.
 - **nodes.json**: Rohstoffquellen. `yield`, `capacity`, `work_time`, `skill`, `terrain`
   (`grass`, `land`, `shore_water`), `solid`, `regrow_days`, `on_empty` (`regrow`|`remove`),
@@ -451,7 +527,8 @@ Pushes auf den Zweig `claude/entwicklungsbaum-x33t1h` landen unter `/New_World/t
   Spielstand) kehren ausgeräumte Baue zurück und jeder Bau wird einmalig auf `den_cap` Tiere aufgefüllt. Version 1 (nur `world`) wird beim Laden als
   Heimatinsel übernommen. Version 1 und 2 hatten ein gemeinsames `stock`: das bekommt beim Laden
   die Heimatinsel. Das Gelände wird aus dem Seed neu erzeugt, nur Rohstoffe, Gebäude,
-  Siedler und Tiere werden gespeichert.
+  Siedler und Tiere werden gespeichert. Seit den neuen Regeln außerdem `rules`, `rules_day`, `rules_due`
+  (siehe „Regeln ab Version 2“) und die Schlüssel der einzelnen Systeme (über `Game.state_save`).
 
 ## Erweitern (spätere Etappen)
 
@@ -475,6 +552,8 @@ godot --headless -- --autotest=120 --scale=10 --tuttest=1  # spielt die Einführ
 godot --headless -- --autotest=150 --scale=10 --schooltest=1  # Steinhaus und Schule: Geburten, Schulkinder
 godot --headless -- --autotest=230 --scale=10 --build=1   # ein ganzes Jahr, Bericht mit Jahreszeit und Holz
 godot --headless -- --autotest=300 --scale=10 --seatest=1  # Werft, drei Inseln entdecken und besiedeln
+godot --headless --fixed-fps 60 -- --autotest=60 --scale=10 --fixture=alt.json  # alten Spielstand weiterspielen
+#   --fixed-fps 60 vor "--" rechnet so schnell wie moeglich (gleicher Spielverlauf); --seed=N feste Insel
 #   dazu --wildlife=1: Tierbestand je Insel und Bau; --weak=1: ohne Waffenkunde (Tiere gefährlicher), Bildschirmfoto: --island=<id>, --panel=sea
 # Bildschirmfoto-Optionen: --panel=research|build|stock, --selectb=<typ>, --look=1
 xvfb-run godot --rendering-driver opengl3 -- --autotest=20 --shot=/tmp/bild.png

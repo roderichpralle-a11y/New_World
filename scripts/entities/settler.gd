@@ -292,9 +292,10 @@ func _needs(days: float) -> void:
 	_update_scale()
 	if health <= 0.0:
 		var why := mind.death_reason()
-		world.kill_settler(self, why if why != "" else tr("verhungert"))
+		# Ohne Krankheit ist der Siedler verhungert (Schluessel "starve" fuer die Statistik)
+		world.kill_settler(self, why if why != "" else tr("verhungert"), "sick" if why != "" else "starve")
 	elif age >= max_age + Game.eff_add("life"):
-		world.kill_settler(self, tr("im hohen Alter von %d Jahren gestorben") % int(age))
+		world.kill_settler(self, tr("im hohen Alter von %d Jahren gestorben") % int(age), "old")
 
 
 ## Kinder lernen beim Spielen ein wenig, in der Schule viel, vor allem in ihren Begabungen.
@@ -1208,7 +1209,7 @@ func take_damage(n: float, by) -> void:
 	world.spawn_effect("blood", position + Vector2(0, -8))
 	if health <= 0.0:
 		var who: String = by.def.get("by", tr("von einem Tier")) if by is Animal else tr("von einem Tier")
-		world.kill_settler(self, tr("%s getötet worden") % who)
+		world.kill_settler(self, tr("%s getötet worden") % who, "killed")
 
 
 func _face(v: Vector2) -> void:

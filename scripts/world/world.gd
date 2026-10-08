@@ -819,18 +819,26 @@ func unique_name(sex: String, rng: RandomNumberGenerator) -> String:
 	return name + " " + ["II", "III", "IV", "V"][rng.randi() % 4]
 
 
-func spawn_newcomer(sex: String) -> Settler:
+## Erwachsener Neuankoemmling am Strand (Schiffbruechige, Einwanderer). opts (Game.spawn_immigrants):
+## talent (Faehigkeit mit sicherer Begabung), talent_val, skill (Stufe darin), hunger (Standard 40).
+func spawn_newcomer(sex: String, opts: Dictionary = {}) -> Settler:
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
 	var best = beach_near(rng)
 	if best == null:
 		return null
 	var mind := SettlerMind.roll(rng)
+	var talent := str(opts.get("talent", ""))
+	if Data.skills.has(talent):
+		mind.talents[talent] = maxf(float(mind.talents[talent]),
+			float(opts.get("talent_val", rng.randf_range(1.5, float(Data.ppl("talent_max"))))))
 	var skills := {}
 	for sk in Data.skills:
 		skills[sk] = clampi(roundi(1.0 + (float(mind.talents[sk]) - 0.8) * 3.0 + rng.randf_range(0.0, 1.0)), 1, 5)
+	if Data.skills.has(talent):
+		skills[talent] = maxi(int(skills[talent]), int(opts.get("skill", clampi(4 + Game.current_age() / 2, 4, 7))))
 	var s := spawn_settler({"name": unique_name(sex, rng), "sex": sex, "age": rng.randf_range(4.0, 12.0),
-		"skills": skills, "mind": mind, "job": "frei", "x": best.x, "y": best.y, "hunger": 40.0})
+		"skills": skills, "mind": mind, "job": "frei", "x": best.x, "y": best.y, "hunger": float(opts.get("hunger", 40.0))})
 	assign_homes()
 	spawn_effect("chips_fischgrund", s.position)
 	Game.on_population_changed()
@@ -874,7 +882,8 @@ func remove_settler(s: Settler) -> void:
 	assign_homes()
 
 
-func kill_settler(s: Settler, reason: String) -> void:
+## reason: Anzeigetext, cause: Schluessel der Todesart ("starve", "sick", "old", "killed").
+func kill_settler(s: Settler, reason: String, cause: String = "") -> void:
 	if not settlers.has(s):
 		return
 	s.abort_plan()
@@ -885,7 +894,7 @@ func kill_settler(s: Settler, reason: String) -> void:
 	_add_grave(s.position, Game.time_days + 3.0)
 	s.queue_free()
 	assign_homes()
-	Game.on_settler_died(s, reason)
+	Game.on_settler_died(s, reason, cause)
 
 
 func _add_grave(p: Vector2, until: float) -> void:

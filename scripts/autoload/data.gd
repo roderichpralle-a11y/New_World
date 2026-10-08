@@ -58,6 +58,8 @@ const BUILDING_CELLS := {
 	"factory": [39, 1], "cannery": [40, 1], "tenement": [41, 1], "powerplant": [42, 1],
 	"greenhouse": [43, 1], "apartment": [44, 1], "electronics": [45, 1], "solarpark": [46, 1],
 	"lab": [47, 1], "ai_center": [48, 1], "fusion": [49, 1], "future_city": [50, 1],
+	# Herausforderung (tools/gen_art_challenge.py)
+	"tablets": [51, 1], "well": [52, 1],
 }
 ## Etappe 3 in objects2.png: name -> [x, y, w, h, frames]
 const OBJECT2_REGIONS := {
@@ -65,13 +67,15 @@ const OBJECT2_REGIONS := {
 	"cave": [96, 0, 32, 48, 1],
 	"mushrooms": [0, 48, 16, 16, 1], "ore_rock": [16, 48, 16, 16, 1], "gold_rock": [32, 48, 16, 16, 1],
 	"den": [48, 48, 16, 16, 1], "wallow": [64, 48, 16, 16, 1], "carcass": [80, 48, 16, 16, 1],
-	"arrow": [96, 48, 16, 16, 1],
+	"arrow": [96, 48, 16, 16, 1], "spice_full": [112, 48, 16, 16, 1], "spice_empty": [128, 48, 16, 16, 1],
 	"boat": [0, 64, 32, 32, 2],
 	"ship_kogge": [0, 96, 48, 48, 2], "ship_fast": [96, 96, 48, 48, 2], "ship_galleon": [192, 96, 48, 48, 2],
 }
 ## Tiere in animals.png: Zellen 24x24, je Tier eine Zeile (Zeile aus animals.json),
 ## Spalten 0-3 Laufen, 4 Angriff.
 const ANIMAL_CELL := 24
+## Zeilen in animals.png fuer Figuren, die nicht in animals.json stehen (Piraten: events.json).
+const ANIMAL_ROWS := {"pirat": 3}
 const TOOL_INDEX := {"axe": 0, "pick": 1, "basket": 2, "rod": 3, "hammer": 4, "sickle": 5,
 	"spoon": 6, "book": 7, "shovel": 8, "spear": 9}
 
@@ -284,7 +288,7 @@ func animal_tex(type: String, frame: int) -> AtlasTexture:
 		return _cache[key]
 	var at := AtlasTexture.new()
 	at.atlas = tex_animals
-	var row := int(animals.get(type, {}).get("row", 0))
+	var row := int(animals.get(type, {}).get("row", ANIMAL_ROWS.get(type, 0)))
 	at.region = Rect2(frame * ANIMAL_CELL, row * ANIMAL_CELL, ANIMAL_CELL, ANIMAL_CELL)
 	_cache[key] = at
 	return at

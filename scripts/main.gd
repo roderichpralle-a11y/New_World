@@ -14,10 +14,12 @@ func _ready() -> void:
 	camera.make_current()
 	Sea.world_root = self
 	Sea.island_switched.connect(_on_island_switched)
+	_copy_fixture()
 	var save := Game.load_save()
 	if not save.is_empty():
 		Game.apply_save_header(save)
 		Sea.build_from_save(save)
+		Game.after_load(save)  # Systeme lesen ihre Schluessel, alte Spielstaende bekommen die neuen Regeln
 		world = Game.world
 	if world == null:
 		_new_world()
@@ -80,24 +82,54 @@ func _autotest_move(wait: float) -> void:
 	print("Nach dem Verschieben: ", world.settlers.map(func(s): return "%s schläft=%s %s" % [s.display_name, s.sleeping, s.cell]))
 	Game.save_game()
 
-## Aufruf: godot -- --autotest=600 --scale=8 --shot=/pfad/bild.png
-## Startet ein neues Spiel, simuliert und schreibt Zustandsberichte.
-func _maybe_autotest() -> void:
+## Testaufrufe: alles nach "--" als {name: wert}; "--x" ohne Wert heisst "1".
+static func _user_args() -> Dictionary:
 	var args := {}
 	for a in OS.get_cmdline_user_args():
 		var kv := a.trim_prefix("--").split("=", true, 1)
 		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
+	return args
+
+
+## Testhilfe --fixture=<pfad>: alten Spielstand vor dem Laden in den aktiven Platz kopieren
+## (danach laeuft der Test wie mit --keep weiter).
+func _copy_fixture() -> void:
+	var path := str(_user_args().get("fixture", ""))
+	if path == "":
+		return
+	var text := FileAccess.get_file_as_string(path)
+	if text == "":
+		push_error("Fixture fehlt: " + path)
+		return
+	var f := FileAccess.open(Game.SAVE_PATH, FileAccess.WRITE)
+	if f:
+		f.store_string(text)
+		f.close()
+		print("Fixture geladen: ", path, " -> ", Game.SAVE_PATH)
+
+
+## Aufruf: godot -- --autotest=600 --scale=8 --shot=/pfad/bild.png
+## Startet ein neues Spiel, simuliert und schreibt Zustandsberichte.
+func _maybe_autotest() -> void:
+	var args := _user_args()
 	if not args.has("autotest"):
 		return
 	_args = args
 	hud._overlay_clear()
-	if not args.has("keep"):
+	if not args.has("keep") and not args.has("fixture"):
 		_on_new_game()
 	var secs := float(args.autotest)
 	var scale := float(args.get("scale", "8"))
 	Game.set_speed(1)
 	Engine.time_scale = scale
 	Game.notified.connect(func(t, _i, _c): print("[Tag %d %s] %s" % [Game.day(), Game.clock_text(), t]))
+	if Game.rules_due:
+		# Alter Spielstand: statt des Fensters "Neue Regeln" die Zeilen ausgeben (einmal)
+		print("NEUE REGELN (Spielstand mit Regelstand %d, gilt ab Tag %.2f): %d Zeilen" % [Game.rules_old, Game.rules_day, Game.rules_lines.size()])
+		for line in Game.rules_lines:
+			print("   - ", line)
+		Game.rules_seen()
+	Game.flush_notes()
 	if args.has("season"):
 		# Testhilfe: Start in einer Jahreszeit (0 Frühling .. 3 Winter)
 		Seasons.jump_to_season(int(args.season))
@@ -170,6 +202,18 @@ func _maybe_autotest() -> void:
 		for b in world.buildings.duplicate():
 			if b.type == "huette":
 				print("Ausbau: ", world.upgrade_building(b) != null)
+	if args.has("place"):
+		# Testhilfe: fertige Gebaeude nahe der Mitte hinstellen, z. B. --place=brunnen,tafelmacherei
+		for type in str(args.place).split(","):
+			if Data.buildings.has(type):
+				print("platziert ", type, " ", _place_on(world, type))
+		Game.refresh_effects()
+	if args.has("rewardtest"):
+		_autotest_reward()
+	# Systeme (Game.systems) richten ihre eigenen Testhilfen ein
+	for sys in Game.systems:
+		if is_instance_valid(sys) and sys.has_method("autotest_setup"):
+			await sys.autotest_setup(args, self)
 	var elapsed := 0.0
 	var next_report := 0.0
 	while elapsed < secs:
@@ -223,6 +267,11 @@ func _maybe_autotest() -> void:
 						ns[n.type] = e
 				print("   Knoten [Anzahl, Vorrat, naechstes Nachwachsen in Tagen]: ", ns)
 			print("   %s, Jahr %d: Holz %d, frierend %d Inseln" % [Seasons.short_text(), Seasons.year(), Game.amount("holz"), Seasons.cold.size()])
+			for sys in Game.systems:
+				if is_instance_valid(sys) and sys.has_method("autotest_report"):
+					var rep = sys.autotest_report()
+					if rep is String and rep != "":
+						print("   ", rep)
 			print("t=%d Tag %d %s pop=%d/%d holz=%d stein=%d food=%d | %s" % [elapsed, Game.day(), Game.clock_text(),
 				Game.population(), Game.housing_capacity(), Game.amount("holz"), Game.amount("stein"), Game.total_food(), jobs])
 		if Game.is_over:
@@ -312,6 +361,13 @@ func _maybe_autotest() -> void:
 					hud._build_cat = args.get("cat", "nahrung")
 					hud._fill_build_list()
 					hud._toggle(hud._build_panel)
+					if args.has("buildscroll"):
+						# Testhilfe: Liste bis zu diesem Gebaeude rollen, z. B. --buildscroll=brunnen
+						await get_tree().process_frame
+						await get_tree().process_frame
+						for row in hud._build_list.get_children():
+							if row.get_meta("btype", "") == args.buildscroll:
+								(hud._build_list.get_parent() as ScrollContainer).scroll_vertical = int(row.position.y)
 		if args.has("shipcam") and not world._ship_nodes.is_empty():
 			var spn = world._ship_nodes.values()[0]
 			print("Schiffe im Bild: ", world._ship_nodes.size(), " Hafen ", world.harbor_cell(), " Schiff ", world.pos_to_cell(spn.position))
@@ -335,6 +391,9 @@ func _maybe_autotest() -> void:
 		if args.has("look"):
 			Game.select(null)
 			camera.focus(world.cell_to_pos(world.center))
+		if args.has("rulesdialog"):
+			# Bildschirmfoto des Fensters "Neue Regeln" (ohne alten Spielstand mit Beispielzeilen)
+			hud.show_rules_dialog(Game.rules_lines if not Game.rules_lines.is_empty() else _sample_rules_lines(), Callable(), false)
 		await get_tree().create_timer(0.5).timeout
 		await RenderingServer.frame_post_draw
 		get_viewport().get_texture().get_image().save_png(args.shot)
@@ -593,6 +652,21 @@ func _roomy(type: String, cc: Vector2i) -> bool:
 	return true
 
 
+## Testhilfe --rewardtest=1: Belohnung mit Einwanderern und Waren (auch zu viel fuer das Lager)
+## und ein Hungertod (Statistik starved/starve_day).
+func _autotest_reward() -> void:
+	var before := world.settlers.size()
+	var text := Game.grant_reward(world, {"settlers": 3, "bretter": 10, "stein": 5000, "unbekannt": 4}, {"talent": "wissen"})
+	var neu: Array = world.settlers.slice(before)
+	print("Belohnung: '", text, "' neu: ", neu.map(func(s): return "%s %s alt=%.1f wissen=%d begabung=%.2f satt=%d" % [s.display_name, s.sex, s.age,
+		int(s.skills.wissen), float(s.mind.talents.wissen), int(s.hunger)]), " verwandt=", Game.related(neu[0].id, neu[1].id) if neu.size() > 1 else false)
+	print("Einwanderer ohne Insel: ", Game.spawn_immigrants(null, 1).size(), " Ziel: ", Sea.island_name(Game.immigrant_world()))
+	var s = world.settlers[-1]
+	s.hunger = 0.0
+	s.health = 0.5
+	Game.settler_died.connect(func(x, cause): print("Gestorben: ", x.display_name, " Ursache=", cause, " starved=", Game.stats.get("starved", 0), " starve_day=%.2f" % float(Game.stats.get("starve_day", 0))), CONNECT_ONE_SHOT)
+
+
 ## Steinhaus und Schule fertig hinstellen, viel Essen: Geburten und Schulkinder beobachten.
 func _autotest_school() -> void:
 	for t in Data.techs:
@@ -687,8 +761,21 @@ func _update_ui_scale() -> void:
 		win.content_scale_size = target
 
 
+## Beispielzeilen fuer das Fenster "Neue Regeln" (Testhilfe --rulesdialog=1).
+func _sample_rules_lines() -> Array:
+	return [tr("Forschung ab der Antike verbraucht Tontafeln (Tafelmacherei), später Papier, Strom und Elektronik. Forschungen kosten mehr."),
+		tr("Winter und Sommer sind jedes Jahr anders. Im Herbst sagen die Alten voraus, wie hart der Winter wird."),
+		tr("Häuser haben Bedürfnisse. Nur zufriedene Häuser stellen Fachkräfte für höhere Werkstätten (z. B. Schmiede ab Holzhaus-Stufe)."),
+		tr("Jede Inselart hat Stärken. Palmeninseln haben Gewürze. Händler kommen an Häfen und handeln gegen Gold."),
+		tr("Ab dem zweiten Jahr kündigen sich Ereignisse an: Dürre, Ratten, Brand, Seuche, Sturmflut und ab dem Mittelalter Piraten. Wer sie gut übersteht, bekommt Einwanderer."),
+		tr("Neue Aufträge mit Wahl: du suchst dir einen von drei aus. Belohnungen sind Einwanderer, dauerhafte Segen, Baupläne oder seltene Waren."),
+		tr("Ein neues Zeitalter beginnt erst nach einer Prüfung. Jede bestandene Prüfung bringt ein Fest, Einwanderer und Waren. Neu: Menü > Wertung mit Rekorden.")]
+
+
 func _new_world() -> void:
 	var seed_value := randi() % 1000000
+	if _user_args().has("seed"):
+		seed_value = int(_user_args().seed)  # Testhilfe --seed=N: immer dieselbe Insel
 	Game.reset_state(seed_value)
 	world = Sea.create_world_node(0)
 	world.visible = true
@@ -729,6 +816,7 @@ func _on_new_game() -> void:
 	_focus_start()
 	Game.set_speed(1)
 	Game.save_game()
+	Game.flush_notes()
 	Game.notify(tr("Willkommen auf deiner Insel! Lena und Jonas brauchen ein Zuhause für Nachwuchs."), "sonne")
 
 
@@ -736,6 +824,14 @@ func _on_continue() -> void:
 	Sound.in_title = false
 	Game.set_speed(1)
 	Game.notify(tr("Willkommen zurück! Tag %d.") % Game.day(), "sonne")
+	# Alter Spielstand: einmal das Fenster "Neue Regeln", danach die beim Laden gemerkten Meldungen
+	if Game.rules_due and not Game.rules_lines.is_empty():
+		hud.show_rules_dialog(Game.rules_lines, func():
+			Game.rules_seen()
+			Game.flush_notes())
+	else:
+		Game.rules_seen()
+		Game.flush_notes()
 
 
 func _on_tap(p: Vector2, touch: bool = false) -> void:

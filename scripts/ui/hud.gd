@@ -1587,6 +1587,102 @@ func _show_update_dialog() -> void:
 	row.add_child(later)
 
 
+## Fenster "Neue Regeln": erscheint einmal, wenn ein Spielstand von vor den neuen Regeln
+## weiterlaeuft (main._on_continue). lines = Game.rules_lines (je Neuerung eine Zeile, schon
+## uebersetzt). Haelt das Spiel an, bis "Verstanden" getippt ist; danach on_close.
+var _rules_dialog: Control
+var _rules_panel: PanelContainer
+var _rules_scroll: ScrollContainer
+var _rules_list: VBoxContainer
+var _rules_texts: Array = []
+var _rules_prev_speed := 1
+
+
+func show_rules_dialog(lines: Array, on_close: Callable = Callable(), pause: bool = true) -> void:
+	if _rules_dialog and is_instance_valid(_rules_dialog):
+		_rules_dialog.queue_free()
+	var bg := ColorRect.new()
+	bg.color = Color(0.05, 0.08, 0.15, 0.4)
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.mouse_filter = Control.MOUSE_FILTER_STOP
+	root.add_child(bg)
+	_rules_dialog = bg
+	var c := CenterContainer.new()
+	c.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.add_child(c)
+	var p := PanelContainer.new()
+	c.add_child(p)
+	_rules_panel = p
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 8)
+	p.add_child(v)
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 6)
+	head.alignment = BoxContainer.ALIGNMENT_CENTER
+	head.add_child(UiTheme.icon_rect(Data.icon("ereignis"), 22))
+	head.add_child(UiTheme.label(tr("Neue Regeln"), 22, UiTheme.TEXT, true))
+	v.add_child(head)
+	var intro := UiTheme.label(tr("Das Spiel ist jetzt herausfordernder. Für deinen Spielstand gilt ab heute:"), 14)
+	intro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(intro)
+	_rules_texts = [intro]
+	_rules_scroll = ScrollContainer.new()
+	_rules_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	v.add_child(_rules_scroll)
+	_rules_list = VBoxContainer.new()
+	_rules_list.add_theme_constant_override("separation", 7)
+	_rules_scroll.add_child(_rules_list)
+	for line in lines:
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 6)
+		var dot := CenterContainer.new()  # Aufzaehlungspunkt auf Hoehe der ersten Zeile
+		dot.custom_minimum_size = Vector2(16, 19)
+		dot.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		var sq := ColorRect.new()
+		sq.color = UiTheme.ACCENT
+		sq.custom_minimum_size = Vector2(6, 6)
+		dot.add_child(sq)
+		row.add_child(dot)
+		var l := UiTheme.label(str(line), 15)
+		l.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED  # Zeilen kommen schon uebersetzt
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		row.add_child(l)
+		_rules_list.add_child(row)
+		_rules_texts.append(l)
+	var ok := UiTheme.button(tr("Verstanden"), "play", 44)
+	ok.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	ok.custom_minimum_size.x = 160
+	v.add_child(ok)
+	if pause:
+		_rules_prev_speed = maxi(1, Game.speed)
+		Game.set_speed(0)
+	ok.pressed.connect(func():
+		bg.queue_free()
+		_rules_dialog = null
+		if pause:
+			Game.set_speed(_rules_prev_speed)
+		if on_close.is_valid():
+			on_close.call())
+	_fit_rules_dialog()
+	_fit_rules_dialog.call_deferred()
+
+
+## Breite und Hoehe des Regel-Fensters an den Bildschirm anpassen (auch bei Drehung).
+func _fit_rules_dialog() -> void:
+	if _rules_dialog == null or not is_instance_valid(_rules_dialog):
+		return
+	var vs := get_viewport().get_visible_rect().size
+	var w: float = minf(620.0, vs.x - 28.0)
+	for l in _rules_texts:
+		if is_instance_valid(l):
+			l.custom_minimum_size.x = w - 22.0 if l != _rules_texts[0] else w
+	var need := _rules_list.get_combined_minimum_size().y
+	var sz := Vector2(w, minf(need, maxf(120.0, vs.y - 165.0)))
+	if _rules_scroll.custom_minimum_size != sz:
+		_rules_scroll.custom_minimum_size = sz
+		_rules_panel.reset_size()
+
+
 func _slot_button(text: String) -> Button:
 	var b := Button.new()
 	b.text = text
@@ -2392,7 +2488,8 @@ func _overlay_clear() -> void:
 
 
 func has_overlay() -> bool:
-	return _overlay != null
+	# Auch das Fenster "Neue Regeln" (Spiel angehalten; Zeigerpfeil und Ziele warten)
+	return _overlay != null or (_rules_dialog != null and is_instance_valid(_rules_dialog))
 
 
 # ================================================================== Layout
@@ -2482,6 +2579,8 @@ func _process(delta: float) -> void:
 	_day_icon.texture = Data.icon("mond" if Game.is_night() else "sonne")
 	_season_icon.texture = Seasons.icon()
 	_season_label.text = Seasons.short_text()
+	if _rules_dialog:
+		_fit_rules_dialog()
 	_research_tick -= delta
 	if _research_tick <= 0.0:
 		_research_tick = 0.5
