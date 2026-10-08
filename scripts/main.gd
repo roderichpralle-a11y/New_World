@@ -253,6 +253,9 @@ func _maybe_autotest() -> void:
 					hud._toggle(hud._notify_panel)
 				"slots":
 					hud._open_slots()
+				"update":
+					hud._server_version = "1.0.999"
+					hud._on_update_available()
 				"stock":
 					hud._refresh_stock(true)
 					hud._toggle(hud._stock_panel)

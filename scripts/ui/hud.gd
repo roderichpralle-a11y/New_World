@@ -1497,9 +1497,12 @@ func _file_dialog(mode: int) -> FileDialog:
 
 ## Neue Version: Die Web-App liefert aus ihrem Offline-Speicher oft noch die alte Version. Darum
 ## fragt das Spiel beim Start und alle 10 Minuten version.txt vom Server ab (schreibt der Web-Build).
-## Ist sie neuer: auf dem Titelbild sofort laden, im Spiel melden.
+## Ist sie neuer, fragt ein Fenster, ob sie jetzt geladen werden soll. Geladen wird nur von Hand
+## ("Jetzt laden" oder Menue > "Neue Version laden!"), nie von selbst.
 var _version_cb  # JavaScriptObject, muss leben bleiben
 var _version_timer := 0.0
+var _server_version := ""
+var _update_dialog: Control
 
 
 func _watch_updates() -> void:
@@ -1523,6 +1526,7 @@ func _on_server_version(v: String) -> void:
 	# Nur eine Versionsnummer wie 1.0.43 zaehlt (keine Fehlerseite)
 	if v == mine or v.length() > 20 or not v.replace(".", "").is_valid_int():
 		return
+	_server_version = v
 	_on_update_available()
 
 
@@ -1530,12 +1534,57 @@ func _on_update_available() -> void:
 	if _update_ready:
 		return
 	_update_ready = true
-	if has_overlay() and Sound.in_title:
-		Game.load_newest_version()
-		return
 	if _update_btn:
 		_update_btn.text = tr("Neue Version laden!")
-	toast(tr("Eine neue Version des Spiels ist da. Menü > Neue Version laden."), "sonne")
+	_show_update_dialog()
+
+
+## Fenster "Neue Version": laedt erst, wenn der Spieler "Jetzt laden" tippt.
+func _show_update_dialog() -> void:
+	if _update_dialog and is_instance_valid(_update_dialog):
+		_update_dialog.queue_free()
+	var bg := ColorRect.new()
+	bg.color = Color(0.05, 0.08, 0.15, 0.35)
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.mouse_filter = Control.MOUSE_FILTER_STOP
+	root.add_child(bg)
+	_update_dialog = bg
+	var c := CenterContainer.new()
+	c.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.add_child(c)
+	var p := PanelContainer.new()
+	c.add_child(p)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 10)
+	p.add_child(v)
+	var t := UiTheme.label(tr("Neue Version"), 22, UiTheme.TEXT, true)
+	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(t)
+	var mine := str(ProjectSettings.get_setting("application/config/version", ""))
+	var text := tr("Eine neue Version des Spiels ist da.")
+	if _server_version != "":
+		text += "\n" + tr("Deine Version: %s   Neu: %s") % [mine, _server_version]
+	text += "\n" + tr("Beim Laden wird dein Spiel gespeichert.")
+	var l := UiTheme.label(text, 15)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.custom_minimum_size.x = 300
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(l)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.add_child(row)
+	var go := UiTheme.button(tr("Jetzt laden"), "schnell", 44)
+	go.pressed.connect(func():
+		toast(tr("Lade die neueste Version ..."), "haus")
+		Game.load_newest_version())
+	row.add_child(go)
+	var later := UiTheme.button(tr("Später"), "abriss", 44)
+	later.pressed.connect(func():
+		bg.queue_free()
+		_update_dialog = null
+		toast(tr("Die neue Version lädst du jederzeit über Menü > Neue Version laden!"), "sonne"))
+	row.add_child(later)
 
 
 func _slot_button(text: String) -> Button:
@@ -2303,6 +2352,8 @@ func show_title(has_save: bool) -> void:
 	v.add_child(_language_row())
 	v.add_child(_version_label())
 	root.move_child(_help_panel, -1)
+	if _update_dialog and is_instance_valid(_update_dialog):
+		root.move_child(_update_dialog, -1)
 
 
 func _show_game_over() -> void:
