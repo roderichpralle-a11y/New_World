@@ -659,7 +659,8 @@ func _autotest_reward() -> void:
 	var text := Game.grant_reward(world, {"settlers": 3, "bretter": 10, "stein": 5000, "unbekannt": 4}, {"talent": "wissen"})
 	var neu: Array = world.settlers.slice(before)
 	print("Belohnung: '", text, "' neu: ", neu.map(func(s): return "%s %s alt=%.1f wissen=%d begabung=%.2f satt=%d" % [s.display_name, s.sex, s.age,
-		int(s.skills.wissen), float(s.mind.talents.wissen), int(s.hunger)]), " verwandt=", Game.related(neu[0].id, neu[1].id) if neu.size() > 1 else false)
+		int(s.skills.wissen), float(s.mind.talents.wissen), int(s.hunger)]))
+	print("Belohnung verwandt=", Game.related(neu[0].id, neu[1].id) if neu.size() > 1 else false)
 	print("Einwanderer ohne Insel: ", Game.spawn_immigrants(null, 1).size(), " Ziel: ", Sea.island_name(Game.immigrant_world()))
 	var s = world.settlers[-1]
 	s.hunger = 0.0
