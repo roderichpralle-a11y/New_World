@@ -487,7 +487,8 @@ Branch `gh-pages` (GitHub Pages).
 **Neueste Version laden:** Godots Service Worker (PWA) liefert beim Neuladen zuerst die alte Version
 aus dem Cache; sein Signal `pwa_update_available` kommt dabei nicht an. Darum schreibt der Build
 `version.txt` (gleiche Nummer wie im Spiel). Das HUD holt die Datei beim Start und alle 10 Minuten
-ohne Cache (`_watch_updates`). Ist sie neuer, lädt das Titelbild sofort neu, im laufenden Spiel kommt
-eine Meldung und der Menüknopf heißt „Neue Version laden!“. `Game.load_newest_version()` speichert,
+ohne Cache (`_watch_updates`). Ist sie neuer, erscheint ein Fenster „Neue Version“ mit „Jetzt laden“ und
+„Später“ (auch auf dem Titelbild, josh 2026-10-08: geladen wird nur von Hand), und der Menüknopf heißt
+„Neue Version laden!“. Test: `--panel=update --shot=...`. `Game.load_newest_version()` speichert,
 sperrt weiteres Speichern, löscht nur die Caches `Insel-Siedler-sw-cache-*` (die KI-Modelle liegen in
 anderen Caches), meldet den Service Worker ab, holt index.html/js/pck neu und lädt mit `?v=` neu.
