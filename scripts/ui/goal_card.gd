@@ -149,6 +149,8 @@ func progress(g: Dictionary) -> Array:
 		"pop":
 			return [Game.population() + Sea.people_at_sea(), n]
 		"techs":
+			if c.get("all", false):
+				n = Data.techs.size()
 			return [Game.research.done.size(), min(n, Data.techs.size())]
 		"tier":
 			var best := 0
