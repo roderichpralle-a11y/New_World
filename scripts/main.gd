@@ -216,6 +216,9 @@ func _maybe_autotest() -> void:
 			await sys.autotest_setup(args, self)
 	if args.has("integtest"):
 		await IntegrationTest.run(self)  # Zusammenspiel der Erweiterungen (scripts/autoload/integration_test.gd)
+	if args.has("bot"):
+		_bot = load("res://scripts/world/bot.gd").new()  # Spiel-Bot v2 (scripts/world/bot.gd)
+		_bot.setup(self, args)
 	var elapsed := 0.0
 	var next_report := 0.0
 	while elapsed < secs:
@@ -231,6 +234,8 @@ func _maybe_autotest() -> void:
 				world.stock[id] = max(Game.amount(id), 40)
 		if args.has("seatest"):
 			_autotest_sea_tick(elapsed)
+		if _bot:
+			_bot.tick(elapsed)
 		if args.has("tuttest"):
 			_autotest_tutorial()
 		if args.has("research") and not world.settlers.any(func(s): return s.job == "forscher"):
@@ -280,10 +285,14 @@ func _maybe_autotest() -> void:
 					var rep = sys.autotest_report()
 					if rep is String and rep != "":
 						print("   ", rep)
+			if _bot:
+				_bot.report()
 			print("t=%d Tag %d %s pop=%d/%d holz=%d stein=%d food=%d | %s" % [elapsed, Game.day(), Game.clock_text(),
 				Game.population(), Game.housing_capacity(), Game.amount("holz"), Game.amount("stein"), Game.total_food(), jobs])
 		if Game.is_over:
 			break
+	if _bot:
+		_bot.finish()
 	if args.has("storetest"):
 		_autotest_store()
 	if args.has("langcheck"):
@@ -710,6 +719,7 @@ func _autotest_school() -> void:
 
 
 var _args := {}
+var _bot = null  # Spiel-Bot v2 (--bot=1)
 const AGE_TECHS := ["glasmacherei", "papier", "hochschule", "stahl", "fabrik", "konservendose", "mietshaus",
 	"elektrizitaet", "gewaechshaus", "wohnblock", "computer", "solarenergie", "internet", "ki", "fusionsenergie", "zukunftsstadt"]
 
