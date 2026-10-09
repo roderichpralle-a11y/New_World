@@ -11,7 +11,7 @@ const BADGE := Color("#e0a830")
 const BADGE_SOON := Color("#c9b88e")
 const HELP := """[b]Inselstärken, Gewürze und Händler[/b]
 Jede Inselart hat Stärken: Auf Felseninseln arbeiten Mine, Steinbruch und Stahlwerk schneller, auf Waldinseln Sägegrube, Köhlerei und Papiermühle, auf Palmeninseln Räucherei, Konservenfabrik und Solarpark. Die Bauliste und die Seekarte zeigen, wo ein Gebäude schneller ist. Gewürze wachsen nur auf Palmeninseln; Sammler pflücken sie, wenn genug Essen da ist. Städter in Mietshäusern brauchen sie.
-Hat eine Insel einen Hafen (auch die Werft zählt), kommen fremde Händler. Sie werden einen Tag vorher angekündigt und bleiben einen Tag. Tippe oben rechts auf das Händler-Symbol: Sie verkaufen Werkzeug, Eisen, Gewürze und mehr gegen Gold und kaufen deine Waren. Gehandelt wird mit dem Lager der Insel, an der der Händler liegt."""
+Hat eine Insel einen Hafen (auch die Werft zählt), kommen fremde Händler. Sie werden einen Tag vorher angekündigt und bleiben einen Tag. Tippe oben rechts auf das Händler-Symbol: Sie verkaufen Werkzeug, Eisen, Gewürze und mehr, dazu einfache Waren wie Holz, Stein und Bretter, gegen Gold und kaufen deine Waren, auch einfache. Gehandelt wird mit dem Lager der Insel, an der der Händler liegt."""
 
 var hud
 var _title: Label

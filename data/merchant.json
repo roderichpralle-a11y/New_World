@@ -16,6 +16,11 @@
   "spice_offer_chance": 0.5,
   "ship_tint": "#ffc27a",
   "names": ["Kapitän Alvaro", "Händlerin Yara", "Kapitän Bjarne", "Händlerin Selma", "Kapitän Hamid", "Händlerin Mei", "Kapitän Ruiz", "Händlerin Ingrid"],
-  "sells": {"gewuerze": 2, "werkzeug": 2, "eisen": 2, "felle": 2, "ziegel": 2, "tontafel": 2, "glas": 3, "papier": 3, "stahl": 4, "maschinen": 4, "konserven": 4, "elektronik": 6},
-  "buys": ["holz", "bretter", "stein", "ziegel", "kohle", "fisch", "raeucherfisch", "brot", "kokos", "felle", "gewuerze", "werkzeug", "glas", "papier", "stahl"]
+  "sells": {"gewuerze": 2, "werkzeug": 2, "eisen": 2, "felle": 2, "tontafel": 2, "glas": 3, "papier": 3, "stahl": 4, "maschinen": 4, "konserven": 4, "elektronik": 6},
+  "buys": ["fisch", "raeucherfisch", "brot", "kokos", "felle", "gewuerze", "werkzeug", "glas", "papier", "stahl"],
+  "_basic_info": "Einfache Waren: Ware -> ab welchem Zeitalter (Index, 0 = Steinzeit). Jeder Besuch hat basic_sell_lots Verkaufs- und basic_buy_lots Ankaufslose davon, zusätzlich zu sell_lots und buy_lots (die bleiben für seltene Waren). Losgröße für basic_lot_gold Gold.",
+  "basic": {"holz": 0, "stein": 0, "lehm": 0, "weizen": 0, "bretter": 0, "ziegel": 0, "kohle": 1},
+  "basic_sell_lots": 2,
+  "basic_buy_lots": 2,
+  "basic_lot_gold": [3, 6]
 }

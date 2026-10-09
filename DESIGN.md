@@ -384,11 +384,18 @@ Gewürze. Händler kommen an Häfen und handeln gegen Gold.“
   `interval` (4–6) Tage nach der Abfahrt wieder. Kann keine Insel ihn aufnehmen, verschiebt er sich um
   `postpone_days`. Geht die angekündigte Insel bis zur Ankunft nicht mehr (z. B. Piraten angekündigt),
   wählt er eine andere und kündigt sich dort wieder einen Tag vorher an. Seehandel (Wirkung `trade` in techs.json): Abstand x0,7 und ein Verkaufslos mehr.
-- **Lose**: 4 Verkaufs- und 3 Ankaufslose, jedes 1–3-mal (`lot_times`). Losgröße für 6–14 Gold
+- **Lose**: 4 Verkaufs- und 3 Ankaufslose (dazu je 2 einfache, siehe unten), jedes 1–3-mal (`lot_times`). Losgröße für 6–14 Gold
   (`lot_gold`, resources.json `price`), billige Waren in Fünferschritten. Er verkauft zu x1,0–1,25
   (aufgerundet) und kauft zu x0,5–0,65 (abgerundet, mindestens 1 Gold). Angebot je Zeitalter (`sells`:
   Ware → ab Zeitalter); Gewürze bietet er immer an, solange keine Palmeninsel besiedelt ist, sonst in der
-  Hälfte der Besuche. Ankauf aus `buys`, Gewürze zuerst, dann Waren, die die Insel hat. Zufall
+  Hälfte der Besuche. Ankauf aus `buys`, Gewürze zuerst, dann Waren, die die Insel hat.
+  **Einfache Waren** (josh: „Gehandelt werden können auch einfache Güter wie Holz“): zusätzlich je Besuch
+  `basic_sell_lots` (2) Verkaufs- und `basic_buy_lots` (2) Ankaufslose aus `basic` (Holz, Stein, Lehm,
+  Getreide, Bretter, Ziegel ab Steinzeit, Kohle ab Antike; Ware → ab Zeitalter), Losgröße für
+  `basic_lot_gold` (3–6) Gold in Fünferschritten (z. B. 30–60 Holz, 10–25 Bretter), gleiche Preisspannen.
+  Eigener Zufall (`hash([seed, Besuch, "haendler_einfach"])`), eine Ware nie zugleich im Ver- und Ankauf,
+  beim Ankauf zuerst Waren, die die Insel in der Menge hat. Die seltenen Lose bleiben vollständig (4 + 3),
+  Ziegel und die einfachen Waren stehen dafür nicht mehr in `sells`/`buys`. `Merchant.is_basic(id)`. Zufall
   `hash([seed, Besuch, ...])`: gleicher Spielstand, gleiche Lose. Gold und Waren gehören immer der Insel,
   an der er liegt; `buy_block`/`sell_block` liefern den Grund, warum es nicht geht („zu wenig Gold“,
   „kein Platz im Lager“, „ausverkauft“, „nur 3 im Lager“ …). Jeder Handel zählt `stats.trades` und sendet
@@ -405,7 +412,9 @@ Gewürze. Händler kommen an Häfen und handeln gegen Gold.“
   Hafen steht, sonst 2 Tage nach dem ersten Hafen. Neues Spiel: `state_reset` leert alles.
 - **Testhilfen**: `--tradetest2=1` (Werft, Waren und 40 Gold; prüft Lose, gleiche Lose bei gleichem Seed,
   Kauf, Verkauf, Gründe, Schiff, Speichern/Laden, Seehandel, alten Spielstand, Abfahrt, Ankündigung und den
-  zweiten Besuch, druckt „Handel OK/FEHLER“; `=shot` legt nur den Händler hin), `--spicetest=1`
+  zweiten Besuch, druckt „Handel OK/FEHLER“; `=shot` legt nur den Händler hin), `--basictrade=1`
+  (einfache Waren: Anzahl Lose, Losgrößen, 40 Besuche, Kohle erst ab Antike, Kauf, Verkauf, Speichern;
+  druckt „Einfache Waren OK/FEHLER“), `--spicetest=1`
   (Generator, 20 Seeds, Kolonie, Reihenfolge der Sammler, alter Spielstand, Ernte über 2 Tage),
   `--biometest=1` (Tabelle, Arbeitszeit, Planung des Siedlers; je ein Tag Heimat/Felsen/Heimat nur zur
   Info), `--merchant=off` (keine Händler, für vergleichbare Läufe), `--goisland=N` (vor den Tests auf
