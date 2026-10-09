@@ -376,9 +376,11 @@ einmal aufgebaut ist. Dafür gilt:
 `techs.json` hat neben `_tiers` (16 Stufennamen) die Liste `_ages`: acht Zeitalter mit je zwei Stufen
 (Steinzeit 1–2, Antike 3–4, Mittelalter 5–6, Renaissance 7–8, Industrialisierung 9–10, Moderne 11–12,
 Informationszeitalter 13–14, Zukunft 15–16). `Data.age_of_tier(tier)`, `Data.age_name(i)`,
-`Game.current_age()` = spätestes Zeitalter mit mindestens einer erforschten Sache. Beim Eintritt in ein
-neues Zeitalter meldet `_finish_research` es. Im Forschungsmenü steht über jedem Zeitalter eine
+`Game.current_age()` = Zahl der bestandenen Prüfungen (`Exams.passed`, siehe „Prüfungen beim
+Zeitalterwechsel und Wertung“); das neue Zeitalter meldet `Exams.pass_exam`. Im Forschungsmenü steht über jedem Zeitalter eine
 Überschrift; Zeitalter jenseits des nächsten zeigen nur die Überschrift (`_age_header`).
+`_ages[i].writing` nennt die Schreibwaren, die Forscher in diesem Zeitalter verbrauchen (siehe
+„Forschung braucht Schriften“).
 
 - **Neue Waren**: Glas, Papier, Stahl, Maschinen, Strom (Größe 0), Elektronik, Konserven (Nahrung 30/8,
   verdirbt nicht). **Neue Werkstätten** (Handwerker): Glashütte, Papiermühle, Stahlwerk, Fabrik,
@@ -395,6 +397,217 @@ neues Zeitalter meldet `_finish_research` es. Im Forschungsmenü steht über jed
   bei Hungersnot wird auch ein Arbeiter aus Werkstatt oder Forschung zur Nahrung geholt.
 - **Grafik**: `tools/gen_art_ages.py` (Gebäude ab Zelle 35 in buildings.png, Symbole `ICONS_AGES`).
 - **Test**: `--prodtest=1 --ages=1` baut nur die Gebäude der neuen Zeitalter.
+
+## Forschung braucht Schriften
+
+Teil der Regeln ab Version 2 (siehe unten). Forscher verbrauchen ab der Antike Schreibwaren, und
+Forschungen kosten mehr.
+
+- **Verbrauch**: je 100 gutgeschriebene Forschungspunkte (Punkte mal `eff("research")`) die Mengen aus
+  `techs.json` `_ages[i].writing`: Steinzeit nichts, Antike 10 Tontafeln, Mittelalter 4 Tontafeln,
+  Renaissance 2,5 Papier, Industrialisierung 1,5 Papier, Moderne 1 Papier + 2 Strom,
+  Informationszeitalter 2 Strom + 0,15 Elektronik, Zukunft 1,5 Strom + 0,1 Elektronik. Je Forschung ist das
+  fest `ceil(Punkte × Rate / 100)`, z. B. Heilkunde 300 Punkte = 30 Tontafeln, Papier 3900 Punkte = 156
+  Tontafeln. Genommen wird aus dem Lager der Insel des Forschers (Forschung ist gemeinsam, Lager je Insel:
+  eine Kolonie mit eigener Schreibstube braucht eigene Tafeln oder ein Schiff, das sie bringt).
+- **Rückfall**: eine Ware zählt nur, wenn ein Gebäude, das sie herstellt, schon freigeschaltet ist
+  (`Game.is_unlocked`); lässt sich keine Ware des Zeitalters herstellen, gilt die Liste des Zeitalters davor
+  (wiederholt). So brauchen Antike-Forschungen vor der Töpferei nichts, die Forschung Papier noch Tontafeln,
+  Elektrizität nur Papier und Computer nur Strom. Es zählt, was freigeschaltet ist, nicht was gebaut ist:
+  nach Papier brauchen Forschungen Papier, auch wenn noch keine Papiermühle steht (die Meldung sagt dann
+  „Baue: Papiermühle“). Das Ergebnis je Forschung wird zwischengespeichert (`Writing.goods_for`) und in
+  `Game._recompute_effects` geleert.
+- **Fehlt etwas**: liegt von einer Ware keine ganze Einheit im Lager, bringt der Arbeitsgang nur
+  `balance.writing_missing_factor` (0,2) der Punkte und verbraucht nichts. Meldung (Art Forschung) höchstens
+  einmal am Tag je Insel mit dem Gebäude, das fehlt („Baue: Tafelmacherei“) oder nichts liefert („Prüfe:
+  ...“); der Forscher zeigt „Forscht langsam, es fehlen Tontafeln“. Passive Forschung
+  (`passive_research_per_day`) und Punkte aus Belohnungen (`Game.add_research` direkt) bleiben frei.
+- **Code**: Autoload `Writing` (`scripts/autoload/writing.gd`). `Settler._do_research` ruft
+  `world.use_writing(Writing.goods_for(t), pts * eff)` (→ `Writing.consume`) und multipliziert die Punkte
+  mit dem Ergebnis. Bruchteile sammeln sich in `World.writing_debt` (nicht gespeichert: beim Laden geht
+  höchstens eine Einheit je Ware verloren). `stats.writing_used` zählt alle verbrauchten Einheiten (mit
+  `stats.get(k, 0)` lesen).
+- **Tafelmacherei** (Wissen, nach Töpferei, Holz 12 + Stein 6): ein Handwerker formt Lehm 2 → Tontafeln 3
+  (4 s), gemessen etwa 15–25 Tafeln am Tag; eine Lehmgrube mit einem Steinmetz reicht dafür.
+- **Kosten und Punkte**: Kosten Stufe 1 wie bisher, Stufe 2 ×1,5 (aufgerundet), ab Stufe 3 ×2; Gold und
+  Felle bleiben gleich, Backkunst und Tierhaltung kosten weiter Mehl bzw. Weizen. Punkte Stufe 1–4 wie bisher,
+  5–6 ×1,25, 7 ×1,5, 8 ×1,4, ab 9 ×1,25 (ab Stufe 5 auf 50 gerundet; Stufe 7 braucht jetzt mehr als
+  Stufe 6). Die Zahlen stehen direkt in `techs.json` (`research_cost_factor` bleibt 1).
+- **Oberfläche**: jede Forschungszeile „Beim Forschen: 24 Tontafeln“ (Rest für diese Forschung, auch bei
+  gesperrten, in `_row_height` mitgezählt); Kopf des Forschungsfensters „Noch nötig: 63 Tontafeln (Lager: 0)“
+  und rot „Es fehlen Tontafeln: Forschung nur 20 %. Baue: Tafelmacherei.“; Zeitalter-Überschrift
+  „Forscher brauchen: Tontafeln“; Infofenster eines Forschungsgebäudes „Verbraucht beim Forschen:
+  Tontafeln (Lager: N)“ (rot, wenn etwas fehlt; in der Steinzeit „Ab der Antike brauchen Forscher
+  Tontafeln.“).
+- **Alte Spielstände**: nichts zu übernehmen. Bezahlte Forschungen kosten nichts nach, der Fortschritt bleibt
+  in Punkten (der Prozentwert sinkt, wo die Punkte gestiegen sind). Läuft gerade eine Forschung ab der
+  Antike ohne Tafeln, forscht sie mit 20 %, bis eine Tafelmacherei liefert. Zeile im Fenster „Neue Regeln“.
+- **Test**: `--writingtest=1`: prüft zuerst die Rückfall-Regel für elf Forschungsstände und
+  `World.use_writing` direkt, dann Stufe 1–4 erforscht außer Schmiedekunst, Schreibstube, Lehmgrube,
+  Tafelmacherei und Steinhaus fertig, 2 Forscher, Handwerker, Steinmetz, 0 Tontafeln; Tagesbericht
+  „Schrifttest Tag ...“ mit Punkten am Tag, Tafeln hergestellt/verbraucht und langsamen Arbeitsgängen
+  (gemessen: erst etwa 35–40 Punkte am Tag, mit Tafeln 100–135). `--writingtest=2`: ohne Tafelmacherei,
+  bleibt bei etwa 20 Punkten am Tag. `--build=1 --research=1`: sobald eine bezahlte Forschung Tontafeln
+  braucht, baut der Bot Tafelmacherei und Lehmgrube, teilt Steinmetz und Handwerker ein (nur bei genug
+  Essen) und hält beide an, wenn genug auf Vorrat ist (Antike direkt: `--comfort=12`). Bildschirmfoto:
+  `--panel=research --researchscroll=<forschung>`. Der 20-Sekunden-Bericht hat eine Zeile „Schriften: ...“.
+
+## Prüfungen beim Zeitalterwechsel und Wertung
+
+Teil der Regeln ab Version 2. Ein neues Zeitalter beginnt erst nach einer Prüfung; jede bestandene Prüfung
+bringt ein Fest, Einwanderer und Waren. Dazu eine Wertung mit Rekorden (Menü > Wertung).
+
+- **Sperre**: eine Forschung ist nur möglich, wenn ihr Zeitalter (`Data.age_of_tier(tier)`) höchstens
+  `Exams.passed` ist; sonst hat sie den Zustand `exam` (`Game.tech_state`, Reihenfolge done/soon/current/
+  locked/exam/available). `Game.current_age()` = `Exams.passed` (0 = Steinzeit). So lassen sich auch
+  Forschungen mit Voraussetzungen aus früheren Zeitaltern (Handkarren, Glasmacherei, Papier, Uhrwerk) nicht
+  vorziehen. `Game.start_research` meldet „Erst die Prüfung für das Zeitalter X bestehen.“
+- **Prüfungen** in `techs.json` `_ages[i].exam` (i = 0..6; Prüfung i öffnet Zeitalter i+1, die Zukunft hat
+  keine): `{checks: [...], fest_days, reward: {Ware: Menge, "settlers": n}}`. Bedingungen wie bei den Zielen
+  (`GoalChecks`), dazu neu `age_techs` {age, n} (erforschte Forschungen dieses Zeitalters), `houses` {what, n}
+  (dieses Haus oder ein besseres über `upgrade`, mit Teil B auch über `level`), `no_starve_days` {n} (Tage
+  seit dem letzten Hungertod, `stats.starve_day`), `food` {n}, `variety` mit `all` (alle Inseln), `tech`
+  {what}, `exams` {n}. Waren werden auf allen Inseln gezählt und nicht verbraucht. Unbekannte Gebäude-IDs
+  zählen 0 und erscheinen lesbar („Mietshaus“). Werte (zum Nachjustieren nach josh's Spieltest):
+  - Steinzeit → Antike: 8 Steinzeit-Forschungen, 6 Siedler, 1 Holzhaus (oder besser), 3 Sorten Nahrung;
+    2 Einwanderer, 10 Bretter, 10 Ziegel, 10 Tontafeln.
+  - Antike → Mittelalter: 8 Antike-Forschungen, 12 Siedler, 1 Steinhaus, 20 Brot, 10 Werkzeug, 12 Tage ohne
+    Hungertod; 2 Einwanderer, 10 Werkzeug, 6 Eisen.
+  - Mittelalter → Renaissance: 8 Forschungen, 20 Siedler, 2 besiedelte Inseln, 1 Wachturm, 20 Werkzeug;
+    2 Einwanderer, 20 Ziegel, 12 Kohle.
+  - Renaissance → Industrialisierung: 6 Forschungen, 28 Siedler, 3 Inseln, 1 Universität, 20 Glas, 20 Papier;
+    3 Einwanderer, 20 Eisen, 20 Kohle.
+  - Industrialisierung → Moderne: 5 Forschungen, 36 Siedler, 1 Mietshaus, 20 Stahl, 6 Maschinen,
+    20 Konserven; 3 Einwanderer, 12 Stahl, 4 Maschinen.
+  - Moderne → Informationszeitalter: 6 Forschungen, 45 Siedler, 1 Wohnblock, 1 Kraftwerk, 1 Gewächshaus;
+    3 Einwanderer, 16 Glas, 40 Strom.
+  - Informationszeitalter → Zukunft: 4 Forschungen, 55 Siedler, 4 Inseln, 1 Forschungslabor, 30 Elektronik;
+    3 Einwanderer, 20 Elektronik, 10 Gold.
+- **Bestehen** geschieht von selbst: `Exams` prüft alle 0,25 Tage (und gleich nach einer fertigen Forschung),
+  nur wenn das Spiel läuft (nicht auf dem Titelbild, nicht bei Pause). Dann: nächstes Zeitalter, Meldung
+  „Prüfung bestanden! Ein neues Zeitalter beginnt: ...“ (früher in `_finish_research`), Sound `stufe`, Fest
+  (`fest_days` = 1 Tag, Laune „Feiert das neue Zeitalter“ +`people.json fest_mood` = 15, „Fest!“ über den
+  Siedlern), Belohnung über `Game.grant_reward` auf die besiedelte Insel mit den meisten freien Wohnplätzen
+  (Einwanderer zuerst als Paar, mit niemandem verwandt; Waren auf dieselbe Insel).
+- **Anzeige**: im Forschungsfenster unter der Überschrift des nächsten Zeitalters ein Kasten mit jeder
+  Bedingung (Haken und grün, wenn erfüllt, sonst blasses Symbol und rote Zahl) und der Belohnung
+  (`ExamView`, alle 0,5 s aufgefrischt); Forschungen dieses Zeitalters zeigen „Prüfung“ (Tippen nennt, was
+  fehlt); der Kopf sagt „Alles erforscht, was jetzt geht. Bestehe die Prüfung ...“, wenn nichts anderes mehr
+  geht. Die Zielkarte zeigt die Prüfung vor den Zielen, sobald sie das Weiterforschen aufhält (die
+  Forschungen des Zeitalters reichen schon oder nichts anderes ist mehr zu erforschen; `Exams.blocking`),
+  mit „Es fehlt noch: ...“ als Erklärung. Dieses Pseudo-Ziel (`exam_<i>`) bringt nie ein Ziel weiter.
+- **Wertung** (`Exams.score_parts`, nimmt nie ab): 10 je Höchstbevölkerung, 50 je besiedelte Insel (auch
+  verlorene, mit Heimat), 10 je entdeckte Insel, 15 je Forschung, 250 je Prüfung, 25 je erreichtes Ziel
+  (`goals.ms`), 60 je Jahr ohne Hungertod (`stats.good_years`), 40 je Auftrag (`stats.quests`, Teil D),
+  500 für eine gebaute Zukunftsstadt (`stats.future_city`). Menü > Wertung (neben Spielstände) zeigt die
+  Punkte und die Rekorde; das Spielende-Fenster zeigt „Wertung: N Punkte“ und „Neuer Rekord: ...“.
+- **Rekorde** in `user://settings.cfg` Abschnitt `[records]` (Testversion `[records_test]`), für alle
+  Spielstände des Geräts: `score`, `max_pop`, `best_streak` (längste Zeit ohne Hungertod in Tagen), `days`
+  (längstes Spiel), `age_1` .. `age_7` (frühester Spieltag, an dem das Zeitalter erreicht wurde; nur aus
+  echten Prüfungen). Aktualisiert jeden Morgen, bei jeder Prüfung und am Spielende.
+- **Spielstand**: Schlüssel `exams` = `{passed, days, fest_until, year, y_starved, beaten}` (`days[i]` =
+  `time_days`, als Prüfung i bestanden wurde, -1 = übernommen; `beaten` = in diesem Spiel gebrochene Rekorde).
+  Neue `stats`: `good_years`, `best_streak`, `future_city` (mit `stats.get(k, 0)` lesen).
+  `Exams.sync()` in `Game._recompute_effects` zieht `passed` auf das späteste erforschte Zeitalter nach
+  (Testhilfen, die Forschungen direkt eintragen).
+- **Alte Spielstände**: ohne `exams` gilt als bestanden, was erforscht, bezahlt oder gerade in Arbeit ist
+  (nichts Bezahltes wird gesperrt), die Tage sind -1 (keine Zeitalter-Rekorde). Jahre ohne Hungertod zählen ab
+  dem Laden. Zeile im Fenster „Neue Regeln“.
+- **Code**: Autoload `Exams` (`scripts/autoload/exams.gd`), Bedingungen `GoalChecks`
+  (`scripts/ui/goal_checks.gd`, auch von `GoalCard` benutzt, für Aufträge erweiterbar), Oberfläche `ExamView`
+  (`scripts/ui/exam_view.gd`).
+- **Test**: `--examtest=N`: prüft Daten, unbekannte IDs, Haus-Stufen, Sperre und Speichern, besteht N Prüfungen
+  sofort, erfüllt dann alle Bedingungen der Prüfung N bis auf ein Gebäude, reicht es nach 40 s nach und
+  zeigt, dass sie von selbst besteht (mit Fest-Laune). Der Bericht hat eine Zeile „Pruefungen: ...“.
+  `--build=1 --research=1`: der Forschungs-Bot überspringt eine Prüfung, wenn keine andere Forschung bezahlbar
+  ist, aber eine des nächsten Zeitalters (wie früher der Sprung); `--strictexam` schaltet das ab.
+  Bildschirmfotos: `--panel=research --examscroll=1`, `--examhint=1` (Zielkarte aufgeklappt),
+  `--panel=score` (`--scorescroll=1`), `--gameovershot=1`.
+
+## Aufträge mit Wahl
+
+Teil der Regeln ab Version 2. Nach der Einführung bietet das Auftragsbrett drei Aufträge an; der Spieler
+sucht sich einen aus. Belohnungen sind Waren, Forschungspunkte, Einwanderer, dauerhafte Segen oder Baupläne.
+
+- **Ablauf**: Die Ziele (Meilensteine) bleiben die Zeile „Ziel“ der Zielkarte (bzw. die Prüfung, wenn sie
+  das Weiterforschen aufhält); darunter steht die Zeile „Auftrag“. Tippen auf die Zeile oder „Wählen (3)“ /
+  „Details“ öffnet das Fenster „Aufträge“ (auch Menü > Aufträge, falls die Zielkarte aus ist). Nur ein
+  Auftrag läuft zur Zeit, jeder hat eine Frist. Angebote gelten 1 Tag (`offer_days`), danach kommen nach
+  `cooldown` (0,5 Tage) neue; ebenso nach Erfüllen, Scheitern oder Aufgeben. „Andere Aufträge“ bringt sofort
+  drei neue, danach erst wieder nach `reroll_days` (1 Tag). Scheitern, Aufgeben und Neu-Würfeln kosten
+  nichts. Ein Angebot, das schon erfüllt ist, fällt weg. Das Brett öffnet 0,25 Tage nach der Einführung
+  (alte Spielstände gleich nach dem Laden). Zufall aus `hash([seed, seq, "auftrag"])`: gleicher Spielstand,
+  gleiche Angebote.
+- **Vorlagen** (`goals.json` `quests.templates`, Gewicht `w` 1–3 bestimmt die Belohnung, `days` die Frist
+  nach dem Annehmen; A = Zeitalter, P = Siedler auch auf See, R = Forschungspunkte je Tag, gemessen über
+  den letzten Tag, mindestens 4):
+  - `vorrat_essen` (w1, 4 T.): beste herstellbare Speise (Brot, Räucherfisch, Konserven, Eier, sonst die
+    sättigendste), Lager aller Inseln = jetzt + round5(max(15, 1,5·P)).
+  - `vorrat_ware` (w1, 4 T.): herstellbares Material, + round5(clamp(4·P / Preis, 8, 100)).
+  - `winterholz` (w1, bis Winterbeginn): Holz + P·3 (× Winterhärte aus Teil H: mild 0,75, normal 1,
+    hart 1,5, bitter 2), nur Frühling/Sommer mit mindestens 3 Tagen bis zum Winter.
+  - `bauen` (w1, 4 T.; w2, 6 T. bei mehr als 60 Baukosten): ein freigeschaltetes Gebäude, das es noch nicht
+    gibt (keine Denkmäler); sonst `bauen_mehr`: noch eins des größten Wohnhauses.
+  - `wohnen` (w1, 5 T.): Wohnplätze + max(4, 0,25·P). `wachsen` (w2, 6 T.): Siedler + max(2, 0,15·P).
+  - `forschen` (w2, 6 T.): eine wählbare Forschung (nie hinter einer Prüfung), bezahlt oder bezahlbar,
+    mit höchstens 0,7·R·6 Restpunkten.
+  - `jagd` (w1, 4 T., erst mit Jäger): min(3 + A, erlegbare Tiere), je Art bleiben `hunt_min_keep`.
+  - `winter` (w2, bei hartem/bittrem Winter w3; bis zum Frühling): kein Hungertod; nur an Herbsttag 1–2.
+    Scheitert beim ersten Hungertod (`stats.starved`), gelingt, wenn die Frist erreicht ist.
+  - `liefern` (w2, 5 T.): ab 2 besiedelten Inseln und einem Schiff: Menge auf Insel Y (`stock_at`).
+  - `geburten` (w1, 5 T.): 2 + P/8. `entdecken` (w2, 4 T., mit Schiff): eine neue Insel.
+    `abwechslung` (w1, 3 T.): eine Sorte Nahrung mehr auf der besten Insel.
+  Lager-Ziele höchstens `stock_space` (0,7) des freien Platzes, sonst (unter 8) keine Vorlage.
+  „Herstellbar“: ein fertiges Gebäude stellt es her oder erntet es, eine Rohstoffquelle auf einer
+  besiedelten Insel liefert es für einen freigeschalteten Beruf, oder Jäger jagen (Fleisch, Felle).
+- **Belohnungen**: jedes Angebot eine; die drei Angebote haben verschiedene Vorlagen und möglichst
+  verschiedene Arten, das leichteste bekommt Waren, höchstens eins einen Segen.
+  - Waren: `goods_budget` (25) · w · (1 + A) Gold, Menge = Budget / `price`, höchstens `goods_space`
+    (0,4) der Lagerkapazität aller Inseln für diese Ware, mindestens 3; Waren je Zeitalter in
+    `goods_by_age` (Gewürze ab Renaissance). Auf die sichtbare Insel, Überlauf auf andere (`Game.grant_reward`).
+  - Forschungspunkte: max(20·w, w·R). Direkt auf die laufende Forschung (`Game.add_research(p, false)`,
+    also ohne Schreibwaren aus Teil E), was übrig ist oder ohne laufende Forschung in `rp_bank`; die Bank
+    geht an die nächste gestartete Forschung (Meldung „Gesparte Forschungspunkte ...“).
+  - Einwanderer (ab w2): 1 (w2) oder 2 (w3), Begabung beim Angebot gewählt (`talents`, Jagd erst mit
+    Jäger), Begabung 1,5–1,8, Stufe 4 + A/2, Hunger 80, über `Game.grant_reward` (wer nicht landen kann,
+    wird zu Brettern).
+  - Segen (ab w2, dauerhaft, `boons` mit Obergrenze `cap`): Fischfang/Holzfällen/Steinabbau/Beerensammeln
+    +15 % (bis 45 %), Ernte/Forschung/Lagerplatz/Bautempo/Werkstätten/Nachwuchs +10 % (bis 30 %),
+    Heilung +25 % (bis 75 %), Lauftempo +5 % (bis 15 %), Tragen +1 (bis 3), Hunger −5 % (bis −15 %).
+    Volle Segen werden nicht mehr angeboten (sonst Waren statt dessen). `Game._recompute_effects` rechnet
+    sie über `Quests.add_boons(effects)` ein.
+  - Bauplan (ab w2): ein baubares Gebäude ohne Hafen, Schiffe oder Wirkung, dessen Forschung schon wählbar
+    ist (Voraussetzungen erforscht, Zeitalter erreicht, also nie an einer Prüfung vorbei), mit
+    beschaffbaren Bau- und Betriebswaren. `Game.is_unlocked` fragt `Quests.has_plan`; die Bauliste zeigt
+    „Bauplan aus einem Auftrag.“. Ist das Gebäude bis zur Auszahlung schon frei, gibt es Waren.
+- **Oberfläche**: Zielkarte (`GoalCard`, Zeile aus `QuestView.goal_row`): Symbol, „Auftrag“, Knopf,
+  Text, Balken mit „wert/ziel“ und Restzeit („4 T. 14 Std.“). Das X blendet nur das Ziel aus, der Auftrag
+  bleibt. Fenster „Aufträge“ (`hud._quest_panel`, in `_panels()`): drei Kästen mit Text, Frist, Belohnung
+  und „Annehmen“, darunter „Andere Aufträge“; beim laufenden Auftrag Fortschritt, Restzeit und „Aufgeben“
+  (zweimal tippen); unten „Segen und Baupläne“ und die Zählung. Meldungsart `ziel` („Aufträge“).
+- **Spielstand**: Schlüssel `quests` = `{offers, active, next, offers_until, reroll_at, plans, boons,
+  rp_bank, rp_marks, seq, stats, last}`; ein Auftrag ist `{tpl, w, days, until, accepted, check: {type, what,
+  n, base, island, max}, survive, reward: {kind, what|key|talent, n|v}}`. Texte werden nicht gespeichert
+  (`Quests.text_of` baut sie aus der Vorlage, die Sprache stimmt also). Zähler (Tiere, Geburten, Inseln,
+  Hungertote) haben `base` = Wert beim Annehmen. Beim Laden fallen unbekannte Vorlagen, Waren, Gebäude,
+  Forschungen und Segen weg, Zahlen werden umgewandelt, Segen auf die Obergrenze gekürzt.
+  `stats.quests` (erledigt, 40 Punkte in der Wertung) und `stats.quests_failed`.
+- **Alte Spielstände**: ohne `quests` öffnet das Brett gleich nach dem Laden, auch mitten in der Einführung
+  (dann steht die Auftragszeile unter dem Einführungsschritt). Zeile im Fenster „Neue Regeln“.
+- **Bedingungen**: `GoalChecks` (gemeinsam mit Zielen und Prüfungen) kann dafür neu `base`, `stock_at`
+  {what, island}, `variety` mit `max` (beste Insel) und `starved`.
+- **Code**: Autoload `Quests` (`scripts/autoload/quests.gd`, tickt alle 0,05 Tage, nur wenn das Spiel
+  läuft), Oberfläche `QuestView` (`scripts/ui/quest_view.gd`). Teil H fehlt im Code noch: die Winterhärte
+  kommt über `Seasons.has_method("winter_type")`, sonst „normal“.
+- **Test**: `--questtest=N`: Generator (40 Runden, Regeln), jede Belohnungsart direkt (Waren, Forschung mit
+  Bank, Einwanderer mit Begabung, Segen bis zur Obergrenze, Bauplan), Speichern/Laden mit unbekannten IDs,
+  alter Spielstand, danach im laufenden Spiel Angebot N annehmen und erfüllen, einen Auftrag scheitern
+  lassen, einen aufgeben, „Andere Aufträge“, Winter ohne und mit Hungertod, Ablauf der Angebote.
+  `--questreward=goods|research|settlers|boon|plan` erzwingt die Belohnung, `--questfast=1` jede Frist 0,3
+  Tage, `--questauto=1` überspringt die Einführung und nimmt jedes erste Angebot an (z. B. mit
+  `--build=1 --research=1`). Der 20-Sekunden-Bericht hat eine Zeile „Auftraege: ...“. Bildschirmfotos:
+  `--questshot=offers|active|card` (mit `--panel=quests` das Fenster), `--panel=build --cat=nahrung` zeigt
+  den Bauplan.
 
 ## Regeln ab Version 2 (Herausforderung)
 
@@ -553,6 +766,9 @@ godot --headless -- --autotest=150 --scale=10 --schooltest=1  # Steinhaus und Sc
 godot --headless -- --autotest=230 --scale=10 --build=1   # ein ganzes Jahr, Bericht mit Jahreszeit und Holz
 godot --headless -- --autotest=300 --scale=10 --seatest=1  # Werft, drei Inseln entdecken und besiedeln
 godot --headless --fixed-fps 60 -- --autotest=60 --scale=10 --fixture=alt.json  # alten Spielstand weiterspielen
+godot --headless --fixed-fps 60 -- --autotest=200 --scale=10 --writingtest=1  # Forschung braucht Tontafeln
+godot --headless --fixed-fps 60 -- --autotest=100 --scale=10 --examtest=0  # Prüfung beim Zeitalterwechsel
+godot --headless --fixed-fps 60 -- --autotest=120 --scale=10 --questtest=1  # Aufträge mit Wahl
 #   --fixed-fps 60 vor "--" rechnet so schnell wie moeglich (gleicher Spielverlauf); --seed=N feste Insel
 #   dazu --wildlife=1: Tierbestand je Insel und Bau; --weak=1: ohne Waffenkunde (Tiere gefährlicher), Bildschirmfoto: --island=<id>, --panel=sea
 # Bildschirmfoto-Optionen: --panel=research|build|stock, --selectb=<typ>, --look=1

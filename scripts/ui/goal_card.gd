@@ -16,6 +16,8 @@ var _tick: float = 0.0
 var _cur_id: String = ""
 var _actions: Array = []  # Aktionen seit Beginn des aktuellen Schritts
 var _bob: float = 0.0
+var _ms_box: Control  # Ziel bzw. Pruefung (oben); das X blendet nur diesen Teil aus
+var _quest_row: Control  # Auftrag darunter (QuestView, Teil D)
 
 
 func setup(p_hud) -> void:
@@ -23,7 +25,12 @@ func setup(p_hud) -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 6)
-	add_child(h)
+	var col := VBoxContainer.new()  # oben Ziel oder Pruefung, darunter der Auftrag
+	col.add_theme_constant_override("separation", 2)
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(col)
+	col.add_child(h)
+	_ms_box = h
 	var ic := UiTheme.icon_rect(Data.icon("ziel"), 22)
 	ic.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	h.add_child(ic)
@@ -73,6 +80,8 @@ func setup(p_hud) -> void:
 	_pointer.size = Vector2(30, 30)
 	_pointer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_pointer.visible = false
+	_quest_row = QuestView.goal_row(self)
+	col.add_child(_quest_row)
 
 
 ## Der Zeiger muss ueber allem liegen: nach dem Aufbau der Oberflaeche einhaengen.
@@ -96,6 +105,8 @@ func current() -> Dictionary:
 	var t := int(Game.goals.get("tut", 0))
 	if t < tut.size():
 		return tut[t]
+	if Exams.blocking():  # Pruefung haelt das Weiterforschen auf: sie kommt vor den Zielen
+		return Exams.goal()
 	return milestone(int(Game.goals.get("ms", 0)))
 
 
@@ -121,10 +132,10 @@ func milestone(i: int) -> Dictionary:
 				"reward": {"fleisch": 10 + 5 * lvl, "ziegel": 10 + 5 * lvl}}
 
 
-## [aktueller Wert, Zielwert]
+## [aktueller Wert, Zielwert]. Alles ausser Auswahl und Aktionen prueft GoalChecks (gemeinsam mit
+## den Pruefungen und Auftraegen).
 func progress(g: Dictionary) -> Array:
 	var c: Dictionary = g.get("check", {})
-	var n := int(c.get("n", 1))
 	var what: String = c.get("what", "")
 	match c.get("type", ""):
 		"selected_settler":
@@ -134,53 +145,12 @@ func progress(g: Dictionary) -> Array:
 				if a[0] == c.get("kind") and (what == "" or a[1] == what):
 					return [1, 1]
 			return [0, 1]
-		"building":
-			var cnt := 0
-			for w in Sea.all_worlds():
-				for b in w.buildings:
-					if (b.type == what or b.def.get("base", "") == what) and (b.complete or c.get("any", false)):
-						cnt += 1
-			return [cnt, n]
-		"housing":
-			var cap := 0
-			for w in Sea.all_worlds():
-				cap += Game.housing_capacity(w)
-			return [cap, n]
-		"pop":
-			return [Game.population() + Sea.people_at_sea(), n]
-		"techs":
-			if c.get("all", false):
-				n = Data.techs.size()
-			return [Game.research.done.size(), min(n, Data.techs.size())]
-		"tier":
-			var best := 0
-			for t in Game.research.done:
-				best = max(best, int(Data.techs[t].tier))
-			return [best, n]
-		"research_active":
-			return [1 if Game.research.current != "" or not Game.research.done.is_empty() else 0, 1]
-		"speed":
-			return [1 if Game.speed >= n else 0, 1]
-		"variety":
-			return [Game.food_variety(), n]
-		"islands_found":
-			return [Sea.islands.size() - 1, n]
-		"islands_settled":
-			return [Sea.settled_islands().size(), n]
-		"kills":
-			return [int(Game.stats.get("kills", 0)), n]
-		"births":
-			return [int(Game.stats.get("births", 0)), n]
-		"stock":
-			return [Game.amount_all(what), n]
-		"job":
-			var cnt := 0
-			for w in Sea.all_worlds():
-				for s in w.settlers:
-					if s.job == what:
-						cnt += 1
-			return [cnt, n]
-	return [0, 1]
+	return GoalChecks.progress(c)
+
+
+## Pseudo-Ziel der Pruefung beim Zeitalterwechsel (Exams.goal): bringt nie das naechste Ziel.
+static func is_exam(g: Dictionary) -> bool:
+	return str(g.get("id", "")).begins_with("exam_")
 
 
 func _is_done(g: Dictionary) -> bool:
@@ -217,7 +187,7 @@ func _advance(g: Dictionary, silent: bool) -> void:
 	tw.tween_property(self, "modulate", Color.WHITE, 0.8)
 
 
-## Wegklicken: dieses Ziel bleibt verborgen, das naechste erscheint wieder.
+## Wegklicken: dieses Ziel bleibt verborgen, das naechste erscheint wieder (ein Auftrag bleibt sichtbar).
 func _dismiss() -> void:
 	Game.goals["hide"] = _cur_id
 	Sound.play("zu")
@@ -225,7 +195,11 @@ func _dismiss() -> void:
 
 
 func shown() -> bool:
-	return Game.goal_card_on and str(Game.goals.get("hide", "")) != current().id
+	return Game.goal_card_on and (_ms_shown() or QuestView.row_wanted(self))
+
+
+func _ms_shown() -> bool:
+	return str(Game.goals.get("hide", "")) != current().id
 
 
 func _skip_tutorial() -> void:
@@ -266,28 +240,38 @@ func _check() -> void:
 		Game.goals.erase("catchup")
 		for i in 200:
 			var g := current()
-			if not _is_done(g):
+			if is_exam(g) or not _is_done(g):
 				break
 			_advance(g, true)
 	var g := current()
-	if _is_done(g):
+	if _is_done(g) and not is_exam(g):  # Pruefungen besteht Game (Exams), nie die Zielkarte
 		_advance(g, false)
 		g = current()
 	var t := in_tutorial()
 	if g.id != _cur_id:
 		_cur_id = g.id
 		var tut_n: int = Data.goals.get("tutorial", []).size()
-		_head.text = (tr("Einführung %d/%d") % [int(Game.goals.tut) + 1, tut_n]) if t else tr("Ziel")
+		_head.text = (tr("Einführung %d/%d") % [int(Game.goals.tut) + 1, tut_n]) if t else (tr("Prüfung") if is_exam(g) else tr("Ziel"))
 		_text.text = g.text
 		_hint.text = g.get("hint", "")
 		# In der Einfuehrung ist die Erklaerung immer offen
 		_hint.visible = t and _hint.text != ""
 		_skip.visible = t
 		_relayout()
+	elif is_exam(g) and _hint.text != str(g.get("hint", "")):
+		_hint.text = g.get("hint", "")  # Pruefung: was noch fehlt, aendert sich laufend
+		if _hint.visible:
+			_relayout()
 	var p := progress(g)
 	_bar.visible = int(p[1]) > 1
 	_bar.value = 100.0 * float(p[0]) / max(1.0, float(p[1]))
 	_bar.tooltip_text = "%d / %d" % [int(p[0]), int(p[1])]
+	# Ziel (ausblendbar) und Auftrag (QuestView): bei geaenderter Hoehe neu anordnen
+	var ms := _ms_shown()
+	var moved: bool = QuestView.update_row(_quest_row, self, ms) or _ms_box.visible != ms
+	_ms_box.visible = ms
+	if moved:
+		_relayout()
 
 
 func _update_pointer() -> void:

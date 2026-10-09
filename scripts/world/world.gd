@@ -42,6 +42,9 @@ var _mat_needle: ShaderMaterial
 var _layers: Array = []
 var _unreachable: Dictionary = {}
 var _storage_warn_time: float = -10.0
+## Forschung braucht Schriften (Writing): angefangene Einheiten je Ware (nicht gespeichert), letzte Meldung
+var writing_debt: Dictionary = {}
+var writing_warn_time: float = -10.0
 var _placing: String = ""
 var _ghost_cell: Vector2i
 var _move_b = null  # Gebaeude, das gerade verschoben wird (sonst null)
@@ -1002,6 +1005,13 @@ func warn_storage_full(res: String) -> void:
 	if Game.time_days - _storage_warn_time > 1.0:
 		_storage_warn_time = Game.time_days
 		Game.notify(tr("Kein Platz mehr für %s. Baue ein Lager oder stelle im Lager mehr Platz dafür ein.") % Data.resource_name(res), "haus")
+
+
+## Forschung braucht Schriften: ein Forscher dieser Insel hat pts Punkte erarbeitet (mit Bonus). Verbraucht
+## Schreibwaren (rates: Ware -> Einheiten je 100 Punkte) aus diesem Lager; liefert den Faktor fuer die Punkte
+## (1.0, oder balance.writing_missing_factor, wenn etwas fehlt). Siehe Writing.consume.
+func use_writing(rates: Dictionary, pts: float) -> float:
+	return Writing.consume(self, rates, pts)
 
 
 # ================================================================== Tag und Nacht

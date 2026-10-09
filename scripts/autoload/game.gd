@@ -509,13 +509,14 @@ func food_variety(w = null) -> int:
 const NOTIFY_CATS := {"tag": "Tag und Jahreszeit", "siedler": "Siedler und Nachwuchs",
 	"gesundheit": "Krankheiten", "tod": "Todesfälle und verlorene Inseln", "bauen": "Bauen",
 	"lager": "Lager, Vorräte und Winter", "forschung": "Forschung und Zeitalter", "see": "Seefahrt",
-	"tiere": "Tiere und Jagd", "ereignis": "Ereignisse und Händler", "ki": "KI-Steuerung"}
+	"tiere": "Tiere und Jagd", "ereignis": "Ereignisse und Händler", "ki": "KI-Steuerung",
+	"ziel": "Aufträge"}
 ## Art einer Meldung nach ihrem Symbol, wenn der Aufruf keine Art nennt
 const NOTIFY_ICON_CAT := {"": "tag", "sonne": "tag", "herz": "siedler", "person": "siedler",
 	"abriss": "tod", "hammer": "bauen", "haus": "lager", "holz": "lager", "weizen": "lager",
 	"wissen": "forschung", "zeitalter": "forschung", "boot": "see", "anker": "see", "kompass": "see",
 	"schild": "tiere", "fleisch": "tiere", "ki": "ki", "ereignis": "ereignis", "haendler": "ereignis",
-	"feuer": "ereignis", "ratte": "ereignis"}
+	"feuer": "ereignis", "ratte": "ereignis", "ziel": "ziel"}
 var notify_off: Dictionary = {}  # Art -> true, wenn abgeschaltet (user://settings.cfg [notify])
 var goal_card_on: bool = true
 
@@ -830,6 +831,8 @@ func eff_add(key: String) -> float:
 
 func _recompute_effects() -> void:
 	effects = {}
+	Writing.clear_cache()  # Schreibwaren haengen davon ab, was freigeschaltet ist
+	Exams.sync()  # direkt eingetragene Forschungen (Testhilfen) ziehen die Pruefungen nach
 	for t in research.done:
 		var e: Dictionary = Data.techs.get(t, {}).get("effects", {})
 		for k in e:
@@ -842,6 +845,7 @@ func _recompute_effects() -> void:
 				seen[b.type] = true
 				for k in b.def.effects:
 					effects[k] = float(effects.get(k, 0.0)) + float(b.def.effects[k])
+	Quests.add_boons(effects)  # dauerhafte Segen aus Auftraegen (mit Obergrenze)
 
 
 func refresh_effects() -> void:
@@ -853,7 +857,7 @@ func is_researched(t: String) -> bool:
 	return t == "" or t in research.done
 
 
-## "done", "current", "available", "locked" oder "soon"
+## "done", "current", "available", "locked", "exam" (wartet auf die Pruefung, Exams) oder "soon"
 func tech_state(t: String) -> String:
 	if t in research.done:
 		return "done"
@@ -865,11 +869,14 @@ func tech_state(t: String) -> String:
 	for r in def.get("requires", []):
 		if not r in research.done:
 			return "locked"
+	if Exams.gates(t):
+		return "exam"
 	return "available"
 
 
 func is_unlocked(building_type: String) -> bool:
-	return is_researched(Data.buildings.get(building_type, {}).get("requires", ""))
+	# Bauplan aus einem Auftrag: baubar auch ohne die Forschung
+	return is_researched(Data.buildings.get(building_type, {}).get("requires", "")) or Quests.has_plan(building_type)
 
 
 func tech_progress(t: String) -> float:
@@ -886,6 +893,8 @@ func start_research(t: String) -> String:
 	var st := tech_state(t)
 	if st == "current":
 		return ""
+	if st == "exam":
+		return tr("Erst die Prüfung für das Zeitalter %s bestehen.") % Data.age_name(Exams.passed + 1)
 	if st != "available":
 		return tr("Diese Forschung ist noch nicht möglich.")
 	if not t in research.paid:
@@ -923,17 +932,13 @@ func add_research(points: float, apply_bonus: bool = true) -> void:
 		_finish_research(t)
 
 
-## Zeitalter: das spaeteste, aus dem schon etwas erforscht ist (0 = Steinzeit).
+## Zeitalter (0 = Steinzeit) = Zahl der bestandenen Pruefungen (Exams). Ein neues Zeitalter beginnt
+## erst mit der Pruefung (Exams.pass_exam meldet es).
 func current_age() -> int:
-	var a := 0
-	for t in research.done:
-		if Data.techs.has(t):
-			a = maxi(a, Data.age_of_tier(int(Data.techs[t].tier)))
-	return a
+	return Exams.current_age()
 
 
 func _finish_research(t: String) -> void:
-	var age_before := current_age()
 	research.progress.erase(t)
 	research.done.append(t)
 	research.current = ""
@@ -943,9 +948,6 @@ func _finish_research(t: String) -> void:
 	if not unlocks.is_empty():
 		text += tr(" Neu zu bauen: ") + ", ".join(unlocks) + "."
 	notify(text, "wissen")
-	var age := current_age()
-	if age > age_before:
-		notify(tr("Ein neues Zeitalter beginnt: %s! %s") % [Data.age_name(age), Data.ages[age].get("desc", "")], "zeitalter")
 	Sound.play("forschung")
 	research_changed.emit()
 	stock_changed.emit()
