@@ -102,7 +102,7 @@ func harvest_one() -> int:
 func _process(delta: float) -> void:
 	# Jahreszeit: im Winter wächst nichts nach, im Frühling schneller; Erlegtes hält im Winter länger
 	if regrow_at >= 0.0 and Seasons.dt_days > 0.0:
-		var f := Seasons.decay() if def.has("decay_days") else Seasons.growth(type)
+		var f := Seasons.decay() if def.has("decay_days") else Seasons.growth(type, world)
 		regrow_at += Seasons.dt_days * (1.0 - f)
 	# Erlegte Tiere verderben nach ein paar Tagen
 	if def.has("decay_days") and regrow_at >= 0.0 and Game.time_days >= regrow_at:

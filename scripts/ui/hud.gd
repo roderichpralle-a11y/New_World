@@ -66,6 +66,8 @@ var _info_sig: String = ""
 var _updaters: Array = []
 var _research_tick: float = 0.0
 var _sea_panel: SeaPanel
+var _trade_panel: TradePanel  # fremde Händler (Merchant)
+var top_alerts: TopAlerts  # Hinweis-Knöpfe neben der Geschwindigkeit
 var _sea_btn: Button
 var _island_label: Label
 var _build_btn: Button
@@ -100,6 +102,9 @@ func setup(p_world: World, p_camera: GameCamera) -> void:
 	_sea_panel = SeaPanel.new()
 	root.add_child(_sea_panel)
 	_sea_panel.setup(self)
+	_trade_panel = TradePanel.new()
+	root.add_child(_trade_panel)
+	_trade_panel.setup(self)
 	_build_place_bar()
 	_toasts = VBoxContainer.new()
 	_toasts.position = Vector2(8, 56)
@@ -179,14 +184,15 @@ func _build_topbar() -> void:
 		if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
 			sc.accept_event()
 			Sound.play("klick")
-			Game.notify(tr("Jahr %d, %s Tag %d von %d. %s") % [Seasons.year(), Seasons.season_name(),
-				Seasons.day_in_season(), int(Seasons.season_days()), Seasons.effects_text()], ""))
+			Game.notify(tr("Jahr %d, %s Tag %d von %d. %s") % [Seasons.year(), Seasons.season_title(),
+				Seasons.day_in_season(), int(Seasons.season_days()), Seasons.effects_text()] + Seasons.climate_text(), ""))
 	_season_icon = UiTheme.icon_rect(Seasons.icon(), 18)
 	_season_icon.mouse_filter = Control.MOUSE_FILTER_PASS
 	sc.add_child(_season_icon)
 	_season_label = UiTheme.label("", 16)
 	_season_label.mouse_filter = Control.MOUSE_FILTER_PASS
 	sc.add_child(_season_label)
+	sc.add_child(ClimateBadge.new())  # Klima: heißer Sommer / Wintervorhersage (auch schmal sichtbar)
 	h.add_child(sc)
 	_island_label = UiTheme.label("", 14, Color("#7a4a28"), true)
 	_island_label.visible = false
@@ -209,6 +215,9 @@ func _build_topbar() -> void:
 		sh.add_child(b)
 		_speed_btns.append([b, spd])
 	_on_speed(Game.speed)
+	top_alerts = TopAlerts.new()
+	root.add_child(top_alerts)
+	top_alerts.add_child(EventChip.new(self))  # angekündigte Ereignisse (Events)
 
 
 func _refresh_top() -> void:
@@ -323,7 +332,7 @@ func _toggle(panel: Control) -> void:
 
 
 func _panels() -> Array:
-	return [_build_panel, _research_panel, _stock_panel, _settler_panel, _menu_panel, _help_panel, _notify_panel, _slots_panel, _sea_panel, _score_panel, _quest_panel]
+	return [_build_panel, _research_panel, _stock_panel, _settler_panel, _menu_panel, _help_panel, _notify_panel, _slots_panel, _sea_panel, _score_panel, _quest_panel, _trade_panel]
 
 
 func _popup_panel(title: String) -> Array:
@@ -415,6 +424,7 @@ func _fill_build_list() -> void:
 		h.add_child(tv)
 		tv.add_child(UiTheme.label(def.name, 16, UiTheme.TEXT, true))
 		var desc: String = def.desc
+		desc += NeedsInfo.build_desc(type)  # Bedürfnisstufen: Hausstufe bzw. Arbeiterstufe
 		if not unlocked:
 			desc = tr("Benötigt Forschung: %s") % Data.techs.get(def.requires, {}).get("name", "?")
 		elif Quests.plan_only(type):
@@ -424,6 +434,7 @@ func _fill_build_list() -> void:
 		d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		d.custom_minimum_size.x = 170
 		tv.add_child(d)
+		IslandTraits.build_row(b, tv, type, world)  # Inselstärke: hier schneller bzw. wo
 		var cost := GridContainer.new()
 		cost.columns = 2
 		cost.add_theme_constant_override("h_separation", 2)
@@ -1899,7 +1910,7 @@ func _build_help_panel() -> void:
 	var v: VBoxContainer = r[1]
 	var rt := RichTextLabel.new()
 	rt.bbcode_enabled = true
-	rt.text = tr(HELP_TEXT)
+	rt.text = tr(HELP_TEXT) + TradePanel.help_text()  # + Inselstärken, Gewürze und Händler
 	rt.custom_minimum_size = Vector2(360, 300)
 	rt.scroll_active = true
 	v.add_child(rt)
@@ -2063,7 +2074,7 @@ func _info_settler(s: Settler) -> void:
 		why.text = "\n".join(lines)
 		why.visible = not lines.is_empty())
 	var home = world.building_by_id(s.home_id)
-	_info_box.add_child(UiTheme.label(tr("Zuhause: %s") % (home.def.name if home else tr("keins (schläft draußen)")), 13))
+	_info_box.add_child(UiTheme.label(tr("Zuhause: %s") % (home.def.name + NeedsInfo.home_suffix(home) if home else tr("keins (schläft draußen)")), 13))
 	_info_box.add_child(UiTheme.label(tr("Eigenschaften"), 15, UiTheme.TEXT, true))
 	var tdefs: Dictionary = Data.ppl("traits", {})
 	for k in SettlerMind.TRAITS:
@@ -2141,6 +2152,7 @@ func _info_building(b: Building) -> void:
 				var l := UiTheme.label(", ".join(names), 13)
 				l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 				_info_box.add_child(l)
+			NeedsInfo.house_rows(self, b)  # Bedürfnisstufe des Hauses
 		if b.def.has("school"):
 			var sl := UiTheme.label("", 14)
 			_info_box.add_child(sl)
@@ -2166,7 +2178,7 @@ func _info_building(b: Building) -> void:
 			var fl := UiTheme.label(st.get(b.farm_state, ""), 14)
 			fl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			_info_box.add_child(fl)
-			if b.farm_state == "growing" and Seasons.growth(b.type) <= 0.0:
+			if b.farm_state == "growing" and Seasons.growth(b.type, b.world) <= 0.0:
 				_info_box.add_child(UiTheme.label(tr("Im Winter wächst nichts."), 13, UiTheme.BAD))
 			if b.farm_state == "growing":
 				var frac: float = (Game.time_days - b.farm_time) / b.grow_days()
@@ -2266,6 +2278,7 @@ func _info_harbor(b: Building) -> void:
 		gl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_info_box.add_child(gl)
 	_info_box.add_child(UiTheme.label(tr("Insel: %s, %s") % [Sea.harbor_level_name(Sea.harbor_level(world)), Sea.berth_text(world)], 12))
+	TradePanel.harbor_rows(self, b)  # fremder Händler: da, angekündigt, Knopf zum Handeln
 	var sb := UiTheme.button(tr("Schiffe und Seekarte"), "anker", 36)
 	sb.pressed.connect(func():
 		Game.select(null)
@@ -2279,6 +2292,7 @@ func _info_production(b: Building) -> void:
 	var p := b.prod_def()
 	_info_box.add_child(UiTheme.label(tr("Herstellung"), 15, UiTheme.TEXT, true))
 	_info_box.add_child(_recipe_row(p))
+	IslandTraits.info_rows(self, b)  # Inselstärke
 	var job_id: String = WORKER_JOB.get(p.get("job", ""), "")
 	var job_name: String = Data.jobs.get(job_id, {}).get("name", "?")
 	var status := ""
@@ -2301,6 +2315,7 @@ func _info_production(b: Building) -> void:
 	var st := UiTheme.label(status, 13, col)
 	st.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_info_box.add_child(st)
+	NeedsInfo.worker_rows(self, b)  # Arbeiterstufe und Fachkräfte
 	var names := _names_of(b.occupants)
 	if not names.is_empty():
 		_info_box.add_child(UiTheme.label(tr("Arbeiter: ") + ", ".join(names), 13))
@@ -2314,6 +2329,7 @@ func _info_production(b: Building) -> void:
 func _info_research(b: Building) -> void:
 	_info_box.add_child(UiTheme.label(tr("Forschung"), 15, UiTheme.TEXT, true))
 	_info_box.add_child(UiTheme.label(tr("Tempo: x%.1f   Plätze: %d") % [float(b.research_def().get("factor", 1.0)), b.slots()], 13))
+	NeedsInfo.worker_rows(self, b)  # Arbeiterstufe und Fachkräfte
 	var names := _names_of(b.occupants)
 	_info_box.add_child(UiTheme.label(tr("Forscher hier: ") + (", ".join(names) if not names.is_empty() else tr("niemand")), 13))
 	var cur: String = Game.research.current
@@ -2347,6 +2363,7 @@ func _info_upgrade(b: Building) -> void:
 	ub.tooltip_text = tr("Wird zur Baustelle. Bewohner und Forscher ziehen solange aus.")
 	ub.pressed.connect(func(): world.upgrade_building(b))
 	_info_box.add_child(ub)
+	NeedsInfo.upgrade_gate(self, b, ub)  # Häuser ab Stufe 2: erst mit erfüllten Bedürfnissen
 	var h := HBoxContainer.new()
 	h.add_child(UiTheme.label(tr("Kosten:"), 13))
 	for res in td.cost:
@@ -2379,7 +2396,8 @@ func _info_node(n: ResNode) -> void:
 	elif n.def.get("on_empty", "") == "remove":
 		_info_box.add_child(UiTheme.label(tr("Wächst nicht nach."), 13))
 	var who := {"baum": tr("Holzfäller"), "fels": tr("Steinmetz"), "busch": tr("Sammler"), "fischgrund": tr("Fischer"),
-		"palme": tr("Sammler"), "pilzkreis": tr("Sammler"), "erzader": tr("Steinmetz"), "goldader": tr("Steinmetz"), "beute": tr("Jäger")}
+		"palme": tr("Sammler"), "pilzkreis": tr("Sammler"), "erzader": tr("Steinmetz"), "goldader": tr("Steinmetz"), "beute": tr("Jäger"),
+		"gewuerzstrauch": tr("Sammler")}
 	if n.def.has("spawns"):
 		var an: Dictionary = Data.animals[n.def.spawns]
 		var w = n.world
@@ -2402,6 +2420,9 @@ func _info_node(n: ResNode) -> void:
 
 
 func _info_animal(a: Animal) -> void:
+	if a is Raider:
+		a.fill_info(self)  # Pirat (Ereignisse)
+		return
 	_info_head(a.def.name if a.is_adult() else tr("Junges: %s") % a.def.name)
 	var hb := _bar_row(tr("Kraft"), a.hp / a.max_hp() * 100.0, UiTheme.BAD)
 	var fb := _bar_row(tr("Satt"), a.food * 100.0, UiTheme.GOOD)
@@ -2605,6 +2626,8 @@ func _layout() -> void:
 	if _food_short != (vs.x < 480):
 		_food_short = vs.x < 480
 		_refresh_top()
+	# Schmal: Oberleiste enger und ohne Uhrzeit, damit Jahreszeit und Klima-Symbol im Bild bleiben
+	_season_icon.get_parent().get_parent().add_theme_constant_override("separation", 4 if _food_short else 12)
 	if portrait or vs.x < 760:
 		sp.position = Vector2(vs.x - sp.size.x - 6, 54)
 		top_h = 100.0
@@ -2621,6 +2644,9 @@ func _layout() -> void:
 		goal_card.set_deferred("size", Vector2(gw, 0))
 		if goal_card.visible:
 			_toasts.position.y = max(top_h, goal_card.position.y + goal_card.size.y) + 6
+	top_alerts.place(sp, _season_icon.get_parent().get_parent().get_parent(), portrait or vs.x < 760)
+	if top_alerts.visible and top_alerts.position.y > sp.position.y:  # Knöpfe unter der Geschwindigkeit: Meldungen darunter
+		_toasts.position.y = maxf(_toasts.position.y, top_alerts.position.y + top_alerts.size.y + 4.0)
 	_notify_grid.columns = 2 if vs.x >= 640 else 1
 	_size_settler_panel(vs.y - top_h - bp.size.y - 18.0)
 	for pnl in _panels():
@@ -2644,10 +2670,10 @@ func _process(delta: float) -> void:
 		_version_timer -= delta / max(Engine.time_scale, 0.001)
 		if _version_timer <= 0.0:
 			_ask_server_version()
-	_day_label.text = tr("Tag %d  %s") % [Game.day(), Game.clock_text()]
+	_day_label.text = (tr("Tag %d") % Game.day()) if _food_short else (tr("Tag %d  %s") % [Game.day(), Game.clock_text()])
 	_day_icon.texture = Data.icon("mond" if Game.is_night() else "sonne")
 	_season_icon.texture = Seasons.icon()
-	_season_label.text = Seasons.short_text()
+	_season_label.text = Seasons.short_text(get_viewport().get_visible_rect().size.x >= 900.0)  # Klima-Name nur mit Platz
 	if _rules_dialog:
 		_fit_rules_dialog()
 	_research_tick -= delta

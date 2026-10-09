@@ -581,10 +581,9 @@ func select(obj) -> void:
 
 # ---------------------------------------------------------------- Nachwuchs
 func _try_birth() -> void:
-	if total_food() < population() * int(Data.bal("birth_food_per_person")):
-		return
+	# Jede Insel zaehlt ihr eigenes Essen
 	for w in Sea.all_worlds():
-		if w.settlers.size() < housing_capacity(w):
+		if w.settlers.size() < housing_capacity(w) and total_food(w) >= w.settlers.size() * int(Data.bal("birth_food_per_person")):
 			_try_birth_on(w)
 
 
@@ -611,7 +610,7 @@ func _try_birth_on(w) -> void:
 	var father = pair[1]
 	var chance := float(Data.bal("birth_chance"))
 	# Abwechslungsreiche Kost macht Lust auf Familie
-	if food_variety() >= int(Data.bal("variety_min", 3)):
+	if food_variety(w) >= int(Data.bal("variety_min", 3)):
 		chance *= float(Data.bal("variety_birth_bonus", 1.0))
 	chance *= eff("birth")
 	# In besseren Haeusern kommen mehr Kinder zur Welt
@@ -635,6 +634,8 @@ func _try_birth_on(w) -> void:
 func home_birth_bonus(w, mother) -> float:
 	var home = w.building_by_id(mother.home_id)
 	if home and home.complete:
+		if not HouseNeeds.full_level(home):
+			return 1.0  # Bedürfnisse des Hauses nicht erfüllt: kein Bonus
 		return float(home.def.get("birth_bonus", 1.0))
 	return 1.0
 

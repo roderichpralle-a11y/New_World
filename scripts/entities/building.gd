@@ -127,6 +127,16 @@ func residents() -> Array:
 	return world.settlers.filter(func(s): return s.home_id == id)
 
 
+## Hausstufe (buildings.json level, 1 Hütte .. 5 Wohnblock), 0 = kein Haus. Siehe HouseNeeds.
+func house_level() -> int:
+	return int(def.get("level", 1)) if def.has("housing") else 0
+
+
+## Ab welcher Stufe Fachkräfte hier arbeiten dürfen (buildings.json worker_level, Standard 1).
+func worker_level() -> int:
+	return int(def.get("worker_level", 1))
+
+
 # ---------------------------------------------------------------- Bau
 func remaining_cost() -> Dictionary:
 	var out := {}
@@ -218,6 +228,11 @@ func prod_def() -> Dictionary:
 	if def.get("ships", false):
 		return ship_recipe(ship_wip if ship_wip != "" else ship_choice)
 	return def.get("production", {})
+
+
+## Inselstärke (buildings.json biome_bonus): so viel schneller arbeitet die Werkstatt auf dieser Insel.
+func biome_factor() -> float:
+	return IslandTraits.factor(type, world.biome) if world else 1.0
 
 
 ## Werft: Bauplan fuer ein Schiff aus data/ships.json.
@@ -354,7 +369,7 @@ func _process(delta: float) -> void:
 		_light.visible = _light.energy > 0.02
 	if (is_ground() or def.has("farm")) and complete and farm_state == "growing":
 		# Jahreszeit: im Winter steht das Wachstum still, im Sommer geht es schneller
-		farm_time += Seasons.dt_days * (1.0 - Seasons.growth(type))
+		farm_time += Seasons.dt_days * (1.0 - Seasons.growth(type, world))
 		if Game.time_days - farm_time >= grow_days():
 			farm_state = "ripe"
 			refresh()

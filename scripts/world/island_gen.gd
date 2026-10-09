@@ -79,7 +79,39 @@ static func generate(seed_value: int, size: int, opts: Dictionary = {}) -> Dicti
 			terrain[y * size + x] = GRASS
 
 	var nodes := _place_nodes(terrain, size, c, rng, seed_value, biome)
+	_place_extra(terrain, size, c, seed_value, biome, nodes)
 	return {"size": size, "terrain": terrain, "nodes": nodes, "center": c}
+
+
+## Zusaetzliche Rohstoffe einer Inselart (islands.json "extra": [[typ, anzahl, rmin, rmax, nur_gras]],
+## z. B. Gewuerzstraeucher auf Palmeninseln) in einem eigenen Durchgang mit eigenem Zufall: die
+## bisherigen Rohstoffe und Tierbauten bleiben dadurch genau gleich. Ring um das Lagerfeuer wie bei
+## "ring"; findet sich nach 300 Versuchen kein Gras mehr, darf es auch Sand sein.
+static func _place_extra(terrain: PackedByteArray, size: int, c: Vector2i, seed_value: int, biome: Dictionary, nodes: Array) -> void:
+	var list: Array = biome.get("extra", [])
+	if list.is_empty():
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash([seed_value, "extra"])
+	var used := {}
+	for n in nodes:
+		used[n.cell] = true
+	for e in list:
+		var placed := 0
+		var tries := 0
+		while placed < int(e[1]) and tries < 400:
+			tries += 1
+			var a := rng.randf() * TAU
+			var r := rng.randf_range(float(e[2]), float(e[3]))
+			var cell := c + Vector2i(roundi(cos(a) * r), roundi(sin(a) * r))
+			if cell.x < 1 or cell.y < 1 or cell.x >= size - 1 or cell.y >= size - 1:
+				continue
+			var tt := terrain[cell.y * size + cell.x]
+			if tt == WATER or used.has(cell) or (bool(e[4]) and tt != GRASS and tries < 300):
+				continue
+			used[cell] = true
+			nodes.append({"type": String(e[0]), "cell": cell, "variant": -1})
+			placed += 1
 
 
 static func _keep_main_island(terrain: PackedByteArray, size: int, start: Vector2i) -> void:

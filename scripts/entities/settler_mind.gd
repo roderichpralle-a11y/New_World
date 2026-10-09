@@ -258,6 +258,7 @@ func _maybe_get_sick(days: float) -> void:
 	if s.home_id == 0:
 		risk *= float(Data.ppl("sick_outside", 1.4))
 	risk *= Seasons.season_mod("sickness")
+	risk *= Events.sickness_factor(s.world)  # Seuche (angekündigte Ereignisse)
 	# Kein Heizholz in Herbst und Winter: frierende Siedler werden schneller krank
 	if not Seasons.is_warm(s.world):
 		risk *= float(Data.ppl("sick_cold", 1.8))
@@ -270,18 +271,22 @@ func _maybe_get_sick(days: float) -> void:
 				near += 1
 	risk *= 1.0 + float(Data.ppl("sick_contagion", 0.6)) * near
 	if _rng.randf() < risk * days:
-		_fall_ill(_pick_illness())
+		var epi: String = Events.epidemic_illness(s.world)  # Seuche: meist deren Krankheit
+		_fall_ill(epi if epi != "" and _rng.randf() < Events.forced_share() else _pick_illness())
 
 
 func _pick_illness() -> String:
 	var ills: Dictionary = Data.ppl("illnesses")
+	# Gewichte einmal bestimmen; das Klima verschiebt sie (heißer Sommer: mehr Ruhr, "ill_<id>")
+	var wts := {}
 	var total := 0.0
 	for k in ills:
-		total += float(ills[k].get("weight", 0))
+		wts[k] = float(ills[k].get("weight", 0)) * Seasons.climate_factor("ill_" + k)
+		total += wts[k]
 	var x := _rng.randf() * total
 	for k in ills:
-		x -= float(ills[k].get("weight", 0))
-		if x <= 0.0 and float(ills[k].get("weight", 0)) > 0.0:
+		x -= wts[k]
+		if x <= 0.0 and wts[k] > 0.0:
 			return k
 	return "erkaeltung"
 
@@ -375,8 +380,11 @@ func _update_mood(days: float) -> void:
 		r.append([tr("Hat kein Zuhause"), -(4.0 + 14.0 * c)])
 	else:
 		var hb := float(home.def.get("birth_bonus", 1.0)) - 1.0
-		if hb > 0.0:
+		if hb > 0.0 and HouseNeeds.full_level(home):  # nur wie der Kinder-Bonus
 			r.append([tr("Wohnt schön (%s)") % home.def.name, hb * 15.0 * (0.5 + c)])
+		var need: Array = HouseNeeds.mood_reason(home, c)  # Bedürfnisstufen (nur gemerkte Werte)
+		if not need.is_empty():
+			r.append(need)
 	# Freizeit
 	if leisure_share() > 0.0:
 		if rest < 25.0:
@@ -399,7 +407,7 @@ func _update_mood(days: float) -> void:
 		r.append([tr("Feiert das neue Zeitalter"), float(Data.ppl("fest_mood", 15.0))])
 	var sm := Seasons.season_mod("mood") - 1.0
 	if absf(sm) > 0.01:
-		r.append([(tr("Freut sich über: %s") if sm > 0.0 else tr("Leidet unter: %s")) % Seasons.season_name(), sm * 60.0])
+		r.append([(tr("Freut sich über: %s") if sm > 0.0 else tr("Leidet unter: %s")) % Seasons.season_title(), sm * 60.0])
 	if not Seasons.is_warm(s.world):
 		r.append([tr("Friert (kein Heizholz)"), -15.0])
 	var target := base
