@@ -1070,12 +1070,42 @@ godot --headless --fixed-fps 60 -- --autotest=200 --scale=10 --writingtest=1  # 
 godot --headless --fixed-fps 60 -- --autotest=100 --scale=10 --examtest=0  # Prüfung beim Zeitalterwechsel
 godot --headless --fixed-fps 60 -- --autotest=120 --scale=10 --questtest=1  # Aufträge mit Wahl
 godot --headless --fixed-fps 60 -- --autotest=60 --scale=10 --seed=7 --integtest=1  # Zusammenspiel der Erweiterungen
+godot --headless --fixed-fps 60 -- --autotest=820 --scale=10 --seed=11 --bot=1 --noevents=1 --winter=normal  # Spiel-Bot v2, 4 Jahre
 #   --fixed-fps 60 vor "--" rechnet so schnell wie moeglich (gleicher Spielverlauf); --seed=N feste Insel
 #   dazu --wildlife=1: Tierbestand je Insel und Bau; --weak=1: ohne Waffenkunde (Tiere gefährlicher), Bildschirmfoto: --island=<id>, --panel=sea
 # Bildschirmfoto-Optionen: --panel=research|build|stock, --selectb=<typ>, --look=1
 xvfb-run godot --rendering-driver opengl3 -- --autotest=20 --shot=/tmp/bild.png
 godot --headless --export-release "Web" build/web/index.html
 ```
+
+**Spiel-Bot v2 (`--bot=1`, `scripts/world/bot.gd`)** misst die Balance: er spielt wie ein aufmerksamer
+Spieler und nur über die öffentliche Spiellogik (Baustellen mit `place_building`, Berufe mit `set_job`,
+Forschung mit `start_research`, `Quests.accept`, Werkstätten an/aus, Hoechstmengen im Lager mit
+`Game.set_limit`). Er bekommt keine Waren geschenkt und erzwingt keine Prüfung. Die alten Bots
+`--build=1`/`--research=1` bleiben unverändert; `--bot=1` ersetzt sie (nicht zusammen benutzen).
+- Einführung: drückt „Überspringen“ auf der Zielkarte, damit Aufträge und Ereignisse kommen.
+- Forschung: erst ein Auftrag mit Forschung, dann Steinzeit (Schrift … Brunnenbau), dann Antike
+  (Backkunst zuerst); nur Bezahlbares, Heizholz bleibt liegen. Überspringt eine Forschung, die eine
+  Ware braucht, die der gewünschten Forschung fehlt.
+- Bauen (Wunschliste): Lager bei über 85 % zuerst, Auftragsgebäude, Brunnen vor angekündigtem Brand,
+  Obstgärten und Felder (je 1 + Siedler/4, Felder nur, solange kein Getreideberg liegt), Mühle und
+  Bäckerei (eine zweite bei Getreideberg), Räucherei, Schreibstube, Wohnplätze, das Holzhaus für die
+  Prüfung, Sägegrube, Lehmgrube und Tafelmacherei, Lager, Ziegelei, Steinhaus, Steinbruch, Schule …
+  Wohnplätze nur, wenn die Nahrung reicht und die Siedlung nicht über das hinauswächst, was der letzte
+  Winter satt gemacht hat (plus ein Viertel, mindestens 20; nach knappem Winter kein Wachstum).
+- Berufe: Baumeister bei Baustellen, Forscher, Sammler/Fischer/Bauern nach einem Regler auf
+  Nahrung-Tage (Ziel je Jahreszeit, im Herbst Wintervorrat) und nur so viele, wie Quellen da sind,
+  Holzfäller nach Heizholz-Vorhersage (`Seasons.winter_forecast()`), Werkstätten nach Zielmengen.
+- Aufträge: nimmt das beste Angebot an (Gebäude, Vorräte, Forschung; keine Schiffe/Häfen).
+Ausgabe: alle 20 s `BOT (Tag ..)`, `BOT Berufe soll ..` und `BOT Nahrungskette ..` (Getreide/Mehl/Brot,
+Lagerplatz, größte Waren, Werkstätten), je Jahr `BOT Jahr N zu Ende ..`, bei jeder bestandenen Prüfung
+`BOT: Pruefung N bestanden (Tag x). Bedingungen zuerst erfuellt: ..` (wann jede Bedingung zuerst
+erfüllt war) und am Ende eine Zeile `ERGEBNIS: Tag .. | Siedler .. | Pruefungen .. [Zeitalter Tag ..
+(Jahr ..)] | Forschungen .. (Steinzeit, Antike, spaeter) | Hungertote .. (Jahr 1-2: ..) | Tote .. |
+Tontafeln verbraucht .. | Auftraege erledigt, gescheitert | Ereignisse ueberstanden x von y | Wertung`.
+Abnahme (3 Seeds 11/22/33, `--autotest=820 --noevents=1 --winter=normal`): Steinzeit-Prüfung in Jahr 2
+(vor Tag 25), mindestens 3 Antike-Forschungen, Tontafeln verbraucht, keine Hungertoten in Jahr 1–2.
+Läufe sind nicht ganz gleich (Zufall je Siedler): die Prüfung streut etwa zwischen Tag 19 und 25.
 
 Bei jedem Push auf `main` baut GitHub Actions die Web-Version und legt sie auf den
 Branch `gh-pages` (GitHub Pages).
