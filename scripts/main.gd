@@ -298,6 +298,8 @@ func _maybe_autotest() -> void:
 					hud._toggle(hud._research_panel)
 				"menu":
 					hud._toggle(hud._menu_panel)
+				"score":
+					hud._toggle(hud._score_panel)
 				"notify":
 					hud._toggle(hud._notify_panel)
 				"slots":

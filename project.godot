@@ -20,6 +20,7 @@ Sea="*res://scripts/autoload/sea.gd"
 Sound="*res://scripts/autoload/sound.gd"
 Seasons="*res://scripts/autoload/seasons.gd"
 Writing="*res://scripts/autoload/writing.gd"
+Exams="*res://scripts/autoload/exams.gd"
 
 [display]
 

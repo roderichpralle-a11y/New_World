@@ -395,6 +395,8 @@ func _update_mood(days: float) -> void:
 		r.append([tr("Trauert um %s") % g[0], -full])
 	if Game.time_days < joy_until:
 		r.append([tr("Freut sich über das Baby"), float(Data.ppl("joy_mood", 12.0))])
+	if Exams.fest_active():  # Pruefung bestanden: Fest des neuen Zeitalters
+		r.append([tr("Feiert das neue Zeitalter"), float(Data.ppl("fest_mood", 15.0))])
 	var sm := Seasons.season_mod("mood") - 1.0
 	if absf(sm) > 0.01:
 		r.append([(tr("Freut sich über: %s") if sm > 0.0 else tr("Leidet unter: %s")) % Seasons.season_name(), sm * 60.0])

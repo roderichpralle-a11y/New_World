@@ -376,8 +376,8 @@ einmal aufgebaut ist. Dafür gilt:
 `techs.json` hat neben `_tiers` (16 Stufennamen) die Liste `_ages`: acht Zeitalter mit je zwei Stufen
 (Steinzeit 1–2, Antike 3–4, Mittelalter 5–6, Renaissance 7–8, Industrialisierung 9–10, Moderne 11–12,
 Informationszeitalter 13–14, Zukunft 15–16). `Data.age_of_tier(tier)`, `Data.age_name(i)`,
-`Game.current_age()` = spätestes Zeitalter mit mindestens einer erforschten Sache. Beim Eintritt in ein
-neues Zeitalter meldet `_finish_research` es. Im Forschungsmenü steht über jedem Zeitalter eine
+`Game.current_age()` = Zahl der bestandenen Prüfungen (`Exams.passed`, siehe „Prüfungen beim
+Zeitalterwechsel und Wertung“); das neue Zeitalter meldet `Exams.pass_exam`. Im Forschungsmenü steht über jedem Zeitalter eine
 Überschrift; Zeitalter jenseits des nächsten zeigen nur die Überschrift (`_age_header`).
 `_ages[i].writing` nennt die Schreibwaren, die Forscher in diesem Zeitalter verbrauchen (siehe
 „Forschung braucht Schriften“).
@@ -451,6 +451,78 @@ Forschungen kosten mehr.
   braucht, baut der Bot Tafelmacherei und Lehmgrube, teilt Steinmetz und Handwerker ein (nur bei genug
   Essen) und hält beide an, wenn genug auf Vorrat ist (Antike direkt: `--comfort=12`). Bildschirmfoto:
   `--panel=research --researchscroll=<forschung>`. Der 20-Sekunden-Bericht hat eine Zeile „Schriften: ...“.
+
+## Prüfungen beim Zeitalterwechsel und Wertung
+
+Teil der Regeln ab Version 2. Ein neues Zeitalter beginnt erst nach einer Prüfung; jede bestandene Prüfung
+bringt ein Fest, Einwanderer und Waren. Dazu eine Wertung mit Rekorden (Menü > Wertung).
+
+- **Sperre**: eine Forschung ist nur möglich, wenn ihr Zeitalter (`Data.age_of_tier(tier)`) höchstens
+  `Exams.passed` ist; sonst hat sie den Zustand `exam` (`Game.tech_state`, Reihenfolge done/soon/current/
+  locked/exam/available). `Game.current_age()` = `Exams.passed` (0 = Steinzeit). So lassen sich auch
+  Forschungen mit Voraussetzungen aus früheren Zeitaltern (Handkarren, Glasmacherei, Papier, Uhrwerk) nicht
+  vorziehen. `Game.start_research` meldet „Erst die Prüfung für das Zeitalter X bestehen.“
+- **Prüfungen** in `techs.json` `_ages[i].exam` (i = 0..6; Prüfung i öffnet Zeitalter i+1, die Zukunft hat
+  keine): `{checks: [...], fest_days, reward: {Ware: Menge, "settlers": n}}`. Bedingungen wie bei den Zielen
+  (`GoalChecks`), dazu neu `age_techs` {age, n} (erforschte Forschungen dieses Zeitalters), `houses` {what, n}
+  (dieses Haus oder ein besseres über `upgrade`, mit Teil B auch über `level`), `no_starve_days` {n} (Tage
+  seit dem letzten Hungertod, `stats.starve_day`), `food` {n}, `variety` mit `all` (alle Inseln), `tech`
+  {what}, `exams` {n}. Waren werden auf allen Inseln gezählt und nicht verbraucht. Unbekannte Gebäude-IDs
+  zählen 0 und erscheinen lesbar („Mietshaus“). Werte (zum Nachjustieren nach josh's Spieltest):
+  - Steinzeit → Antike: 8 Steinzeit-Forschungen, 6 Siedler, 1 Holzhaus (oder besser), 3 Sorten Nahrung;
+    2 Einwanderer, 10 Bretter, 10 Ziegel, 10 Tontafeln.
+  - Antike → Mittelalter: 8 Antike-Forschungen, 12 Siedler, 1 Steinhaus, 20 Brot, 10 Werkzeug, 12 Tage ohne
+    Hungertod; 2 Einwanderer, 10 Werkzeug, 6 Eisen.
+  - Mittelalter → Renaissance: 8 Forschungen, 20 Siedler, 2 besiedelte Inseln, 1 Wachturm, 20 Werkzeug;
+    2 Einwanderer, 20 Ziegel, 12 Kohle.
+  - Renaissance → Industrialisierung: 6 Forschungen, 28 Siedler, 3 Inseln, 1 Universität, 20 Glas, 20 Papier;
+    3 Einwanderer, 20 Eisen, 20 Kohle.
+  - Industrialisierung → Moderne: 5 Forschungen, 36 Siedler, 1 Mietshaus, 20 Stahl, 6 Maschinen,
+    20 Konserven; 3 Einwanderer, 12 Stahl, 4 Maschinen.
+  - Moderne → Informationszeitalter: 6 Forschungen, 45 Siedler, 1 Wohnblock, 1 Kraftwerk, 1 Gewächshaus;
+    3 Einwanderer, 16 Glas, 40 Strom.
+  - Informationszeitalter → Zukunft: 4 Forschungen, 55 Siedler, 4 Inseln, 1 Forschungslabor, 30 Elektronik;
+    3 Einwanderer, 20 Elektronik, 10 Gold.
+- **Bestehen** geschieht von selbst: `Exams` prüft alle 0,25 Tage (und gleich nach einer fertigen Forschung),
+  nur wenn das Spiel läuft (nicht auf dem Titelbild, nicht bei Pause). Dann: nächstes Zeitalter, Meldung
+  „Prüfung bestanden! Ein neues Zeitalter beginnt: ...“ (früher in `_finish_research`), Sound `stufe`, Fest
+  (`fest_days` = 1 Tag, Laune „Feiert das neue Zeitalter“ +`people.json fest_mood` = 15, „Fest!“ über den
+  Siedlern), Belohnung über `Game.grant_reward` auf die besiedelte Insel mit den meisten freien Wohnplätzen
+  (Einwanderer zuerst als Paar, mit niemandem verwandt; Waren auf dieselbe Insel).
+- **Anzeige**: im Forschungsfenster unter der Überschrift des nächsten Zeitalters ein Kasten mit jeder
+  Bedingung (Haken und grün, wenn erfüllt, sonst blasses Symbol und rote Zahl) und der Belohnung
+  (`ExamView`, alle 0,5 s aufgefrischt); Forschungen dieses Zeitalters zeigen „Prüfung“ (Tippen nennt, was
+  fehlt); der Kopf sagt „Alles erforscht, was jetzt geht. Bestehe die Prüfung ...“, wenn nichts anderes mehr
+  geht. Die Zielkarte zeigt die Prüfung vor den Zielen, sobald sie das Weiterforschen aufhält (die
+  Forschungen des Zeitalters reichen schon oder nichts anderes ist mehr zu erforschen; `Exams.blocking`),
+  mit „Es fehlt noch: ...“ als Erklärung. Dieses Pseudo-Ziel (`exam_<i>`) bringt nie ein Ziel weiter.
+- **Wertung** (`Exams.score_parts`, nimmt nie ab): 10 je Höchstbevölkerung, 50 je besiedelte Insel (auch
+  verlorene, mit Heimat), 10 je entdeckte Insel, 15 je Forschung, 250 je Prüfung, 25 je erreichtes Ziel
+  (`goals.ms`), 60 je Jahr ohne Hungertod (`stats.good_years`), 40 je Auftrag (`stats.quests`, Teil D),
+  500 für eine gebaute Zukunftsstadt (`stats.future_city`). Menü > Wertung (neben Spielstände) zeigt die
+  Punkte und die Rekorde; das Spielende-Fenster zeigt „Wertung: N Punkte“ und „Neuer Rekord: ...“.
+- **Rekorde** in `user://settings.cfg` Abschnitt `[records]` (Testversion `[records_test]`), für alle
+  Spielstände des Geräts: `score`, `max_pop`, `best_streak` (längste Zeit ohne Hungertod in Tagen), `days`
+  (längstes Spiel), `age_1` .. `age_7` (frühester Spieltag, an dem das Zeitalter erreicht wurde; nur aus
+  echten Prüfungen). Aktualisiert jeden Morgen, bei jeder Prüfung und am Spielende.
+- **Spielstand**: Schlüssel `exams` = `{passed, days, fest_until, year, y_starved, beaten}` (`days[i]` =
+  `time_days`, als Prüfung i bestanden wurde, -1 = übernommen; `beaten` = in diesem Spiel gebrochene Rekorde).
+  Neue `stats`: `good_years`, `best_streak`, `future_city` (mit `stats.get(k, 0)` lesen).
+  `Exams.sync()` in `Game._recompute_effects` zieht `passed` auf das späteste erforschte Zeitalter nach
+  (Testhilfen, die Forschungen direkt eintragen).
+- **Alte Spielstände**: ohne `exams` gilt als bestanden, was erforscht, bezahlt oder gerade in Arbeit ist
+  (nichts Bezahltes wird gesperrt), die Tage sind -1 (keine Zeitalter-Rekorde). Jahre ohne Hungertod zählen ab
+  dem Laden. Zeile im Fenster „Neue Regeln“.
+- **Code**: Autoload `Exams` (`scripts/autoload/exams.gd`), Bedingungen `GoalChecks`
+  (`scripts/ui/goal_checks.gd`, auch von `GoalCard` benutzt, für Aufträge erweiterbar), Oberfläche `ExamView`
+  (`scripts/ui/exam_view.gd`).
+- **Test**: `--examtest=N`: prüft Daten, unbekannte IDs, Haus-Stufen, Sperre und Speichern, besteht N Prüfungen
+  sofort, erfüllt dann alle Bedingungen der Prüfung N bis auf ein Gebäude, reicht es nach 40 s nach und
+  zeigt, dass sie von selbst besteht (mit Fest-Laune). Der Bericht hat eine Zeile „Pruefungen: ...“.
+  `--build=1 --research=1`: der Forschungs-Bot überspringt eine Prüfung, wenn keine andere Forschung bezahlbar
+  ist, aber eine des nächsten Zeitalters (wie früher der Sprung); `--strictexam` schaltet das ab.
+  Bildschirmfotos: `--panel=research --examscroll=1`, `--examhint=1` (Zielkarte aufgeklappt),
+  `--panel=score` (`--scorescroll=1`), `--gameovershot=1`.
 
 ## Regeln ab Version 2 (Herausforderung)
 
@@ -610,6 +682,7 @@ godot --headless -- --autotest=230 --scale=10 --build=1   # ein ganzes Jahr, Ber
 godot --headless -- --autotest=300 --scale=10 --seatest=1  # Werft, drei Inseln entdecken und besiedeln
 godot --headless --fixed-fps 60 -- --autotest=60 --scale=10 --fixture=alt.json  # alten Spielstand weiterspielen
 godot --headless --fixed-fps 60 -- --autotest=200 --scale=10 --writingtest=1  # Forschung braucht Tontafeln
+godot --headless --fixed-fps 60 -- --autotest=100 --scale=10 --examtest=0  # Prüfung beim Zeitalterwechsel
 #   --fixed-fps 60 vor "--" rechnet so schnell wie moeglich (gleicher Spielverlauf); --seed=N feste Insel
 #   dazu --wildlife=1: Tierbestand je Insel und Bau; --weak=1: ohne Waffenkunde (Tiere gefährlicher), Bildschirmfoto: --island=<id>, --panel=sea
 # Bildschirmfoto-Optionen: --panel=research|build|stock, --selectb=<typ>, --look=1

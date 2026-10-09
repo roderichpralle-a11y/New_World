@@ -32,6 +32,8 @@ var _research_head: VBoxContainer
 var _research_bar: ProgressBar
 var _research_label: Label
 var _research_writing: Array = []  # Forschung braucht Schriften: [Verbrauch, rote Zeile]
+var _exam_box: Control  # Pruefung beim Zeitalterwechsel (ExamView), im Forschungsfenster
+var _score_panel: PanelContainer  # Menue > Wertung (ExamView)
 var _research_btn: Button
 var _stock_panel: PanelContainer
 var _stock_grid: GridContainer
@@ -91,6 +93,7 @@ func setup(p_world: World, p_camera: GameCamera) -> void:
 	_build_help_panel()
 	_build_notify_panel()
 	_build_slots_panel()
+	_score_panel = ExamView.build_score_panel(self)
 	_build_info_panel()
 	_sea_panel = SeaPanel.new()
 	root.add_child(_sea_panel)
@@ -318,7 +321,7 @@ func _toggle(panel: Control) -> void:
 
 
 func _panels() -> Array:
-	return [_build_panel, _research_panel, _stock_panel, _settler_panel, _menu_panel, _help_panel, _notify_panel, _slots_panel, _sea_panel]
+	return [_build_panel, _research_panel, _stock_panel, _settler_panel, _menu_panel, _help_panel, _notify_panel, _slots_panel, _sea_panel, _score_panel]
 
 
 func _popup_panel(title: String) -> Array:
@@ -485,6 +488,8 @@ func _update_research_head() -> void:
 	who = tr("Zeitalter: %s. %s") % [Data.age_name(Game.current_age()), who]
 	if cur == "":
 		_research_label.text = tr("Wähle eine Forschung aus. %s") % who
+		if Exams.only_exam_left():
+			_research_label.text = tr("Alles erforscht, was jetzt geht. Bestehe die Prüfung für das Zeitalter %s!") % Data.age_name(Game.current_age() + 1) + "\n" + who
 		_research_bar.value = 0
 	else:
 		var pts := Game.tech_points(cur)
@@ -495,6 +500,8 @@ func _update_research_head() -> void:
 	for i in _research_writing.size():
 		_research_writing[i].text = wt[i]
 		_research_writing[i].visible = wt[i] != ""
+	if _research_panel.visible and is_instance_valid(_exam_box):
+		ExamView.refresh(_exam_box)
 	var label := tr("Forschung")
 	if cur != "":
 		label = "%d%%" % int(Game.tech_progress(cur) / Game.tech_points(cur) * 100.0)
@@ -519,6 +526,9 @@ func _fill_research_list() -> void:
 		if a != age:
 			age = a
 			_research_list.add_child(_age_header(a, cur_age))
+			if a == cur_age + 1 and not Exams.exam_def(cur_age).is_empty():
+				_exam_box = ExamView.exam_box(cur_age)  # Pruefung, die dieses Zeitalter oeffnet
+				_research_list.add_child(_exam_box)
 		if a > cur_age + 1:
 			continue  # spaetere Zeitalter bleiben ein Geheimnis
 		if int(def.tier) != tier:
@@ -549,6 +559,8 @@ func _age_header(a: int, cur_age: int) -> Control:
 	var d := UiTheme.label(Data.ages[a].get("desc", "") if a <= cur_age + 1 else tr("Erreiche erst das Zeitalter %s.") % Data.age_name(a - 1), 12, col)
 	if a <= cur_age + 1 and Writing.age_text(a) != "":
 		d.text += "\n" + Writing.age_text(a)  # Forschung braucht Schriften
+	if a == cur_age + 1:
+		d.text += "\n" + tr("Beginnt, sobald die Prüfung bestanden ist.")
 	d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	d.custom_minimum_size.x = 200
 	v.add_child(d)
@@ -578,7 +590,7 @@ func _tech_row(t: String) -> Button:
 	h.offset_right = -8
 	b.add_child(h)
 	var ic := UiTheme.icon_rect(Data.tech_tex(t), 40)
-	if st in ["locked", "soon"]:
+	if st in ["locked", "soon", "exam"]:
 		ic.modulate = Color(0.25, 0.2, 0.2, 0.6)
 	h.add_child(ic)
 	var tv := VBoxContainer.new()
@@ -613,6 +625,9 @@ func _tech_row(t: String) -> Button:
 			var l := UiTheme.label(tr("Gesperrt"), 13, Color("#8a5a3a"), true)
 			right.add_child(l)
 			d.text = tr("Benötigt: ") + ", ".join(need)
+		"exam":  # wartet auf die Pruefung fuer dieses Zeitalter
+			right.add_child(UiTheme.label(tr("Prüfung"), 13, Color("#8a5a3a"), true))
+			right.add_child(UiTheme.label(tr("%d Pkt.") % int(Game.tech_points(t)), 12, col))
 		_:
 			var cost := GridContainer.new()
 			cost.columns = 2
@@ -654,6 +669,8 @@ func _on_tech_pressed(tid: String, b: Button, d: Label) -> void:
 					toast(tr("Tipp: Gib einem Siedler den Beruf Forscher."), "person")
 		"locked":
 			toast(d.text, "wissen")
+		"exam":
+			toast(Exams.missing_text(), "zeitalter")
 		"soon":
 			toast(tr("Dieses Wissen kommt mit einem späteren Update."), "wissen")
 		"done":
@@ -1233,7 +1250,15 @@ func _build_menu_panel() -> void:
 	v.add_child(save)
 	var sl := UiTheme.button(tr("Spielstände"), "kiste", 44)
 	sl.pressed.connect(func(): _open_slots())
-	v.add_child(sl)
+	var row := HBoxContainer.new()  # Spielstaende und Wertung nebeneinander (das Menue ist schon hoch)
+	row.add_theme_constant_override("separation", 6)
+	v.add_child(row)
+	sl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(sl)
+	var sc := UiTheme.button(tr("Wertung"), "ziel", 44)
+	sc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sc.pressed.connect(func(): _toggle(_score_panel))
+	row.add_child(sc)
 	if OS.has_feature("web"):
 		_update_btn = UiTheme.button(tr("Neueste Version laden"), "schnell", 44)
 		_update_btn.tooltip_text = tr("Speichert und lädt die neueste Version des Spiels.")
@@ -2497,7 +2522,14 @@ func _show_game_over() -> void:
 	var s := UiTheme.label(tr("Deine Siedlung hielt %d Tage durch.\nGeburten: %d   Höchste Bevölkerung: %d   Entdeckte Inseln: %d") % [
 		Game.day(), int(Game.stats.births), int(Game.stats.max_pop), Sea.islands.size() - 1], 15)
 	s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	s.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART  # Handy: lange Zeile umbrechen
+	s.custom_minimum_size.x = minf(560.0, get_viewport().get_visible_rect().size.x - 40.0)
 	v.add_child(s)
+	var sc := UiTheme.label(Exams.result_text(), 16, Color("#2f6a3a"), true)  # Wertung und neue Rekorde
+	sc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	sc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	sc.custom_minimum_size.x = s.custom_minimum_size.x
+	v.add_child(sc)
 	var ng := UiTheme.button(tr("Neue Insel besiedeln"), "sonne", 50)
 	ng.pressed.connect(func():
 		_overlay_clear()

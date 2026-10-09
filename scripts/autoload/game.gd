@@ -831,6 +831,7 @@ func eff_add(key: String) -> float:
 func _recompute_effects() -> void:
 	effects = {}
 	Writing.clear_cache()  # Schreibwaren haengen davon ab, was freigeschaltet ist
+	Exams.sync()  # direkt eingetragene Forschungen (Testhilfen) ziehen die Pruefungen nach
 	for t in research.done:
 		var e: Dictionary = Data.techs.get(t, {}).get("effects", {})
 		for k in e:
@@ -854,7 +855,7 @@ func is_researched(t: String) -> bool:
 	return t == "" or t in research.done
 
 
-## "done", "current", "available", "locked" oder "soon"
+## "done", "current", "available", "locked", "exam" (wartet auf die Pruefung, Exams) oder "soon"
 func tech_state(t: String) -> String:
 	if t in research.done:
 		return "done"
@@ -866,6 +867,8 @@ func tech_state(t: String) -> String:
 	for r in def.get("requires", []):
 		if not r in research.done:
 			return "locked"
+	if Exams.gates(t):
+		return "exam"
 	return "available"
 
 
@@ -887,6 +890,8 @@ func start_research(t: String) -> String:
 	var st := tech_state(t)
 	if st == "current":
 		return ""
+	if st == "exam":
+		return tr("Erst die Prüfung für das Zeitalter %s bestehen.") % Data.age_name(Exams.passed + 1)
 	if st != "available":
 		return tr("Diese Forschung ist noch nicht möglich.")
 	if not t in research.paid:
@@ -924,17 +929,13 @@ func add_research(points: float, apply_bonus: bool = true) -> void:
 		_finish_research(t)
 
 
-## Zeitalter: das spaeteste, aus dem schon etwas erforscht ist (0 = Steinzeit).
+## Zeitalter (0 = Steinzeit) = Zahl der bestandenen Pruefungen (Exams). Ein neues Zeitalter beginnt
+## erst mit der Pruefung (Exams.pass_exam meldet es).
 func current_age() -> int:
-	var a := 0
-	for t in research.done:
-		if Data.techs.has(t):
-			a = maxi(a, Data.age_of_tier(int(Data.techs[t].tier)))
-	return a
+	return Exams.current_age()
 
 
 func _finish_research(t: String) -> void:
-	var age_before := current_age()
 	research.progress.erase(t)
 	research.done.append(t)
 	research.current = ""
@@ -944,9 +945,6 @@ func _finish_research(t: String) -> void:
 	if not unlocks.is_empty():
 		text += tr(" Neu zu bauen: ") + ", ".join(unlocks) + "."
 	notify(text, "wissen")
-	var age := current_age()
-	if age > age_before:
-		notify(tr("Ein neues Zeitalter beginnt: %s! %s") % [Data.age_name(age), Data.ages[age].get("desc", "")], "zeitalter")
 	Sound.play("forschung")
 	research_changed.emit()
 	stock_changed.emit()
