@@ -111,6 +111,7 @@ func setup(p_world: World, p_camera: GameCamera) -> void:
 	_toasts.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_toasts.add_theme_constant_override("separation", 3)
 	root.add_child(_toasts)
+	root.move_child(_toasts, goal_card.get_index() + 1)  # Meldungen unter offenen Fenstern, nicht über Knöpfen und Titeln
 	get_viewport().size_changed.connect(_refresh_top)
 	Game.stock_changed.connect(_refresh_top)
 	Game.stock_changed.connect(_refresh_stock)
@@ -1289,12 +1290,17 @@ func _build_menu_panel() -> void:
 			toast(tr("Lade die neueste Version ..."), "haus")
 			Game.load_newest_version())
 		v.add_child(_update_btn)
+	var hrow := HBoxContainer.new()  # Anleitung und Meldungen nebeneinander, damit das Menü auf 540 Pixel Höhe passt
+	hrow.add_theme_constant_override("separation", 6)
+	v.add_child(hrow)
 	var help := UiTheme.button(tr("Spielanleitung"), "sonne", 44)
+	help.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	help.pressed.connect(func(): _toggle(_help_panel))
-	v.add_child(help)
+	hrow.add_child(help)
 	var nt := UiTheme.button(tr("Meldungen"), "glocke", 44)
+	nt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	nt.pressed.connect(func(): _toggle(_notify_panel))
-	v.add_child(nt)
+	hrow.add_child(nt)
 	var ng := UiTheme.button(tr("Neues Spiel"), "abriss", 44)
 	var armed := [false]
 	ng.pressed.connect(func():
@@ -2147,7 +2153,13 @@ func _info_building(b: Building) -> void:
 			_info_box.add_child(UiTheme.label(tr("Bewohner: %d / %d") % [names.size(), b.housing()], 14))
 			var bb := float(b.def.get("birth_bonus", 1.0))
 			if bb > 1.0:
-				_info_box.add_child(UiTheme.label(tr("Kinder: %d %% öfter als in der Hütte") % roundi((bb - 1.0) * 100.0), 13, UiTheme.GOOD))
+				var kl := UiTheme.label(tr("Kinder: %d %% öfter als in der Hütte") % roundi((bb - 1.0) * 100.0), 13, UiTheme.GOOD)
+				_info_box.add_child(kl)
+				var kupd := func():  # Bedürfnisstufen: der Bonus gilt nur, wenn das Haus voll zählt
+					if is_instance_valid(kl) and is_instance_valid(b):
+						kl.visible = HouseNeeds.full_level(b)
+				kupd.call()
+				_updaters.append(kupd)
 			if not names.is_empty():
 				var l := UiTheme.label(", ".join(names), 13)
 				l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

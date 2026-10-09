@@ -498,16 +498,14 @@ func huntable() -> int:
 	return n
 
 
-## Art des kommenden Winters (Teil H: Seasons.winter_type), sonst "normal".
+## Art des kommenden Winters, so wie die Siedler sie kennen (Seasons.winter_forecast: im Frühling
+## noch unbekannt = "normal", im Sommer grob, ab Herbst genau; "streng" zählt wie "hart"). So verrät
+## die Menge Winterholz nichts, was die Vorhersage noch nicht gesagt hat.
 func winter_type() -> String:
-	if not Seasons.has_method("winter_type"):
+	var f := Seasons.winter_forecast()
+	if f == "":
 		return "normal"
-	for m in Seasons.get_method_list():
-		if str(m.name) == "winter_type":
-			if Array(m.args).size() > Array(m.default_args).size():
-				return str(Seasons.call("winter_type", Seasons.year()))
-			return str(Seasons.call("winter_type"))
-	return "normal"
+	return "hart" if f == "streng" else f
 
 
 func winter_mult() -> float:
@@ -1098,8 +1096,8 @@ func _quest_test(n: int, main) -> void:
 	print("Auftragstest: %d Vorlagen %s" % [templates().size(), templates().keys()])
 	print("   Lage: Zeitalter %d, Siedler %d, Forschung %.0f/Tag, Jahreszeit %s" % [Game.current_age(), Game.population(), research_rate(), Seasons.season_name()])
 	var wm: Dictionary = cfg().get("winter_mult", {})
-	print("   Winter: Art %s (Seasons.winter_type da: %s), Faktor %.2f, Winterholz bei 10 Siedlern %s" % [winter_type(),
-		Seasons.has_method("winter_type"), winter_mult(), wm.keys().map(func(k): return "%s %d" % [k, winter_wood(10, float(wm[k]))])])
+	print("   Winter: Art %s (Vorhersage '%s', tatsächlich %s), Faktor %.2f, Winterholz bei 10 Siedlern %s" % [winter_type(),
+		Seasons.winter_forecast(), Seasons.winter_type(), winter_mult(), wm.keys().map(func(k): return "%s %d" % [k, winter_wood(10, float(wm[k]))])])
 	# 1) Generator: 40 Runden, Regeln pruefen
 	var keep_seq := seq
 	var tpl_n := {}

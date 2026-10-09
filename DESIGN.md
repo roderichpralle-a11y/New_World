@@ -3,6 +3,11 @@
 Gemütliches Aufbauspiel in Pixel-Grafik (Godot 4.7, GDScript, Compatibility-Renderer,
 Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
 
+Seit der Erweiterung „Mehr Herausforderung“ (Regeln ab Version 2) kommen dazu: wechselnde Winter und
+Sommer, Inselstärken mit Gewürzen und fremden Händlern, Bedürfnisstufen der Häuser mit Fachkräften,
+angekündigte Ereignisse, Forschung mit Schriften (Tontafeln, Papier, Strom), Prüfungen beim
+Zeitalterwechsel mit Wertung und Aufträge mit Wahl. Überblick und Zusammenspiel: „Regeln ab Version 2“.
+
 ## Spielregeln (Etappe 1)
 
 - Start: eine zufällige Insel aus einem Seed, Lagerfeuer und eine Hütte, zwei Siedler
@@ -335,7 +340,7 @@ sind jedes Jahr anders. Im Herbst sagen die Alten voraus, wie hart der Winter wi
 - **Für andere Systeme**: `Seasons.winter_type(y = dieses Jahr)` und `Seasons.summer_type(y)` (steht ab
   Frühling fest, auch wenn noch nicht angekündigt), `winter_forecast()` (was die Siedler wissen: "", Typ
   oder "streng"), `climate_factor(key)`, `Seasons.climate` (alle Jahre, z. B. für eine Wertung). `growth(type,
-  w)` fragt `Events.growth_factor(type, w)`, wenn es einen Autoload `Events` gibt, und nimmt das Kleinere aus
+  w)` fragt `Events.growth_factor(type, w)` (Dürre, siehe Angekündigte Ereignisse) und nimmt das Kleinere aus
   Klima- und Ereignisfaktor (Faktor auf den Jahreszeitwert; Hitze und Dürre stapeln nicht).
 - **Spielstand**: `climate` = {"<jahr>": {"w": Typ, "s": Typ}} über `Game.state_save`/`state_load`, alle Jahre.
   Alter Spielstand ohne `climate`: das laufende Jahr ist ein Schonjahr (normal/normal), gewürfelt wird ab dem
@@ -373,7 +378,7 @@ Gewürze. Händler kommen an Häfen und handeln gegen Gold.“
 - **Fremde Händler** (Autoload `Merchant`, `scripts/autoload/merchant.gd`, Werte in `data/merchant.json`):
   sobald eine besiedelte Insel einen fertigen Hafen hat (`Sea.harbor_level >= 1`, die Werft zählt), kommt
   der erste Händler `first_after_days` (2) Tage später. Einen Tag vorher (`announce_days`) wählt er die
-  Insel (nur mit Hafen und Siedlern, ohne angekündigtes Ereignis `Events.busy(w)`, Gewicht
+  Insel (nur mit Hafen und Siedlern, ohne angekündigte Piraten `Events.busy(w)`, Gewicht
   (1 + Hafenstufe) x Siedler) und meldet sich (Meldungsart `ereignis`, Symbol `haendler`). Er liegt
   `stay_days` (1) im Hafen, als eingefärbte Kogge vor dem Ufer (`add_ship`, Farbe `ship_tint`), und kommt
   `interval` (4–6) Tage nach der Abfahrt wieder. Kann keine Insel ihn aufnehmen, verschiebt er sich um
@@ -705,7 +710,7 @@ bringt ein Fest, Einwanderer und Waren. Dazu eine Wertung mit Rekorden (Menü > 
 - **Prüfungen** in `techs.json` `_ages[i].exam` (i = 0..6; Prüfung i öffnet Zeitalter i+1, die Zukunft hat
   keine): `{checks: [...], fest_days, reward: {Ware: Menge, "settlers": n}}`. Bedingungen wie bei den Zielen
   (`GoalChecks`), dazu neu `age_techs` {age, n} (erforschte Forschungen dieses Zeitalters), `houses` {what, n}
-  (dieses Haus oder ein besseres über `upgrade`, mit Teil B auch über `level`), `no_starve_days` {n} (Tage
+  (dieses Haus oder ein besseres über `upgrade` oder die Hausstufe `level`, siehe Bedürfnisstufen), `no_starve_days` {n} (Tage
   seit dem letzten Hungertod, `stats.starve_day`), `food` {n}, `variety` mit `all` (alle Inseln), `tech`
   {what}, `exams` {n}. Waren werden auf allen Inseln gezählt und nicht verbraucht. Unbekannte Gebäude-IDs
   zählen 0 und erscheinen lesbar („Mietshaus“). Werte (zum Nachjustieren nach josh's Spieltest):
@@ -784,8 +789,8 @@ sucht sich einen aus. Belohnungen sind Waren, Forschungspunkte, Einwanderer, dau
   - `vorrat_essen` (w1, 4 T.): beste herstellbare Speise (Brot, Räucherfisch, Konserven, Eier, sonst die
     sättigendste), Lager aller Inseln = jetzt + round5(max(15, 1,5·P)).
   - `vorrat_ware` (w1, 4 T.): herstellbares Material, + round5(clamp(4·P / Preis, 8, 100)).
-  - `winterholz` (w1, bis Winterbeginn): Holz + P·3 (× Winterhärte aus Teil H: mild 0,75, normal 1,
-    hart 1,5, bitter 2), nur Frühling/Sommer mit mindestens 3 Tagen bis zum Winter.
+  - `winterholz` (w1, bis Winterbeginn): Holz + P·3 (× Winterhärte, so wie die Siedler sie kennen
+    (`Seasons.winter_forecast`, unbekannt = normal, „streng“ = hart): mild 0,75, normal 1, hart 1,5, bitter 2), nur Frühling/Sommer mit mindestens 3 Tagen bis zum Winter.
   - `bauen` (w1, 4 T.; w2, 6 T. bei mehr als 60 Baukosten): ein freigeschaltetes Gebäude, das es noch nicht
     gibt (keine Denkmäler); sonst `bauen_mehr`: noch eins des größten Wohnhauses.
   - `wohnen` (w1, 5 T.): Wohnplätze + max(4, 0,25·P). `wachsen` (w2, 6 T.): Siedler + max(2, 0,15·P).
@@ -837,8 +842,8 @@ sucht sich einen aus. Belohnungen sind Waren, Forschungspunkte, Einwanderer, dau
 - **Bedingungen**: `GoalChecks` (gemeinsam mit Zielen und Prüfungen) kann dafür neu `base`, `stock_at`
   {what, island}, `variety` mit `max` (beste Insel) und `starved`.
 - **Code**: Autoload `Quests` (`scripts/autoload/quests.gd`, tickt alle 0,05 Tage, nur wenn das Spiel
-  läuft), Oberfläche `QuestView` (`scripts/ui/quest_view.gd`). Teil H fehlt im Code noch: die Winterhärte
-  kommt über `Seasons.has_method("winter_type")`, sonst „normal“.
+  läuft), Oberfläche `QuestView` (`scripts/ui/quest_view.gd`). Die Winterhärte kommt aus
+  `Quests.winter_type()` (Vorhersage aus den wechselnden Wintern; so verrät die Holzmenge nichts Geheimes).
 - **Test**: `--questtest=N`: Generator (40 Runden, Regeln), jede Belohnungsart direkt (Waren, Forschung mit
   Bank, Einwanderer mit Begabung, Segen bis zur Obergrenze, Bauplan), Speichern/Laden mit unbekannten IDs,
   alter Spielstand, danach im laufenden Spiel Angebot N annehmen und erfüllen, einen Auftrag scheitern
@@ -854,6 +859,40 @@ sucht sich einen aus. Belohnungen sind Waren, Forschungspunkte, Einwanderer, dau
 Grundgerüst für die Erweiterung „Mehr Herausforderung“ (Bedürfnisse, Schriften, Klima, Ereignisse,
 Aufträge, Prüfungen, Händler). josh: „Die neuen Regeln greifen ab dem Laden“, alte Spielstände laden also
 weiter und bekommen die neuen Regeln ab dem Ladezeitpunkt.
+
+| Teil | Abschnitt | Autoload | Spielstand | Daten |
+|---|---|---|---|---|
+| H | Wechselnde Winter und Sommer (unter Jahreszeiten) | `Seasons` | `climate` | `seasons.json` |
+| G | Inselstärken, Gewürze und fremde Händler | `Merchant` | `merchant` | `merchant.json`, `islands.json`, `buildings.json` `biome_bonus` |
+| B | Bedürfnisstufen der Bewohner | `HouseNeeds` | `needs` | `levels.json`, `buildings.json` `level`/`worker_level` |
+| C | Angekündigte Ereignisse | `Events` | `events` | `events.json` |
+| E | Forschung braucht Schriften | `Writing` | – | `techs.json` `_ages[i].writing` |
+| J | Prüfungen beim Zeitalterwechsel und Wertung | `Exams` | `exams` | `techs.json` `_ages[i].exam` |
+| D | Aufträge mit Wahl | `Quests` | `quests` | `goals.json` `quests` |
+
+Reihenfolge der Autoloads in `project.godot`: Seasons, Writing, Exams, Quests, HouseNeeds, Merchant, Events
+(alle nach Game und Sea). Ein alter Spielstand zeigt im Fenster „Neue Regeln“ je Teil genau eine Zeile.
+
+**Zusammenspiel der Teile**:
+- Klima → Aufträge: Winterholz und das Gewicht des Winter-Auftrags folgen der Wintervorhersage
+  (`Quests.winter_type()` aus `Seasons.winter_forecast()`).
+- Klima → Ereignisse: Hitze verdoppelt Dürre und Brand, keine Seuche im harten Winter; `Seasons.growth`
+  nimmt das Kleinere aus Klima und Dürre (`Events.growth_factor`).
+- Prüfungen → alle: `Game.current_age()` = bestandene Prüfungen (Piraten ab Mittelalter, Händlerwaren,
+  Auftragsbelohnungen, Baupläne nur bis zum erreichten Zeitalter, Forschungsaufträge nie hinter einer Prüfung).
+- Hausstufen → Prüfungen: `houses` zählt über die Ausbaukette und `level` (Mietshaus, Wohnblock).
+- Fachkräfte-Pool und Schriften wirken beide beim Forschen: `World.find_research_place` und die Fortsetzung
+  in `Settler._do_research` fragen `pool_allows`, die Punkte kosten Schreibwaren aus dem Lager der Insel.
+  Tafelmacherei und Lehmgrube sind Stufe 1. Hausbedürfnisse (Papier ab Stufe 4) und Forscher teilen sich
+  das Lager.
+- Ereignisse → Händler: der Händler meidet Inseln mit angekündigten Piraten (`Events.busy`). Ratten fressen
+  keine Tontafeln und kein Papier.
+- Aufträge → Wertung: 40 Punkte je erledigtem Auftrag (`stats.quests`); Segen und Baupläne laufen über
+  `Game._recompute_effects` bzw. `Game.is_unlocked` (Baupläne zählen damit auch für die Schreibwaren).
+- Oberleiste: Klima-Symbol neben der Jahreszeit; Händler- und Ereignisknopf in `hud.top_alerts`
+  (`TopAlerts`, rechts neben dem Tempo, auf schmalen Bildschirmen darunter).
+- Selbsttest `--integtest=1` (`scripts/autoload/integration_test.gd`) prüft diese Verbindungen
+  („Zusammenspiel OK/FEHLER“).
 
 - **Regelstand**: `Game.RULES` (= 1). Der Spielstand bekommt die Schlüssel `rules` (int) und `rules_day`
   (float, `time_days`, ab dem die Regeln für diesen Spielstand gelten). `SAVE_VERSION` bleibt 3: eine alte,
@@ -939,6 +978,10 @@ Pushes auf den Zweig `claude/entwicklungsbaum-x33t1h` landen unter `/New_World/t
 | `data/*.json` | Alle Spielwerte (Ressourcen, Rohstoffquellen, Gebäude, Berufe, Balance, Namen) |
 | `scripts/autoload/data.gd` | Lädt JSON, Sprite-Regionen (`OBJECT_REGIONS`), Icons |
 | `scripts/autoload/game.gd` | Zeit, Vorräte, Nachwuchs, Abstammung, Forschung und Effekte, Speichern/Laden |
+| `scripts/autoload/writing.gd` | Forschung braucht Schriften (Schreibwaren je Zeitalter) |
+| `scripts/autoload/exams.gd` | Prüfungen beim Zeitalterwechsel, Fest, Wertung und Rekorde |
+| `scripts/autoload/quests.gd` | Aufträge mit Wahl (Brett, Belohnungen, Segen, Baupläne) |
+| `scripts/autoload/integration_test.gd` | Selbsttest `--integtest=1`: Zusammenspiel der Erweiterungen |
 | `scripts/autoload/seasons.gd` | Jahreszeiten: Kalender, Wachstum, Heizen, Verderb, Frost, Schnee, Klima (wechselnde Winter und Sommer) |
 | `scripts/autoload/house_needs.gd` | Bedürfnisstufen der Häuser, Fachkräfte-Pool (`data/levels.json`) |
 | `scripts/autoload/merchant.gd`, `merchant_test.gd` | Fremde Händler (`data/merchant.json`) und ihre Selbsttests |
@@ -950,6 +993,9 @@ Pushes auf den Zweig `claude/entwicklungsbaum-x33t1h` landen unter `/New_World/t
 | `scripts/world/game_camera.gd` | Ziehen, Zoom (Mausrad, zwei Finger), Tippen |
 | `scripts/entities/*.gd` | `Settler` (KI), `SettlerMind` (Charakter), `Building`, `ResNode`, `Animal`, `Raider` (Pirat) |
 | `scripts/ui/hud.gd`, `ui_theme.gd`, `sea_panel.gd` | Oberfläche im Code gebaut, Pixel-Theme, Seekarte |
+| `scripts/ui/goal_card.gd`, `goal_checks.gd` | Zielkarte oben links; gemeinsame Prüfung von Zielen, Prüfungen und Aufträgen |
+| `scripts/ui/exam_view.gd`, `quest_view.gd` | Prüfungskasten und Fenster „Wertung“; Auftragszeile und Fenster „Aufträge“ |
+| `scripts/ui/climate_badge.gd` | Klima-Symbol neben der Jahreszeit |
 | `scripts/ui/needs_info.gd` | Anzeige der Bedürfnisstufen im Infofenster und in der Bauliste |
 | `scripts/ui/trade_panel.gd`, `top_alerts.gd` | Handelsfenster der Händler, Hinweis-Knöpfe oben rechts |
 | `scripts/ui/event_chip.gd` | Ereignis-Knopf oben rechts (angekündigte Ereignisse) |
@@ -1020,6 +1066,7 @@ godot --headless --fixed-fps 60 -- --autotest=60 --scale=10 --fixture=alt.json  
 godot --headless --fixed-fps 60 -- --autotest=200 --scale=10 --writingtest=1  # Forschung braucht Tontafeln
 godot --headless --fixed-fps 60 -- --autotest=100 --scale=10 --examtest=0  # Prüfung beim Zeitalterwechsel
 godot --headless --fixed-fps 60 -- --autotest=120 --scale=10 --questtest=1  # Aufträge mit Wahl
+godot --headless --fixed-fps 60 -- --autotest=60 --scale=10 --seed=7 --integtest=1  # Zusammenspiel der Erweiterungen
 #   --fixed-fps 60 vor "--" rechnet so schnell wie moeglich (gleicher Spielverlauf); --seed=N feste Insel
 #   dazu --wildlife=1: Tierbestand je Insel und Bau; --weak=1: ohne Waffenkunde (Tiere gefährlicher), Bildschirmfoto: --island=<id>, --panel=sea
 # Bildschirmfoto-Optionen: --panel=research|build|stock, --selectb=<typ>, --look=1

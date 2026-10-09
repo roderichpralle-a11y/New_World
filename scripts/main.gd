@@ -214,6 +214,8 @@ func _maybe_autotest() -> void:
 	for sys in Game.systems:
 		if is_instance_valid(sys) and sys.has_method("autotest_setup"):
 			await sys.autotest_setup(args, self)
+	if args.has("integtest"):
+		await IntegrationTest.run(self)  # Zusammenspiel der Erweiterungen (scripts/autoload/integration_test.gd)
 	var elapsed := 0.0
 	var next_report := 0.0
 	while elapsed < secs:
@@ -231,6 +233,12 @@ func _maybe_autotest() -> void:
 			_autotest_sea_tick(elapsed)
 		if args.has("tuttest"):
 			_autotest_tutorial()
+		if args.has("research") and not world.settlers.any(func(s): return s.job == "forscher"):
+			for s in world.settlers:  # der Forscher ist gestorben: ein freier Erwachsener übernimmt
+				if s.is_adult() and s.job == "frei":
+					s.set_job("forscher")
+					print("Forschungs-Bot: neuer Forscher ", s.display_name)
+					break
 		if args.has("research") and not Game.has_research_goal():
 			for t in Data.sorted_tech_ids():
 				if Game.tech_state(t) == "available" and Game.start_research(t) == "":
