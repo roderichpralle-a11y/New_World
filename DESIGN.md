@@ -1087,11 +1087,12 @@ Forschung mit `start_research`, `Quests.accept`, Werkstätten an/aus, Hoechstmen
 - Forschung: erst ein Auftrag mit Forschung, dann Steinzeit (Schrift … Brunnenbau), dann Antike
   (Backkunst zuerst); nur Bezahlbares, Heizholz bleibt liegen. Überspringt eine Forschung, die eine
   Ware braucht, die der gewünschten Forschung fehlt.
-- Bauen (Wunschliste): Lager bei über 85 % zuerst, Auftragsgebäude, Brunnen vor angekündigtem Brand,
-  bis zur Steinzeit-Prüfung das Holzhaus (Bretter dafür liegen schon vor der Zimmerei bereit),
-  Obstgärten und Felder (je 1 + Siedler/4, Felder nur, solange kein Getreideberg liegt), Mühle und
-  Bäckerei (nach der Prüfung, eine zweite bei Getreideberg), Räucherei, Schreibstube, Wohnplätze, das Holzhaus für die
-  Prüfung, Sägegrube, Lehmgrube und Tafelmacherei, Lager, Ziegelei, Steinhaus, Steinbruch, Schule …
+- Bauen (Wunschliste): Lager bei über 85 % zuerst (ab dem ersten Lager), Auftragsgebäude, Brunnen
+  vor angekündigtem Brand, bis zur Steinzeit-Prüfung das Holzhaus (Bretter dafür liegen schon vor
+  der Zimmerei bereit), Obstgärten und Felder (je 1 + Siedler/4, Felder nur, solange kein
+  Getreideberg liegt), Bäckerei und Mühle (Mühle erst nach der Prüfung, eine zweite bei
+  Getreideberg), Räucherei, Schreibstube, Wohnplätze, Sägegrube, Lehmgrube und Tafelmacherei,
+  Lager, Ziegelei, Steinhaus, Steinbruch, Schule …
   Wohnplätze nur, wenn die Nahrung reicht und die Siedlung nicht über das hinauswächst, was der letzte
   Winter satt gemacht hat (plus ein Viertel, mindestens 20; nach knappem Winter kein Wachstum).
 - Berufe: Baumeister bei Baustellen, Forscher, Sammler/Fischer/Bauern nach einem Regler auf
