@@ -198,6 +198,9 @@ func _planned_need(res: String) -> int:
 		n += int(Data.techs[t].get("cost", {}).get(res, 0))
 	if _next_build != "":
 		n += int(Data.buildings[_next_build].get("cost", {}).get(res, 0))
+	# Prüfung Steinzeit: Bretter und Holz für das Holzhaus schon vor der Zimmerei bereitlegen
+	if Exams.passed == 0 and _next_build != "holzhaus" and _count("holzhaus") == 0 and Game.is_researched("holzbearbeitung"):
+		n += int(Data.buildings["holzhaus"].get("cost", {}).get(res, 0))
 	return n
 
 
@@ -381,6 +384,9 @@ func _wishlist() -> Array:
 	var ev: Dictionary = Events.event_of(w)
 	if str(ev.get("type", "")) == "brand" and not ev.get("struck", false) and _count("brunnen") == 0:
 		out.append(["brunnen", "Brand angekündigt"])
+	# Prüfung Steinzeit offen: das Holzhaus vor allem anderen (Bretter nicht für Mühle und Co. ausgeben)
+	if Exams.passed == 0 and Game.is_unlocked("holzhaus") and _count("holzhaus") == 0:
+		out.append(["holzhaus", "Pruefung"])
 	# Nahrung zuerst: Obstgärten und Felder (nicht im Winter, da wächst nichts), Räucherei, Bäckerei
 	var orchards: int = _count("obstgarten")
 	var fields: int = _count("feld")
@@ -393,7 +399,7 @@ func _wishlist() -> Array:
 	var grain_pile: bool = Game.amount("weizen", w) > 80 + 40 * _count("muehle")
 	if Game.is_unlocked("baeckerei") and (_count("baeckerei") == 0 or (grain_pile and _count("baeckerei") < _count("muehle"))):
 		out.append(["baeckerei", "Brot"])
-	if Game.is_unlocked("muehle") and (Game.is_researched("backkunst") or Game.tech_state("backkunst") != "locked") \
+	if Game.is_unlocked("muehle") and Exams.passed >= 1 and (Game.is_researched("backkunst") or Game.tech_state("backkunst") != "locked") \
 			and (_count("muehle") == 0 or (grain_pile and _count("baeckerei") >= _count("muehle") and _count("muehle") < 3)):
 		out.append(["muehle", "Mehl"])
 	if Game.is_unlocked("raeucherei") and _count("raeucherei") == 0:
