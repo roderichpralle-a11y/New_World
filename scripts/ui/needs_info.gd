@@ -28,23 +28,29 @@ static func _consumers(b) -> float:
 	return n
 
 
+## Zahl mit einer Nachkommastelle, im Deutschen mit Komma ("2,4").
+static func _num(v: float) -> String:
+	var t := "%.1f" % v
+	return t.replace(".", ",") if Loc.language == "de" else t
+
+
 ## Kurzer Wert einer Bedarfszeile für dieses Haus (je Tag, Vorrat, Sorten ...).
 static func _need_value(w, nd: Dictionary, cons: float) -> String:
 	match str(nd.get("kind", "")):
 		"good":
-			return Loc.t("%.1f/Tag") % (float(nd.get("rate", 0.0)) * cons)
+			return Loc.t("%s/Tag") % _num(float(nd.get("rate", 0.0)) * cons)
 		"stock":
 			var have := 0
 			for g in nd.get("goods", []):
 				have += Game.amount(str(g), w)
-			return Loc.t("Vorrat %d/%d") % [have, ceili(float(nd.get("per", 0.5)) * cons)]
+			return Loc.t("Vorrat %d (braucht %d)") % [have, ceili(float(nd.get("per", 0.5)) * cons)]
 		"variety":
-			return Loc.t("%d/%d Sorten") % [Game.food_variety(w), int(nd.get("sorts", 3))]
+			return Loc.t("%d Sorten (braucht %d)") % [Game.food_variety(w), int(nd.get("sorts", 3))]
 		"building":
 			return Loc.t("vorhanden") if HouseNeeds.need_sat(w, str(nd.id)) >= 0.5 else Loc.t("fehlt")
 		"food":
 			var fd := Game.food_days(w)
-			return Loc.t("%.1f Tage") % maxf(fd, 0.0)
+			return Loc.t("%s Tage") % _num(maxf(fd, 0.0))
 		"warm":
 			return Loc.t("warm") if Seasons.is_warm(w) else Loc.t("friert")
 	return ""
@@ -66,15 +72,15 @@ static func house_rows(hud, b) -> void:
 		bar = hud._bar_row(Loc.t("Zufriedenheit"), 0.0, UiTheme.GOOD)
 	var rows := []
 	for k in range(1, lv + 1):
-		var head := Loc.t("Stufe %d: %s") % [k, HouseNeeds.level_name(k)]
+		var head := Loc.t("Hausstufe %d: %s") % [k, HouseNeeds.level_name(k)]
 		if k == 1 and lv >= 2:
-			head += Loc.t(" (nur Anzeige)")
+			head += Loc.t(" (zählt nicht für die Zufriedenheit)")
 		box.add_child(UiTheme.label(head, 12, DIM, true))
 		for nd in HouseNeeds.level_needs(k):
 			var h := HBoxContainer.new()
 			h.add_theme_constant_override("separation", 4)
 			h.add_child(UiTheme.icon_rect(_need_icon(nd), 16))
-			var nl := UiTheme.label(str(nd.get("name", "")), 13)
+			var nl := UiTheme.label(HouseNeeds.need_label(nd), 13)
 			nl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			nl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 			nl.clip_text = true
@@ -89,7 +95,8 @@ static func house_rows(hud, b) -> void:
 			return
 		var eff := HouseNeeds.effective_level(b)
 		drop.visible = eff < lv
-		drop.text = Loc.t("Zählt nur als Stufe %d (%s): keine Fachkräfte ab Stufe %d, kein Kinder-Bonus.") % [eff, HouseNeeds.level_name(eff), eff + 1]
+		var miss := HouseNeeds.missing_text(w, eff + 1)
+		drop.text = Loc.t("Zählt nur als Hausstufe %d (%s), es fehlt: %s. Eine Hausstufe zählt erst, wenn auch alle Stufen darunter erfüllt sind. Bis dahin keine Fachkräfte ab Hausstufe %d und kein Kinder-Bonus.") % [eff, HouseNeeds.level_name(eff), miss if miss != "" else HouseNeeds.level_name(eff + 1), eff + 1]
 		if bar:
 			var v := HouseNeeds.house_sat(b)
 			bar.value = v * 100.0
@@ -113,7 +120,7 @@ static func worker_rows(hud, b) -> void:
 		return
 	var box: VBoxContainer = hud._info_box
 	var w = b.world
-	box.add_child(UiTheme.label(Loc.t("Arbeiter ab Stufe %d (%s)") % [lv, HouseNeeds.level_name(lv)], 13, UiTheme.TEXT, true))
+	box.add_child(UiTheme.label(Loc.t("Arbeiter ab Hausstufe %d (%s)") % [lv, HouseNeeds.level_name(lv)], 13, UiTheme.TEXT, true))
 	var pl := UiTheme.label("", 13)
 	box.add_child(pl)
 	var hint := UiTheme.label("", 12, UiTheme.BAD)
@@ -129,13 +136,13 @@ static func worker_rows(hud, b) -> void:
 			kk = k
 		var p := HouseNeeds.pool(w, kk)
 		var stuck: bool = k > 0 and b.free_slots() > 0
-		pl.text = Loc.t("Fachkräfte Stufe %d: %d / %d") % [kk, int(p[0]), int(p[1])]
+		pl.text = Loc.t("Fachkräfte Hausstufe %d: %d / %d") % [kk, int(p[0]), int(p[1])]
 		pl.add_theme_color_override("font_color", UiTheme.BAD if stuck else UiTheme.TEXT)
 		hint.visible = stuck
 		if int(p[1]) == 0:
-			hint.text = Loc.t("Es braucht zufriedene Häuser ab Stufe %d (%s, z. B. %s).") % [kk, HouseNeeds.level_name(kk), HouseNeeds.level_house(kk)]
+			hint.text = Loc.t("Es braucht zufriedene Häuser ab Hausstufe %d (%s, z. B. %s).") % [kk, HouseNeeds.level_name(kk), HouseNeeds.level_house(kk)]
 		else:
-			hint.text = Loc.t("Alle Fachkräfte dieser Stufe arbeiten schon. Mehr zufriedene Häuser ab Stufe %d helfen.") % kk
+			hint.text = Loc.t("Alle Fachkräfte dieser Hausstufe arbeiten schon. Mehr zufriedene Häuser ab Hausstufe %d helfen.") % kk
 	upd.call()
 	hud._updaters.append(upd)
 
@@ -170,11 +177,11 @@ static func build_desc(type: String) -> String:
 	var d: Dictionary = Data.buildings.get(type, {})
 	if d.has("housing"):
 		var lv := int(d.get("level", 1))
-		var names := HouseNeeds.level_needs(lv).map(func(nd): return str(nd.get("name", "")))
+		var names := HouseNeeds.level_needs(lv).map(func(nd): return HouseNeeds.need_label(nd))
 		if lv <= 1:
-			return " " + Loc.t("Stufe %d (%s), braucht: %s.") % [lv, HouseNeeds.level_name(lv), ", ".join(names)]
-		return " " + Loc.t("Stufe %d (%s), braucht zusätzlich: %s.") % [lv, HouseNeeds.level_name(lv), ", ".join(names)]
+			return " " + Loc.t("Hausstufe %d (%s), braucht: %s.") % [lv, HouseNeeds.level_name(lv), ", ".join(names)]
+		return " " + Loc.t("Hausstufe %d (%s), braucht zusätzlich: %s.") % [lv, HouseNeeds.level_name(lv), ", ".join(names)]
 	var wl := int(d.get("worker_level", 1))
 	if wl >= 2:
-		return " " + Loc.t("Arbeiter ab Stufe %d (%s).") % [wl, HouseNeeds.level_name(wl)]
+		return " " + Loc.t("Arbeiter ab Hausstufe %d (%s).") % [wl, HouseNeeds.level_name(wl)]
 	return ""

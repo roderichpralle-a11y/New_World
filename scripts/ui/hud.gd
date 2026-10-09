@@ -347,7 +347,7 @@ func _popup_panel(title: String) -> Array:
 	var t := UiTheme.label(title, 20, UiTheme.TEXT, true)
 	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(t)
-	var x := UiTheme.button("", "abriss", 32)
+	var x := UiTheme.button("", "abriss", 36)
 	x.tooltip_text = tr("Schließen")
 	x.pressed.connect(func(): p.visible = false)
 	head.add_child(x)
@@ -484,11 +484,33 @@ func _build_research_panel() -> void:
 		_research_writing.append(wl)
 	_research_scroll = ScrollContainer.new()
 	_research_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	_research_scroll.custom_minimum_size = Vector2(355, 270)
+	_research_scroll.custom_minimum_size = Vector2(355, RESEARCH_LIST_H)
 	v.add_child(_research_scroll)
 	_research_list = VBoxContainer.new()
 	_research_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_research_scroll.add_child(_research_list)
+
+
+## Forschungsfenster: Die Liste wird kürzer, wenn die Kopfzeilen (Schreibwaren, Prüfung) wachsen,
+## damit das Fenster nicht in die untere Knopfleiste ragt.
+func _fit_research(top_h: float = -1.0) -> void:
+	if _research_scroll == null or _research_panel == null or root == null:
+		return
+	var vs := get_viewport().get_visible_rect().size
+	var bp: Control = _bottom.get_parent()
+	if top_h < 0.0:
+		top_h = 100.0 if (vs.y > vs.x or vs.x < 760) else 50.0
+	var avail := vs.y - top_h - bp.size.y - 18.0
+	_research_scroll.custom_minimum_size.y = RESEARCH_LIST_H
+	var over := _research_panel.get_combined_minimum_size().y - avail
+	if over > 0.0:
+		_research_scroll.custom_minimum_size.y = clampf(RESEARCH_LIST_H - over, 120.0, RESEARCH_LIST_H)
+	_research_panel.reset_size()
+	_research_panel.size.x = minf(_research_panel.size.x, vs.x - 12)
+	_research_panel.position = Vector2((vs.x - _research_panel.size.x) / 2.0, maxf(top_h, vs.y - _research_panel.size.y - bp.size.y - 18))
+
+
+const RESEARCH_LIST_H := 270.0
 
 
 func _forscher_count() -> int:
@@ -513,9 +535,13 @@ func _update_research_head() -> void:
 		_research_bar.value = Game.tech_progress(cur) / pts * 100.0
 	_research_label.add_theme_color_override("font_color", UiTheme.BAD if n == 0 else UiTheme.TEXT)
 	var wt: Array = Writing.head_lines(world, n)
+	var wchanged := false
 	for i in _research_writing.size():
+		wchanged = wchanged or _research_writing[i].text != wt[i]
 		_research_writing[i].text = wt[i]
 		_research_writing[i].visible = wt[i] != ""
+	if wchanged and _research_panel.visible:
+		_fit_research()
 	if _research_panel.visible and is_instance_valid(_exam_box):
 		ExamView.refresh(_exam_box)
 	var label := tr("Forschung")
@@ -1788,7 +1814,7 @@ func _build_notify_panel() -> void:
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	l.custom_minimum_size.x = 260
 	v.add_child(l)
-	var rows := [["goal_card", tr("Ziele und Aufträge (oben links)"), Game.goal_card_on]]
+	var rows := [["goal_card", tr("Zielkarte mit Aufträgen (oben links)"), Game.goal_card_on]]
 	for c in Game.NOTIFY_CATS:
 		rows.append([c, Game.NOTIFY_CATS[c], not Game.notify_off.get(c, false)])
 	_notify_grid = GridContainer.new()
@@ -1845,7 +1871,7 @@ func _volume_row(text: String, icon_name: String, value: float, on_change: Calla
 ## Anleitung zur Erweiterung "Mehr Herausforderung" (eigener Text, damit HELP_TEXT gleich bleibt).
 const CHALLENGE_HELP := """[b]Mehr Herausforderung[/b]
 Jedes Jahr ist anders: Es gibt milde, normale, harte und eisige Winter und manchmal einen heißen Sommer. Im Herbst sagen die Alten genau voraus, wie hart der Winter wird; das Symbol neben der Jahreszeit zeigt es. Lege dann genug Holz und Essen zurück.
-Häuser haben Bedürfnisse: Dorfbewohner im Holzhaus wollen Abwechslung beim Essen und Möbel (Bretter), Bürger im Steinhaus zubereitetes Essen, Werkzeug und eine Schule, später kommen Glas, Papier, Gewürze, Strom und Elektronik dazu. Nur zufriedene Häuser stellen Fachkräfte für höhere Werkstätten wie Schmiede, Bibliothek oder Fabrik. Tippe auf ein Haus, um zu sehen, was fehlt.
+Häuser haben Bedürfnisse: Dorfbewohner im Holzhaus wollen Abwechslung beim Essen und Möbel (Bretter), Bürger im Steinhaus zubereitetes Essen, Hausrat (Werkzeug) und eine Schule, später kommen Glas, Papier, Gewürze, Strom und Elektronik dazu. Nur zufriedene Häuser stellen Fachkräfte für höhere Werkstätten wie Schmiede, Bibliothek oder Fabrik. Ein Haus zählt nur dann als Steinhaus oder höher, wenn auch die Bedürfnisse der Stufen darunter erfüllt sind. Tippe auf ein Haus, um zu sehen, was fehlt.
 Ab dem zweiten Jahr kündigen sich Ereignisse an: Dürre, Ratten, Brand, Seuche, Sturmflut und ab dem Mittelalter Piraten. Das Ereignis-Symbol oben rechts zeigt, was kommt und was hilft (zum Beispiel Brunnen gegen Feuer).
 Ab der Antike brauchen Forscher Tontafeln aus der Tafelmacherei, später Papier, Strom und Elektronik. Fehlen sie, geht die Forschung nur langsam.
 Ein neues Zeitalter beginnt erst nach einer Prüfung. Im Entwicklungsbaum steht unter dem nächsten Zeitalter, was dafür fehlt. Jede bestandene Prüfung bringt ein Fest, Einwanderer und Waren. Menü > Wertung zeigt deine Punkte und Rekorde.
@@ -2671,6 +2697,7 @@ func _layout() -> void:
 		_toasts.position.y = maxf(_toasts.position.y, top_alerts.position.y + top_alerts.size.y + 4.0)
 	_notify_grid.columns = 2 if vs.x >= 640 else 1
 	_size_settler_panel(vs.y - top_h - bp.size.y - 18.0)
+	_fit_research(top_h)
 	for pnl in _panels():
 		pnl.reset_size()
 		pnl.size.x = min(pnl.size.x, vs.x - 12)

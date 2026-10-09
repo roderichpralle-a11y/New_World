@@ -790,7 +790,7 @@ func _update_ui_scale() -> void:
 func _sample_rules_lines() -> Array:
 	return [tr("Forschung ab der Antike verbraucht Tontafeln (Tafelmacherei), später Papier, Strom und Elektronik. Forschungen kosten mehr."),
 		tr("Winter und Sommer sind jedes Jahr anders. Im Herbst sagen die Alten voraus, wie hart der Winter wird."),
-		tr("Häuser haben Bedürfnisse. Nur zufriedene Häuser stellen Fachkräfte für höhere Werkstätten (z. B. Schmiede ab Holzhaus-Stufe)."),
+		tr("Häuser haben Bedürfnisse. Höhere Werkstätten brauchen Arbeiter aus zufriedenen Häusern, z. B. die Schmiede Bewohner zufriedener Holzhäuser."),
 		tr("Jede Inselart hat Stärken. Palmeninseln haben Gewürze. Händler kommen an Häfen und handeln gegen Gold."),
 		tr("Ab dem zweiten Jahr kündigen sich Ereignisse an: Dürre, Ratten, Brand, Seuche, Sturmflut und ab dem Mittelalter Piraten. Wer sie gut übersteht, bekommt Einwanderer."),
 		tr("Neue Aufträge mit Wahl: du suchst dir einen von drei aus. Belohnungen sind Einwanderer, dauerhafte Segen, Baupläne oder seltene Waren."),

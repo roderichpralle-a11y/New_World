@@ -7,7 +7,8 @@ extends Node
 ## System alle `tick_days` die Bedürfnisse, verbraucht Waren (Möbel = Bretter usw.) und glättet die
 ## Erfüllung (`tau_days`). Zufriedenheit der Stufe k = Mittel aller Bedürfnisse der Stufen 2..k;
 ## ok(k) mit Hysterese (an ab `on`, aus unter `off`). Ein Haus der Stufe L zählt als die höchste Stufe
-## k <= L mit ok(k), sonst als Stufe 1 (Stufe 1 = Nahrung und Wärme, nur Anzeige).
+## k <= L, bei der ok(2) .. ok(k) alle gelten (streng: fehlt Stufe 2, zählt auch ein Steinhaus nur als
+## Stufe 1), sonst als Stufe 1 (Stufe 1 = Nahrung und Wärme, nur Anzeige).
 ##
 ## Fachkräfte-Pool: Werkstätten und Forschungsplätze haben `worker_level` (Standard 1). Plätze ab
 ## Stufe 2 darf ein Siedler nur nehmen, wenn für alle k = 2..L gilt: belegt(k) < Fachkräfte(k).
@@ -71,6 +72,16 @@ func level_needs(k: int) -> Array:
 	return levels[k - 1].get("needs", [])
 
 
+## Name eines Bedürfnisses für die Anzeige, bei Waren mit der Ware: "Möbel (Bretter)".
+func need_label(nd: Dictionary) -> String:
+	var n := str(nd.get("name", nd.get("id", "")))
+	if str(nd.get("kind", "")) == "good":
+		var g := Data.resource_name(str(nd.get("good", "")))
+		if g != n:
+			return "%s (%s)" % [n, g]
+	return n
+
+
 func _state_of(w):
 	if w == null or not is_instance_valid(w):
 		return null
@@ -91,12 +102,16 @@ func level_sat(w, k: int) -> float:
 	return total / maxf(1.0, float(n))
 
 
-## Ist Stufe k auf Insel w insgesamt erfüllt (mit Hysterese)?
+## Ist Stufe k auf Insel w erfüllt (mit Hysterese)? Streng: auch alle Stufen 2..k-1 müssen erfüllt
+## sein (ein Steinhaus ohne Möbel zählt nicht als Bürgerhaus, auch wenn Stufe 3 im Mittel reicht).
 func level_ok(w, k: int) -> bool:
 	var st = _state_of(w)
 	if st == null or k < 2:
 		return true
-	return bool(st.ok.get(str(k), true))
+	for j in range(2, k + 1):
+		if not bool(st.ok.get(str(j), true)):
+			return false
+	return true
 
 
 ## Erfüllung eines Bedürfnisses (geglättet ab Stufe 2, Stufe 1 der Wert gerade), 0..1.
@@ -109,7 +124,8 @@ func need_sat(w, id: String) -> float:
 	return float(st.get("_inst", {}).get(id, 1.0))
 
 
-## Effektive Stufe eines Hauses: die höchste Stufe k <= Hausstufe mit ok(k), sonst 1. 0 = kein Haus.
+## Effektive Stufe eines Hauses: die höchste Stufe k <= Hausstufe, bei der alle Stufen 2..k erfüllt
+## sind (ok), sonst 1. 0 = kein Haus.
 func effective_level(b) -> int:
 	var lv: int = b.house_level()
 	if lv <= 1:
@@ -117,10 +133,12 @@ func effective_level(b) -> int:
 	var st = _state_of(b.world)
 	if st == null:
 		return lv
-	for k in range(mini(lv, levels.size()), 1, -1):
-		if bool(st.ok.get(str(k), true)):
-			return k
-	return 1
+	var eff := 1
+	for k in range(2, mini(lv, levels.size()) + 1):
+		if not bool(st.ok.get(str(k), true)):
+			break
+		eff = k
+	return eff
 
 
 ## Haus voll zufrieden (zählt mit seiner eigenen Stufe)? Hütten und Nicht-Häuser: immer.
@@ -162,7 +180,7 @@ func _missing(st: Dictionary, k: int) -> String:
 		for nd in level_needs(j):
 			var v := float(st.sat.get(nd.id, 1.0))
 			if v < float(cfg.get("on", 0.7)):
-				list.append([v, str(nd.get("name", nd.id))])
+				list.append([v, need_label(nd)])
 	list.sort_custom(func(a, b): return a[0] < b[0])
 	return ", ".join(list.slice(0, 3).map(func(x): return x[1]))
 
@@ -244,7 +262,7 @@ func pool_allows(w, b, sid: int = 0) -> bool:
 		var key := "%d:%d" % [int(w.island_id), k]
 		if Game.time_days - float(_turned_at.get(key, -99.0)) >= float(cfg.get("turned_note_days", 3.0)):
 			_turned_at[key] = Game.time_days
-			Game.notify_at(w, tr("%s: keine freie Fachkraft der Stufe %d (%s). Mehr zufriedene Häuser dieser Stufe helfen.") % [b.def.name, k, level_name(k)], "haus", "siedler")
+			Game.notify_at(w, tr("%s: keine freie Fachkraft der Hausstufe %d (%s). Mehr zufriedene Häuser dieser Hausstufe helfen.") % [b.def.name, k, level_name(k)], "haus", "siedler")
 	return false
 
 
@@ -320,9 +338,9 @@ func tick(w, dt: float) -> void:
 		miss[k] = _missing(st, k)
 		if now != was and int(houses[k]) > 0:
 			if now:
-				Game.notify_at(w, tr("Häuser der Stufe %d (%s) sind zufrieden. Ihre Bewohner arbeiten wieder als Fachkräfte.") % [k, level_name(k)], "haus", "siedler")
+				Game.notify_at(w, tr("Häuser ab Hausstufe %d (%s) sind zufrieden. Ihre Bewohner arbeiten wieder als Fachkräfte.") % [k, level_name(k)], "haus", "siedler")
 			else:
-				Game.notify_at(w, tr("Häuser der Stufe %d (%s) sind unzufrieden, es fehlt: %s. Fachkräfte dieser Stufe fallen aus.") % [k, level_name(k), miss[k]], "haus", "siedler")
+				Game.notify_at(w, tr("Häuser ab Hausstufe %d (%s) sind unzufrieden, es fehlt: %s. Fachkräfte ab dieser Hausstufe fallen aus.") % [k, level_name(k), miss[k]], "haus", "siedler")
 	st["_miss"] = miss
 	st.erase("fresh")
 
@@ -423,7 +441,7 @@ func _on_load(data: Dictionary, old_rules: int) -> void:
 			st.grace = Game.time_days + float(cfg.get("grace_days", 1.0))
 		state[int(w.island_id)] = st
 	if old_rules < 1:
-		Game.rules_lines.append(tr("Häuser haben Bedürfnisse. Nur zufriedene Häuser stellen Fachkräfte für höhere Werkstätten (z. B. Schmiede ab Holzhaus-Stufe)."))
+		Game.rules_lines.append(tr("Häuser haben Bedürfnisse. Höhere Werkstätten brauchen Arbeiter aus zufriedenen Häusern, z. B. die Schmiede Bewohner zufriedener Holzhäuser."))
 
 
 # ---------------------------------------------------------------- Selbsttest
@@ -597,7 +615,7 @@ func _needs_test(main, mode: String) -> void:
 		var mood: Array = mood_reason(wb, 0.5) if wb else []
 		var gate: bool = places.has("holzhaus") and not full_level(places["holzhaus"])
 		print("   Ergebnis Tag %.1f: Stufen %s | Haus>zählt %s | Fachkräfte %s, belegt höchstens %s | Arbeiter höchstens %s | Kinder-Bonus Wohnblock %.2f | Laune %s | Holzhaus-Ausbau gesperrt=%s | abgewiesen %d" % [Game.time_days, oks, effs, caps_now.slice(2), max_used, maxw, bonus, mood, gate, turned_away])
-		results.append({"ok": oks.duplicate(), "effs": effs, "maxw": maxw, "bonus": bonus, "gate": gate, "mood": mood})
+		results.append({"ok": oks.duplicate(), "effs": effs, "maxw": maxw, "bonus": bonus, "gate": gate, "mood": mood, "caps": caps_now.duplicate()})
 	# Erwartungen
 	var r1: Dictionary = results[0]
 	var r2: Dictionary = results[1]
@@ -613,10 +631,10 @@ func _needs_test(main, mode: String) -> void:
 	print("Bedürfnis-Test ", _okf(r1.effs.get("wohnblock") == "5>5" and r1.effs.get("holzhaus") == "2>2"), "1: Häuser zählen mit ihrer Stufe")
 	print("Bedürfnis-Test ", _okf(int(r1.maxw.get("fabrik", 0)) > 0 and int(r1.maxw.get("fusionsreaktor", 0)) > 0), "1: Werkstätten Stufe 4 und 5 arbeiten")
 	print("Bedürfnis-Test ", _okf(float(r1.bonus) > 1.5), "1: Kinder-Bonus im Wohnblock")
-	print("Bedürfnis-Test ", _okf(_oks_are(r2, [false, true, false, false])), "2: Stufe 2, 4, 5 aus, Stufe 3 bleibt an (Hysterese 0.6)")
-	print("Bedürfnis-Test ", _okf(r2.effs.get("holzhaus") == "2>1" and r2.effs.get("wohnblock") == "5>3"), "2: Holzhaus zählt als 1, Wohnblock als 3")
+	print("Bedürfnis-Test ", _okf(_oks_are(r2, [false, false, false, false])), "2: Stufe 2 aus, damit zählen auch 3 bis 5 nicht (streng)")
+	print("Bedürfnis-Test ", _okf(r2.effs.get("holzhaus") == "2>1" and r2.effs.get("steinhaus") == "3>1" and r2.effs.get("wohnblock") == "5>1"), "2: Holzhaus, Steinhaus und Wohnblock zählen als 1")
 	print("Bedürfnis-Test ", _okf(int(r2.maxw.get("fabrik", 0)) == 0 and int(r2.maxw.get("fusionsreaktor", 0)) == 0), "2: Stufe 4 und 5 ohne Arbeiter")
-	print("Bedürfnis-Test ", _okf(int(r2.maxw.get("glashuette", 0)) > 0 or int(r2.maxw.get("universitaet", 0)) > 0), "2: Stufe 3 arbeitet weiter")
+	print("Bedürfnis-Test ", _okf(int(r2.caps[2]) == 0 and int(r2.caps[3]) == 0), "2: keine Fachkräfte ab Stufe 2 (auch nicht Stufe 3)")
 	print("Bedürfnis-Test ", _okf(r2.gate and float(r2.bonus) == 1.0 and not r2.mood.is_empty() and float(r2.mood[1]) < 0.0), "2: Ausbau gesperrt, kein Kinder-Bonus, Laune sinkt")
 	print("Bedürfnis-Test ", _okf(_oks_are(r3, [false, false, false, false])), "3: alle Stufen aus")
 	print("Bedürfnis-Test ", _okf(none3), "3: keine Fachkraft an Plätzen ab Stufe 2")

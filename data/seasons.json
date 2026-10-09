@@ -40,7 +40,7 @@
   },
   "summers": {
     "normal": {"name": "Sommer", "text": "Die Alten sagen einen gewöhnlichen Sommer voraus.", "desc": "Ein gewöhnlicher Sommer."},
-    "heiss": {"name": "Heißer Sommer", "text": "Die Alten sagen einen heißen Sommer voraus.", "desc": "Frische Nahrung verdirbt schneller, Felder, Beeren und Pilze wachsen langsamer, mehr Ruhr. Räuchern und Backen macht Essen haltbar.", "spoil_per_day": 1.5, "decay": 1.25, "sickness": 1.25, "mood": 0.9, "growth": {"busch": 0.8, "feld": 0.8, "obstgarten": 0.85, "pilzkreis": 0.6}, "ill_ruhr": 2.0}
+    "heiss": {"name": "Heißer Sommer", "text": "Die Alten sagen einen heißen Sommer voraus.", "desc": "Frische Nahrung verdirbt noch schneller, Felder, Beeren und Pilze wachsen langsamer, mehr Ruhr. Räuchern und Backen macht Essen haltbar.", "spoil_per_day": 1.5, "decay": 1.25, "sickness": 1.25, "mood": 0.9, "growth": {"busch": 0.8, "feld": 0.8, "obstgarten": 0.85, "pilzkreis": 0.6}, "ill_ruhr": 2.0}
   },
   "winter_hints": {
     "mild": {"text": "Die Alten erwarten einen milden Winter."},

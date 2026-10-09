@@ -227,8 +227,8 @@ static func goal_row(card) -> VBoxContainer:
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title.clip_text = true
 	head.add_child(title)
-	var btn := UiTheme.button("", "", 22)
-	btn.add_theme_font_size_override("font_size", 11)
+	var btn := UiTheme.button("", "", 34)
+	btn.add_theme_font_size_override("font_size", 13)
 	btn.pressed.connect(func(): card.hud._toggle(card.hud._quest_panel))
 	head.add_child(btn)
 	var text := UiTheme.label("", 12, UiTheme.TEXT, false)

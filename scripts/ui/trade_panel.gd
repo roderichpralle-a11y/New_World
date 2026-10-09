@@ -10,7 +10,7 @@ const DIM := Color("#8a5a3a")
 const BADGE := Color("#e0a830")
 const BADGE_SOON := Color("#c9b88e")
 const HELP := """[b]Inselstärken, Gewürze und Händler[/b]
-Jede Inselart hat Stärken: Auf Felseninseln arbeiten Mine, Steinbruch und Stahlwerk schneller, auf Waldinseln Sägegrube, Köhlerei und Papiermühle, auf Palmeninseln Räucherei, Konservenfabrik und Solarpark. Die Bauliste und die Seekarte zeigen, wo ein Gebäude schneller ist. Gewürze wachsen nur auf Palmeninseln; Sammler pflücken sie, wenn genug Essen da ist. Bürger in Mietshäusern brauchen sie.
+Jede Inselart hat Stärken: Auf Felseninseln arbeiten Mine, Steinbruch und Stahlwerk schneller, auf Waldinseln Sägegrube, Köhlerei und Papiermühle, auf Palmeninseln Räucherei, Konservenfabrik und Solarpark. Die Bauliste und die Seekarte zeigen, wo ein Gebäude schneller ist. Gewürze wachsen nur auf Palmeninseln; Sammler pflücken sie, wenn genug Essen da ist. Städter in Mietshäusern brauchen sie.
 Hat eine Insel einen Hafen (auch die Werft zählt), kommen fremde Händler. Sie werden einen Tag vorher angekündigt und bleiben einen Tag. Tippe oben rechts auf das Händler-Symbol: Sie verkaufen Werkzeug, Eisen, Gewürze und mehr gegen Gold und kaufen deine Waren. Gehandelt wird mit dem Lager der Insel, an der der Händler liegt."""
 
 var hud
@@ -39,7 +39,7 @@ func setup(p_hud) -> void:
 	_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_title.clip_text = true
 	head.add_child(_title)
-	var x := UiTheme.button("", "abriss", 32)
+	var x := UiTheme.button("", "abriss", 36)
 	x.tooltip_text = tr("Schließen")
 	x.pressed.connect(func(): visible = false)
 	head.add_child(x)

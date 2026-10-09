@@ -125,6 +125,8 @@ func effects_text(s: int = -1) -> String:
 		SPRING:
 			return tr("Bäume wachsen am schnellsten, Felder werden bestellt, Tiere bekommen Junge.")
 		SUMMER:
+			if summer_type() == "heiss":  # das Verderben nennt dann climate_text (heißer Sommer)
+				return tr("Lange Tage, Beeren reifen, Getreide wächst am besten.")
 			return tr("Lange Tage, Beeren reifen, Getreide wächst am besten. Frische Nahrung verdirbt schneller.")
 		AUTUMN:
 			return tr("Pilzzeit, alles andere wächst langsamer. Keine Aussaat mehr, Stürme bremsen Schiffe, Häuser brauchen etwas Holz.")
@@ -570,7 +572,7 @@ func climate_text() -> String:
 		if s == SPRING:
 			parts.append("%s %s" % [d.get("text", ""), d.get("desc", "")])
 		else:
-			parts.append("%s: %s" % [d.get("name", ""), d.get("desc", "")])
+			parts.append(str(d.get("desc", "")))  # der Name steht schon im Titel der Jahreszeit
 	var wf := winter_forecast()
 	if s == SUMMER:
 		parts.append(_winter_hint_text())
@@ -580,8 +582,7 @@ func climate_text() -> String:
 		if wf != "normal":
 			parts.append(str(d.get("desc", "")))
 	elif s == WINTER and wf != "normal":
-		var d := type_def("w", wf)
-		parts.append("%s: %s" % [d.get("name", ""), d.get("desc", "")])
+		parts.append(str(type_def("w", wf).get("desc", "")))  # der Name steht schon im Titel
 	return "" if parts.is_empty() else " " + " ".join(parts)
 
 

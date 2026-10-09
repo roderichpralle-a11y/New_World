@@ -382,7 +382,8 @@ Gewürze. Händler kommen an Häfen und handeln gegen Gold.“
   (1 + Hafenstufe) x Siedler) und meldet sich (Meldungsart `ereignis`, Symbol `haendler`). Er liegt
   `stay_days` (1) im Hafen, als eingefärbte Kogge vor dem Ufer (`add_ship`, Farbe `ship_tint`), und kommt
   `interval` (4–6) Tage nach der Abfahrt wieder. Kann keine Insel ihn aufnehmen, verschiebt er sich um
-  `postpone_days`. Seehandel (Wirkung `trade` in techs.json): Abstand x0,7 und ein Verkaufslos mehr.
+  `postpone_days`. Geht die angekündigte Insel bis zur Ankunft nicht mehr (z. B. Piraten angekündigt),
+  wählt er eine andere und kündigt sich dort wieder einen Tag vorher an. Seehandel (Wirkung `trade` in techs.json): Abstand x0,7 und ein Verkaufslos mehr.
 - **Lose**: 4 Verkaufs- und 3 Ankaufslose, jedes 1–3-mal (`lot_times`). Losgröße für 6–14 Gold
   (`lot_gold`, resources.json `price`), billige Waren in Fünferschritten. Er verkauft zu x1,0–1,25
   (aufgerundet) und kauft zu x0,5–0,65 (abgerundet, mindestens 1 Gold). Angebot je Zeitalter (`sells`:
@@ -507,7 +508,12 @@ Häuser stellen Fachkräfte für höhere Werkstätten (z. B. Schmiede ab Holzhau
   ganzzahlig mit `Game.take_stock` verbraucht; Erfüllung = bekommen / gewollt, was fehlt, bleibt nicht
   als Schuld stehen. Jede Erfüllung wird geglättet (`tau_days` 0,5). Zufriedenheit der Stufe k =
   Mittel aller Bedürfnisse der Stufen 2..k. `ok(k)` mit Hysterese: an ab `on` 0,7, aus unter `off` 0,55.
-  Ein Haus der Stufe L **zählt als** die höchste Stufe k <= L mit `ok(k)`, sonst als Stufe 1.
+  Ein Haus der Stufe L **zählt als** die höchste Stufe k <= L, bei der `ok(2)` bis `ok(k)` alle gelten
+  (streng: ein Steinhaus ohne Möbel zählt als Stufe 1, auch wenn Stufe 3 im Mittel reichen würde), sonst
+  als Stufe 1. `HouseNeeds.level_ok(w, k)` ist ebenso streng. Das Infofenster sagt „Zählt nur als
+  Hausstufe 1 (Siedler), es fehlt: Möbel (Bretter) ...“. Bedürfnisse mit Ware heißen in der Anzeige
+  „Möbel (Bretter)“, „Hausrat (Werkzeug)“ (`HouseNeeds.need_label`); Hausstufen heißen immer „Hausstufe“,
+  „Stufe“ bleibt den Forschungsstufen.
   Wechsel melden sich (Meldungsart `siedler`, Symbol `haus`), nur wenn es Häuser dieser Stufe gibt.
 - **Fachkräfte-Pool**: Werkstätten und Forschungsplätze haben `worker_level` (Standard 1): Stufe 2
   Schmelze, Schmiede, Werft, Bibliothek, Schreibstube 3 und 4; 3 Glashütte, Papiermühle, Universität,
@@ -556,7 +562,10 @@ Ratten, Brand, Seuche, Sturmflut und ab dem Mittelalter Piraten. Wer sie gut üb
 - **Zeitplan** (Autoload `Events`, `scripts/autoload/events.gd`, Werte in `data/events.json`): frühestens ab
   Spieltag `start_day` (13 = erster Tag von Jahr 2), nie während der Einführung (`Game.goals.tut` kleiner
   als die Zahl der Einführungsziele). Je besiedelter Insel höchstens ein Ereignis; das nächste frühestens
-  `interval` (10–14) Tage nach dem Ende des letzten, neue oder geladene Inseln `grace_days` (8) Schonzeit.
+  `interval` (8–16) Tage nach dem Ende des letzten, dazu zufällig eine Jahreszeit früher, gleich oder später
+  (`season_jitter` 1, mindestens `min_gap` 5 Tage; im Mittel bleibt es bei 12 Tagen). So wandern Ereignisse
+  durch das Jahr (vorher kamen sie Jahr für Jahr in derselben Jahreszeit). Neue oder geladene Inseln
+  haben `grace_days` (8) Schonzeit. Wer während der Vorwarnung stirbt, zählt nicht als Toter des Ereignisses.
   Zwischen zwei Ankündigungen auf allen Inseln mindestens `global_gap` (3) Tage. Ab `min_settlers` (6)
   Siedlern (Seuche und Piraten 8). Ankündigung `lead` (1–2) Tage vorher, Eintritt tagsüber (`strike_tod`
   0,3–0,55). Die Art wird nach der Jahreszeit beim Eintritt gewürfelt (`weights` Frühling, Sommer, Herbst,
@@ -824,7 +833,9 @@ sucht sich einen aus. Belohnungen sind Waren, Forschungspunkte, Einwanderer, dau
   - Bauplan (ab w2): ein baubares Gebäude ohne Hafen, Schiffe oder Wirkung, dessen Forschung schon wählbar
     ist (Voraussetzungen erforscht, Zeitalter erreicht, also nie an einer Prüfung vorbei), mit
     beschaffbaren Bau- und Betriebswaren. `Game.is_unlocked` fragt `Quests.has_plan`; die Bauliste zeigt
-    „Bauplan aus einem Auftrag.“. Ist das Gebäude bis zur Auszahlung schon frei, gibt es Waren.
+    „Bauplan aus einem Auftrag.“. Nie für die laufende Forschung und nie für die Forschung, die ein Auftrag
+    „Erforsche X“ selbst verlangt (`plan_choices(exclude_tech)`). Ist das Gebäude bis zur Auszahlung
+    schon frei, gibt es Waren.
 - **Oberfläche**: Zielkarte (`GoalCard`, Zeile aus `QuestView.goal_row`): Symbol, „Auftrag“, Knopf,
   Text, Balken mit „wert/ziel“ und Restzeit („4 T. 14 Std.“). Das X blendet nur das Ziel aus, der Auftrag
   bleibt. Fenster „Aufträge“ (`hud._quest_panel`, in `_panels()`): drei Kästen mit Text, Frist, Belohnung
@@ -898,7 +909,15 @@ Reihenfolge der Autoloads in `project.godot`: Seasons, Writing, Exams, Quests, H
   (float, `time_days`, ab dem die Regeln für diesen Spielstand gelten). `SAVE_VERSION` bleibt 3: eine alte,
   im Browser zwischengespeicherte Version lehnt unbekannte Versionen ab und würde den Spielstand löschen.
   Speichert so eine alte Version erneut, fehlen die neuen Schlüssel wieder; jede Übernahme muss also
-  wiederholbar sein. Alter Spielstand: `rules` fehlt (= 0), `rules_day` = Ladezeitpunkt. `Game.rules_old`
+  wiederholbar sein. Damit dabei nichts verloren geht, legt `Game.save_game` (`_store_backup`) eine Kopie
+  aller neuen Schlüssel (alles außer `OLD_SAVE_KEYS`), der Forschung (`done`, `paid`, `progress`,
+  `current`) und je Insel der Gebäude und Waren, die alte Versionen nicht kennen (`V2_BUILDINGS`
+  Tafelmacherei, Brunnen; `V2_GOODS` Tontafeln, Gewürze), unter `islands[0]["v2"]` ab; alte Versionen
+  geben die Inseldaten unverändert weiter. Fehlt beim Laden `rules`, aber `v2` ist da
+  (`_merge_backup`), kommt alles zurück: Prüfungen, Aufträge, Segen, Klima, Ereignisse, Händler,
+  Forschungen (Vereinigung), Gebäude an ihrem Platz, wenn er frei ist (`_restore_backup_world`), und
+  Waren, die dort fehlen. Bekannte Grenze: Gewürzsträucher (Palmeninsel) erzeugen in der alten Version
+  Fehlermeldungen, bleiben aber im Spielstand. Alter Spielstand: `rules` fehlt (= 0), `rules_day` = Ladezeitpunkt. `Game.rules_old`
   ist der Regelstand des geladenen Spielstands; `rules_day` steht schon fest, wenn `state_load` kommt.
 - **Systeme**: Autoloads melden sich in `_ready` mit `Game.register_system(self)` an (`Game.systems`).
   Signale in `Game`:
@@ -921,7 +940,7 @@ Reihenfolge der Autoloads in `project.godot`: Seasons, Writing, Exams, Quests, H
   `Game.rules_due` gesetzt; sobald das Spiel weiterläuft (nicht auf dem Titelbild), zeigt
   `Hud.show_rules_dialog(lines, on_close, pause)` die Zeilen einmal an, das Spiel steht so lange
   („Verstanden“). Wird vorher gespeichert, liegen die Zeilen als `rules_due` im Spielstand und kommen beim
-  nächsten Laden wieder. Ohne Zeilen erscheint kein Fenster. Der Selbsttest gibt stattdessen
+  nächsten Laden wieder (in der dann gewählten Sprache: `Loc.name_of`). Ohne Zeilen erscheint kein Fenster. Der Selbsttest gibt stattdessen
   `NEUE REGELN (...)` und die Zeilen aus (`Game.rules_seen()`).
 - **Statistik**: `stats.starved` (Hungertote) und `stats.starve_day` (`time_days` des letzten Hungertods,
   alte Spielstände: `rules_day`), immer mit `stats.get(k, 0)` lesen. `World.kill_settler(s, reason, cause)`
@@ -929,8 +948,11 @@ Reihenfolge der Autoloads in `project.godot`: Seasons, Writing, Exams, Quests, H
   Signal `Game.settler_died(settler, cause)`.
 - **Belohnungen** (für Ereignisse, Aufträge, Prüfungen):
   - `Game.grant_reward(w, reward, opts = {}) -> String`: `reward` = {Waren-ID: Menge, "settlers": n}.
-    Waren kommen auf Insel `w`, was dort keinen Platz hat, auf andere Inseln mit Platz, der Rest ist
-    verloren. Einwanderer über `spawn_immigrants` (mit `opts`), wer nicht landen kann, wird zu
+    Waren kommen auf Insel `w`, was dort keinen Platz hat, auf andere Inseln mit Platz („30 Bretter
+    (10 davon auf Möweninsel)“). Der Rest geht nicht verloren, sondern wartet (`Game.reward_wait`,
+    Spielstand `reward_wait`) und kommt ins Lager, sobald Platz ist (alle 0,25 Tage geprüft, es bleibt
+    aber immer `wait_free_share` (15 %) des Lagers frei, damit die Ernte Platz hat); die Meldung sagt
+    „(20 warten auf Platz im Lager)“, beim Einlagern „Wartende Waren sind jetzt im Lager: ...“. Einwanderer über `spawn_immigrants` (mit `opts`), wer nicht landen kann, wird zu
     10 Brettern. Liefert eine kurze Zusammenfassung („2 Einwanderer, 10 Bretter“); melden muss der Aufrufer.
   - `Game.spawn_immigrants(w, n, opts = {}) -> Array`: Erwachsene über `World.spawn_newcomer(sex, opts)`,
     abwechselnd Frau und Mann, zuerst das auf der Insel seltenere Geschlecht, mit niemandem verwandt.
@@ -971,7 +993,8 @@ Pushes auf den Zweig `claude/entwicklungsbaum-x33t1h` landen unter `/New_World/t
 `user://savegame_test.json` und kopiert beim ersten Start den normalen Spielstand
 (`Game._detect_test_build`, lokal `--testbuild`). Der Titel zeigt „Testversion“.
 Der Umbau „Mehr Herausforderung“ (Zweig `claude/project-thread-m73c7d`) landet unter `/New_World/neu/`
-mit eigenem Spielstand `user://savegame_neu.json` (lokal `--neubuild`). `Game.build_tag` ist „test“
+mit eigenem Spielstand `user://savegame_neu.json` (lokal `--neubuild`). Beim ersten Start kopiert sie das
+Spiel, das im normalen Spiel gerade aktiv ist (`settings.cfg` [game] `slot`, sonst Platz 1). `Game.build_tag` ist „test“
 oder „neu“; danach heißen der Spielstand-Platz (`slot_<tag>`) und die Rekorde (`records_<tag>`).
 
 ## Ordner
