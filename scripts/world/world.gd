@@ -1255,7 +1255,7 @@ func serialize() -> Dictionary:
 		"buildings": buildings.map(func(b): return b.serialize()),
 		"settlers": settlers.map(func(s): return s.serialize()),
 		"graves": graves.map(func(g): return [pos_to_cell(g[0].position).x, pos_to_cell(g[0].position).y, g[1]]),
-		"animals": animals.map(func(a): return a.serialize()),
+		"animals": animals.filter(func(a): return not a is Raider).map(func(a): return a.serialize()),  # Piraten: Events
 		"den_breed": _den_breed,
 	}
 
@@ -1418,6 +1418,8 @@ func adult_count(type: String) -> int:
 
 ## Die letzten Tiere einer Art werden geschont (Jaeger, Wachturm, Notwehr), Jungtiere immer.
 func is_protected(a) -> bool:
+	if a is Raider:
+		return false  # Piraten (Events) werden immer vertrieben
 	return not a.is_adult() or adult_count(a.type) <= int(Data.bal("hunt_min_keep", 2))
 
 

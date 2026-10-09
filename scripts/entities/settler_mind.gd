@@ -258,6 +258,7 @@ func _maybe_get_sick(days: float) -> void:
 	if s.home_id == 0:
 		risk *= float(Data.ppl("sick_outside", 1.4))
 	risk *= Seasons.season_mod("sickness")
+	risk *= Events.sickness_factor(s.world)  # Seuche (angekündigte Ereignisse)
 	# Kein Heizholz in Herbst und Winter: frierende Siedler werden schneller krank
 	if not Seasons.is_warm(s.world):
 		risk *= float(Data.ppl("sick_cold", 1.8))
@@ -270,7 +271,8 @@ func _maybe_get_sick(days: float) -> void:
 				near += 1
 	risk *= 1.0 + float(Data.ppl("sick_contagion", 0.6)) * near
 	if _rng.randf() < risk * days:
-		_fall_ill(_pick_illness())
+		var epi: String = Events.epidemic_illness(s.world)  # Seuche: meist deren Krankheit
+		_fall_ill(epi if epi != "" and _rng.randf() < Events.forced_share() else _pick_illness())
 
 
 func _pick_illness() -> String:

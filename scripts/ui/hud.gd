@@ -211,6 +211,7 @@ func _build_topbar() -> void:
 	_on_speed(Game.speed)
 	top_alerts = TopAlerts.new()
 	root.add_child(top_alerts)
+	top_alerts.add_child(EventChip.new(self))  # angekündigte Ereignisse (Events)
 
 
 func _refresh_top() -> void:
@@ -2357,6 +2358,9 @@ func _info_node(n: ResNode) -> void:
 
 
 func _info_animal(a: Animal) -> void:
+	if a is Raider:
+		a.fill_info(self)  # Pirat (Ereignisse)
+		return
 	_info_head(a.def.name if a.is_adult() else tr("Junges: %s") % a.def.name)
 	var hb := _bar_row(tr("Kraft"), a.hp / a.max_hp() * 100.0, UiTheme.BAD)
 	var fb := _bar_row(tr("Satt"), a.food * 100.0, UiTheme.GOOD)
@@ -2572,6 +2576,8 @@ func _layout() -> void:
 		if goal_card.visible:
 			_toasts.position.y = max(top_h, goal_card.position.y + goal_card.size.y) + 6
 	top_alerts.place(sp, _season_icon.get_parent().get_parent().get_parent(), portrait or vs.x < 760)
+	if top_alerts.visible and top_alerts.position.y > sp.position.y:  # Knöpfe unter der Geschwindigkeit: Meldungen darunter
+		_toasts.position.y = maxf(_toasts.position.y, top_alerts.position.y + top_alerts.size.y + 4.0)
 	_notify_grid.columns = 2 if vs.x >= 640 else 1
 	_size_settler_panel(vs.y - top_h - bp.size.y - 18.0)
 	for pnl in _panels():

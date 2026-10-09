@@ -21,6 +21,7 @@ Sound="*res://scripts/autoload/sound.gd"
 Seasons="*res://scripts/autoload/seasons.gd"
 HouseNeeds="*res://scripts/autoload/house_needs.gd"
 Merchant="*res://scripts/autoload/merchant.gd"
+Events="*res://scripts/autoload/events.gd"
 
 [display]
 

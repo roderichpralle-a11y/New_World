@@ -540,6 +540,77 @@ Häuser stellen Fachkräfte für höhere Werkstätten (z. B. Schmiede ab Holzhau
   `--workerlevels=0` schaltet die Sperre ab. Der 20-Sekunden-Bericht zeigt je Insel Zufriedenheit,
   Häuser, Fachkräfte und Abgewiesene.
 
+## Angekündigte Ereignisse (Herausforderung)
+
+Ab dem zweiten Jahr trifft jede Insel ab und zu ein Ereignis, das sich vorher ankündigt: Dürre, Ratten,
+Brand, Seuche, Sturmflut und ab dem Mittelalter Piraten. Wer vorbereitet ist (Forschung, Gebäude, Vorräte),
+kommt gut durch; wer eine Dürre, Seuche oder einen Piratenüberfall ohne Tote übersteht, bekommt einen
+Einwanderer. Regelzeile für alte Spielstände: „Ab dem zweiten Jahr kündigen sich Ereignisse an: Dürre,
+Ratten, Brand, Seuche, Sturmflut und ab dem Mittelalter Piraten. Wer sie gut übersteht, bekommt Einwanderer.“
+
+- **Zeitplan** (Autoload `Events`, `scripts/autoload/events.gd`, Werte in `data/events.json`): frühestens ab
+  Spieltag `start_day` (13 = erster Tag von Jahr 2), nie während der Einführung (`Game.goals.tut` kleiner
+  als die Zahl der Einführungsziele). Je besiedelter Insel höchstens ein Ereignis; das nächste frühestens
+  `interval` (10–14) Tage nach dem Ende des letzten, neue oder geladene Inseln `grace_days` (8) Schonzeit.
+  Zwischen zwei Ankündigungen auf allen Inseln mindestens `global_gap` (3) Tage. Ab `min_settlers` (6)
+  Siedlern (Seuche und Piraten 8). Ankündigung `lead` (1–2) Tage vorher, Eintritt tagsüber (`strike_tod`
+  0,3–0,55). Die Art wird nach der Jahreszeit beim Eintritt gewürfelt (`weights` Frühling, Sommer, Herbst,
+  Winter; heißer Sommer x2 für Dürre und Brand; keine Seuche im harten oder strengen Winter), nie zweimal
+  dieselbe Art hintereinander, nur Arten, die auf der Insel etwas treffen (`eligible`). Passt keine, wird
+  `retry_days` später neu gewürfelt. Zufall `hash([seed, Insel, Nummer, "ereignis"])`.
+  Stärke = clamp(0,5 + 0,1 x (Jahr − 2) + Siedler / 30, 0,5, 2,5).
+- **Arten**:
+  - **Dürre** (Sommer): bis zum Ende des Sommers (mindestens 1,5 Tage) wachsen Feld, Obstgarten, Beeren und
+    Pilze mit 0,4 (mit Bewässerung 0,7). `Seasons.growth` nimmt das Kleinere aus Klima und Ereignis (kein
+    Produkt: ein heißer Sommer mit Dürre ergibt 0,4). Nur mit fertigem Feld oder Obstgarten.
+  - **Ratten**: fressen clamp(0,15 + 0,08 x Stärke, 0,15, 0,35) von Getreide, Mehl, Obst, Beeren, Pilzen,
+    Kokos, Fisch, Eiern und Brot (`goods`; Konserven, Tontafeln, Papier nie), mit Großem Lager die Hälfte.
+    Ab 30 solcher Waren.
+  - **Brand**: 1 + ⌊Stärke / 1,25⌋ Gebäude (das erste zufällig, dann die nächsten) werden **beschädigt**,
+    nicht abgerissen: wieder Baustelle, einfache Baustoffe (`basic_goods`) bleiben zu 70 % (`keep`), andere
+    ganz, Bauarbeit von vorn, Bewohner und Arbeiter ziehen aus (`Events.damage_building`). Baumeister bauen
+    mit der normalen Baustellen-Logik wieder auf. Ein Brunnen in bis zu 8 Feldern löscht das Feuer.
+    Nie: Lager, Häfen und Ufergebäude (`coast`), Gebäude mit Wirkung (`effects`), Felder, Lagerfeuer, Brunnen.
+  - **Seuche** (2 Tage): Krankheitsrisiko x(1 + (m − 1) / Heilkunst) mit m = clamp(2 + 0,6 x Stärke, 2,5, 4)
+    (`SettlerMind`, Heilkunde und Impfung über die Wirkung `heal`); 70 % der neuen Krankheiten sind die
+    Seuchen-Krankheit (Fieber oder Ruhr, bei der Ankündigung genannt); ein Siedler erkrankt sofort.
+  - **Sturmflut** (Herbst, Winter): Felder und Obstgärten bis 2 Felder vom Wasser verlieren ihre Ernte
+    (brach), 1 + ⌊Stärke / 1,25⌋ Gebäude am Ufer werden beschädigt (Baustoffe 80 %). Deichbau (Wirkung
+    `flood`) verhindert alles. Häfen, Werften und Ufergebäude bleiben heil.
+  - **Piraten** (ab Zeitalter 2, mit Hafen oder Werft): clamp(2 + Siedler / 10 + (Zeitalter − 2), 2, 7)
+    Piraten (`Raider`, `scripts/entities/raider.gd`, Unterklasse von `Animal`, Werte in events.json
+    `raider`, Grafik Zeile 3 in animals.png) landen etwa 12 Felder vom Lager am Strand, ihr Schiff (rot
+    gefärbte Kogge) liegt davor. Sie gehen zum nächsten Lager, plündern dort 4 Sekunden und gehen zurück;
+    die Beute (je Pirat 6 + 4 x Stärke aus `loot`: Gold, Werkzeug, Eisen …) nehmen sie erst beim Ablegen aus
+    dem Lager. Nach einem halben Tag gehen alle zurück, nach 0,8 Tagen sind sie fort. Sie greifen Siedler in
+    3 Feldern an; Jäger und Wachtürme bekämpfen sie wie wilde Tiere. Vertriebene zählen `stats.pirates`,
+    nicht als Jagd (kein Fleisch, keine Felle, nicht in `stats.kills`); wurde mindestens die Hälfte
+    vertrieben, lassen sie je Vertriebenem 1 Gold zurück. Der Händler meidet die Insel (`Events.busy`).
+- **Ende**: Meldungen bei Ankündigung (Ton `warnung`, was passiert, was hilft und ob es schon da ist:
+  „Hilft: Bewässerung (noch nicht erforscht).“), Eintritt (Ton `glocke`) und Ende (Meldungsart `ereignis`).
+  Ohne Tote nach Dürre, Seuche oder Piraten (`reward`): `stats.events_survived` + 1 und ein Einwanderer, ohne
+  freien Wohnplatz Waren je Zeitalter (`reward_goods`) über `Game.grant_reward`. `stats.events` zählt alle.
+- **Anzeige**: Ereignis-Knopf (`scripts/ui/event_chip.gd`) in `hud.top_alerts`: Symbol der Art, gelb =
+  angekündigt, rot = läuft; breit dazu „Dürre in 30 Std.“ bzw. „Seuche noch 20 Std.“ und „+1“ für weitere
+  Inseln, schmal nur das Symbol. Antippen zeigt alle Ereignisse mit Insel, Zeit und Gegenmittel. Liegen
+  die Knöpfe unter der Geschwindigkeit, rücken die Meldungen darunter. Infofenster eines Piraten: Kraft,
+  was er tut, seine Beute.
+- **Für andere Systeme**: `Events.busy(w)` (Piraten angekündigt oder da), `growth_factor(type, w)`,
+  `sickness_factor(w)`, `epidemic_illness(w)`, `event_of(w)`, `chip()`, `describe_all()`,
+  `damage_building(w, b, keep)`, `near_water(w, c, size, r)`; Signal `changed`.
+- **Spielstand**: oben `events` = {islands: {"<insel-id>": {next, last, ev}}, last, seq}; `ev` = {type, at,
+  strike, end, power, deaths, struck, ill?, count?, left?, kills?, loot?, landing?}. Piraten selbst werden
+  nie gespeichert (`World.serialize` lässt `Raider` aus); nach dem Laden landen die übrigen (`left`) neu.
+  Alter Spielstand: jede Insel `grace_days` Schonzeit ab dem Laden.
+- **Testhilfen**: `--eventtest=<duerre|ratten|brand|seuche|sturmflut|piraten|all>` (Ankündigung 0,05 Tage
+  vorher, prüft die Wirkung, Gegenmittel, Belohnung, bei Piraten Speichern/Laden, Beute erst beim Ablegen
+  und Abwehr mit Wachturm und Jägern; druckt „Ereignis-Test … OK/FEHLER“), `--eventsched=1` (sechs Jahre
+  Zeitplan im Zeitraffer: erster Tag, Abstände, keine Art zweimal, Jahreszeit), `--noevents=1` (keine
+  Ereignisse, für vergleichbare Läufe), `--skiptut=1` (Einführung überspringen, damit Bot-Läufe Ereignisse
+  sehen). Bildschirmfotos: `--eventshot=<art>[:now]` (angekündigt bzw. eingetreten), `--eventtap=1`
+  (Knopf kurz vor dem Bild antippen), `--selectraider=1` (`--raiderwait=N` Sekunden) wählt einen Piraten.
+  Der 20-Sekunden-Bericht zeigt je Insel das Ereignis bzw. den nächsten Termin.
+
 ## Zeitalter
 
 `techs.json` hat neben `_tiers` (16 Stufennamen) die Liste `_ages`: acht Zeitalter mit je zwei Stufen
@@ -658,15 +729,17 @@ Pushes auf den Zweig `claude/entwicklungsbaum-x33t1h` landen unter `/New_World/t
 | `scripts/autoload/seasons.gd` | Jahreszeiten: Kalender, Wachstum, Heizen, Verderb, Frost, Schnee, Klima (wechselnde Winter und Sommer) |
 | `scripts/autoload/house_needs.gd` | Bedürfnisstufen der Häuser, Fachkräfte-Pool (`data/levels.json`) |
 | `scripts/autoload/merchant.gd`, `merchant_test.gd` | Fremde Händler (`data/merchant.json`) und ihre Selbsttests |
+| `scripts/autoload/events.gd`, `events_test.gd` | Angekündigte Ereignisse (`data/events.json`) und ihre Selbsttests |
 | `scripts/autoload/sea.gd` | Inseln, Welten je Insel, Schiffsreisen, Inselwechsel |
 | `scripts/world/island_gen.gd` | Inselgenerator (Seed → Gelände + Rohstoffe) |
 | `scripts/world/island_traits.gd` | Inselstärken (`biome_bonus`) und Gewürzsträucher |
 | `scripts/world/world.gd` | Tilemaps, Wegfindung (AStarGrid2D), Entitäten, Bauen, Effekte, Tag/Nacht |
 | `scripts/world/game_camera.gd` | Ziehen, Zoom (Mausrad, zwei Finger), Tippen |
-| `scripts/entities/*.gd` | `Settler` (KI), `SettlerMind` (Charakter), `Building`, `ResNode`, `Animal` |
+| `scripts/entities/*.gd` | `Settler` (KI), `SettlerMind` (Charakter), `Building`, `ResNode`, `Animal`, `Raider` (Pirat) |
 | `scripts/ui/hud.gd`, `ui_theme.gd`, `sea_panel.gd` | Oberfläche im Code gebaut, Pixel-Theme, Seekarte |
 | `scripts/ui/needs_info.gd` | Anzeige der Bedürfnisstufen im Infofenster und in der Bauliste |
 | `scripts/ui/trade_panel.gd`, `top_alerts.gd` | Handelsfenster der Händler, Hinweis-Knöpfe oben rechts |
+| `scripts/ui/event_chip.gd` | Ereignis-Knopf oben rechts (angekündigte Ereignisse) |
 | `tools/gen_art.py`, `gen_art_sea.py` | Erzeugen alle Grafiken in `assets/sprites/` (Pillow) |
 
 ## Koordinaten
@@ -690,7 +763,7 @@ Pushes auf den Zweig `claude/entwicklungsbaum-x33t1h` landen unter `/New_World/t
 - **jobs.json**: `skill`, `tool` (Sprite in tools.png), `targets` (Knotentypen oder
   `farm`/`construction`), optional `requires` (Forschung).
 - **islands.json**: Inselarten, siehe Etappe 3 (dazu `extra`, siehe Inselstärken). **merchant.json**: fremde
-  Händler, siehe dort; buildings.json `biome_bonus`. **animals.json**: `hp`, `damage`, `speed`,
+  Händler, siehe dort; buildings.json `biome_bonus`. **events.json**: angekündigte Ereignisse, siehe dort. **animals.json**: `hp`, `damage`, `speed`,
   `aggro`, `night_aggro`, `attack_time`, `meat`, `felle`, `leash`, `row` (Zeile in animals.png),
   `plural`, `plural_dat`, `food`, `winter_food`, `food_name`, `food_per_animal`, `roam`, `litter`,
   `den_max`, `adult_days`, `hibernate`.
@@ -727,6 +800,7 @@ godot --headless -- --autotest=120 --scale=10 --tuttest=1  # spielt die Einführ
 godot --headless -- --autotest=150 --scale=10 --schooltest=1  # Steinhaus und Schule: Geburten, Schulkinder
 godot --headless -- --autotest=130 --scale=10 --seed=7 --needstest=1  # Bedürfnisstufen und Fachkräfte
 godot --headless -- --autotest=160 --scale=10 --seed=7 --tradetest2=1  # fremde Händler (auch --spicetest, --biometest)
+godot --headless -- --autotest=200 --scale=10 --seed=7 --eventtest=all  # angekündigte Ereignisse (auch --eventsched=1)
 godot --headless -- --autotest=230 --scale=10 --build=1   # ein ganzes Jahr, Bericht mit Jahreszeit und Holz
 godot --headless -- --autotest=300 --scale=10 --seatest=1  # Werft, drei Inseln entdecken und besiedeln
 godot --headless --fixed-fps 60 -- --autotest=60 --scale=10 --fixture=alt.json  # alten Spielstand weiterspielen
