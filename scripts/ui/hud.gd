@@ -410,6 +410,7 @@ func _fill_build_list() -> void:
 		h.add_child(tv)
 		tv.add_child(UiTheme.label(def.name, 16, UiTheme.TEXT, true))
 		var desc: String = def.desc
+		desc += NeedsInfo.build_desc(type)  # Bedürfnisstufen: Hausstufe bzw. Arbeiterstufe
 		if not unlocked:
 			desc = tr("Benötigt Forschung: %s") % Data.techs.get(def.requires, {}).get("name", "?")
 		b.custom_minimum_size.y = _row_height(desc, 30)
@@ -2007,7 +2008,7 @@ func _info_settler(s: Settler) -> void:
 		why.text = "\n".join(lines)
 		why.visible = not lines.is_empty())
 	var home = world.building_by_id(s.home_id)
-	_info_box.add_child(UiTheme.label(tr("Zuhause: %s") % (home.def.name if home else tr("keins (schläft draußen)")), 13))
+	_info_box.add_child(UiTheme.label(tr("Zuhause: %s") % (home.def.name + NeedsInfo.home_suffix(home) if home else tr("keins (schläft draußen)")), 13))
 	_info_box.add_child(UiTheme.label(tr("Eigenschaften"), 15, UiTheme.TEXT, true))
 	var tdefs: Dictionary = Data.ppl("traits", {})
 	for k in SettlerMind.TRAITS:
@@ -2085,6 +2086,7 @@ func _info_building(b: Building) -> void:
 				var l := UiTheme.label(", ".join(names), 13)
 				l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 				_info_box.add_child(l)
+			NeedsInfo.house_rows(self, b)  # Bedürfnisstufe des Hauses
 		if b.def.has("school"):
 			var sl := UiTheme.label("", 14)
 			_info_box.add_child(sl)
@@ -2245,6 +2247,7 @@ func _info_production(b: Building) -> void:
 	var st := UiTheme.label(status, 13, col)
 	st.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_info_box.add_child(st)
+	NeedsInfo.worker_rows(self, b)  # Arbeiterstufe und Fachkräfte
 	var names := _names_of(b.occupants)
 	if not names.is_empty():
 		_info_box.add_child(UiTheme.label(tr("Arbeiter: ") + ", ".join(names), 13))
@@ -2258,6 +2261,7 @@ func _info_production(b: Building) -> void:
 func _info_research(b: Building) -> void:
 	_info_box.add_child(UiTheme.label(tr("Forschung"), 15, UiTheme.TEXT, true))
 	_info_box.add_child(UiTheme.label(tr("Tempo: x%.1f   Plätze: %d") % [float(b.research_def().get("factor", 1.0)), b.slots()], 13))
+	NeedsInfo.worker_rows(self, b)  # Arbeiterstufe und Fachkräfte
 	var names := _names_of(b.occupants)
 	_info_box.add_child(UiTheme.label(tr("Forscher hier: ") + (", ".join(names) if not names.is_empty() else tr("niemand")), 13))
 	var cur: String = Game.research.current
@@ -2286,6 +2290,7 @@ func _info_upgrade(b: Building) -> void:
 	ub.tooltip_text = tr("Wird zur Baustelle. Bewohner und Forscher ziehen solange aus.")
 	ub.pressed.connect(func(): world.upgrade_building(b))
 	_info_box.add_child(ub)
+	NeedsInfo.upgrade_gate(self, b, ub)  # Häuser ab Stufe 2: erst mit erfüllten Bedürfnissen
 	var h := HBoxContainer.new()
 	h.add_child(UiTheme.label(tr("Kosten:"), 13))
 	for res in td.cost:

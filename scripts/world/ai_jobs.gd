@@ -50,7 +50,7 @@ static func _most_needed(w, adults: Array) -> String:
 	for kind in ["kueche", "handwerk", "stein"]:
 		for b in w.buildings:
 			if b.complete and b.prod_def().get("job", "") == kind and b.free_slots() > 0 and b.prod_blocker() == "":
-				if b.occupants.is_empty():
+				if b.occupants.is_empty() and w.pool_allows(b):  # nur, wenn eine Fachkraft dieser Stufe frei ist
 					return {"kueche": "koch", "handwerk": "handwerker", "stein": "steinmetz"}[kind]
 	# 4. Rohstoffe für Bauten
 	if Game.amount("holz", w) < 30:
@@ -60,7 +60,7 @@ static func _most_needed(w, adults: Array) -> String:
 	# 5. Freie Forschungsplätze
 	if Game.research.current != "":
 		for b in w.buildings:
-			if b.complete and b.def.has("research") and b.free_slots() > 0:
+			if b.complete and b.def.has("research") and b.free_slots() > 0 and w.pool_allows(b):
 				return "forscher"
 	return ""
 

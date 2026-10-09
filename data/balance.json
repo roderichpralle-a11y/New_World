@@ -39,6 +39,7 @@
   "research_work_time": 2.5,
   "variety_min": 3,
   "variety_birth_bonus": 1.5,
+  "worker_levels": true,
   "animal_tick_days": 0.1,
   "animal_hunger_per_day": 0.5,
   "animal_winter_hunger": 0.6,

@@ -422,6 +422,64 @@ einmal aufgebaut ist. Dafür gilt:
   Vorrat und Nachwachsen der Nahrungsquellen. Der Bericht zeigt je Siedler Sättigung/Vitamine/Gesundheit
   und alles Gegessene.
 
+## Bedürfnisstufen der Bewohner (Herausforderung)
+
+Häuser haben eine **Stufe** (buildings.json `level`): Hütte 1 Siedler, Holzhaus 2 Dorfbewohner, Steinhaus 3
+Bürger, Mietshaus 4 Städter, Wohnblock 5 Großstädter. Ausbau Hütte → Holzhaus → Steinhaus → Mietshaus →
+Wohnblock (`upgrade`, Forschung wie bisher). Kinder-Bonus (`birth_bonus`) Holzhaus 1,4, Steinhaus 1,8,
+Mietshaus 1,8, Wohnblock 2,0. Regelzeile für alte Spielstände: „Häuser haben Bedürfnisse. Nur zufriedene
+Häuser stellen Fachkräfte für höhere Werkstätten (z. B. Schmiede ab Holzhaus-Stufe).“
+
+- **Bedürfnisse** (`data/levels.json`, `levels[k-1]` = Stufe k; jede Stufe braucht zusätzlich alles der
+  Stufen darunter): 1 Nahrung, Wärme (nur Anzeige); 2 Abwechslung (3 Nahrungssorten im Lager), Möbel
+  (0,15 Bretter je Verbraucher und Tag); 3 Zubereitetes Essen (Vorrat Brot/Räucherfisch/Eier/Konserven von
+  0,5 je Verbraucher), Hausrat (0,06 Werkzeug), Schule (fertiges Gebäude mit `school`); 4 Glas 0,08,
+  Papier 0,08, Gewürze 0,05; 5 Strom 0,4, Elektronik 0,04. Arten (`kind`): `good` (Verbrauch), `stock`
+  (nur Vorrat), `variety`, `building` (`flag`), `food`, `warm`.
+- **Rechnung** (`HouseNeeds`, `scripts/autoload/house_needs.gd`): je Insel alle `tick_days` (0,1 Tag,
+  nur mit Welt, nicht bei Spielende oder Pause). Verbraucher der Gruppe k = Bewohner fertiger Häuser ab
+  Stufe k (Erwachsene 1, Kinder `child_weight` 0,5). Waren werden über einen Bruchteil-Zähler (`acc`)
+  ganzzahlig mit `Game.take_stock` verbraucht; Erfüllung = bekommen / gewollt, was fehlt, bleibt nicht
+  als Schuld stehen. Jede Erfüllung wird geglättet (`tau_days` 0,5). Zufriedenheit der Stufe k =
+  Mittel aller Bedürfnisse der Stufen 2..k. `ok(k)` mit Hysterese: an ab `on` 0,7, aus unter `off` 0,55.
+  Ein Haus der Stufe L **zählt als** die höchste Stufe k <= L mit `ok(k)`, sonst als Stufe 1.
+  Wechsel melden sich (Meldungsart `siedler`, Symbol `haus`), nur wenn es Häuser dieser Stufe gibt.
+- **Fachkräfte-Pool**: Werkstätten und Forschungsplätze haben `worker_level` (Standard 1): Stufe 2
+  Schmelze, Schmiede, Werft, Bibliothek, Schreibstube 3 und 4; 3 Glashütte, Papiermühle, Universität,
+  Stahlwerk, Konservenfabrik; 4 Fabrik, Kraftwerk, Elektronikwerk, Labor; 5 Solarpark, Fusionsreaktor,
+  KI-Zentrum. Fachkräfte(k) = Erwachsene in Häusern, die als Stufe >= k zählen; belegt(k) = Siedler in
+  fertigen Gebäuden mit `worker_level` >= k. Einen Platz der Stufe L darf ein Siedler nur nehmen, wenn
+  für alle k = 2..L belegt(k) < Fachkräfte(k) (ohne ihn selbst). Eine Stelle: `World.pool_allows(b, sid)`
+  (→ `HouseNeeds.pool_allows`), abgefragt in `World.find_workshop`, `World.find_research_place`, beim
+  Weiterforschen in `Settler._do_research` und in `AiJobs`. Wer schon arbeitet, hört nach dem
+  laufenden Arbeitsgang auf, wenn der Pool kleiner wird. Abgewiesene melden sich je Insel und Stufe
+  höchstens alle `turned_note_days` (3 Tage). Schalter `balance.json` `worker_levels` (false: keine Sperre).
+- **Weitere Wirkungen**: Kinder-Bonus des Hauses und Laune „Wohnt schön“ nur, wenn das Haus als seine
+  volle Stufe zählt (`HouseNeeds.full_level`); Laune „Bedürfnisse erfüllt“ +2 x Stufe x (0,5 + Charakter)
+  bzw. „Bedürfnisse fehlen: …“ −(3 + 2 x Stufe) für Bewohner ab Stufe 2 (nur gemerkte Werte). Ausbau eines
+  Hauses ab Stufe 2 erst, wenn es voll zufrieden ist (`World.upgrade_building`, Knopf gesperrt).
+  `World.assign_homes` setzt Siedler zuerst in die höchsten Häuser. Nachwuchs rechnet je Insel mit deren
+  eigenem Essen und eigener Abwechslung.
+- **Anzeige** (`scripts/ui/needs_info.gd`, je eine Zeile in hud.gd): Haus: „Hausstufe 5: Großstädter“,
+  rote Zeile „Zählt nur als Stufe …“, Balken Zufriedenheit (grün/rot), je Stufe die Bedürfnisse mit Wert
+  (grün ab 0,7, gelb ab 0,4, sonst rot). Werkstatt/Forschung ab Stufe 2: „Arbeiter ab Stufe …“,
+  „Fachkräfte Stufe k: belegt / vorhanden“ und ein roter Hinweis, wenn Plätze frei bleiben. Ausbau:
+  gesperrter Knopf mit Grund. Siedler: „Zuhause: Wohnblock · Bürger“ (Stufe, als die das Haus zählt).
+  Bauliste: Stufe und neue Bedürfnisse bzw. Arbeiterstufe.
+- **Für andere Systeme**: `HouseNeeds.effective_level(b)`, `full_level(b)`, `count_level(w, k)` (Häuser,
+  die als Stufe >= k zählen), `level_ok(w, k)`, `level_sat(w, k)`, `level_name(k)`, `pool(w, k)` →
+  [belegt, Fachkräfte], `turned_away`.
+- **Spielstand**: oben `needs` = {"<insel-id>": {sat: {Bedürfnis: 0..1}, ok: {"2".."5": bool}, acc:
+  {Ware: Rest}, grace: time_days}}. Alter Spielstand (oder Insel ohne Eintrag): alles zufrieden, `ok` an
+  und einen Tag Schonfrist (`grace_days`), in der keine Stufe abfällt.
+- **Testhilfen**: `--needstest=1` (alles erforscht, alle Häuser und Fachgebäude, 36 Siedler; vier
+  Abschnitte: alles da, ohne Waren, auch ohne zubereitetes Essen, wieder alles; prüft Pool, Kinder-Bonus,
+  Laune, Ausbau, Speichern/Laden und alten Spielstand, druckt „Bedürfnis-Test OK/FEHLER“).
+  `--needstest=shot|drop` baut dasselbe und hält alle Waren bzw. alle außer den Bedürfnis-Waren vorrätig
+  (für Bildschirmfotos). `--needsscroll=N` rollt das Infofenster nach `--selectb` um N Pixel.
+  `--workerlevels=0` schaltet die Sperre ab. Der 20-Sekunden-Bericht zeigt je Insel Zufriedenheit,
+  Häuser, Fachkräfte und Abgewiesene.
+
 ## Zeitalter
 
 `techs.json` hat neben `_tiers` (16 Stufennamen) die Liste `_ages`: acht Zeitalter mit je zwei Stufen
@@ -538,12 +596,14 @@ Pushes auf den Zweig `claude/entwicklungsbaum-x33t1h` landen unter `/New_World/t
 | `scripts/autoload/data.gd` | Lädt JSON, Sprite-Regionen (`OBJECT_REGIONS`), Icons |
 | `scripts/autoload/game.gd` | Zeit, Vorräte, Nachwuchs, Abstammung, Forschung und Effekte, Speichern/Laden |
 | `scripts/autoload/seasons.gd` | Jahreszeiten: Kalender, Wachstum, Heizen, Verderb, Frost, Schnee, Klima (wechselnde Winter und Sommer) |
+| `scripts/autoload/house_needs.gd` | Bedürfnisstufen der Häuser, Fachkräfte-Pool (`data/levels.json`) |
 | `scripts/autoload/sea.gd` | Inseln, Welten je Insel, Schiffsreisen, Inselwechsel |
 | `scripts/world/island_gen.gd` | Inselgenerator (Seed → Gelände + Rohstoffe) |
 | `scripts/world/world.gd` | Tilemaps, Wegfindung (AStarGrid2D), Entitäten, Bauen, Effekte, Tag/Nacht |
 | `scripts/world/game_camera.gd` | Ziehen, Zoom (Mausrad, zwei Finger), Tippen |
 | `scripts/entities/*.gd` | `Settler` (KI), `SettlerMind` (Charakter), `Building`, `ResNode`, `Animal` |
 | `scripts/ui/hud.gd`, `ui_theme.gd`, `sea_panel.gd` | Oberfläche im Code gebaut, Pixel-Theme, Seekarte |
+| `scripts/ui/needs_info.gd` | Anzeige der Bedürfnisstufen im Infofenster und in der Bauliste |
 | `tools/gen_art.py`, `gen_art_sea.py` | Erzeugen alle Grafiken in `assets/sprites/` (Pillow) |
 
 ## Koordinaten
@@ -601,6 +661,7 @@ godot --headless -- --autotest=400 --scale=10 --build=1 --research=1   # forscht
 godot --headless -- --autotest=60 --scale=10 --prodtest=1  # alle Werkstätten, alles erforscht
 godot --headless -- --autotest=120 --scale=10 --tuttest=1  # spielt die Einführung durch
 godot --headless -- --autotest=150 --scale=10 --schooltest=1  # Steinhaus und Schule: Geburten, Schulkinder
+godot --headless -- --autotest=130 --scale=10 --seed=7 --needstest=1  # Bedürfnisstufen und Fachkräfte
 godot --headless -- --autotest=230 --scale=10 --build=1   # ein ganzes Jahr, Bericht mit Jahreszeit und Holz
 godot --headless -- --autotest=300 --scale=10 --seatest=1  # Werft, drei Inseln entdecken und besiedeln
 godot --headless --fixed-fps 60 -- --autotest=60 --scale=10 --fixture=alt.json  # alten Spielstand weiterspielen

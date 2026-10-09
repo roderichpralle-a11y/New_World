@@ -685,7 +685,7 @@ func _autotest_school() -> void:
 						done = true
 		print("platziert ", type, " ", done)
 	Data.balance["base_storage"] = 4000  # Testlauf: genug Stauraum fuer die Testvorraete
-	for id in ["beeren", "fisch", "brot", "aepfel", "holz"]:
+	for id in ["beeren", "fisch", "brot", "aepfel", "holz", "bretter", "werkzeug"]:  # Bretter, Werkzeug: Bedürfnisse des Steinhauses
 		world.stock[id] = 150
 	world.assign_homes()
 	for s in world.settlers:
@@ -728,6 +728,8 @@ func _autotest_prod() -> void:
 						done = true
 		print("platziert ", type, " ", done)
 	world.place_building("grosslager", c + Vector2i(-8, 6), true) if world.can_place("grosslager", c + Vector2i(-8, 6)) else null
+	for type in ["wohnblock", "schule"]:  # Bedürfnisstufen: Fachkräfte bis Stufe 5 (Waren liegen unten im Lager)
+		print("platziert ", type, " ", _place_on(world, type))
 	Data.balance["base_storage"] = 4000  # Testlauf: genug Stauraum fuer die Testvorraete
 	for id in Data.resources:
 		world.stock[id] = 40

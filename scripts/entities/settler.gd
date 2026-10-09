@@ -983,6 +983,8 @@ func _do_research(b) -> void:
 	b.mark_active(3.0)
 	if _rng.randf() < 0.2:
 		world.float_text(position + Vector2(0, -28), tr("Idee!"), "")
+	if not world.pool_allows(b, id):
+		return  # Fachkräfte-Pool voll (Bedürfnisstufen): Platz räumen
 	if Game.has_research_goal() and not Game.is_night() and hunger >= float(Data.bal("eat_below")) * 0.6:
 		_plan.push_front({"a": "work", "t": float(Data.bal("research_work_time", 2.5)), "act": tr("Forscht"),
 			"tool": "book", "face": b.position, "done": _do_research.bind(b)})

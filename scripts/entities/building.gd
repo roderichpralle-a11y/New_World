@@ -127,6 +127,16 @@ func residents() -> Array:
 	return world.settlers.filter(func(s): return s.home_id == id)
 
 
+## Hausstufe (buildings.json level, 1 Hütte .. 5 Wohnblock), 0 = kein Haus. Siehe HouseNeeds.
+func house_level() -> int:
+	return int(def.get("level", 1)) if def.has("housing") else 0
+
+
+## Ab welcher Stufe Fachkräfte hier arbeiten dürfen (buildings.json worker_level, Standard 1).
+func worker_level() -> int:
+	return int(def.get("worker_level", 1))
+
+
 # ---------------------------------------------------------------- Bau
 func remaining_cost() -> Dictionary:
 	var out := {}

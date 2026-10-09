@@ -378,8 +378,11 @@ func _update_mood(days: float) -> void:
 		r.append([tr("Hat kein Zuhause"), -(4.0 + 14.0 * c)])
 	else:
 		var hb := float(home.def.get("birth_bonus", 1.0)) - 1.0
-		if hb > 0.0:
+		if hb > 0.0 and HouseNeeds.full_level(home):  # nur wie der Kinder-Bonus
 			r.append([tr("Wohnt schön (%s)") % home.def.name, hb * 15.0 * (0.5 + c)])
+		var need: Array = HouseNeeds.mood_reason(home, c)  # Bedürfnisstufen (nur gemerkte Werte)
+		if not need.is_empty():
+			r.append(need)
 	# Freizeit
 	if leisure_share() > 0.0:
 		if rest < 25.0:
