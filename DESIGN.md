@@ -687,6 +687,10 @@ Forschungen kosten mehr.
   Felle bleiben gleich, Backkunst und Tierhaltung kosten weiter Mehl bzw. Weizen. Punkte Stufe 1–4 wie bisher,
   5–6 ×1,25, 7 ×1,5, 8 ×1,4, ab 9 ×1,25 (ab Stufe 5 auf 50 gerundet; Stufe 7 braucht jetzt mehr als
   Stufe 6). Die Zahlen stehen direkt in `techs.json` (`research_cost_factor` bleibt 1).
+  Ausnahme Eisenkette (Balance-Runde 2026-10-09): Bergbau 500 → 420, Eisenverhüttung 600 → 500,
+  Schmiedekunst 650 → 550 Punkte (je etwa −15 %, zusammen 280 Punkte weniger). Grund: Schmiede und
+  Werkzeug sind der letzte Schritt zur Antike-Prüfung (10 Werkzeug); mit 3 Forschern lag der Weg
+  rechnerisch bei Jahr 7, so bei etwa Jahr 6 (mit 5 Forschern Jahr 4–5).
 - **Oberfläche**: jede Forschungszeile „Beim Forschen: 24 Tontafeln“ (Rest für diese Forschung, auch bei
   gesperrten, in `_row_height` mitgezählt); Kopf des Forschungsfensters „Noch nötig: 63 Tontafeln (Lager: 0)“
   und rot „Es fehlen Tontafeln: Forschung nur 20 %. Baue: Tafelmacherei.“; Zeitalter-Überschrift
@@ -1131,6 +1135,13 @@ Tontafeln verbraucht .. | Auftraege erledigt, gescheitert | Ereignisse ueberstan
 Abnahme (3 Seeds 11/22/33, `--autotest=820 --noevents=1 --winter=normal`): Steinzeit-Prüfung in Jahr 2
 (vor Tag 25), mindestens 3 Antike-Forschungen, Tontafeln verbraucht, keine Hungertoten in Jahr 1–2.
 Läufe sind nicht ganz gleich (Zufall je Siedler): die Prüfung streut etwa zwischen Tag 19 und 25.
+Stand Balance-Runde 2026-10-09 (Seeds 11/22/33, 820 s je mit und ohne Ereignisse, dazu Seed 11 über
+8 Jahre): Steinzeit-Prüfung Tag 21–28 (Jahr 2–3), keine Hungertoten, Ereignisse alle überstanden; die
+Antike-Prüfung schafft der Bot in 8 Jahren nicht, weil er nie Werkzeug herstellt (Köhlerei erst spät,
+Mine nicht immer platzierbar, nur 3–4 Forscher, Forschung oft ohne Bezahlbares). Die Antike-Prüfung ist
+damit vom Bot nicht messbar; die Punkte der Eisenkette sind von Hand gerechnet. Derselbe Seed streut
+um bis zu 5 Tage (Seed 11 ohne Ereignisse: Tag 21 und Tag 26 bei gleichen Steinzeit-Daten); eine
+Kürzung der Steinzeit-Stufe-2-Punkte um 15 % brachte keinen messbaren Unterschied und wurde verworfen.
 
 Bei jedem Push auf `main` baut GitHub Actions die Web-Version und legt sie auf den
 Branch `gh-pages` (GitHub Pages).
