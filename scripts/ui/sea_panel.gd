@@ -453,6 +453,8 @@ func _fill_island() -> void:
 			hs.add_child(UiTheme.icon_rect(Data.res_icon(r), 16))
 			hs.add_child(UiTheme.label(Data.resource_name(r), 13))
 		_details.add_child(hs)
+	IslandTraits.strength_row(_details, m)  # Inselstärken: Gebäude, die hier schneller arbeiten
+	TradePanel.sea_rows(self, m)  # fremder Händler hier oder angekündigt
 	if w and m.state == "settled":
 		_details.add_child(_wrap(tr("Hafen: %s. %s.") % [Sea.harbor_level_name(Sea.harbor_level(w)), Sea.berth_text(w)], 12))
 		var docked := Sea.ships_at(int(m.id))

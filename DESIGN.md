@@ -347,6 +347,66 @@ sind jedes Jahr anders. Im Herbst sagen die Alten voraus, wie hart der Winter wi
   Bildschirmfoto die Jahreszeit an (`=2`: Vorhersage der Jahreszeit) und meldet die Breite der Leiste. Der
   20-Sekunden-Bericht zeigt Klima, Heizholz und das Symbol.
 
+## Inselstärken, Gewürze und fremde Händler (Herausforderung)
+
+Jede Inselart kann etwas besonders gut, Palmeninseln haben Gewürze, und an Häfen kommen fremde Händler, die
+gegen Gold handeln. Regelzeile für alte Spielstände: „Jede Inselart hat Stärken. Palmeninseln haben
+Gewürze. Händler kommen an Häfen und handeln gegen Gold.“
+
+- **Inselstärken** (buildings.json `biome_bonus` = {Inselart: Faktor}): Felseninsel Erzmine x2, Steinbruch
+  und Stahlwerk x1,5; Waldinsel Sägegrube, Köhlerei, Papiermühle x1,5; Palmeninsel Räucherei,
+  Konservenfabrik, Solarpark x1,5; Heimatinsel keine. Der Faktor teilt die Zeit eines Arbeitsgangs
+  (`Building.biome_factor()` in `Settler._plan_production` und `_do_take_inputs`); Wege, Pausen und
+  Rohstoffe bleiben gleich, darum ist der Gewinn im Spiel kleiner als der Faktor.
+  Anzeige: Bauliste „Inselstärke: hier x1,5 so schnell“ (grün) bzw. „Schneller auf: Felseninsel x1,5“,
+  dieselbe Zeile im Infofenster des Gebäudes, Seekarte „Stärken:“ mit Gebäudesymbolen, islands.json-`desc`
+  nennt sie. Helfer: `IslandTraits` (`scripts/world/island_traits.gd`): `factor`, `strengths`,
+  `good_biomes`, `bonus_text`, `times` (x1,5 mit deutschem Komma).
+- **Gewürze**: Rohstoffquelle `gewuerzstrauch` nur auf Palmeninseln, 8 Stück je Insel aus islands.json
+  `extra` = [[Typ, Anzahl, Abstand von, bis, nur auf Gras]]. `IslandGen._place_extra` setzt sie in einem
+  eigenen Durchgang mit eigenem Zufall (`hash([seed, "extra"])`), alle anderen Rohstoffe bleiben für jeden
+  Seed gleich. Sammler (`jobs.json` targets) pflücken sie nur, solange die Insel genug Essen hat, dann
+  aber zuerst (`IslandTraits.gather_order`: Essen >= 10 je Siedler). Wachstum je Jahreszeit in
+  seasons.json. Alter Spielstand: `IslandTraits.patch_spice` setzt beim Laden die Sträucher einer
+  Palmeninsel, die noch keinen hat, auf ihre Plätze (nur freie Felder, nicht neben Gebäude) und meldet
+  „Auf … wachsen jetzt 8 Gewürzsträucher.“; sobald einer steht, passiert nichts mehr.
+- **Fremde Händler** (Autoload `Merchant`, `scripts/autoload/merchant.gd`, Werte in `data/merchant.json`):
+  sobald eine besiedelte Insel einen fertigen Hafen hat (`Sea.harbor_level >= 1`, die Werft zählt), kommt
+  der erste Händler `first_after_days` (2) Tage später. Einen Tag vorher (`announce_days`) wählt er die
+  Insel (nur mit Hafen und Siedlern, ohne angekündigtes Ereignis `Events.busy(w)`, Gewicht
+  (1 + Hafenstufe) x Siedler) und meldet sich (Meldungsart `ereignis`, Symbol `haendler`). Er liegt
+  `stay_days` (1) im Hafen, als eingefärbte Kogge vor dem Ufer (`add_ship`, Farbe `ship_tint`), und kommt
+  `interval` (4–6) Tage nach der Abfahrt wieder. Kann keine Insel ihn aufnehmen, verschiebt er sich um
+  `postpone_days`. Seehandel (Wirkung `trade` in techs.json): Abstand x0,7 und ein Verkaufslos mehr.
+- **Lose**: 4 Verkaufs- und 3 Ankaufslose, jedes 1–3-mal (`lot_times`). Losgröße für 6–14 Gold
+  (`lot_gold`, resources.json `price`), billige Waren in Fünferschritten. Er verkauft zu x1,0–1,25
+  (aufgerundet) und kauft zu x0,5–0,65 (abgerundet, mindestens 1 Gold). Angebot je Zeitalter (`sells`:
+  Ware → ab Zeitalter); Gewürze bietet er immer an, solange keine Palmeninsel besiedelt ist, sonst in der
+  Hälfte der Besuche. Ankauf aus `buys`, Gewürze zuerst, dann Waren, die die Insel hat. Zufall
+  `hash([seed, Besuch, ...])`: gleicher Spielstand, gleiche Lose. Gold und Waren gehören immer der Insel,
+  an der er liegt; `buy_block`/`sell_block` liefern den Grund, warum es nicht geht („zu wenig Gold“,
+  „kein Platz im Lager“, „ausverkauft“, „nur 3 im Lager“ …). Jeder Handel zählt `stats.trades` und sendet
+  `Game.player_action("trade", Ware)`.
+- **Handelsfenster** (`scripts/ui/trade_panel.gd`, in `hud._panels()`): Name, Insel und Restzeit, Gold
+  dieser Insel, Hinweis auf Gold anderer Inseln, Zeilen „Er verkauft“ / „Er kauft“ mit Symbol, Menge,
+  „noch 2x“ bzw. Grund, Preis und 36 px hohem Knopf (auf 360 px Breite passend). Geöffnet über den
+  **Händler-Knopf** oben (`scripts/ui/top_alerts.gd`, hud.top_alerts: breit links neben der
+  Geschwindigkeit, schmal darunter; gold = liegt im Hafen, blass = angekündigt), das Infofenster eines
+  Hafens oder der Werft und die Seekarte (Inselansicht: „Händler hier“ mit „Handeln“). Die Hilfe hat
+  einen eigenen Absatz (`TradePanel.HELP`).
+- **Spielstand**: oben `merchant` = {next, plan, island, until, seq, name_i, sells, buys} (Lose als
+  [{id, n, gold, left}]). Alter Spielstand ohne `merchant`: erster Besuch `rules_day` + 2, falls schon ein
+  Hafen steht, sonst 2 Tage nach dem ersten Hafen. Neues Spiel: `state_reset` leert alles.
+- **Testhilfen**: `--tradetest2=1` (Werft, Waren und 40 Gold; prüft Lose, gleiche Lose bei gleichem Seed,
+  Kauf, Verkauf, Gründe, Schiff, Speichern/Laden, Seehandel, alten Spielstand, Abfahrt, Ankündigung und den
+  zweiten Besuch, druckt „Handel OK/FEHLER“; `=shot` legt nur den Händler hin), `--spicetest=1`
+  (Generator, 20 Seeds, Kolonie, Reihenfolge der Sammler, alter Spielstand, Ernte über 2 Tage),
+  `--biometest=1` (Tabelle, Arbeitszeit, Planung des Siedlers; je ein Tag Heimat/Felsen/Heimat nur zur
+  Info), `--merchant=off` (keine Händler, für vergleichbare Läufe), `--goisland=N` (vor den Tests auf
+  Insel N wechseln, dazu `--goplace=steinbruch,…` fertige Gebäude dort), `--panel=trade` (Handelsfenster
+  fürs Bildschirmfoto).
+  Der 20-Sekunden-Bericht zeigt Händler (Zustand, Insel, Tag, Lose, Handel) und Gewürze je Insel.
+
 ## Charaktere der Siedler
 
 Alle Zahlen in `data/people.json` (`Data.ppl(key)`), Logik in `scripts/entities/settler_mind.gd`
@@ -562,7 +622,7 @@ weiter und bekommen die neuen Regeln ab dem Ladezeitpunkt.
   Schiffe und Strom haben keinen.
 - **Neue Inhalte, vorerst nur Daten und Grafik** (die Regeln dazu bauen die einzelnen Erweiterungen):
   Waren `tontafel` (Tontafeln) und `gewuerze` (Gewürze, kein Essen); Rohstoffquelle `gewuerzstrauch`
-  (2 Gewürze, wächst in 4 Tagen nach; noch nirgends platziert); Gebäude `tafelmacherei` (Wissen, nach
+  (2 Gewürze, wächst in 4 Tagen nach; auf Palmeninseln, siehe Inselstärken); Gebäude `tafelmacherei` (Wissen, nach
   Töpferei, Lehm 2 → Tontafeln 3 über die normale Werkstatt-Logik) und `brunnen` (1x1, Seefahrt und Schutz,
   nach Brunnenbau); Forschungen `brunnenbau` (Stufe 2) und `deichbau` (Stufe 4, Wirkung `flood`).
 - **Grafik**: `tools/gen_art_challenge.py` (von `gen_art.py` und `gen_art_sea.py` aufgerufen, hängt nur
@@ -597,13 +657,16 @@ Pushes auf den Zweig `claude/entwicklungsbaum-x33t1h` landen unter `/New_World/t
 | `scripts/autoload/game.gd` | Zeit, Vorräte, Nachwuchs, Abstammung, Forschung und Effekte, Speichern/Laden |
 | `scripts/autoload/seasons.gd` | Jahreszeiten: Kalender, Wachstum, Heizen, Verderb, Frost, Schnee, Klima (wechselnde Winter und Sommer) |
 | `scripts/autoload/house_needs.gd` | Bedürfnisstufen der Häuser, Fachkräfte-Pool (`data/levels.json`) |
+| `scripts/autoload/merchant.gd`, `merchant_test.gd` | Fremde Händler (`data/merchant.json`) und ihre Selbsttests |
 | `scripts/autoload/sea.gd` | Inseln, Welten je Insel, Schiffsreisen, Inselwechsel |
 | `scripts/world/island_gen.gd` | Inselgenerator (Seed → Gelände + Rohstoffe) |
+| `scripts/world/island_traits.gd` | Inselstärken (`biome_bonus`) und Gewürzsträucher |
 | `scripts/world/world.gd` | Tilemaps, Wegfindung (AStarGrid2D), Entitäten, Bauen, Effekte, Tag/Nacht |
 | `scripts/world/game_camera.gd` | Ziehen, Zoom (Mausrad, zwei Finger), Tippen |
 | `scripts/entities/*.gd` | `Settler` (KI), `SettlerMind` (Charakter), `Building`, `ResNode`, `Animal` |
 | `scripts/ui/hud.gd`, `ui_theme.gd`, `sea_panel.gd` | Oberfläche im Code gebaut, Pixel-Theme, Seekarte |
 | `scripts/ui/needs_info.gd` | Anzeige der Bedürfnisstufen im Infofenster und in der Bauliste |
+| `scripts/ui/trade_panel.gd`, `top_alerts.gd` | Handelsfenster der Händler, Hinweis-Knöpfe oben rechts |
 | `tools/gen_art.py`, `gen_art_sea.py` | Erzeugen alle Grafiken in `assets/sprites/` (Pillow) |
 
 ## Koordinaten
@@ -626,7 +689,8 @@ Pushes auf den Zweig `claude/entwicklungsbaum-x33t1h` landen unter `/New_World/t
   `storage`, `light`, `ground`, `farm` {yield, amount, grow_days, sow_time, harvest_time}.
 - **jobs.json**: `skill`, `tool` (Sprite in tools.png), `targets` (Knotentypen oder
   `farm`/`construction`), optional `requires` (Forschung).
-- **islands.json**: Inselarten, siehe Etappe 3. **animals.json**: `hp`, `damage`, `speed`,
+- **islands.json**: Inselarten, siehe Etappe 3 (dazu `extra`, siehe Inselstärken). **merchant.json**: fremde
+  Händler, siehe dort; buildings.json `biome_bonus`. **animals.json**: `hp`, `damage`, `speed`,
   `aggro`, `night_aggro`, `attack_time`, `meat`, `felle`, `leash`, `row` (Zeile in animals.png),
   `plural`, `plural_dat`, `food`, `winter_food`, `food_name`, `food_per_animal`, `roam`, `litter`,
   `den_max`, `adult_days`, `hibernate`.
@@ -662,6 +726,7 @@ godot --headless -- --autotest=60 --scale=10 --prodtest=1  # alle Werkstätten, 
 godot --headless -- --autotest=120 --scale=10 --tuttest=1  # spielt die Einführung durch
 godot --headless -- --autotest=150 --scale=10 --schooltest=1  # Steinhaus und Schule: Geburten, Schulkinder
 godot --headless -- --autotest=130 --scale=10 --seed=7 --needstest=1  # Bedürfnisstufen und Fachkräfte
+godot --headless -- --autotest=160 --scale=10 --seed=7 --tradetest2=1  # fremde Händler (auch --spicetest, --biometest)
 godot --headless -- --autotest=230 --scale=10 --build=1   # ein ganzes Jahr, Bericht mit Jahreszeit und Holz
 godot --headless -- --autotest=300 --scale=10 --seatest=1  # Werft, drei Inseln entdecken und besiedeln
 godot --headless --fixed-fps 60 -- --autotest=60 --scale=10 --fixture=alt.json  # alten Spielstand weiterspielen

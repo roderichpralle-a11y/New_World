@@ -2,7 +2,7 @@
   "frei": {"name": "Frei", "desc": "Hilft dort, wo es gerade nötig ist.", "skill": "", "tool": "", "targets": []},
   "holzfaeller": {"name": "Holzfäller", "desc": "Fällt Bäume und bringt Holz.", "skill": "holz", "tool": "axe", "targets": ["baum"]},
   "steinmetz": {"name": "Steinmetz", "desc": "Schlägt Steine, Erz und Gold aus Felsen, arbeitet in Steinbruch, Lehmgrube und Mine.", "skill": "stein", "tool": "pick", "targets": ["prod:stein", "fels", "erzader", "goldader"]},
-  "sammler": {"name": "Sammler", "desc": "Pflückt Beeren, Kokosnüsse und Pilze.", "skill": "nahrung", "tool": "basket", "targets": ["busch", "palme", "pilzkreis"]},
+  "sammler": {"name": "Sammler", "desc": "Pflückt Beeren, Kokosnüsse, Pilze und Gewürze.", "skill": "nahrung", "tool": "basket", "targets": ["busch", "palme", "pilzkreis", "gewuerzstrauch"]},
   "fischer": {"name": "Fischer", "desc": "Angelt an Fischgründen am Ufer.", "skill": "nahrung", "tool": "rod", "targets": ["fischgrund"]},
   "bauer": {"name": "Bauer", "desc": "Bestellt Getreidefelder und Obstgärten.", "skill": "nahrung", "tool": "sickle", "targets": ["farm"]},
   "koch": {"name": "Koch", "desc": "Arbeitet in Mühle, Bäckerei, Räucherei und Hühnerhof.", "skill": "nahrung", "tool": "spoon", "targets": ["prod:kueche"]},

@@ -62,6 +62,8 @@ var _info_sig: String = ""
 var _updaters: Array = []
 var _research_tick: float = 0.0
 var _sea_panel: SeaPanel
+var _trade_panel: TradePanel  # fremde Händler (Merchant)
+var top_alerts: TopAlerts  # Hinweis-Knöpfe neben der Geschwindigkeit
 var _sea_btn: Button
 var _island_label: Label
 var _build_btn: Button
@@ -94,6 +96,9 @@ func setup(p_world: World, p_camera: GameCamera) -> void:
 	_sea_panel = SeaPanel.new()
 	root.add_child(_sea_panel)
 	_sea_panel.setup(self)
+	_trade_panel = TradePanel.new()
+	root.add_child(_trade_panel)
+	_trade_panel.setup(self)
 	_build_place_bar()
 	_toasts = VBoxContainer.new()
 	_toasts.position = Vector2(8, 56)
@@ -204,6 +209,8 @@ func _build_topbar() -> void:
 		sh.add_child(b)
 		_speed_btns.append([b, spd])
 	_on_speed(Game.speed)
+	top_alerts = TopAlerts.new()
+	root.add_child(top_alerts)
 
 
 func _refresh_top() -> void:
@@ -318,7 +325,7 @@ func _toggle(panel: Control) -> void:
 
 
 func _panels() -> Array:
-	return [_build_panel, _research_panel, _stock_panel, _settler_panel, _menu_panel, _help_panel, _notify_panel, _slots_panel, _sea_panel]
+	return [_build_panel, _research_panel, _stock_panel, _settler_panel, _menu_panel, _help_panel, _notify_panel, _slots_panel, _sea_panel, _trade_panel]
 
 
 func _popup_panel(title: String) -> Array:
@@ -418,6 +425,7 @@ func _fill_build_list() -> void:
 		d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		d.custom_minimum_size.x = 170
 		tv.add_child(d)
+		IslandTraits.build_row(b, tv, type, world)  # Inselstärke: hier schneller bzw. wo
 		var cost := GridContainer.new()
 		cost.columns = 2
 		cost.add_theme_constant_override("h_separation", 2)
@@ -1844,7 +1852,7 @@ func _build_help_panel() -> void:
 	var v: VBoxContainer = r[1]
 	var rt := RichTextLabel.new()
 	rt.bbcode_enabled = true
-	rt.text = tr(HELP_TEXT)
+	rt.text = tr(HELP_TEXT) + TradePanel.help_text()  # + Inselstärken, Gewürze und Händler
 	rt.custom_minimum_size = Vector2(360, 300)
 	rt.scroll_active = true
 	v.add_child(rt)
@@ -2212,6 +2220,7 @@ func _info_harbor(b: Building) -> void:
 		gl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_info_box.add_child(gl)
 	_info_box.add_child(UiTheme.label(tr("Insel: %s, %s") % [Sea.harbor_level_name(Sea.harbor_level(world)), Sea.berth_text(world)], 12))
+	TradePanel.harbor_rows(self, b)  # fremder Händler: da, angekündigt, Knopf zum Handeln
 	var sb := UiTheme.button(tr("Schiffe und Seekarte"), "anker", 36)
 	sb.pressed.connect(func():
 		Game.select(null)
@@ -2225,6 +2234,7 @@ func _info_production(b: Building) -> void:
 	var p := b.prod_def()
 	_info_box.add_child(UiTheme.label(tr("Herstellung"), 15, UiTheme.TEXT, true))
 	_info_box.add_child(_recipe_row(p))
+	IslandTraits.info_rows(self, b)  # Inselstärke
 	var job_id: String = WORKER_JOB.get(p.get("job", ""), "")
 	var job_name: String = Data.jobs.get(job_id, {}).get("name", "?")
 	var status := ""
@@ -2323,7 +2333,8 @@ func _info_node(n: ResNode) -> void:
 	elif n.def.get("on_empty", "") == "remove":
 		_info_box.add_child(UiTheme.label(tr("Wächst nicht nach."), 13))
 	var who := {"baum": tr("Holzfäller"), "fels": tr("Steinmetz"), "busch": tr("Sammler"), "fischgrund": tr("Fischer"),
-		"palme": tr("Sammler"), "pilzkreis": tr("Sammler"), "erzader": tr("Steinmetz"), "goldader": tr("Steinmetz"), "beute": tr("Jäger")}
+		"palme": tr("Sammler"), "pilzkreis": tr("Sammler"), "erzader": tr("Steinmetz"), "goldader": tr("Steinmetz"), "beute": tr("Jäger"),
+		"gewuerzstrauch": tr("Sammler")}
 	if n.def.has("spawns"):
 		var an: Dictionary = Data.animals[n.def.spawns]
 		var w = n.world
@@ -2560,6 +2571,7 @@ func _layout() -> void:
 		goal_card.set_deferred("size", Vector2(gw, 0))
 		if goal_card.visible:
 			_toasts.position.y = max(top_h, goal_card.position.y + goal_card.size.y) + 6
+	top_alerts.place(sp, _season_icon.get_parent().get_parent().get_parent(), portrait or vs.x < 760)
 	_notify_grid.columns = 2 if vs.x >= 640 else 1
 	_size_settler_panel(vs.y - top_h - bp.size.y - 18.0)
 	for pnl in _panels():

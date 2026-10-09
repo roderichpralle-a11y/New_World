@@ -230,6 +230,11 @@ func prod_def() -> Dictionary:
 	return def.get("production", {})
 
 
+## Inselstärke (buildings.json biome_bonus): so viel schneller arbeitet die Werkstatt auf dieser Insel.
+func biome_factor() -> float:
+	return IslandTraits.factor(type, world.biome) if world else 1.0
+
+
 ## Werft: Bauplan fuer ein Schiff aus data/ships.json.
 func ship_recipe(t: String) -> Dictionary:
 	var p: Dictionary = def.get("production", {}).duplicate(true)

@@ -667,6 +667,7 @@ func _plan_work() -> bool:
 			return _plan_free_gather()
 		_:
 			var targets: Array = Data.jobs.get(job, {}).get("targets", [])
+			targets = IslandTraits.gather_order(targets, world)  # Sammler: Gewürze zuerst, wenn genug Essen da ist
 			if _plan_gather(targets):
 				return true
 			# Ist das eigene Lager voll, hilft der Siedler woanders aus
@@ -735,14 +736,15 @@ func _plan_gather(types: Array) -> bool:
 func _tool_for_node(t: String) -> String:
 	return {"baum": "axe", "fels": "pick", "busch": "basket", "fischgrund": "rod", "palme": "basket",
 		"pilzkreis": "basket", "erzader": "pick", "goldader": "pick", "beute": "spear", "wolfsbau": "shovel",
-		"eberbau": "shovel", "baerenhoehle": "pick"}.get(t, "")
+		"eberbau": "shovel", "baerenhoehle": "pick", "gewuerzstrauch": "basket"}.get(t, "")
 
 
 func _verb(t: String) -> String:
 	return {"baum": tr("Fällt einen Baum"), "fels": tr("Schlägt Steine"), "busch": tr("Pflückt Beeren"),
 		"fischgrund": tr("Angelt"), "palme": tr("Pflückt Kokosnüsse"), "pilzkreis": tr("Sammelt Pilze"),
 		"erzader": tr("Schlägt Erz"), "goldader": tr("Schürft Gold"), "beute": tr("Zerlegt die Beute"),
-		"wolfsbau": tr("Räumt den Bau aus"), "eberbau": tr("Räumt den Bau aus"), "baerenhoehle": tr("Räumt die Höhle aus")}.get(t, tr("Arbeitet"))
+		"wolfsbau": tr("Räumt den Bau aus"), "eberbau": tr("Räumt den Bau aus"), "baerenhoehle": tr("Räumt die Höhle aus"),
+		"gewuerzstrauch": tr("Erntet Gewürze")}.get(t, tr("Arbeitet"))
 
 
 func _do_harvest(node) -> void:
@@ -908,7 +910,7 @@ func _plan_production(kind: String) -> bool:
 	var p: Dictionary = b.prod_def()
 	var tool_name: String = p.get("tool", Data.jobs.get(job, {}).get("tool", "hammer"))
 	_plan.append({"a": "work", "t": 0.3, "act": tr("Holt Rohstoffe"), "done": _do_take_inputs.bind(b)})
-	_plan.append({"a": "work", "t": float(p.time) / work_factor(p.get("skill", "handwerk"), "production"), "act": p.get("verb", tr("Arbeitet")),
+	_plan.append({"a": "work", "t": float(p.time) / (work_factor(p.get("skill", "handwerk"), "production") * b.biome_factor()), "act": p.get("verb", tr("Arbeitet")),
 		"tool": tool_name, "face": b.position, "done": _do_produce.bind(b)})
 	activity = "%s (%s)" % [p.get("verb", tr("Arbeitet")), b.def.name]
 	return true
@@ -920,7 +922,7 @@ func _do_take_inputs(b) -> void:
 		return
 	if carry_n > 0:
 		_do_deliver()
-	b.mark_active(float(b.prod_def().time) / work_factor(b.prod_def().get("skill", "handwerk"), "production") + 0.5)
+	b.mark_active(float(b.prod_def().time) / (work_factor(b.prod_def().get("skill", "handwerk"), "production") * b.biome_factor()) + 0.5)
 
 
 func _do_produce(b) -> void:
