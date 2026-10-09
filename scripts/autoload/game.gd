@@ -55,6 +55,15 @@ var rules_due := false  # Fenster Neue Regeln noch nicht gezeigt
 ## Autoload-Systeme melden sich in _ready an (register_system). main.gd ruft im Selbsttest
 ## autotest_setup(args, main) und autotest_report() auf, wenn es sie gibt.
 var systems: Array = []
+## Sicherung fuer aeltere Versionen (z. B. eine im Browser zwischengespeicherte alte Web-App):
+## Die behalten beim Speichern nur ihre eigenen Schluessel (OLD_SAVE_KEYS), die Inseldaten in
+## islands[0] aber unveraendert. Dort liegt deshalb unter "v2" eine Kopie der neuen Schluessel,
+## der Forschung und der Gebaeude und Waren, die alte Versionen nicht kennen (siehe _store_backup).
+const OLD_SAVE_KEYS := ["version", "seed", "time_days", "next_id", "stats", "lineage", "research", "goals",
+	"islands", "active", "voyages", "ships", "next_ship", "stock", "store_limits", "world"]
+const V2_BUILDINGS := ["tafelmacherei", "brunnen"]
+const V2_GOODS := ["tontafel", "gewuerze"]
+var _v2_restore: Dictionary = {}  # Insel-ID (Text) -> {"b": Gebaeude, "s": Waren} zum Zurueckholen
 var _notes: Array = []  # Meldungen, bevor das Spiel sichtbar laeuft (queue_note)
 var notes_live := false
 
@@ -110,8 +119,16 @@ func _detect_test_build() -> void:
 		return
 	is_test_build = true
 	SAVE_PATH = "user://savegame_%s.json" % build_tag
-	if not FileAccess.file_exists(SAVE_PATH) and FileAccess.file_exists(LIVE_SAVE_PATH):
-		DirAccess.copy_absolute(LIVE_SAVE_PATH, SAVE_PATH)
+	# Kopie des Spiels, das gerade im normalen Spiel aktiv ist ([game] slot), sonst Platz 1
+	var live := LIVE_SAVE_PATH
+	var cf := ConfigFile.new()
+	if cf.load("user://settings.cfg") == OK:
+		var n := clampi(int(cf.get_value("game", "slot", 1)), 1, SLOTS)
+		var p := LIVE_SAVE_PATH if n <= 1 else LIVE_SAVE_PATH.replace(".json", "_%d.json" % n)
+		if FileAccess.file_exists(p):
+			live = p
+	if not FileAccess.file_exists(SAVE_PATH) and FileAccess.file_exists(live):
+		DirAccess.copy_absolute(live, SAVE_PATH)
 
 
 func reset_state(new_seed: int) -> void:
@@ -1135,11 +1152,97 @@ func save_game() -> void:
 	if rules_due and not rules_lines.is_empty():
 		data["rules_due"] = rules_lines.duplicate()  # Fenster noch nicht gesehen: beim naechsten Laden zeigen
 	state_save.emit(data)
+	_store_backup(data)
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if f:
 		f.store_string(JSON.stringify(data))
 		f.close()
 		_write_slot_info()
+
+
+## Kopie der neuen Spielstand-Teile in islands[0]["v2"] (siehe OLD_SAVE_KEYS).
+func _store_backup(data: Dictionary) -> void:
+	var list = data.get("islands", [])
+	if not (list is Array) or list.is_empty() or not (list[0] is Dictionary):
+		return
+	var v2 := {}
+	for k in data:
+		if not str(k) in OLD_SAVE_KEYS:
+			v2[k] = data[k]
+	v2["research"] = research.duplicate(true)
+	var isl := {}
+	for e in list:
+		var wd = e.get("world")
+		if not (wd is Dictionary):
+			continue
+		var bl: Array = Array(wd.get("buildings", [])).filter(func(b): return str(b.get("type", "")) in V2_BUILDINGS)
+		var st := {}
+		for id in V2_GOODS:
+			if int(wd.get("stock", {}).get(id, 0)) > 0:
+				st[id] = int(wd.stock[id])
+		if not bl.is_empty() or not st.is_empty():
+			isl[str(e.get("id", 0))] = {"b": bl, "s": st}
+	v2["isl"] = isl
+	list[0]["v2"] = v2
+
+
+## Beim Laden: Hat eine aeltere Version den Spielstand zuletzt gespeichert (kein "rules", aber
+## islands[0]["v2"]), kommen die neuen Teile aus der Sicherung zurueck. Veraendert d.
+func _merge_backup(d: Dictionary) -> void:
+	_v2_restore = {}
+	var list = d.get("islands", [])
+	if not (list is Array) or list.is_empty() or not (list[0] is Dictionary) or not list[0].has("v2"):
+		return
+	var v2 = list[0]["v2"]
+	list[0].erase("v2")
+	if d.has("rules") or not (v2 is Dictionary):
+		return  # zuletzt von dieser Version gespeichert: alles ist schon da
+	for k in v2:
+		if not str(k) in ["research", "isl"] and not d.has(k):
+			d[k] = v2[k]
+	var r: Dictionary = d.get("research", {})
+	var b: Dictionary = v2.get("research", {})
+	var done: Array = Array(r.get("done", []))
+	var paid: Array = Array(r.get("paid", []))
+	var prog: Dictionary = r.get("progress", {})
+	for t in b.get("done", []):
+		if not t in done:
+			done.append(t)
+	for t in b.get("paid", []):
+		if not t in paid:
+			paid.append(t)
+	for t in b.get("progress", {}):
+		if not prog.has(t) or float(prog[t]) < float(b.progress[t]):
+			prog[t] = b.progress[t]
+	var cur := str(r.get("current", ""))
+	if (cur == "" or not Data.techs.has(cur)) and not str(b.get("current", "")) in done:
+		cur = str(b.get("current", ""))
+	d["research"] = {"current": cur, "progress": prog, "done": done, "paid": paid}
+	_v2_restore = v2.get("isl", {}) if v2.get("isl") is Dictionary else {}
+	print("Spielstand von einer aelteren Version gespeichert: neue Teile aus der Sicherung uebernommen")
+
+
+## Gebaeude und Waren, die eine aeltere Version beim Speichern weggelassen hat, zurueckholen.
+func _restore_backup_world() -> void:
+	for key in _v2_restore:
+		var w = Sea.worlds.get(int(key))
+		var e = _v2_restore[key]
+		if w == null or not (e is Dictionary):
+			continue
+		for b in e.get("b", []):
+			var type := str(b.get("type", ""))
+			var c := Vector2i(int(b.get("x", 0)), int(b.get("y", 0)))
+			if not Data.buildings.has(type) or w.building_by_id(int(b.get("id", 0))) != null or not w.can_place(type, c):
+				continue
+			var bld = w.place_building(type, c, bool(b.get("complete", false)), int(b.get("id", 0)))
+			bld.progress = float(b.get("progress", 0.0))
+			bld.delivered = b.get("delivered", {})
+			bld.paused = bool(b.get("paused", false))
+			bld.refresh()
+		for id in e.get("s", {}):
+			if Data.resources.has(id) and int(w.stock.get(id, 0)) <= 0:
+				w.stock[id] = int(e.s[id])
+	_v2_restore = {}
 
 
 func load_save() -> Dictionary:
@@ -1156,6 +1259,7 @@ func load_save() -> Dictionary:
 
 
 func apply_save_header(d: Dictionary) -> void:
+	_merge_backup(d)
 	seed_value = int(d.seed)
 	time_days = float(d.time_days)
 	# Bis Version 2 gab es ein gemeinsames Lager; Sea.build_from_save gibt es der Heimatinsel
@@ -1216,13 +1320,15 @@ func apply_save_header(d: Dictionary) -> void:
 ## gezeigt, liegen die Zeilen im Spielstand unter "rules_due" und kommen beim naechsten Laden wieder.
 func after_load(data: Dictionary) -> void:
 	rules_lines = []
+	_restore_backup_world()
 	state_load.emit(data, rules_old)
 	if rules_old < RULES:
 		rules_due = true
 	else:
 		var due = data.get("rules_due", [])
 		if due is Array and not due.is_empty():
-			var lines: Array = due.map(func(x): return str(x))
+			# Gespeichert in der damaligen Sprache: in die aktuelle umrechnen
+			var lines: Array = due.map(func(x): return Loc.name_of(str(x)))
 			lines.append_array(rules_lines)
 			rules_lines = lines
 			rules_due = true
