@@ -88,6 +88,8 @@ var research: Dictionary = {"current": "", "progress": {}, "done": [], "paid": [
 var goals: Dictionary = {"tut": 0, "ms": 0, "tv": 2}
 var eaten: Dictionary = {}  # gegessene Speisen seit Spielbeginn (fuer Statistik und Tests)
 var effects: Dictionary = {}  # Summe aller Forschungs-Effekte, z. B. {"build": 0.2}
+var reward_wait: Dictionary = {}  # Belohnungen ohne Lagerplatz, siehe _wait_goods
+var _wait_next := 0.0
 
 var _birth_timer: float = 0.0
 var _autosave_timer: float = 0.0
@@ -146,6 +148,7 @@ func reset_state(new_seed: int) -> void:
 	rules_day = time_days
 	rules_lines = []
 	rules_due = false
+	reward_wait = {}
 	_notes.clear()
 	Sea.reset(new_seed)
 	_recompute_effects()
@@ -215,6 +218,10 @@ func _process(delta: float) -> void:
 			if eff_add("ai_jobs") > 0.0:
 				for w in Sea.all_worlds():
 					AiJobs.tick(w)
+		if time_days >= _wait_next:
+			_wait_next = time_days + 0.25
+			if not reward_wait.is_empty():
+				_deliver_waiting()
 		# Geschichten am Lagerfeuer: ein kleines bisschen Forschung kommt immer voran
 		add_research(float(Data.bal("passive_research_per_day", 0.0)) * delta * mult / float(Data.bal("day_length")), false)
 		_birth_timer += delta / float(Data.bal("day_length"))
@@ -535,7 +542,7 @@ const NOTIFY_CATS := {"tag": "Tag und Jahreszeit", "siedler": "Siedler und Nachw
 	"gesundheit": "Krankheiten", "tod": "Todesfälle und verlorene Inseln", "bauen": "Bauen",
 	"lager": "Lager, Vorräte und Winter", "forschung": "Forschung und Zeitalter", "see": "Seefahrt",
 	"tiere": "Tiere und Jagd", "ereignis": "Ereignisse und Händler", "ki": "KI-Steuerung",
-	"ziel": "Aufträge"}
+	"ziel": "Meldungen zu Aufträgen"}
 ## Art einer Meldung nach ihrem Symbol, wenn der Aufruf keine Art nennt
 const NOTIFY_ICON_CAT := {"": "tag", "sonne": "tag", "herz": "siedler", "person": "siedler",
 	"abriss": "tod", "hammer": "bauen", "haus": "lager", "holz": "lager", "weizen": "lager",
@@ -685,8 +692,9 @@ func give_goods(w, id: String, n: int) -> Array:
 	var home = _isle(w)
 	var placed := 0
 	var elsewhere := 0
+	var where := {}  # andere Insel (Name) -> Menge
 	if n <= 0 or not Data.resources.has(id):
-		return [0, 0]
+		return [0, 0, where]
 	if home != null:
 		placed = add_stock(id, n, home)
 	if placed < n:
@@ -694,11 +702,13 @@ func give_goods(w, id: String, n: int) -> Array:
 			if o == home:
 				continue
 			var k := add_stock(id, n - placed, o)
-			placed += k
-			elsewhere += k
+			if k > 0:
+				placed += k
+				elsewhere += k
+				where[Sea.island_name(o)] = int(where.get(Sea.island_name(o), 0)) + k
 			if placed >= n:
 				break
-	return [placed, elsewhere]
+	return [placed, elsewhere, where]
 
 
 ## Besiedelte Insel mit den meisten freien Wohnplaetzen (ohne `exclude`); bei Gleichstand die
@@ -761,7 +771,8 @@ func spawn_immigrants(w, n: int, opts: Dictionary = {}) -> Array:
 	return out
 
 
-## Belohnung auf Insel w: Waren-IDs -> Menge (Ueberlauf auf andere Inseln, Rest verloren) und
+## Belohnung auf Insel w: Waren-IDs -> Menge (Ueberlauf auf andere Inseln, der Rest wartet auf Platz:
+## _wait_goods) und
 ## "settlers": n Einwanderer (spawn_immigrants mit `opts`; wer nicht landen kann, wird zu 10 Brettern).
 ## Liefert eine kurze Zusammenfassung fuer Meldungen, z. B. "2 Einwanderer, 10 Bretter".
 func grant_reward(w, reward: Dictionary, opts: Dictionary = {}) -> String:
@@ -783,16 +794,69 @@ func grant_reward(w, reward: Dictionary, opts: Dictionary = {}) -> String:
 			parts.append(tr("%d Einwanderer") % came.size())
 		if came.size() < n:
 			goods["bretter"] = int(goods.get("bretter", 0)) + 10 * (n - came.size())
-	var lost := 0
 	for id in goods:
-		var r := give_goods(home, id, int(goods[id]))
-		if int(r[0]) > 0:
-			parts.append("%d %s" % [int(r[0]), Data.resource_name(id)])
-		lost += int(goods[id]) - int(r[0])
-	var text := ", ".join(parts)
-	if lost > 0:
-		text += tr(" (%d ohne Platz im Lager verloren)") % lost
-	return text
+		var want := int(goods[id])
+		var r := give_goods(home, id, want)
+		var notes := []
+		var where: Dictionary = r[2]
+		for isl in where:
+			notes.append(tr("%d davon auf %s") % [int(where[isl]), isl])
+		var rest := want - int(r[0])
+		if rest > 0:
+			_wait_goods(home, id, rest)
+			notes.append(tr("%d warten auf Platz im Lager") % rest)
+		parts.append("%d %s" % [want, Data.resource_name(id)] + (" (%s)" % ", ".join(notes) if not notes.is_empty() else ""))
+	return ", ".join(parts)
+
+
+## Belohnungen, die in keinem Lager Platz hatten, warten (reward_wait: Insel-ID als Text -> {Ware: Menge})
+## und kommen ins Lager, sobald irgendwo Platz ist (zuerst auf ihrer Insel, siehe _deliver_waiting).
+func _wait_goods(w, id: String, n: int) -> void:
+	var key := str(w.island_id) if w != null else "0"
+	var e: Dictionary = reward_wait.get(key, {})
+	e[id] = int(e.get(id, 0)) + n
+	reward_wait[key] = e
+
+
+func waiting_total() -> int:
+	var n := 0
+	for k in reward_wait:
+		for id in reward_wait[k]:
+			n += int(reward_wait[k][id])
+	return n
+
+
+## Wartende Waren einlagern, aber nur so viel, dass ein Teil des Lagers (wait_free_share) frei bleibt:
+## sonst haette die naechste Ernte keinen Platz.
+func _deliver_waiting() -> void:
+	var share := float(Data.bal("wait_free_share", 0.15))
+	for key in reward_wait.keys():
+		var home = Sea.worlds.get(int(key))
+		if home == null:
+			home = world
+		var e: Dictionary = reward_wait[key]
+		var got := {}
+		var order: Array = Sea.all_worlds().filter(func(o): return o != home)
+		if home != null:
+			order.push_front(home)
+		for id in e.keys():
+			var size := maxi(1, Data.good_size(id))
+			for o in order:
+				var room := space_for(id, o) - int(share * float(storage_volume(o))) / size
+				var k := add_stock(id, mini(int(e[id]), maxi(0, room)), o) if room > 0 else 0
+				if k > 0:
+					e[id] = int(e[id]) - k
+					var l: Array = got.get(o, [])
+					l.append("%d %s" % [k, Data.resource_name(id)])
+					got[o] = l
+				if int(e[id]) <= 0:
+					break
+			if int(e[id]) <= 0:
+				e.erase(id)
+		if e.is_empty():
+			reward_wait.erase(key)
+		for o in got:
+			notify_at(o, tr("Wartende Waren sind jetzt im Lager: %s.") % ", ".join(got[o]), "hammer", "lager")
 
 
 ## Eltern, Geschwister, Großeltern und Kinder bekommen keinen Nachwuchs miteinander.
@@ -1148,6 +1212,8 @@ func save_game() -> void:
 		"rules": rules,
 		"rules_day": rules_day,
 	}
+	if not reward_wait.is_empty():
+		data["reward_wait"] = reward_wait
 	data.merge(Sea.serialize())
 	if rules_due and not rules_lines.is_empty():
 		data["rules_due"] = rules_lines.duplicate()  # Fenster noch nicht gesehen: beim naechsten Laden zeigen
@@ -1274,6 +1340,17 @@ func apply_save_header(d: Dictionary) -> void:
 		if Data.resources.has(id):
 			store_limits[id] = int(sl[id])
 	next_id = int(d.next_id)
+	reward_wait = {}
+	var rw = d.get("reward_wait", {})
+	if rw is Dictionary:
+		for k in rw:
+			if rw[k] is Dictionary:
+				var e := {}
+				for id in rw[k]:
+					if Data.resources.has(str(id)) and int(rw[k][id]) > 0:
+						e[str(id)] = int(rw[k][id])
+				if not e.is_empty():
+					reward_wait[str(k)] = e
 	# Regelstand: alte Spielstaende (ohne "rules") bekommen die neuen Regeln ab jetzt
 	rules_old = int(d.get("rules", 0))
 	rules_day = float(d.get("rules_day", time_days)) if rules_old >= 1 else time_days

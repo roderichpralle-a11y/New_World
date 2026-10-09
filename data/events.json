@@ -1,7 +1,9 @@
 {
-  "_info": "Angekündigte Ereignisse (Autoload Events). Zeiten in Tagen (time_days). start_day: Spieltag, ab dem Ereignisse angekündigt werden (13 = erster Tag von Jahr 2). interval: Abstand je Insel nach dem Ende des letzten Ereignisses. grace_days: Schonzeit für neue oder geladene Inseln. global_gap: Abstand zwischen zwei Ankündigungen auf allen Inseln. lead: Vorwarnzeit, strike_tod: Tageszeit des Eintritts (tagsüber). weights: Gewicht je Jahreszeit (Frühling, Sommer, Herbst, Winter) beim Eintritt. power: Stärke = clamp(a + b*(Jahr-2) + Siedler/c, min, max).",
+  "_info": "Angekündigte Ereignisse (Autoload Events). Zeiten in Tagen (time_days). start_day: Spieltag, ab dem Ereignisse angekündigt werden (13 = erster Tag von Jahr 2). interval: Abstand je Insel nach dem Ende des letzten Ereignisses, dazu zufällig -season_jitter bis +season_jitter Jahreszeiten (damit Ereignisse durch das Jahr wandern), mindestens min_gap. grace_days: Schonzeit für neue oder geladene Inseln. global_gap: Abstand zwischen zwei Ankündigungen auf allen Inseln. lead: Vorwarnzeit, strike_tod: Tageszeit des Eintritts (tagsüber). weights: Gewicht je Jahreszeit (Frühling, Sommer, Herbst, Winter) beim Eintritt. power: Stärke = clamp(a + b*(Jahr-2) + Siedler/c, min, max).",
   "start_day": 13,
-  "interval": [10.0, 14.0],
+  "interval": [8.0, 16.0],
+  "season_jitter": 1,
+  "min_gap": 5.0,
   "grace_days": 8.0,
   "min_settlers": 6,
   "global_gap": 3.0,

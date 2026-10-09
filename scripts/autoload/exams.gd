@@ -424,7 +424,7 @@ func record_value_text(k: String, v: int) -> String:
 	if k.begins_with("age_"):
 		return tr("Tag %d") % v
 	if k in ["days", "best_streak"]:
-		return tr("%d Tage") % v
+		return tr("1 Tag") if v == 1 else tr("%d Tage") % v
 	return str(v)
 
 

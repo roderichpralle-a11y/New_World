@@ -131,6 +131,7 @@ static func run(main, which: String) -> void:
 			_:
 				print("Ereignis-Test: unbekannte Art ", t)
 	if which == "all":
+		_warning_death_check()
 		_old_save_check()
 	print("Ereignis-Statistik: überstanden %d von %d, Piraten vertrieben %d, Jagdbeute (kills) %d" % [int(Game.stats.get("events_survived", 0)),
 		int(Game.stats.get("events", 0)), int(Game.stats.get("pirates", 0)), int(Game.stats.get("kills", 0))])
@@ -475,6 +476,21 @@ static func _test_pirates(main) -> void:
 		int(ev2.get("count", 0)), loot2, gold0, Game.amount("gold", w), int(ev2.get("deaths", 0)), Game.time_days - t1])
 	var beute1: int = w.nodes.filter(func(n): return n.type == "beute").size()
 	print("Ereignis-Test Piraten ", _okf(int(Game.stats.get("kills", 0)) == kills0 and Game.amount("felle", w) == felle0 and beute1 == beute0 and Merchant.eligible(w) and not Events.busy(w)), " keine Jagdbeute: kills %d -> %d, Felle %d -> %d, Fleischstellen %d -> %d; Händler darf wieder" % [kills0, int(Game.stats.get("kills", 0)), felle0, Game.amount("felle", w), beute0, beute1])
+
+
+## Wer während der Vorwarnung stirbt, zählt nicht gegen das Ereignis (Belohnung ohne Tote bleibt).
+static func _warning_death_check() -> void:
+	var w = Game.world
+	var ev := Events.force(w, "seuche", 1.0)
+	var s = w.settlers[0] if not w.settlers.is_empty() else null
+	Events._on_died(s, "starve")
+	var before := int(ev.get("deaths", 0))
+	ev.struck = true
+	Events._on_died(s, "starve")
+	var after := int(ev.get("deaths", 0))
+	var st: Dictionary = Events.islands.get(str(w.island_id), {})
+	Events._end(w, st, ev, "")
+	print("Ereignis-Test Vorwarnung ", _okf(s != null and before == 0 and after == 1), " Tod vor dem Eintritt zählt nicht (%d), danach schon (%d)" % [before, after])
 
 
 # ---------------------------------------------------------------- Alter Spielstand

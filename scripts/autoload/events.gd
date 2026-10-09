@@ -461,7 +461,13 @@ func _end(w, st: Dictionary, _ev: Dictionary, typ: String) -> void:
 	st.ev = null
 	if typ != "":
 		st.last = typ
-	st.next = Game.time_days + rng.randf_range(float(iv[0]), float(iv[1]))
+	# Abstand plus/minus bis zu season_jitter Jahreszeiten: so wandern Ereignisse durch das Jahr und
+	# hängen nicht an einer Jahreszeit fest (im Mittel bleibt es beim Abstand aus interval)
+	var gap := rng.randf_range(float(iv[0]), float(iv[1]))
+	var jit := int(_c("season_jitter", 0))
+	if jit > 0:
+		gap += float(rng.randi_range(-jit, jit)) * Seasons.season_days()
+	st.next = Game.time_days + maxf(float(_c("min_gap", 5.0)), gap)
 	_clear_pirates(w)
 	_refresh_caches()
 	changed.emit()
@@ -498,7 +504,7 @@ func _on_died(s, cause: String) -> void:
 		return
 	var w = s.world
 	var ev := event_of(w)
-	if not ev.is_empty():
+	if not ev.is_empty() and bool(ev.get("struck", false)):  # Tote vor dem Eintritt zaehlen nicht
 		ev.deaths = int(ev.get("deaths", 0)) + 1
 
 

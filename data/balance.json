@@ -1,6 +1,7 @@
 {
   "day_length": 240.0,
   "night_speedup": 5.0,
+  "wait_free_share": 0.15,
   "night_start": 0.84,
   "night_end": 0.18,
   "hunger_per_day": 75.0,

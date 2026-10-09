@@ -168,7 +168,15 @@ func tick() -> void:
 	if t >= float(state.next):
 		var w = planned_world()
 		if not eligible(w):
+			# Geplante Insel geht nicht mehr (z. B. Piraten angekündigt): eine andere, aber wieder mit
+			# Ankündigung einen Tag vorher
 			w = _pick()
+			if w != null:
+				state.plan = int(w.island_id)
+				state.next = t + lead
+				Game.notify(tr("Der fremde Händler fährt stattdessen nach %s und legt dort in %d Stunden an.") % [Sea.island_name(w), hours_until()], "haendler", "ereignis")
+				changed.emit()
+				return
 		if w == null:
 			if int(state.plan) >= 0:
 				Game.notify(tr("Der fremde Händler verspätet sich: Kein Hafen kann ihn gerade aufnehmen."), "haendler", "ereignis")

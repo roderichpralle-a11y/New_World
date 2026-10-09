@@ -478,7 +478,7 @@ func obtainable(id: String) -> bool:
 				if targets.has(n.type) and str(n.def.get("yield", "")) == id:
 					ok = true
 					break
-		if not ok and id in ["fleisch", "felle"] and targets.has("hunt") and not w.animals.is_empty():
+		if not ok and id in ["fleisch", "felle"] and targets.has("hunt") and w.animals.any(func(an): return not an is Raider):
 			ok = true
 	_obt[id] = ok
 	return ok
@@ -491,7 +491,7 @@ func huntable() -> int:
 	for w in Sea.all_worlds():
 		var per := {}
 		for an in w.animals:
-			if is_instance_valid(an) and an.is_adult():
+			if is_instance_valid(an) and not an is Raider and an.is_adult():  # Piraten sind kein Wild
 				per[an.type] = int(per.get(an.type, 0)) + 1
 		for t in per:
 			n += maxi(0, int(per[t]) - keep)
@@ -525,9 +525,9 @@ func _assign_rewards(list: Array, ctx: Dictionary) -> void:
 	order.sort_custom(func(x, y): return int(list[x].w) < int(list[y].w) or (int(list[x].w) == int(list[y].w) and x < y))
 	var used := []
 	var boon_ok := not boon_choices().is_empty()
-	var plan_ok := not plan_choices().is_empty()
 	for k in order.size():
 		var q: Dictionary = list[order[k]]
+		var plan_ok := not plan_choices(_quest_tech(q)).is_empty()
 		var kinds := ["goods", "research"]
 		if int(q.w) >= 2:
 			kinds.append("settlers")
@@ -562,7 +562,7 @@ func make_reward(kind: String, q: Dictionary, ctx: Dictionary) -> Dictionary:
 				var b: Dictionary = _pick(ch)
 				return {"kind": "boon", "key": str(b.key), "v": float(b.v)}
 		"plan":
-			var pl := plan_choices()
+			var pl := plan_choices(_quest_tech(q))
 			if not pl.is_empty():
 				return {"kind": "plan", "what": str(_pick(pl))}
 	return goods_reward(w, int(ctx.A))
@@ -602,9 +602,17 @@ func boon_choices() -> Array:
 	return out
 
 
+## Forschung, die ein Auftrag "Erforsche X" verlangt ("" bei anderen Auftraegen).
+func _quest_tech(q: Dictionary) -> String:
+	var c: Dictionary = q.get("check", {})
+	return str(c.get("what", "")) if str(c.get("type", "")) == "tech" else ""
+
+
 ## Gebaeude fuer einen Bauplan: baubar, noch nicht freigeschaltet, Forschung waehlbar (Voraussetzungen
 ## erforscht, Zeitalter erreicht), kein Hafen/Schiff/Denkmal, Waren fuer Bau und Betrieb beschaffbar.
-func plan_choices() -> Array:
+## Nicht fuer die laufende Forschung und nicht fuer exclude_tech (die Forschung, die der Auftrag selbst
+## verlangt): die schaltet das Gebaeude ohnehin frei, der Bauplan waere wertlos.
+func plan_choices(exclude_tech: String = "") -> Array:
 	var out := []
 	for type in Data.buildings:
 		var d: Dictionary = Data.buildings[type]
@@ -614,6 +622,8 @@ func plan_choices() -> Array:
 			continue
 		var req := str(d.get("requires", ""))
 		if not Data.techs.has(req) or not Game.tech_state(req) in ["available", "current"]:
+			continue
+		if req == exclude_tech or req == str(Game.research.current):
 			continue
 		if Data.age_of_tier(int(Data.techs[req].get("tier", 1))) > Game.current_age():
 			continue
@@ -654,8 +664,7 @@ func give_reward(q: Dictionary) -> String:
 	var w := int(q.get("w", 1))
 	match str(r.get("kind", "")):
 		"goods":
-			var txt := Game.grant_reward(Game.world, {str(r.what): int(r.n)})
-			return reward_text(r) + txt if txt.begins_with(" ") else txt  # alles ohne Platz: Ware trotzdem nennen
+			return Game.grant_reward(Game.world, {str(r.what): int(r.n)})  # nennt auch Waren, die auf Platz warten
 		"research":
 			return _give_research(float(r.n))
 		"settlers":
@@ -824,19 +833,26 @@ func boon_text(key: String, v: float) -> String:
 	return "%s %+d %%" % [name, roundi(v * 100.0)]
 
 
-## Kurz "2 T. 5 Std." / "5 Std." (Zielkarte), lang "4 Tage" / "1 Tag 6 Std." (Fenster).
+## Kurz "2 T. 5 Std." / "5 Std." (Zielkarte), lang "4 Tage" / "1 Tag 6 Stunden" (Fenster).
 func duration_text(days: float, short: bool = true) -> String:
 	days = maxf(0.0, days)
 	var d := int(floor(days + 0.0001))
 	var h := int(floor((days - d) * 24.0 + 0.001))
 	if d <= 0:
-		return tr("%d Std.") % maxi(h, 1) if days > 0.0 else tr("0 Std.")
+		if short:
+			return tr("%d Std.") % maxi(h, 1) if days > 0.0 else tr("0 Std.")
+		return _hours_long(maxi(h, 1) if days > 0.0 else 0)
 	if short:
 		return tr("%d T. %d Std.") % [d, h] if h > 0 else tr("%d T.") % d
 	var t := tr("1 Tag") if d == 1 else tr("%d Tage") % d
 	if h > 0:
-		t += " " + tr("%d Std.") % h
+		t += " " + _hours_long(h)
 	return t
+
+
+## Lang ausgeschrieben (ohne Abkürzungspunkt, damit ein Satzende danach passt).
+func _hours_long(h: int) -> String:
+	return tr("1 Stunde") if h == 1 else tr("%d Stunden") % h
 
 
 ## Fortschritt als Text: "34/40", beim Winter-Auftrag "kein Hungertod" bzw. "Hungertod".
@@ -897,6 +913,14 @@ func _on_load(data: Dictionary, old_rules: int) -> void:
 	var d = data.get("quests", null)
 	if d is Dictionary:
 		apply_state(d)
+		var sa = d.get("active", {})
+		if sa is Dictionary and not sa.is_empty() and active.is_empty():
+			# Laufender Auftrag passt nicht mehr (z. B. Zielinsel verloren): als gescheitert zählen
+			Game.stats["quests_failed"] = int(Game.stats.get("quests_failed", 0)) + 1
+			_count("failed")
+			last = {"tpl": str(sa.get("tpl", "")), "ok": false, "day": Game.day(), "text": ""}
+			next = Game.time_days + _f("cooldown", 0.5)
+			Game.queue_note(tr("Auftrag nicht geschafft: Das Ziel des Auftrags gibt es nicht mehr. Neue Aufträge kommen bald."), "ziel", "ziel")
 	elif old_rules < 1 or not in_tutorial():
 		next = Game.time_days
 	if rp_marks.is_empty():
@@ -1135,8 +1159,9 @@ func _quest_test(n: int, main) -> void:
 	print("   Belohnung Waren: %s -> %s, Lager %s %d -> %d" % [reward_text(g), _give_test(g), g.what, before, Game.amount_all(str(g.what))])
 	var keep_stock: Dictionary = w.stock.duplicate()
 	Game.give_goods(w, str(g.what), 1000000)  # Lager voll: Ware wird trotzdem genannt
-	print("   Belohnung Waren bei vollem Lager: %s" % _give_test(g))
+	print("   Belohnung Waren bei vollem Lager: %s (wartet: %d)" % [_give_test(g), Game.waiting_total()])
 	w.stock = keep_stock
+	Game.reward_wait = {}
 	var big := goods_reward(3, 7)
 	print("   Waren Zeitalter 7, w3: %s (Budget %d Gold)" % [reward_text(big), int(_f("goods_budget", 25) * 3 * 8)])
 	Game.research.current = ""
