@@ -379,6 +379,8 @@ Informationszeitalter 13–14, Zukunft 15–16). `Data.age_of_tier(tier)`, `Data
 `Game.current_age()` = spätestes Zeitalter mit mindestens einer erforschten Sache. Beim Eintritt in ein
 neues Zeitalter meldet `_finish_research` es. Im Forschungsmenü steht über jedem Zeitalter eine
 Überschrift; Zeitalter jenseits des nächsten zeigen nur die Überschrift (`_age_header`).
+`_ages[i].writing` nennt die Schreibwaren, die Forscher in diesem Zeitalter verbrauchen (siehe
+„Forschung braucht Schriften“).
 
 - **Neue Waren**: Glas, Papier, Stahl, Maschinen, Strom (Größe 0), Elektronik, Konserven (Nahrung 30/8,
   verdirbt nicht). **Neue Werkstätten** (Handwerker): Glashütte, Papiermühle, Stahlwerk, Fabrik,
@@ -395,6 +397,60 @@ neues Zeitalter meldet `_finish_research` es. Im Forschungsmenü steht über jed
   bei Hungersnot wird auch ein Arbeiter aus Werkstatt oder Forschung zur Nahrung geholt.
 - **Grafik**: `tools/gen_art_ages.py` (Gebäude ab Zelle 35 in buildings.png, Symbole `ICONS_AGES`).
 - **Test**: `--prodtest=1 --ages=1` baut nur die Gebäude der neuen Zeitalter.
+
+## Forschung braucht Schriften
+
+Teil der Regeln ab Version 2 (siehe unten). Forscher verbrauchen ab der Antike Schreibwaren, und
+Forschungen kosten mehr.
+
+- **Verbrauch**: je 100 gutgeschriebene Forschungspunkte (Punkte mal `eff("research")`) die Mengen aus
+  `techs.json` `_ages[i].writing`: Steinzeit nichts, Antike 10 Tontafeln, Mittelalter 4 Tontafeln,
+  Renaissance 2,5 Papier, Industrialisierung 1,5 Papier, Moderne 1 Papier + 2 Strom,
+  Informationszeitalter 2 Strom + 0,15 Elektronik, Zukunft 1,5 Strom + 0,1 Elektronik. Je Forschung ist das
+  fest `ceil(Punkte × Rate / 100)`, z. B. Heilkunde 300 Punkte = 30 Tontafeln, Papier 3900 Punkte = 156
+  Tontafeln. Genommen wird aus dem Lager der Insel des Forschers (Forschung ist gemeinsam, Lager je Insel:
+  eine Kolonie mit eigener Schreibstube braucht eigene Tafeln oder ein Schiff, das sie bringt).
+- **Rückfall**: eine Ware zählt nur, wenn ein Gebäude, das sie herstellt, schon freigeschaltet ist
+  (`Game.is_unlocked`); lässt sich keine Ware des Zeitalters herstellen, gilt die Liste des Zeitalters davor
+  (wiederholt). So brauchen Antike-Forschungen vor der Töpferei nichts, die Forschung Papier noch Tontafeln,
+  Elektrizität nur Papier und Computer nur Strom. Es zählt, was freigeschaltet ist, nicht was gebaut ist:
+  nach Papier brauchen Forschungen Papier, auch wenn noch keine Papiermühle steht (die Meldung sagt dann
+  „Baue: Papiermühle“). Das Ergebnis je Forschung wird zwischengespeichert (`Writing.goods_for`) und in
+  `Game._recompute_effects` geleert.
+- **Fehlt etwas**: liegt von einer Ware keine ganze Einheit im Lager, bringt der Arbeitsgang nur
+  `balance.writing_missing_factor` (0,2) der Punkte und verbraucht nichts. Meldung (Art Forschung) höchstens
+  einmal am Tag je Insel mit dem Gebäude, das fehlt („Baue: Tafelmacherei“) oder nichts liefert („Prüfe:
+  ...“); der Forscher zeigt „Forscht langsam, es fehlen Tontafeln“. Passive Forschung
+  (`passive_research_per_day`) und Punkte aus Belohnungen (`Game.add_research` direkt) bleiben frei.
+- **Code**: Autoload `Writing` (`scripts/autoload/writing.gd`). `Settler._do_research` ruft
+  `world.use_writing(Writing.goods_for(t), pts * eff)` (→ `Writing.consume`) und multipliziert die Punkte
+  mit dem Ergebnis. Bruchteile sammeln sich in `World.writing_debt` (nicht gespeichert: beim Laden geht
+  höchstens eine Einheit je Ware verloren). `stats.writing_used` zählt alle verbrauchten Einheiten (mit
+  `stats.get(k, 0)` lesen).
+- **Tafelmacherei** (Wissen, nach Töpferei, Holz 12 + Stein 6): ein Handwerker formt Lehm 2 → Tontafeln 3
+  (4 s), gemessen etwa 15–25 Tafeln am Tag; eine Lehmgrube mit einem Steinmetz reicht dafür.
+- **Kosten und Punkte**: Kosten Stufe 1 wie bisher, Stufe 2 ×1,5 (aufgerundet), ab Stufe 3 ×2; Gold und
+  Felle bleiben gleich, Backkunst und Tierhaltung kosten weiter Mehl bzw. Weizen. Punkte Stufe 1–4 wie bisher,
+  5–6 ×1,25, 7 ×1,5, 8 ×1,4, ab 9 ×1,25 (ab Stufe 5 auf 50 gerundet; Stufe 7 braucht jetzt mehr als
+  Stufe 6). Die Zahlen stehen direkt in `techs.json` (`research_cost_factor` bleibt 1).
+- **Oberfläche**: jede Forschungszeile „Beim Forschen: 24 Tontafeln“ (Rest für diese Forschung, auch bei
+  gesperrten, in `_row_height` mitgezählt); Kopf des Forschungsfensters „Noch nötig: 63 Tontafeln (Lager: 0)“
+  und rot „Es fehlen Tontafeln: Forschung nur 20 %. Baue: Tafelmacherei.“; Zeitalter-Überschrift
+  „Forscher brauchen: Tontafeln“; Infofenster eines Forschungsgebäudes „Verbraucht beim Forschen:
+  Tontafeln (Lager: N)“ (rot, wenn etwas fehlt; in der Steinzeit „Ab der Antike brauchen Forscher
+  Tontafeln.“).
+- **Alte Spielstände**: nichts zu übernehmen. Bezahlte Forschungen kosten nichts nach, der Fortschritt bleibt
+  in Punkten (der Prozentwert sinkt, wo die Punkte gestiegen sind). Läuft gerade eine Forschung ab der
+  Antike ohne Tafeln, forscht sie mit 20 %, bis eine Tafelmacherei liefert. Zeile im Fenster „Neue Regeln“.
+- **Test**: `--writingtest=1`: prüft zuerst die Rückfall-Regel für elf Forschungsstände und
+  `World.use_writing` direkt, dann Stufe 1–4 erforscht außer Schmiedekunst, Schreibstube, Lehmgrube,
+  Tafelmacherei und Steinhaus fertig, 2 Forscher, Handwerker, Steinmetz, 0 Tontafeln; Tagesbericht
+  „Schrifttest Tag ...“ mit Punkten am Tag, Tafeln hergestellt/verbraucht und langsamen Arbeitsgängen
+  (gemessen: erst etwa 35–40 Punkte am Tag, mit Tafeln 100–135). `--writingtest=2`: ohne Tafelmacherei,
+  bleibt bei etwa 20 Punkten am Tag. `--build=1 --research=1`: sobald eine bezahlte Forschung Tontafeln
+  braucht, baut der Bot Tafelmacherei und Lehmgrube, teilt Steinmetz und Handwerker ein (nur bei genug
+  Essen) und hält beide an, wenn genug auf Vorrat ist (Antike direkt: `--comfort=12`). Bildschirmfoto:
+  `--panel=research --researchscroll=<forschung>`. Der 20-Sekunden-Bericht hat eine Zeile „Schriften: ...“.
 
 ## Regeln ab Version 2 (Herausforderung)
 
@@ -553,6 +609,7 @@ godot --headless -- --autotest=150 --scale=10 --schooltest=1  # Steinhaus und Sc
 godot --headless -- --autotest=230 --scale=10 --build=1   # ein ganzes Jahr, Bericht mit Jahreszeit und Holz
 godot --headless -- --autotest=300 --scale=10 --seatest=1  # Werft, drei Inseln entdecken und besiedeln
 godot --headless --fixed-fps 60 -- --autotest=60 --scale=10 --fixture=alt.json  # alten Spielstand weiterspielen
+godot --headless --fixed-fps 60 -- --autotest=200 --scale=10 --writingtest=1  # Forschung braucht Tontafeln
 #   --fixed-fps 60 vor "--" rechnet so schnell wie moeglich (gleicher Spielverlauf); --seed=N feste Insel
 #   dazu --wildlife=1: Tierbestand je Insel und Bau; --weak=1: ohne Waffenkunde (Tiere gefährlicher), Bildschirmfoto: --island=<id>, --panel=sea
 # Bildschirmfoto-Optionen: --panel=research|build|stock, --selectb=<typ>, --look=1

@@ -37,6 +37,7 @@
   "research_cost_factor": 1.0,
   "research_per_work": 1.5,
   "research_work_time": 2.5,
+  "writing_missing_factor": 0.2,
   "variety_min": 3,
   "variety_birth_bonus": 1.5,
   "animal_tick_days": 0.1,

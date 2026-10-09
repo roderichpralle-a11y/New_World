@@ -978,7 +978,10 @@ func _do_research(b) -> void:
 		return
 	var pts := float(Data.bal("research_per_work", 1.0)) * float(b.research_def().get("factor", 1.0)) * skill_factor("wissen") \
 		* mind.research_factor() * mind.work_power() * float(Data.bal("work_pace", 1.0))
-	Game.add_research(pts)
+	# Forschung braucht Schriften: Tontafeln, Papier, Strom ... aus dem Lager dieser Insel (Writing)
+	var wf: float = world.use_writing(Writing.goods_for(Game.research.current), pts * Game.eff("research"))
+	activity = Writing.research_activity(wf, world)
+	Game.add_research(pts * wf)
 	gain_xp("wissen", 0.5)
 	b.mark_active(3.0)
 	if _rng.randf() < 0.2:

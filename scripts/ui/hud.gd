@@ -31,6 +31,7 @@ var _research_scroll: ScrollContainer
 var _research_head: VBoxContainer
 var _research_bar: ProgressBar
 var _research_label: Label
+var _research_writing: Array = []  # Forschung braucht Schriften: [Verbrauch, rote Zeile]
 var _research_btn: Button
 var _stock_panel: PanelContainer
 var _stock_grid: GridContainer
@@ -456,6 +457,12 @@ func _build_research_panel() -> void:
 	_research_bar = UiTheme.bar(Color("#5a8ad8"), 10)
 	_research_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_research_head.add_child(_research_bar)
+	for i in 2:  # Forschung braucht Schriften: Verbrauch und Lager, rote Zeile wenn etwas fehlt
+		var wl := UiTheme.label("", 13, UiTheme.TEXT if i == 0 else UiTheme.BAD, i == 1)
+		wl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		wl.custom_minimum_size.x = 330
+		_research_head.add_child(wl)
+		_research_writing.append(wl)
 	_research_scroll = ScrollContainer.new()
 	_research_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_research_scroll.custom_minimum_size = Vector2(355, 270)
@@ -484,6 +491,10 @@ func _update_research_head() -> void:
 		_research_label.text = tr("Forschung: %s  (%d / %d)\n%s") % [Data.techs[cur].name, int(Game.tech_progress(cur)), int(pts), who]
 		_research_bar.value = Game.tech_progress(cur) / pts * 100.0
 	_research_label.add_theme_color_override("font_color", UiTheme.BAD if n == 0 else UiTheme.TEXT)
+	var wt: Array = Writing.head_lines(world, n)
+	for i in _research_writing.size():
+		_research_writing[i].text = wt[i]
+		_research_writing[i].visible = wt[i] != ""
 	var label := tr("Forschung")
 	if cur != "":
 		label = "%d%%" % int(Game.tech_progress(cur) / Game.tech_points(cur) * 100.0)
@@ -536,6 +547,8 @@ func _age_header(a: int, cur_age: int) -> Control:
 	tl.custom_minimum_size.x = 200
 	v.add_child(tl)
 	var d := UiTheme.label(Data.ages[a].get("desc", "") if a <= cur_age + 1 else tr("Erreiche erst das Zeitalter %s.") % Data.age_name(a - 1), 12, col)
+	if a <= cur_age + 1 and Writing.age_text(a) != "":
+		d.text += "\n" + Writing.age_text(a)  # Forschung braucht Schriften
 	d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	d.custom_minimum_size.x = 200
 	v.add_child(d)
@@ -616,6 +629,13 @@ func _tech_row(t: String) -> Button:
 				right.add_child(cost)
 			var pct := Game.tech_progress(t) / Game.tech_points(t) * 100.0
 			right.add_child(UiTheme.label(tr("%d Pkt.") % int(Game.tech_points(t)) if pct <= 0 else "%d%%" % int(pct), 12, col))
+	var wr := Writing.row_text(t) if st != "done" else ""
+	if wr != "":  # Forschung braucht Schriften: Beim Forschen: 24 Tontafeln
+		var wl := UiTheme.label(wr, 12, col if st == "current" else Color("#2f5a8a"))
+		wl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		wl.custom_minimum_size.x = 180
+		tv.add_child(wl)
+		b.custom_minimum_size.y = _row_height(def.desc, 33) + 15.0 * ceili(float(wr.length()) / 33)
 	b.pressed.connect(_on_tech_pressed.bind(t, b, d))
 	return b
 
@@ -2263,6 +2283,11 @@ func _info_research(b: Building) -> void:
 	var l := UiTheme.label(tr("Aktuell: ") + (Data.techs[cur].name if cur != "" else tr("nichts ausgewählt")), 13)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_info_box.add_child(l)
+	var wi: Array = Writing.info_line(world)  # Forschung braucht Schriften
+	if wi[0] != "":
+		var wl := UiTheme.label(wi[0], 13, UiTheme.BAD if wi[1] else UiTheme.TEXT)
+		wl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_info_box.add_child(wl)
 	var open := UiTheme.button(tr("Forschung öffnen"), "wissen", 34)
 	open.pressed.connect(func():
 		Game.select(null)

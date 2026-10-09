@@ -830,6 +830,7 @@ func eff_add(key: String) -> float:
 
 func _recompute_effects() -> void:
 	effects = {}
+	Writing.clear_cache()  # Schreibwaren haengen davon ab, was freigeschaltet ist
 	for t in research.done:
 		var e: Dictionary = Data.techs.get(t, {}).get("effects", {})
 		for k in e:
