@@ -14,10 +14,18 @@ extends RefCounted
 ## kills, births, stock (what, alle Inseln), food (Nahrung auf allen Inseln), job (what, n),
 ## no_starve_days (Tage seit dem letzten Hungertod), exams (bestandene Pruefungen),
 ## exam (age: erfuellte Bedingungen der Pruefung).
+## Fuer Auftraege (Quests): base (Startwert, der Wert zaehlt erst ab dann: Wert minus base),
+## stock_at (what, island: Lager einer Insel), variety mit max (beste einzelne Insel),
+## starved (Hungertote, stats.starved).
 
 
 ## [aktueller Wert, Zielwert]
 static func progress(c: Dictionary) -> Array:
+	if c.has("base"):  # Auftraege: zaehlt erst ab dem Annehmen (Wert minus Startwert)
+		var raw := c.duplicate()
+		raw.erase("base")
+		var p := progress(raw)
+		return [int(p[0]) - int(c.base), p[1]]
 	var n := int(c.get("n", 1))
 	var what := str(c.get("what", ""))
 	match str(c.get("type", "")):
@@ -65,6 +73,11 @@ static func progress(c: Dictionary) -> Array:
 		"speed":
 			return [1 if Game.speed >= n else 0, 1]
 		"variety":
+			if c.get("max", false):  # beste einzelne Insel
+				var best := 0
+				for w in Sea.all_worlds():
+					best = maxi(best, Game.food_variety(w))
+				return [best, n]
 			if c.get("all", false):
 				var kinds := 0
 				for id in Data.food_ids():
@@ -82,6 +95,11 @@ static func progress(c: Dictionary) -> Array:
 			return [int(Game.stats.get("births", 0)), n]
 		"stock":
 			return [Game.amount_all(what) if Data.resources.has(what) else 0, n]
+		"stock_at":
+			var sw = Sea.worlds.get(int(c.get("island", -1)))
+			return [Game.amount(what, sw) if sw != null and is_instance_valid(sw) and Data.resources.has(what) else 0, n]
+		"starved":
+			return [int(Game.stats.get("starved", 0)), n]
 		"food":
 			var f := 0
 			for w in Sea.all_worlds():
@@ -178,6 +196,12 @@ static func label(c: Dictionary) -> String:
 			return Loc.t("Geburten")
 		"stock":
 			return Loc.t("%s im Lager") % (Data.resource_name(what) if Data.resources.has(what) else what.capitalize())
+		"stock_at":
+			var m: Dictionary = Sea.meta(int(c.get("island", -1)))
+			return Loc.t("%s im Lager auf %s") % [Data.resource_name(what) if Data.resources.has(what) else what.capitalize(),
+				str(m.get("name", "?"))]
+		"starved":
+			return Loc.t("Hungertote")
 		"food":
 			return Loc.t("Nahrung im Lager")
 		"job":
@@ -217,10 +241,12 @@ static func icon(c: Dictionary) -> Texture2D:
 			return Data.icon("kompass")
 		"kills":
 			return Data.icon("schild")
-		"stock":
+		"stock", "stock_at":
 			if Data.resources.has(what):
 				return Data.res_icon(what)
 			return Data.icon("kiste")
+		"starved":
+			return Data.icon("nahrung")
 		"exams", "exam":
 			return Data.icon("zeitalter")
 	return Data.icon("ziel")

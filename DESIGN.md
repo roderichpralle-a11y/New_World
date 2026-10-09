@@ -524,6 +524,91 @@ bringt ein Fest, Einwanderer und Waren. Dazu eine Wertung mit Rekorden (Menü > 
   Bildschirmfotos: `--panel=research --examscroll=1`, `--examhint=1` (Zielkarte aufgeklappt),
   `--panel=score` (`--scorescroll=1`), `--gameovershot=1`.
 
+## Aufträge mit Wahl
+
+Teil der Regeln ab Version 2. Nach der Einführung bietet das Auftragsbrett drei Aufträge an; der Spieler
+sucht sich einen aus. Belohnungen sind Waren, Forschungspunkte, Einwanderer, dauerhafte Segen oder Baupläne.
+
+- **Ablauf**: Die Ziele (Meilensteine) bleiben die Zeile „Ziel“ der Zielkarte (bzw. die Prüfung, wenn sie
+  das Weiterforschen aufhält); darunter steht die Zeile „Auftrag“. Tippen auf die Zeile oder „Wählen (3)“ /
+  „Details“ öffnet das Fenster „Aufträge“ (auch Menü > Aufträge, falls die Zielkarte aus ist). Nur ein
+  Auftrag läuft zur Zeit, jeder hat eine Frist. Angebote gelten 1 Tag (`offer_days`), danach kommen nach
+  `cooldown` (0,5 Tage) neue; ebenso nach Erfüllen, Scheitern oder Aufgeben. „Andere Aufträge“ bringt sofort
+  drei neue, danach erst wieder nach `reroll_days` (1 Tag). Scheitern, Aufgeben und Neu-Würfeln kosten
+  nichts. Ein Angebot, das schon erfüllt ist, fällt weg. Das Brett öffnet 0,25 Tage nach der Einführung
+  (alte Spielstände gleich nach dem Laden). Zufall aus `hash([seed, seq, "auftrag"])`: gleicher Spielstand,
+  gleiche Angebote.
+- **Vorlagen** (`goals.json` `quests.templates`, Gewicht `w` 1–3 bestimmt die Belohnung, `days` die Frist
+  nach dem Annehmen; A = Zeitalter, P = Siedler auch auf See, R = Forschungspunkte je Tag, gemessen über
+  den letzten Tag, mindestens 4):
+  - `vorrat_essen` (w1, 4 T.): beste herstellbare Speise (Brot, Räucherfisch, Konserven, Eier, sonst die
+    sättigendste), Lager aller Inseln = jetzt + round5(max(15, 1,5·P)).
+  - `vorrat_ware` (w1, 4 T.): herstellbares Material, + round5(clamp(4·P / Preis, 8, 100)).
+  - `winterholz` (w1, bis Winterbeginn): Holz + P·3 (× Winterhärte aus Teil H: mild 0,75, normal 1,
+    hart 1,5, bitter 2), nur Frühling/Sommer mit mindestens 3 Tagen bis zum Winter.
+  - `bauen` (w1, 4 T.; w2, 6 T. bei mehr als 60 Baukosten): ein freigeschaltetes Gebäude, das es noch nicht
+    gibt (keine Denkmäler); sonst `bauen_mehr`: noch eins des größten Wohnhauses.
+  - `wohnen` (w1, 5 T.): Wohnplätze + max(4, 0,25·P). `wachsen` (w2, 6 T.): Siedler + max(2, 0,15·P).
+  - `forschen` (w2, 6 T.): eine wählbare Forschung (nie hinter einer Prüfung), bezahlt oder bezahlbar,
+    mit höchstens 0,7·R·6 Restpunkten.
+  - `jagd` (w1, 4 T., erst mit Jäger): min(3 + A, erlegbare Tiere), je Art bleiben `hunt_min_keep`.
+  - `winter` (w2, bei hartem/bittrem Winter w3; bis zum Frühling): kein Hungertod; nur an Herbsttag 1–2.
+    Scheitert beim ersten Hungertod (`stats.starved`), gelingt, wenn die Frist erreicht ist.
+  - `liefern` (w2, 5 T.): ab 2 besiedelten Inseln und einem Schiff: Menge auf Insel Y (`stock_at`).
+  - `geburten` (w1, 5 T.): 2 + P/8. `entdecken` (w2, 4 T., mit Schiff): eine neue Insel.
+    `abwechslung` (w1, 3 T.): eine Sorte Nahrung mehr auf der besten Insel.
+  Lager-Ziele höchstens `stock_space` (0,7) des freien Platzes, sonst (unter 8) keine Vorlage.
+  „Herstellbar“: ein fertiges Gebäude stellt es her oder erntet es, eine Rohstoffquelle auf einer
+  besiedelten Insel liefert es für einen freigeschalteten Beruf, oder Jäger jagen (Fleisch, Felle).
+- **Belohnungen**: jedes Angebot eine; die drei Angebote haben verschiedene Vorlagen und möglichst
+  verschiedene Arten, das leichteste bekommt Waren, höchstens eins einen Segen.
+  - Waren: `goods_budget` (25) · w · (1 + A) Gold, Menge = Budget / `price`, höchstens `goods_space`
+    (0,4) der Lagerkapazität aller Inseln für diese Ware, mindestens 3; Waren je Zeitalter in
+    `goods_by_age` (Gewürze ab Renaissance). Auf die sichtbare Insel, Überlauf auf andere (`Game.grant_reward`).
+  - Forschungspunkte: max(20·w, w·R). Direkt auf die laufende Forschung (`Game.add_research(p, false)`,
+    also ohne Schreibwaren aus Teil E), was übrig ist oder ohne laufende Forschung in `rp_bank`; die Bank
+    geht an die nächste gestartete Forschung (Meldung „Gesparte Forschungspunkte ...“).
+  - Einwanderer (ab w2): 1 (w2) oder 2 (w3), Begabung beim Angebot gewählt (`talents`, Jagd erst mit
+    Jäger), Begabung 1,5–1,8, Stufe 4 + A/2, Hunger 80, über `Game.grant_reward` (wer nicht landen kann,
+    wird zu Brettern).
+  - Segen (ab w2, dauerhaft, `boons` mit Obergrenze `cap`): Fischfang/Holzfällen/Steinabbau/Beerensammeln
+    +15 % (bis 45 %), Ernte/Forschung/Lagerplatz/Bautempo/Werkstätten/Nachwuchs +10 % (bis 30 %),
+    Heilung +25 % (bis 75 %), Lauftempo +5 % (bis 15 %), Tragen +1 (bis 3), Hunger −5 % (bis −15 %).
+    Volle Segen werden nicht mehr angeboten (sonst Waren statt dessen). `Game._recompute_effects` rechnet
+    sie über `Quests.add_boons(effects)` ein.
+  - Bauplan (ab w2): ein baubares Gebäude ohne Hafen, Schiffe oder Wirkung, dessen Forschung schon wählbar
+    ist (Voraussetzungen erforscht, Zeitalter erreicht, also nie an einer Prüfung vorbei), mit
+    beschaffbaren Bau- und Betriebswaren. `Game.is_unlocked` fragt `Quests.has_plan`; die Bauliste zeigt
+    „Bauplan aus einem Auftrag.“. Ist das Gebäude bis zur Auszahlung schon frei, gibt es Waren.
+- **Oberfläche**: Zielkarte (`GoalCard`, Zeile aus `QuestView.goal_row`): Symbol, „Auftrag“, Knopf,
+  Text, Balken mit „wert/ziel“ und Restzeit („4 T. 14 Std.“). Das X blendet nur das Ziel aus, der Auftrag
+  bleibt. Fenster „Aufträge“ (`hud._quest_panel`, in `_panels()`): drei Kästen mit Text, Frist, Belohnung
+  und „Annehmen“, darunter „Andere Aufträge“; beim laufenden Auftrag Fortschritt, Restzeit und „Aufgeben“
+  (zweimal tippen); unten „Segen und Baupläne“ und die Zählung. Meldungsart `ziel` („Aufträge“).
+- **Spielstand**: Schlüssel `quests` = `{offers, active, next, offers_until, reroll_at, plans, boons,
+  rp_bank, rp_marks, seq, stats, last}`; ein Auftrag ist `{tpl, w, days, until, accepted, check: {type, what,
+  n, base, island, max}, survive, reward: {kind, what|key|talent, n|v}}`. Texte werden nicht gespeichert
+  (`Quests.text_of` baut sie aus der Vorlage, die Sprache stimmt also). Zähler (Tiere, Geburten, Inseln,
+  Hungertote) haben `base` = Wert beim Annehmen. Beim Laden fallen unbekannte Vorlagen, Waren, Gebäude,
+  Forschungen und Segen weg, Zahlen werden umgewandelt, Segen auf die Obergrenze gekürzt.
+  `stats.quests` (erledigt, 40 Punkte in der Wertung) und `stats.quests_failed`.
+- **Alte Spielstände**: ohne `quests` öffnet das Brett gleich nach dem Laden, auch mitten in der Einführung
+  (dann steht die Auftragszeile unter dem Einführungsschritt). Zeile im Fenster „Neue Regeln“.
+- **Bedingungen**: `GoalChecks` (gemeinsam mit Zielen und Prüfungen) kann dafür neu `base`, `stock_at`
+  {what, island}, `variety` mit `max` (beste Insel) und `starved`.
+- **Code**: Autoload `Quests` (`scripts/autoload/quests.gd`, tickt alle 0,05 Tage, nur wenn das Spiel
+  läuft), Oberfläche `QuestView` (`scripts/ui/quest_view.gd`). Teil H fehlt im Code noch: die Winterhärte
+  kommt über `Seasons.has_method("winter_type")`, sonst „normal“.
+- **Test**: `--questtest=N`: Generator (40 Runden, Regeln), jede Belohnungsart direkt (Waren, Forschung mit
+  Bank, Einwanderer mit Begabung, Segen bis zur Obergrenze, Bauplan), Speichern/Laden mit unbekannten IDs,
+  alter Spielstand, danach im laufenden Spiel Angebot N annehmen und erfüllen, einen Auftrag scheitern
+  lassen, einen aufgeben, „Andere Aufträge“, Winter ohne und mit Hungertod, Ablauf der Angebote.
+  `--questreward=goods|research|settlers|boon|plan` erzwingt die Belohnung, `--questfast=1` jede Frist 0,3
+  Tage, `--questauto=1` überspringt die Einführung und nimmt jedes erste Angebot an (z. B. mit
+  `--build=1 --research=1`). Der 20-Sekunden-Bericht hat eine Zeile „Auftraege: ...“. Bildschirmfotos:
+  `--questshot=offers|active|card` (mit `--panel=quests` das Fenster), `--panel=build --cat=nahrung` zeigt
+  den Bauplan.
+
 ## Regeln ab Version 2 (Herausforderung)
 
 Grundgerüst für die Erweiterung „Mehr Herausforderung“ (Bedürfnisse, Schriften, Klima, Ereignisse,
@@ -683,6 +768,7 @@ godot --headless -- --autotest=300 --scale=10 --seatest=1  # Werft, drei Inseln 
 godot --headless --fixed-fps 60 -- --autotest=60 --scale=10 --fixture=alt.json  # alten Spielstand weiterspielen
 godot --headless --fixed-fps 60 -- --autotest=200 --scale=10 --writingtest=1  # Forschung braucht Tontafeln
 godot --headless --fixed-fps 60 -- --autotest=100 --scale=10 --examtest=0  # Prüfung beim Zeitalterwechsel
+godot --headless --fixed-fps 60 -- --autotest=120 --scale=10 --questtest=1  # Aufträge mit Wahl
 #   --fixed-fps 60 vor "--" rechnet so schnell wie moeglich (gleicher Spielverlauf); --seed=N feste Insel
 #   dazu --wildlife=1: Tierbestand je Insel und Bau; --weak=1: ohne Waffenkunde (Tiere gefährlicher), Bildschirmfoto: --island=<id>, --panel=sea
 # Bildschirmfoto-Optionen: --panel=research|build|stock, --selectb=<typ>, --look=1

@@ -36,5 +36,64 @@
     {"id": "m_alltech", "text": "Erforsche den ganzen Baum.", "check": {"type": "techs", "all": true}, "reward": {"gold": 6}},
     {"id": "m_denkmal", "text": "Errichte das goldene Denkmal.", "hint": "Das Denkmal krönt das Goldene Zeitalter: mehr Kinder und ein längeres Leben.", "check": {"type": "building", "what": "denkmal", "n": 1}, "reward": {"brot": 20, "fleisch": 10}},
     {"id": "m_pop40", "text": "Wachse auf 40 Siedler.", "check": {"type": "pop", "n": 40}, "reward": {"werkzeug": 6, "eisen": 6}}
-  ]
+  ],
+  "quests": {
+    "_doc": "Aufträge mit Wahl (Quests, scripts/autoload/quests.gd). Zeiten in Spieltagen. templates: id -> {w (Gewicht der Belohnung 1-3), days (Frist nach dem Annehmen), text, pick (false = nur als Ersatz)}. Belohnung Waren: goods_budget mal w mal (1 + Zeitalter) Goldwert, Menge = Budget / price (höchstens goods_space der Lagerkapazität aller Inseln für diese Ware). Forschungspunkte: w mal Forschung je Tag (mindestens research_min_per_w mal w). Einwanderer: w2 = 1, w3 = 2 mit Begabung aus talents. Segen (boons): key = Wirkung, v = Zuschlag, cap = Obergrenze. Bauplan: ein Gebäude ohne die Forschung.",
+    "start_delay": 0.25,
+    "offer_count": 3,
+    "offer_days": 1.0,
+    "cooldown": 0.5,
+    "reroll_days": 1.0,
+    "check_days": 0.05,
+    "goods_budget": 25,
+    "goods_space": 0.4,
+    "stock_space": 0.7,
+    "research_days_per_w": 1.0,
+    "research_min_per_w": 20,
+    "research_min_rate": 4,
+    "talents": ["wissen", "handwerk", "nahrung", "bauen", "holz", "stein"],
+    "winter_mult": {"mild": 0.75, "normal": 1.0, "hart": 1.5, "bitter": 2.0},
+    "goods_by_age": [
+      ["holz", "stein", "bretter", "fisch"],
+      ["bretter", "ziegel", "brot", "kohle", "felle"],
+      ["werkzeug", "eisen", "brot", "gold"],
+      ["glas", "papier", "werkzeug", "gold", "gewuerze"],
+      ["stahl", "werkzeug", "konserven", "papier"],
+      ["stahl", "maschinen", "glas"],
+      ["maschinen", "elektronik", "stahl"],
+      ["elektronik", "maschinen", "gold"]
+    ],
+    "boons": [
+      {"key": "gather_fisch", "v": 0.15, "cap": 0.45, "name": "Fischfang"},
+      {"key": "gather_holz", "v": 0.15, "cap": 0.45, "name": "Holzfällen"},
+      {"key": "gather_stein", "v": 0.15, "cap": 0.45, "name": "Steinabbau"},
+      {"key": "gather_beeren", "v": 0.15, "cap": 0.45, "name": "Beerensammeln"},
+      {"key": "farm_yield", "v": 0.1, "cap": 0.3, "name": "Ernte"},
+      {"key": "research", "v": 0.1, "cap": 0.3, "name": "Forschung"},
+      {"key": "storage", "v": 0.1, "cap": 0.3, "name": "Lagerplatz"},
+      {"key": "build", "v": 0.1, "cap": 0.3, "name": "Bautempo"},
+      {"key": "production", "v": 0.1, "cap": 0.3, "name": "Werkstätten"},
+      {"key": "birth", "v": 0.1, "cap": 0.3, "name": "Nachwuchs"},
+      {"key": "heal", "v": 0.25, "cap": 0.75, "name": "Heilung"},
+      {"key": "walk", "v": 0.05, "cap": 0.15, "name": "Lauftempo"},
+      {"key": "carry", "v": 1, "cap": 3, "name": "Tragen", "add": true},
+      {"key": "hunger", "v": -0.05, "cap": -0.15, "name": "Hunger"}
+    ],
+    "templates": {
+      "vorrat_essen": {"w": 1, "days": 4, "text": "Lege einen Vorrat an: %d %s im Lager."},
+      "vorrat_ware": {"w": 1, "days": 4, "text": "Lege einen Vorrat an: %d %s im Lager."},
+      "winterholz": {"w": 1, "days": 0, "text": "Holz für den Winter: %d Holz im Lager, bevor der Winter beginnt."},
+      "bauen": {"w": 1, "days": 4, "text": "Baue: %s."},
+      "bauen_mehr": {"w": 1, "days": 4, "text": "Baue noch einmal: %s.", "pick": false},
+      "wohnen": {"w": 1, "days": 5, "text": "Schaffe Platz zum Wohnen: %d Wohnplätze."},
+      "wachsen": {"w": 2, "days": 6, "text": "Wachse auf %d Siedler."},
+      "forschen": {"w": 2, "days": 6, "text": "Erforsche: %s."},
+      "jagd": {"w": 1, "days": 4, "text": "Erlege %d wilde Tiere."},
+      "winter": {"w": 2, "days": 0, "text": "Bring alle ohne Hungertod durch den Winter."},
+      "liefern": {"w": 2, "days": 5, "text": "Liefere nach %s: %d %s dort im Lager."},
+      "geburten": {"w": 1, "days": 5, "text": "Feiere %d Geburten."},
+      "entdecken": {"w": 2, "days": 4, "text": "Entdecke eine neue Insel."},
+      "abwechslung": {"w": 1, "days": 3, "text": "Lagere %d Sorten Nahrung auf einer Insel."}
+    }
+  }
 }

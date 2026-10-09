@@ -16,6 +16,8 @@ var _tick: float = 0.0
 var _cur_id: String = ""
 var _actions: Array = []  # Aktionen seit Beginn des aktuellen Schritts
 var _bob: float = 0.0
+var _ms_box: Control  # Ziel bzw. Pruefung (oben); das X blendet nur diesen Teil aus
+var _quest_row: Control  # Auftrag darunter (QuestView, Teil D)
 
 
 func setup(p_hud) -> void:
@@ -23,7 +25,12 @@ func setup(p_hud) -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 6)
-	add_child(h)
+	var col := VBoxContainer.new()  # oben Ziel oder Pruefung, darunter der Auftrag
+	col.add_theme_constant_override("separation", 2)
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(col)
+	col.add_child(h)
+	_ms_box = h
 	var ic := UiTheme.icon_rect(Data.icon("ziel"), 22)
 	ic.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	h.add_child(ic)
@@ -73,6 +80,8 @@ func setup(p_hud) -> void:
 	_pointer.size = Vector2(30, 30)
 	_pointer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_pointer.visible = false
+	_quest_row = QuestView.goal_row(self)
+	col.add_child(_quest_row)
 
 
 ## Der Zeiger muss ueber allem liegen: nach dem Aufbau der Oberflaeche einhaengen.
@@ -178,7 +187,7 @@ func _advance(g: Dictionary, silent: bool) -> void:
 	tw.tween_property(self, "modulate", Color.WHITE, 0.8)
 
 
-## Wegklicken: dieses Ziel bleibt verborgen, das naechste erscheint wieder.
+## Wegklicken: dieses Ziel bleibt verborgen, das naechste erscheint wieder (ein Auftrag bleibt sichtbar).
 func _dismiss() -> void:
 	Game.goals["hide"] = _cur_id
 	Sound.play("zu")
@@ -186,7 +195,11 @@ func _dismiss() -> void:
 
 
 func shown() -> bool:
-	return Game.goal_card_on and str(Game.goals.get("hide", "")) != current().id
+	return Game.goal_card_on and (_ms_shown() or QuestView.row_wanted(self))
+
+
+func _ms_shown() -> bool:
+	return str(Game.goals.get("hide", "")) != current().id
 
 
 func _skip_tutorial() -> void:
@@ -253,6 +266,12 @@ func _check() -> void:
 	_bar.visible = int(p[1]) > 1
 	_bar.value = 100.0 * float(p[0]) / max(1.0, float(p[1]))
 	_bar.tooltip_text = "%d / %d" % [int(p[0]), int(p[1])]
+	# Ziel (ausblendbar) und Auftrag (QuestView): bei geaenderter Hoehe neu anordnen
+	var ms := _ms_shown()
+	var moved: bool = QuestView.update_row(_quest_row, self, ms) or _ms_box.visible != ms
+	_ms_box.visible = ms
+	if moved:
+		_relayout()
 
 
 func _update_pointer() -> void:

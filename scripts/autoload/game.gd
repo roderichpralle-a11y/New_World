@@ -509,13 +509,14 @@ func food_variety(w = null) -> int:
 const NOTIFY_CATS := {"tag": "Tag und Jahreszeit", "siedler": "Siedler und Nachwuchs",
 	"gesundheit": "Krankheiten", "tod": "Todesfälle und verlorene Inseln", "bauen": "Bauen",
 	"lager": "Lager, Vorräte und Winter", "forschung": "Forschung und Zeitalter", "see": "Seefahrt",
-	"tiere": "Tiere und Jagd", "ereignis": "Ereignisse und Händler", "ki": "KI-Steuerung"}
+	"tiere": "Tiere und Jagd", "ereignis": "Ereignisse und Händler", "ki": "KI-Steuerung",
+	"ziel": "Aufträge"}
 ## Art einer Meldung nach ihrem Symbol, wenn der Aufruf keine Art nennt
 const NOTIFY_ICON_CAT := {"": "tag", "sonne": "tag", "herz": "siedler", "person": "siedler",
 	"abriss": "tod", "hammer": "bauen", "haus": "lager", "holz": "lager", "weizen": "lager",
 	"wissen": "forschung", "zeitalter": "forschung", "boot": "see", "anker": "see", "kompass": "see",
 	"schild": "tiere", "fleisch": "tiere", "ki": "ki", "ereignis": "ereignis", "haendler": "ereignis",
-	"feuer": "ereignis", "ratte": "ereignis"}
+	"feuer": "ereignis", "ratte": "ereignis", "ziel": "ziel"}
 var notify_off: Dictionary = {}  # Art -> true, wenn abgeschaltet (user://settings.cfg [notify])
 var goal_card_on: bool = true
 
@@ -844,6 +845,7 @@ func _recompute_effects() -> void:
 				seen[b.type] = true
 				for k in b.def.effects:
 					effects[k] = float(effects.get(k, 0.0)) + float(b.def.effects[k])
+	Quests.add_boons(effects)  # dauerhafte Segen aus Auftraegen (mit Obergrenze)
 
 
 func refresh_effects() -> void:
@@ -873,7 +875,8 @@ func tech_state(t: String) -> String:
 
 
 func is_unlocked(building_type: String) -> bool:
-	return is_researched(Data.buildings.get(building_type, {}).get("requires", ""))
+	# Bauplan aus einem Auftrag: baubar auch ohne die Forschung
+	return is_researched(Data.buildings.get(building_type, {}).get("requires", "")) or Quests.has_plan(building_type)
 
 
 func tech_progress(t: String) -> float:

@@ -34,6 +34,7 @@ var _research_label: Label
 var _research_writing: Array = []  # Forschung braucht Schriften: [Verbrauch, rote Zeile]
 var _exam_box: Control  # Pruefung beim Zeitalterwechsel (ExamView), im Forschungsfenster
 var _score_panel: PanelContainer  # Menue > Wertung (ExamView)
+var _quest_panel: PanelContainer  # Auftraege (QuestView, Teil D)
 var _research_btn: Button
 var _stock_panel: PanelContainer
 var _stock_grid: GridContainer
@@ -94,6 +95,7 @@ func setup(p_world: World, p_camera: GameCamera) -> void:
 	_build_notify_panel()
 	_build_slots_panel()
 	_score_panel = ExamView.build_score_panel(self)
+	_quest_panel = QuestView.build_panel(self)
 	_build_info_panel()
 	_sea_panel = SeaPanel.new()
 	root.add_child(_sea_panel)
@@ -321,7 +323,7 @@ func _toggle(panel: Control) -> void:
 
 
 func _panels() -> Array:
-	return [_build_panel, _research_panel, _stock_panel, _settler_panel, _menu_panel, _help_panel, _notify_panel, _slots_panel, _sea_panel, _score_panel]
+	return [_build_panel, _research_panel, _stock_panel, _settler_panel, _menu_panel, _help_panel, _notify_panel, _slots_panel, _sea_panel, _score_panel, _quest_panel]
 
 
 func _popup_panel(title: String) -> Array:
@@ -415,6 +417,8 @@ func _fill_build_list() -> void:
 		var desc: String = def.desc
 		if not unlocked:
 			desc = tr("Benötigt Forschung: %s") % Data.techs.get(def.requires, {}).get("name", "?")
+		elif Quests.plan_only(type):
+			desc = tr("Bauplan aus einem Auftrag.") + " " + desc
 		b.custom_minimum_size.y = _row_height(desc, 30)
 		var d := UiTheme.label(desc, 12, UiTheme.TEXT if unlocked else Color("#8a5a3a"))
 		d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1247,7 +1251,15 @@ func _build_menu_panel() -> void:
 		Game.save_game()
 		toast(tr("Spiel gespeichert."), "haus")
 		_menu_panel.visible = false)
-	v.add_child(save)
+	var srow := HBoxContainer.new()  # Speichern und Auftraege nebeneinander (Auftraege auch ohne Zielkarte)
+	srow.add_theme_constant_override("separation", 6)
+	v.add_child(srow)
+	save.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	srow.add_child(save)
+	var qb := UiTheme.button(tr("Aufträge"), "haken", 44)
+	qb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	qb.pressed.connect(func(): _toggle(_quest_panel))
+	srow.add_child(qb)
 	var sl := UiTheme.button(tr("Spielstände"), "kiste", 44)
 	sl.pressed.connect(func(): _open_slots())
 	var row := HBoxContainer.new()  # Spielstaende und Wertung nebeneinander (das Menue ist schon hoch)
@@ -1759,7 +1771,7 @@ func _build_notify_panel() -> void:
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	l.custom_minimum_size.x = 260
 	v.add_child(l)
-	var rows := [["goal_card", tr("Nächstes Ziel (oben links)"), Game.goal_card_on]]
+	var rows := [["goal_card", tr("Ziele und Aufträge (oben links)"), Game.goal_card_on]]
 	for c in Game.NOTIFY_CATS:
 		rows.append([c, Game.NOTIFY_CATS[c], not Game.notify_off.get(c, false)])
 	_notify_grid = GridContainer.new()
