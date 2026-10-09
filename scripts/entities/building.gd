@@ -354,7 +354,7 @@ func _process(delta: float) -> void:
 		_light.visible = _light.energy > 0.02
 	if (is_ground() or def.has("farm")) and complete and farm_state == "growing":
 		# Jahreszeit: im Winter steht das Wachstum still, im Sommer geht es schneller
-		farm_time += Seasons.dt_days * (1.0 - Seasons.growth(type))
+		farm_time += Seasons.dt_days * (1.0 - Seasons.growth(type, world))
 		if Game.time_days - farm_time >= grow_days():
 			farm_state = "ripe"
 			refresh()

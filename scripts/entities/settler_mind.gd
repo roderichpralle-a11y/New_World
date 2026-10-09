@@ -275,13 +275,16 @@ func _maybe_get_sick(days: float) -> void:
 
 func _pick_illness() -> String:
 	var ills: Dictionary = Data.ppl("illnesses")
+	# Gewichte einmal bestimmen; das Klima verschiebt sie (heißer Sommer: mehr Ruhr, "ill_<id>")
+	var wts := {}
 	var total := 0.0
 	for k in ills:
-		total += float(ills[k].get("weight", 0))
+		wts[k] = float(ills[k].get("weight", 0)) * Seasons.climate_factor("ill_" + k)
+		total += wts[k]
 	var x := _rng.randf() * total
 	for k in ills:
-		x -= float(ills[k].get("weight", 0))
-		if x <= 0.0 and float(ills[k].get("weight", 0)) > 0.0:
+		x -= wts[k]
+		if x <= 0.0 and wts[k] > 0.0:
 			return k
 	return "erkaeltung"
 
@@ -397,7 +400,7 @@ func _update_mood(days: float) -> void:
 		r.append([tr("Freut sich über das Baby"), float(Data.ppl("joy_mood", 12.0))])
 	var sm := Seasons.season_mod("mood") - 1.0
 	if absf(sm) > 0.01:
-		r.append([(tr("Freut sich über: %s") if sm > 0.0 else tr("Leidet unter: %s")) % Seasons.season_name(), sm * 60.0])
+		r.append([(tr("Freut sich über: %s") if sm > 0.0 else tr("Leidet unter: %s")) % Seasons.season_title(), sm * 60.0])
 	if not Seasons.is_warm(s.world):
 		r.append([tr("Friert (kein Heizholz)"), -15.0])
 	var target := base

@@ -173,14 +173,15 @@ func _build_topbar() -> void:
 		if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
 			sc.accept_event()
 			Sound.play("klick")
-			Game.notify(tr("Jahr %d, %s Tag %d von %d. %s") % [Seasons.year(), Seasons.season_name(),
-				Seasons.day_in_season(), int(Seasons.season_days()), Seasons.effects_text()], ""))
+			Game.notify(tr("Jahr %d, %s Tag %d von %d. %s") % [Seasons.year(), Seasons.season_title(),
+				Seasons.day_in_season(), int(Seasons.season_days()), Seasons.effects_text()] + Seasons.climate_text(), ""))
 	_season_icon = UiTheme.icon_rect(Seasons.icon(), 18)
 	_season_icon.mouse_filter = Control.MOUSE_FILTER_PASS
 	sc.add_child(_season_icon)
 	_season_label = UiTheme.label("", 16)
 	_season_label.mouse_filter = Control.MOUSE_FILTER_PASS
 	sc.add_child(_season_label)
+	sc.add_child(ClimateBadge.new())  # Klima: heißer Sommer / Wintervorhersage (auch schmal sichtbar)
 	h.add_child(sc)
 	_island_label = UiTheme.label("", 14, Color("#7a4a28"), true)
 	_island_label.visible = false
@@ -2109,7 +2110,7 @@ func _info_building(b: Building) -> void:
 			var fl := UiTheme.label(st.get(b.farm_state, ""), 14)
 			fl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			_info_box.add_child(fl)
-			if b.farm_state == "growing" and Seasons.growth(b.type) <= 0.0:
+			if b.farm_state == "growing" and Seasons.growth(b.type, b.world) <= 0.0:
 				_info_box.add_child(UiTheme.label(tr("Im Winter wächst nichts."), 13, UiTheme.BAD))
 			if b.farm_state == "growing":
 				var frac: float = (Game.time_days - b.farm_time) / b.grow_days()
@@ -2536,6 +2537,8 @@ func _layout() -> void:
 	if _food_short != (vs.x < 480):
 		_food_short = vs.x < 480
 		_refresh_top()
+	# Schmal: Oberleiste enger und ohne Uhrzeit, damit Jahreszeit und Klima-Symbol im Bild bleiben
+	_season_icon.get_parent().get_parent().add_theme_constant_override("separation", 4 if _food_short else 12)
 	if portrait or vs.x < 760:
 		sp.position = Vector2(vs.x - sp.size.x - 6, 54)
 		top_h = 100.0
@@ -2575,10 +2578,10 @@ func _process(delta: float) -> void:
 		_version_timer -= delta / max(Engine.time_scale, 0.001)
 		if _version_timer <= 0.0:
 			_ask_server_version()
-	_day_label.text = tr("Tag %d  %s") % [Game.day(), Game.clock_text()]
+	_day_label.text = (tr("Tag %d") % Game.day()) if _food_short else (tr("Tag %d  %s") % [Game.day(), Game.clock_text()])
 	_day_icon.texture = Data.icon("mond" if Game.is_night() else "sonne")
 	_season_icon.texture = Seasons.icon()
-	_season_label.text = Seasons.short_text()
+	_season_label.text = Seasons.short_text(get_viewport().get_visible_rect().size.x >= 900.0)  # Klima-Name nur mit Platz
 	if _rules_dialog:
 		_fit_rules_dialog()
 	_research_tick -= delta

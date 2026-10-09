@@ -296,6 +296,57 @@ Herbstlaub: Laubbäume und Büsche färben sich im Herbst orange (gleicher Shade
 der Symbole und Partikel: `tools/gen_art_seasons.py` → `assets/sprites/seasons.png`.
 Test: `--season=<0..3>` startet in einer Jahreszeit, Bericht zeigt Jahreszeit und Holz.
 
+### Wechselnde Winter und Sommer (Herausforderung)
+
+Jedes Jahr hat einen **Wintertyp** (`mild` Milder Winter, `normal`, `hart` Harter Winter, `bitter` Eiswinter)
+und einen **Sommertyp** (`normal`, `heiss` Heißer Sommer). Regelzeile für alte Spielstände: „Winter und Sommer
+sind jedes Jahr anders. Im Herbst sagen die Alten voraus, wie hart der Winter wird.“
+
+- **Würfeln**: zu Jahresbeginn (Frühlingsanfang) einmal, nur in `Seasons._process` mit Welt
+  (`_ensure_year`), deterministisch aus `hash("<seed>:<jahr>:klima")` (`Seasons.roll_year`). Gewichte in
+  `seasons.json` `climate_odds` (es gilt die Zeile mit dem größten `from_year` <= Jahr):
+  Jahr 1 mild 50 / normal 50 (nie heiß), Jahr 2 mild 30 / normal 55 / hart 15, heiß 15 %, Jahr 3 25/50/20/Eis 5,
+  heiß 20 %, Jahr 4–7 20/45/25/10, heiß 25 %, ab Jahr 8 15/40/30/15, heiß 30 %. `climate_no_repeat`: auf einen
+  Eiswinter folgt höchstens ein harter Winter. Das Ergebnis wird gespeichert (spätere Änderungen der Gewichte
+  ändern keinen schon angekündigten Winter).
+- **Wirkung**: `seasons.json` `winters`/`summers` je Typ: Faktoren auf die Werte dieser Jahreszeit (gleiche
+  Schlüssel wie die Listen: `heat_wood_per_settler`, `hunger`, `build`, `walk`, `sail`, `spoil_per_day`,
+  `decay`; aus `mods`: `sickness`, `mood`; dazu `snow`, `growth` {Typ: Faktor}, `ill_<krankheit>`; fehlt =
+  1). `Seasons._val`, `season_mod`, `growth` und `snow_amount` rechnen den Faktor ein, damit wirkt er auf
+  Heizen, Hunger, Nahrung-Tage, Bauen, Laufen, Schiffe, Verderb, Krankheit, Laune und Nachwachsen.
+  Ergebnis im Winter (mild / normal / hart / Eis): Heizholz je Siedler und Tag 0,6 / 1 / 1,4 / 1,8, Hunger
+  1,09 / 1,15 / 1,22 / 1,29, Krankheit 1,6 / 2 / 2,3 / 2,6, Bauen 0,84 / 0,7 / 0,6 / 0,53, Fischgründe
+  0,6 / 0,35 / 0,14 / 0; Palmen ebenso. Heißer Sommer: Verderb 12 % statt 8 %, Aas x1,25, Krankheit 1,0
+  statt 0,8, Laune −3, Felder und Beeren x0,8, Obstgarten x0,85, Pilze x0,6, Ruhr doppelt so häufig
+  (`SettlerMind._pick_illness`). Gewächshaus und Bäume bleiben gleich. Die Faktoren des laufenden Jahres liegen
+  zwischengespeichert in `_w_tab`/`_s_tab` (eine Nachschlage-Operation je Abfrage).
+- **Vorhersage** (ehrlich, nie falsch; Meldungsart `lager`, Symbol `sonne`/`schnee`): Frühlingsanfang: ein
+  heißer Sommer wird angekündigt. Sommeranfang: grobe Vorhersage („Die Alten erwarten einen milden /
+  gewöhnlichen / strengen Winter“, streng = hart oder Eiswinter; `winter_hints`). Herbstanfang: genauer Typ,
+  Wirkung und geschätztes Heizholz aller Inseln (`Seasons.winter_wood_need()`). Letzter Herbsttag: die alte
+  Wintervorwarnung, mit Typ. Forschung **Astronomie** (Wirkung `forecast`) nennt den genauen Typ schon im
+  Sommer. Signal `Seasons.climate_announced(kind, type)` (`summer`, `winter_hint`, `winter`).
+- **Anzeige**: `Seasons.season_title()` („Harter Winter“, sonst der Jahreszeit-Name) in Meldungen, im
+  Laune-Grund und ab 900 Pixel Breite in der Leiste. **Klima-Symbol** (`scripts/ui/climate_badge.gd`,
+  `Seasons.badge()`) rechts neben der Jahreszeit, auch auf dem Handy: Sonne auf Rot (heißer Sommer, ab der
+  Ankündigung bis Sommerende), Schneeflocke auf Grün (mild), Blau (hart bzw. grob „streng“) oder Dunkelblau
+  (Eiswinter), sobald der Winter bekannt ist. Antippen der Jahreszeit zeigt zusätzlich
+  `Seasons.climate_text()`. Schmale Bildschirme (< 480): Leiste enger, Tag ohne Uhrzeit.
+- **Für andere Systeme**: `Seasons.winter_type(y = dieses Jahr)` und `Seasons.summer_type(y)` (steht ab
+  Frühling fest, auch wenn noch nicht angekündigt), `winter_forecast()` (was die Siedler wissen: "", Typ
+  oder "streng"), `climate_factor(key)`, `Seasons.climate` (alle Jahre, z. B. für eine Wertung). `growth(type,
+  w)` fragt `Events.growth_factor(type, w)`, wenn es einen Autoload `Events` gibt, und nimmt das Kleinere aus
+  Klima- und Ereignisfaktor (Faktor auf den Jahreszeitwert; Hitze und Dürre stapeln nicht).
+- **Spielstand**: `climate` = {"<jahr>": {"w": Typ, "s": Typ}} über `Game.state_save`/`state_load`, alle Jahre.
+  Alter Spielstand ohne `climate`: das laufende Jahr ist ein Schonjahr (normal/normal), gewürfelt wird ab dem
+  nächsten Jahr. Unbekannte Typen werden beim Laden zu `normal`. Neues Spiel: `state_reset` leert alles.
+- **Testhilfen**: `--winter=mild|normal|hart|bitter` und `--summer=normal|heiss` legen den Typ für alle
+  Jahre fest (nach `--season`), `--climate=off` macht alle Jahre gewöhnlich (vergleichbare Läufe),
+  `--climatetest=1` druckt die Verteilung über 200 Seeds x 20 Jahre, die Werte je Typ, alle Vorhersagen
+  und Antipp-Texte, Astronomie, Speichern/Laden und den alten Spielstand. `--climatetap=1` tippt kurz vor dem
+  Bildschirmfoto die Jahreszeit an (`=2`: Vorhersage der Jahreszeit) und meldet die Breite der Leiste. Der
+  20-Sekunden-Bericht zeigt Klima, Heizholz und das Symbol.
+
 ## Charaktere der Siedler
 
 Alle Zahlen in `data/people.json` (`Data.ppl(key)`), Logik in `scripts/entities/settler_mind.gd`
@@ -486,7 +537,7 @@ Pushes auf den Zweig `claude/entwicklungsbaum-x33t1h` landen unter `/New_World/t
 | `data/*.json` | Alle Spielwerte (Ressourcen, Rohstoffquellen, Gebäude, Berufe, Balance, Namen) |
 | `scripts/autoload/data.gd` | Lädt JSON, Sprite-Regionen (`OBJECT_REGIONS`), Icons |
 | `scripts/autoload/game.gd` | Zeit, Vorräte, Nachwuchs, Abstammung, Forschung und Effekte, Speichern/Laden |
-| `scripts/autoload/seasons.gd` | Jahreszeiten: Kalender, Wachstum, Heizen, Verderb, Frost, Schnee |
+| `scripts/autoload/seasons.gd` | Jahreszeiten: Kalender, Wachstum, Heizen, Verderb, Frost, Schnee, Klima (wechselnde Winter und Sommer) |
 | `scripts/autoload/sea.gd` | Inseln, Welten je Insel, Schiffsreisen, Inselwechsel |
 | `scripts/world/island_gen.gd` | Inselgenerator (Seed → Gelände + Rohstoffe) |
 | `scripts/world/world.gd` | Tilemaps, Wegfindung (AStarGrid2D), Entitäten, Bauen, Effekte, Tag/Nacht |
