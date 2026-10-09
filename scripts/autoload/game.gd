@@ -29,6 +29,8 @@ const LIVE_SAVE_PATH := "user://savegame.json"
 ## übernimmt sie eine Kopie des normalen Spielstands; der normale bleibt unberührt.
 var SAVE_PATH := LIVE_SAVE_PATH
 var is_test_build := false
+## "test" (/test/) oder "neu" (/neu/, Umbau "Mehr Herausforderung"); leer im normalen Spiel
+var build_tag := ""
 ## Fuenf Spielstaende: Platz 1 ist die bisherige Datei, die anderen haengen _2 .. _5 an.
 ## Der aktive Platz steht in user://settings.cfg [game] slot (Testversion: slot_test).
 const SLOTS := 5
@@ -98,10 +100,16 @@ func _detect_test_build() -> void:
 		path = str(JavaScriptBridge.eval("window.location.pathname", true))
 	if "--testbuild" in OS.get_cmdline_user_args():
 		path = "/test/"
-	if not "/test" in path:  # /test/ und /test-en/
+	if "--neubuild" in OS.get_cmdline_user_args():
+		path = "/neu/"
+	if "/neu/" in path:  # Umbau "Mehr Herausforderung": eigener Spielstand
+		build_tag = "neu"
+	elif "/test" in path:  # /test/ und /test-en/
+		build_tag = "test"
+	else:
 		return
 	is_test_build = true
-	SAVE_PATH = "user://savegame_test.json"
+	SAVE_PATH = "user://savegame_%s.json" % build_tag
 	if not FileAccess.file_exists(SAVE_PATH) and FileAccess.file_exists(LIVE_SAVE_PATH):
 		DirAccess.copy_absolute(LIVE_SAVE_PATH, SAVE_PATH)
 
@@ -964,7 +972,7 @@ func slot_exists(n: int) -> bool:
 
 
 func _slot_key() -> String:
-	return "slot_test" if is_test_build else "slot"
+	return "slot_" + build_tag if is_test_build else "slot"
 
 
 func _load_slot() -> void:

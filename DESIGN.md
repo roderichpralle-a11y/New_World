@@ -970,6 +970,9 @@ Pushes auf den Zweig `claude/entwicklungsbaum-x33t1h` landen unter `/New_World/t
 (Workflow mit `destination_dir` und `keep_files`). Die Testversion speichert in
 `user://savegame_test.json` und kopiert beim ersten Start den normalen Spielstand
 (`Game._detect_test_build`, lokal `--testbuild`). Der Titel zeigt „Testversion“.
+Der Umbau „Mehr Herausforderung“ (Zweig `claude/project-thread-m73c7d`) landet unter `/New_World/neu/`
+mit eigenem Spielstand `user://savegame_neu.json` (lokal `--neubuild`). `Game.build_tag` ist „test“
+oder „neu“; danach heißen der Spielstand-Platz (`slot_<tag>`) und die Rekorde (`records_<tag>`).
 
 ## Ordner
 

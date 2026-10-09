@@ -7,7 +7,7 @@ extends Node
 ## nie verbraucht. Sind alle erfuellt, ist die Pruefung bestanden (alle 0,25 Tage geprueft, nur wenn das
 ## Spiel laeuft): Fest (Laune +fest_mood fuer fest_days), Einwanderer und Waren (Game.grant_reward auf die
 ## besiedelte Insel mit den meisten freien Wohnplaetzen), Meldung "Ein neues Zeitalter beginnt".
-## Wertung (Punkte) und Rekorde (user://settings.cfg [records], Testversion [records_test]).
+## Wertung (Punkte) und Rekorde (user://settings.cfg [records], Testversionen [records_test], [records_neu]).
 ## Spielstand: Schluessel "exams" = {passed, days, fest_until, year, y_starved, beaten}.
 
 const CHECK_DAYS := 0.25
@@ -353,7 +353,7 @@ func score() -> int:
 
 
 func record_section() -> String:
-	return "records_test" if Game.is_test_build else "records"
+	return "records_" + Game.build_tag if Game.is_test_build else "records"
 
 
 ## Gespeicherte Rekorde: Schluessel -> Wert.
