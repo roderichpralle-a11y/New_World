@@ -145,7 +145,21 @@ Zeitalterwechsel mit Wertung und Aufträge mit Wahl. Überblick und Zusammenspie
   dort ab), „Neue Insel suchen“ (schnellstes freies Schiff, kommt zurück), **Routen** (Reiter
   „Schiffe“): bis 6 Halte; an jedem Halt lädt das Schiff alles ab, was dort nicht geladen wird,
   und lädt bis zur eingestellten Menge. Fahrzeit `(voyage_days_base + voyage_days_per_dist *
-  Entfernung) / (eff(ship_speed) * Tempo des Schiffs) * Seasons.sail_mult()`. Liegende Schiffe
+  Entfernung) / (eff(ship_speed) * Tempo des Schiffs) * Seasons.sail_mult()`.
+  **Fahrtart** (josh: „Bei den Routen kann es auch einmal Routen geben, also hin und zurück“): unter den
+  Halten „Fahrt: Immer wieder | Einmal hin und zurück“ (`sea_panel._route_mode_row`). Einmal: Start ist der
+  erste Halt, an dem das Schiff lädt (der, den es als Nächstes anläuft); es fährt alle anderen Halte an,
+  kommt zum Start zurück, lädt dort alles ab (lädt nichts mehr) und ist wieder frei: Route angehalten
+  (`idle_ships` zählt es), die Halte bleiben, „Route starten“ fährt sie noch einmal; Meldung „Die … ist
+  zurück in …“. Anzeige „Noch 2 Halte, dann ist das Schiff wieder frei.“. Ein übersprungener Halt (Hafen zu
+  klein) zählt mit. Spielstand im Schiff (optional): `once` (bool), `once_left` (Halte, die noch kommen,
+  -1 = nicht begonnen), `once_from` (Starthalt); alte Routen ohne `once` fahren immer wieder. Code:
+  `Sea.set_route_once`, `is_once`, `once_stops_left`, `_once_stop` (in `_route_step`), `_once_finish`
+  (nach dem Laden), `_once_skip`. Halte hinzufügen oder entfernen und das Umstellen beginnen die
+  Zählung neu. Test `--fixture=sea.json --oncetest=1` (`RouteTest`, Sea meldet sich dafür mit
+  `Game.register_system` an): Halte 0 → 1 → 0, Ladung je Strecke, frei danach, Speichern mitten auf der
+  Fahrt, alte Route fährt weiter, neu starten, umstellen („Einmal-Route OK/FEHLER“); `--oncetest=shot
+  --panel=sea --seaview=ship` fürs Bildschirmfoto. Liegende Schiffe
   zeigt `World.sync_ships` im Wasser vor dem Hafen. Forschung **Seehandel** (Stufe VI).
 - **Seekarte** (Knopf „Inseln“, `scripts/ui/sea_panel.gd`): Reiter Inseln und Schiffe, Ansichten
   `island`, `send`, `ships`, `ship`, `stop`. Die Karte zoomt (Mausrad, zwei Finger, Knöpfe „-“ „+“
@@ -1106,6 +1120,8 @@ godot --headless --fixed-fps 60 -- --autotest=200 --scale=10 --writingtest=1  # 
 godot --headless --fixed-fps 60 -- --autotest=100 --scale=10 --examtest=0  # Prüfung beim Zeitalterwechsel
 godot --headless --fixed-fps 60 -- --autotest=120 --scale=10 --questtest=1  # Aufträge mit Wahl
 godot --headless --fixed-fps 60 -- --autotest=60 --scale=10 --seed=7 --integtest=1  # Zusammenspiel der Erweiterungen
+godot --headless --fixed-fps 60 -- --autotest=40 --scale=10 --fixture=sea.json --oncetest=1  # Einmal-Route hin und zurück
+godot --headless --fixed-fps 60 -- --autotest=30 --scale=10 --seed=7 --basictrade=1  # Händler mit einfachen Waren
 godot --headless --fixed-fps 60 -- --autotest=820 --scale=10 --seed=11 --bot=1 --noevents=1 --winter=normal  # Spiel-Bot v2, 4 Jahre
 #   --fixed-fps 60 vor "--" rechnet so schnell wie moeglich (gleicher Spielverlauf); --seed=N feste Insel
 #   dazu --wildlife=1: Tierbestand je Insel und Bau; --weak=1: ohne Waffenkunde (Tiere gefährlicher), Bildschirmfoto: --island=<id>, --panel=sea
