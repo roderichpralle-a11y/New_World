@@ -85,7 +85,7 @@ var lineage: Dictionary = {}  # Siedler-ID -> [Eltern-IDs], auch fuer Verstorben
 ## Forschung: aktuelles Ziel, Fortschritt je Forschung, erforschte und bezahlte Forschungen
 var research: Dictionary = {"current": "", "progress": {}, "done": [], "paid": []}
 ## Einfuehrung und Ziele: Schritt der Einfuehrung (tut), Index des Ziels (ms)
-var goals: Dictionary = {"tut": 0, "ms": 0, "tv": 2}
+var goals: Dictionary = {"tut": 0, "ms": 0, "tv": 3}
 var eaten: Dictionary = {}  # gegessene Speisen seit Spielbeginn (fuer Statistik und Tests)
 var effects: Dictionary = {}  # Summe aller Forschungs-Effekte, z. B. {"build": 0.2}
 var reward_wait: Dictionary = {}  # Belohnungen ohne Lagerplatz, siehe _wait_goods
@@ -142,7 +142,7 @@ func reset_state(new_seed: int) -> void:
 	stats = {"births": 0, "deaths": 0, "max_pop": 0, "starved": 0, "starve_day": time_days}
 	lineage = {}
 	research = {"current": "", "progress": {}, "done": [], "paid": []}
-	goals = {"tut": 0, "ms": 0, "tv": 2}
+	goals = {"tut": 0, "ms": 0, "tv": 3}
 	rules = RULES
 	rules_old = RULES
 	rules_day = time_days
@@ -1398,10 +1398,15 @@ func apply_save_header(d: Dictionary) -> void:
 	# Aeltere Spielstaende kennen keine Ziele: Einfuehrung ueberspringen, erreichte Ziele nachholen
 	var g = d.get("goals", null)
 	if g is Dictionary:
-		goals = {"tut": int(g.get("tut", 0)), "ms": int(g.get("ms", 0)), "hide": str(g.get("hide", "")), "tv": 2}
-		# Einfuehrung mit 7 Schritten (bis Oktober 2026) auf die neue mit 9 Schritten umrechnen
-		if int(g.get("tv", 1)) < 2:
-			goals.tut = [0, 1, 3, 4, 7, 6, 8, 9][clampi(goals.tut, 0, 7)]
+		var tv := int(g.get("tv", 1))
+		var tut := int(g.get("tut", 0))
+		# Einfuehrung mit 7 Schritten (bis Oktober 2026) auf die mit 9 Schritten umrechnen
+		if tv < 2:
+			tut = [0, 1, 3, 4, 7, 6, 8, 9][clampi(tut, 0, 7)]
+		# Seit tv 3 beginnt die Einfuehrung mit der Knopfleiste (Bauen, Forschung, Siedler)
+		if tv < 3:
+			tut += 1
+		goals = {"tut": tut, "ms": int(g.get("ms", 0)), "hide": str(g.get("hide", "")), "tv": 3}
 	else:
 		goals = {"tut": 999, "ms": 0, "catchup": true}
 	_recompute_effects()
