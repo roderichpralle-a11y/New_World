@@ -240,14 +240,15 @@ Zeitalterwechsel mit Wertung und Aufträge mit Wahl. Überblick und Zusammenspie
   angelegte Busse bleiben dort stumm), Lautstärken im Menü, gespeichert in `user://settings.cfg`.
   Alle Klänge erzeugt `tools/gen_audio.py` (Ausgabe `assets/audio/`). Gebäude können mit
   `sound` einen eigenen Werkstatt-Klang haben, Tiere mit `sound` ihren Ruf.
-- **Einführung und Ziele** (`data/goals.json`, `scripts/ui/goal_card.gd`): neun Schritte mit
+- **Einführung und Ziele** (`data/goals.json`, `scripts/ui/goal_card.gd`): zehn Schritte mit
   Zeigerpfeil, danach feste Ziele mit Belohnungen und endlos erzeugte Ziele (Bevölkerung, Inseln,
   Geburten). Zustand `Game.goals {tut, ms}` im Spielstand; ältere Spielstände überspringen die
   Einführung und holen erreichte Ziele still nach. `Game.player_action(kind, what)` meldet
   Spieleraktionen. Statistik `kills` zählt erlegte Tiere. Das X auf der Zielkarte blendet das
-  aktuelle Ziel aus (`goals.hide` = Ziel-ID), das nächste erscheint wieder. `goals.tv` = 2 markiert die
-  Einführung mit neun Schritten; Spielstände ohne `tv` rechnen ihren Schritt aus der alten
-  Siebener-Einführung um (`apply_save_header`). Prüfart `job`: Siedler mit Beruf `what`, alle Inseln.
+  aktuelle Ziel aus (`goals.hide` = Ziel-ID), das nächste erscheint wieder. `goals.tv` = 3 markiert die
+  Einführung mit zehn Schritten (Schritt 1 erklärt die Knopfleiste Bauen, Forschung, Siedler und zählt
+  als Aktion `panel`); Spielstände ohne `tv` rechnen ihren Schritt aus der alten Siebener-Einführung um,
+  tv-2-Spielstände rücken um einen Schritt vor (`apply_save_header`). Prüfart `job`: Siedler mit Beruf `what`, alle Inseln.
   Wer die Einführung zu Ende spielt (nicht überspringt), bekommt 2 Siedler und eine fertige Hütte
   (siehe „Kohle, Erfrieren und weitere Ergänzungen“).
 - **Nahrung in der Oberleiste**: Zahl der Nahrungsgüter und dahinter `Game.food_days()`, für wie viele

@@ -651,6 +651,8 @@ func _autotest_tutorial() -> void:
 	var g: Dictionary = hud.goal_card.current()
 	print("   Ziel: ", g.id, " ", hud.goal_card.progress(g), " tut=", Game.goals.tut, " ms=", Game.goals.ms)
 	match g.id:
+		"t_bar":
+			Game.player_action.emit("panel", "bauen")
 		"t_select":
 			Game.select(world.settlers[0])
 		"t_job":

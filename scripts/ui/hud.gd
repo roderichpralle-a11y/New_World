@@ -272,16 +272,20 @@ func _build_bottom() -> void:
 	_bottom.add_theme_constant_override("separation", 8)
 	p.add_child(_bottom)
 	var bb := UiTheme.button(tr("Bauen"), "hammer", 44)
-	bb.pressed.connect(func(): _toggle(_build_panel))
+	bb.pressed.connect(func():
+		Game.player_action.emit("panel", "bauen")
+		_toggle(_build_panel))
 	_bottom.add_child(bb)
 	_build_btn = bb
 	_research_btn = UiTheme.button(tr("Forschung"), "wissen", 44)
 	_research_btn.pressed.connect(func():
+		Game.player_action.emit("panel", "forschung")
 		_fill_research_list()
 		_toggle(_research_panel))
 	_bottom.add_child(_research_btn)
 	var sb := UiTheme.button(tr("Siedler"), "person", 44)
 	sb.pressed.connect(func():
+		Game.player_action.emit("panel", "siedler")
 		_toggle(_settler_panel)
 		_refresh_settler_list())
 	_bottom.add_child(sb)
