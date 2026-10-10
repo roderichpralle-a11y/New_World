@@ -149,7 +149,12 @@ func _sites() -> Array:
 
 
 ## Holz, das für das Heizen bis zum Frühling bereitliegen sollte (Vorhersage, nicht der echte Wintertyp).
+## Kohle im Lager wird zuerst verheizt und zählt mit (Extras.coal_ratio Holz je Kohle).
 func heat_reserve() -> float:
+	return maxf(0.0, _heat_need() - Game.amount("kohle", w) * Extras.coal_ratio())
+
+
+func _heat_need() -> float:
 	var pop: float = w.settlers.size()
 	var f: float = WINTER_GUESS.get(Seasons.winter_forecast(), 1.4)
 	var sd: float = Seasons.season_days()
@@ -677,7 +682,7 @@ func _jobs() -> void:
 			crit["steinmetz"] = 1
 	# 3. Brennholz wird knapp (Herbst und Winter): ein Holzfäller vor allem anderen
 	var heat_day: float = Seasons.heat_per_settler() * w.settlers.size()
-	if heat_day > 0.0 and Game.amount("holz", w) < heat_day * 1.5:
+	if heat_day > 0.0 and Extras.fuel(w) < heat_day * 1.5:  # Holz und Kohle
 		add.call("holzfaeller", 1)
 	# 4. Nahrung, die gebraucht wird
 	add_food.call(food_first)

@@ -234,6 +234,8 @@ Zeitalterwechsel mit Wertung und Aufträge mit Wahl. Überblick und Zusammenspie
   aktuelle Ziel aus (`goals.hide` = Ziel-ID), das nächste erscheint wieder. `goals.tv` = 2 markiert die
   Einführung mit neun Schritten; Spielstände ohne `tv` rechnen ihren Schritt aus der alten
   Siebener-Einführung um (`apply_save_header`). Prüfart `job`: Siedler mit Beruf `what`, alle Inseln.
+  Wer die Einführung zu Ende spielt (nicht überspringt), bekommt 2 Siedler und eine fertige Hütte
+  (siehe „Kohle, Erfrieren und weitere Ergänzungen“).
 - **Nahrung in der Oberleiste**: Zahl der Nahrungsgüter und dahinter `Game.food_days()`, für wie viele
   Tage die Nahrung der angezeigten Insel reicht: Summe aus Menge mal Sättigung, geteilt durch die
   Siedler (Kinder zählen voll) und den Tagesbedarf `hunger_per_day` mit Jahreszeit und Kälte. Rot
@@ -276,9 +278,10 @@ Spielstand-Eintrag (alte Spielstände landen einfach in der passenden Jahreszeit
 - **Tiere vermehren sich nur im Frühling**: baut der Tier-Faden auf `Seasons.season() == Seasons.SPRING`.
 - **Für andere Systeme**: `Seasons.season_mod(key)` (`mods`: `sickness`, `mood`, Standard 1.0),
   `Seasons.is_warm(world)`.
-- **Heizen**: je Siedler und Tag `heat_wood_per_settler` Holz (Herbst 0,3, Winter 1) aus dem Lager.
-  Fehlt Holz, frieren die Siedler der Insel (`Seasons.cold`): Hunger x`cold_hunger`, Arbeit
-  x`cold_work`.
+- **Heizen**: je Siedler und Tag `heat_wood_per_settler` Holz (Herbst 0,3, Winter 1) aus dem Lager,
+  Kohle zuerst (1 Kohle = `heat_coal_wood` Holz, siehe „Kohle, Erfrieren und weitere Ergänzungen“).
+  Fehlt beides, frieren die Siedler der Insel (`Seasons.cold`): Hunger x`cold_hunger`, Arbeit
+  x`cold_work`, nach einer Schonzeit erfrieren sie.
 
 Fünf weitere Jahreszeit-Mechaniken:
 
@@ -351,6 +354,69 @@ sind jedes Jahr anders. Im Herbst sagen die Alten voraus, wie hart der Winter wi
   und Antipp-Texte, Astronomie, Speichern/Laden und den alten Spielstand. `--climatetap=1` tippt kurz vor dem
   Bildschirmfoto die Jahreszeit an (`=2`: Vorhersage der Jahreszeit) und meldet die Breite der Leiste. Der
   20-Sekunden-Bericht zeigt Klima, Heizholz und das Symbol.
+
+## Kohle, Erfrieren und weitere Ergänzungen (Herausforderung)
+
+josh, 2026-10-09: Kohle heizt zuerst, Siedler können erfrieren, haltbares Essen zuerst, 5 Fischgründe auf
+der Startinsel, Belohnung für die Einführung, keine Balken mehr im Siedler-Infofenster. Code in
+`scripts/autoload/extras.gd` (`Extras`, kein eigener Autoload: Seasons hängt ihn in `_ready` als Kind an,
+er meldet sich als System bei Game an) und `scripts/world/start_fish.gd` (`StartFish`).
+
+- **Kohle heizt zuerst** (`Extras.burn_fuel`, aufgerufen von `Seasons._heat`): der Heizbedarf wird in Holz
+  gerechnet (`heat_wood_per_settler`). Liegt Kohle im Lager der Insel, brennt zuerst sie: je ganze
+  `heat_coal_wood` (2) Holz Bedarf eine Kohle. Holz brennt erst, wenn keine Kohle mehr da ist. 2 ist
+  derselbe Wert wie in der Köhlerei (4 Holz → 2 Kohle): Kohle spart also kein Holz, braucht aber nur
+  halb so viel Lagerplatz. Achtung: Kohle für Schmelzofen, Glashütte und Stahlwerk wird im Winter mit
+  verheizt. `Extras.fuel(w)` = Holz + Kohle x 2. Vorhersage im Herbst, Antippen der Jahreszeit und
+  Wintervorwarnung nennen mit Kohle (oder nach der Forschung Köhlerei) „etwa N Holz oder halb so viel
+  Kohle; Kohle wird zuerst verbrannt (im Lager: K)“ (`Extras.need_text`). Der Bot rechnet die Kohle in
+  seine Holzreserve ein (`heat_reserve` minus Kohle x 2, Notfall-Holzfäller nach `Extras.fuel`).
+- **Erfrieren** (seasons.json `freeze`): solange eine Insel friert (`Seasons.cold`, kein Holz und keine
+  Kohle), sammelt jeder Siedler dort Kälte (`Extras.exposure`, Spielstand `frost` {Siedler-ID: Wert}),
+  je Tag so viel, wie die Jahreszeit Brennstoff verlangt (normaler Winter 1, Herbst 0,3, Eiswinter 1,8),
+  Kinder und Alte (ab 80 % des Höchstalters) x`weak_factor` 1,5. Über `grace_days` (1) sinkt die
+  Gesundheit um `damage_per_day` (100) x denselben Faktor; das normale Heilen (40 am Tag, wenn satt)
+  läuft weiter. Bei 0 stirbt der Siedler (`World.kill_settler(s, "erfroren", "freeze")`,
+  `stats.frozen`). Im Warmen sinkt die Kälte um `recover_per_day` (2). Normaler Winter ohne jeden
+  Brennstoff: Kinder und Alte sterben nach etwa 1,6 Tagen, Erwachsene nach etwa 2,7; Eiswinter
+  schneller. Inseln ohne Schnee (`snow_biomes` 0, Palmeninsel) sind ausgenommen.
+  Meldungen: sobald der Brennstoff ausgeht „Kein Holz und keine Kohle … erfrieren in etwa N Stunden,
+  Kinder und Alte zuerst“ (`Extras.cold_text`, Schätzung für den Schwächsten; über 72 Stunden ohne
+  Zahl), sobald die Gesundheit des Ersten sinkt einmal „Die ersten Siedler erfrieren!“ (Art
+  `gesundheit`), dann je Toter „… ist erfroren.“ Laune-Grund „Friert (kein Holz, keine Kohle)“.
+- **Haltbares Essen zuerst**: siehe „Nahrung, Vitamine und Gleichgewicht“ (`Game.durable_first`).
+- **5 Fischgründe auf der Startinsel** (islands.json `min_fish`): `StartFish.place` legt nach allen
+  anderen Rohstoffen in einem eigenen Durchgang (eigener Zufall) fehlende Fischgründe auf freies Wasser
+  am Ufer, nah am Lagerfeuer zuerst, mindestens 4 (zur Not 3) Felder von anderen entfernt; der Rest der
+  Karte bleibt gleich. Über 100 Seeds hatte die Startinsel schon vorher 4–17 Fischgründe (Schnitt 9,6),
+  nur etwa jede hundertste weniger als 5 (Spiel-Seeds 111, 340, 359, 386 von 1–399). Ältere Spielstände
+  bekommen die fehlenden beim Laden (`StartFish.patch` in `World.build_from_save`, bis `min_fish`; danach
+  fehlt keiner mehr, es passiert also nur einmal) mit der Meldung „Vor der Küste der Heimatinsel gibt es
+  jetzt N neue Fischgründe“.
+- **Belohnung für die Einführung** (`Extras.tutorial_reward`, aus `GoalCard._advance`, wenn der letzte
+  Schritt erfüllt ist; nicht beim Überspringen und nicht beim stillen Nachholen alter Spielstände): eine
+  fertige Hütte auf dem ersten freien Platz um das Lagerfeuer (Ring für Ring, eine Zelle Abstand zu
+  anderen Gebäuden; ohne Platz 16 Holz) und 2 Einwanderer über `Game.grant_reward(w, {"settlers": 2})`
+  (eine Frau und ein Mann, mit niemandem verwandt). Meldung „Belohnung für die Einführung: 2 Einwanderer
+  und eine fertige Hütte am Lagerfeuer.“
+- **Siedler-Infofenster ohne Balken**: Sättigung, Gesundheit, Vitamine, Laune, Erholung, Eigenschaften und
+  Fähigkeiten haben keine Balken mehr; Eigenschaften und Fähigkeiten stehen als eine Textzeile
+  („Bauen 3 · Nahrung 4+ · …“, `Hud._info_text`). Die Werte selbst gibt es weiter (Siedlerliste, Laune-Gründe).
+- **Alte Spielstände**: zwei Zeilen im Fenster „Neue Regeln“ (Kohle/Erfrieren, haltbares Essen).
+- **Messung mit dem Bot** (3 Seeds 11/22/33, `--autotest=820 --noevents=1 --winter=normal`, je zwei Läufe
+  vorher und nachher, dazu ein Gegenversuch ohne die Essensreihenfolge): kein Skorbut, keine
+  Erfrorenen, keine Hungertoten, Vitamine im Schnitt gleich (88). Die Essensreihenfolge kostet etwas:
+  verdorben je Lauf 184 statt 161 (+14 %), höchstens 26,5 statt 29,8 Siedler, Steinzeit-Prüfung im
+  Schnitt Tag 24,0 statt 22,2 (3 von 6 Läufen erst in Jahr 3, vorher 0 von 6). Ohne sie (nur Kohle,
+  Erfrieren, Bot) lagen die Werte wie vorher (159 verdorben, 29 Siedler, Tag 22,7). Der Bot friert je
+  Lauf 0–2 Mal kurz (wie vorher), die Schonzeit reicht immer. Ein erster Versuch, bei dem Getreide als
+  haltbares Essen galt, ließ die Siedler das Korn roh essen (Brot fast nie) und wurde verworfen; ohne die
+  Vitamin-Ausnahme aßen die Siedler im `--schooltest` nur Brot und bekamen Skorbut (3 Fälle).
+- **Testhilfen**: `--coaltest=1` (Kohle vor Holz, Texte; mit `--season=3` ein Winter mit `--coal=N
+  --coalwood=N`), `--freezetest=1` (mit `--season=3 --winter=normal`: ein Kind und eine Alte dazu, das
+  Lager bleibt ohne Brennstoff; Bericht mit Kälte und Gesundheit je Siedler, Reihenfolge der Toten),
+  `--fishtest=1` (100 Seeds vorher/nachher, übrige Karte gleich, Seeds mit zu wenigen),
+  `--foodorder=1` (Essensreihenfolge), `--tutdone=1` (letzter Einführungsschritt: 2 Siedler, Hütte).
 
 ## Inselstärken, Gewürze und fremde Händler (Herausforderung)
 
@@ -451,8 +517,9 @@ Spielstände würfeln die Werte reproduzierbar aus der Siedler-ID).
 - **Freizeit**: `rest` sinkt bei Arbeit je nach Bedarf, unter 35 macht der Siedler Pause
   (`Settler._plan_leisure`: Feuer, zu Hause, Strand, mit Kindern spielen, Bibliothek/Schreibstube,
   gewichtet nach Gemüt und Klugheit), außer in einer Hungersnot (weniger als 3 Nahrung je Siedler).
-- **Anzeige**: Infofenster (Charakter, Begabungen, Krankheit, Balken Vitamine/Laune/Erholung,
-  Arbeitskraft, wichtigste Gründe, Eigenschaften, Fähigkeiten mit + für Begabung), Siedlerliste
+- **Anzeige**: Infofenster (Charakter, Begabungen, Krankheit, Laune mit Arbeitskraft, wichtigste
+  Gründe, Eigenschaften und Fähigkeiten mit + für Begabung als Text; seit josh 2026-10-09 ohne Balken
+  für Sättigung, Gesundheit, Vitamine, Laune, Erholung, Eigenschaften und Fähigkeiten), Siedlerliste
   (Spalte Laune, rot bei Krankheit, Filter „Nur Kranke“, Lebensstil im Zähler).
 - Test: `--chartest=1` (täglicher Bericht), `--comfort=<n>` (n Forschungen erledigt), `--sick=<n>`.
 
@@ -473,7 +540,11 @@ einmal aufgebaut ist. Dafür gilt:
   Bedarf hinausgeht; dazu gedeckter Vitaminbedarf (bis `vitamin_target`, doppelt bei Mangel unter
   `vit_low`); Abwechslung gegenüber `mind.meals`; Bonus für Verderbliches (`Seasons.spoil_rate(id)`);
   Bonus für große Vorräte; Abzug, wenn eine fertige Werkstatt die Ware als Zutat braucht (Weizen,
-  Fisch). `Game.eat_food(prefer_vitamins, w)` bleibt als einfache Wahl (Sättigendstes oder
+  Fisch). **Haltbares zuerst** (josh 2026-10-09, `Game.durable_first`): hat der Siedler genug Vitamine
+  (mindestens `vitamin_target`), wählt er nur unter haltbarem Essen (nicht in seasons.json `perishable`,
+  ohne Rohware einer Werkstatt wie Getreide: Brot, Räucherfisch, Kokos, Konserven), das andere erst, wenn
+  nichts Haltbares mehr da ist. Wer Vitamine braucht, wählt aus allem. Innerhalb der Gruppe gilt die
+  Wertung oben. `Game.eat_food(prefer_vitamins, w)` bleibt als einfache Wahl (Sättigendstes oder
   Vitaminreichstes) für andere Aufrufer. Die Mahlzeit meldet `mind.on_meal(id, Data.food_vitamins(id))`.
   `Game.eaten` zählt alles, `Game.last_eaten` ist die letzte Sorte. Test: `--foodtest=1`.
 - **Notessen**: ist das Lager der Insel leer (oder voll mit anderem), essen sehr hungrige Siedler
@@ -1019,6 +1090,8 @@ oder „neu“; danach heißen der Spielstand-Platz (`slot_<tag>`) und die Rekor
 | `scripts/autoload/sea.gd` | Inseln, Welten je Insel, Schiffsreisen, Inselwechsel |
 | `scripts/world/island_gen.gd` | Inselgenerator (Seed → Gelände + Rohstoffe) |
 | `scripts/world/island_traits.gd` | Inselstärken (`biome_bonus`) und Gewürzsträucher |
+| `scripts/world/start_fish.gd` | Fischgründe der Startinsel (`min_fish`), auch für ältere Spielstände |
+| `scripts/autoload/extras.gd` | Kohleheizung, Erfrieren, Belohnung der Einführung und ihre Selbsttests (Kind von Seasons) |
 | `scripts/world/world.gd` | Tilemaps, Wegfindung (AStarGrid2D), Entitäten, Bauen, Effekte, Tag/Nacht |
 | `scripts/world/game_camera.gd` | Ziehen, Zoom (Mausrad, zwei Finger), Tippen |
 | `scripts/entities/*.gd` | `Settler` (KI), `SettlerMind` (Charakter), `Building`, `ResNode`, `Animal`, `Raider` (Pirat) |
@@ -1086,6 +1159,10 @@ godot --headless -- --autotest=120 --scale=10 --build=1     # Simulation mit Ber
 godot --headless -- --autotest=400 --scale=10 --build=1 --research=1   # forscht automatisch
 godot --headless -- --autotest=60 --scale=10 --prodtest=1  # alle Werkstätten, alles erforscht
 godot --headless -- --autotest=120 --scale=10 --tuttest=1  # spielt die Einführung durch
+godot --headless --fixed-fps 60 -- --autotest=25 --scale=10 --seed=11 --tutdone=1  # Einführung beenden: 2 Siedler, Hütte
+godot --headless --fixed-fps 60 -- --autotest=100 --scale=10 --seed=11 --season=3 --coaltest=1  # Kohle vor Holz
+godot --headless --fixed-fps 60 -- --autotest=200 --scale=10 --seed=11 --season=3 --winter=normal --freezetest=1  # Erfrieren
+godot --headless --fixed-fps 60 -- --autotest=5 --scale=10 --fishtest=1  # Fischgründe der Startinsel (auch --foodorder=1)
 godot --headless -- --autotest=150 --scale=10 --schooltest=1  # Steinhaus und Schule: Geburten, Schulkinder
 godot --headless -- --autotest=130 --scale=10 --seed=7 --needstest=1  # Bedürfnisstufen und Fachkräfte
 godot --headless -- --autotest=160 --scale=10 --seed=7 --tradetest2=1  # fremde Händler (auch --spicetest, --biometest)

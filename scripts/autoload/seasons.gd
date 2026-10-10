@@ -50,6 +50,7 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	cfg = Data._load("seasons")
 	_make_weather()
+	add_child(Extras.new())  # Kohleheizung, Erfrieren und weitere Ergänzungen (extras.gd)
 	Game.register_system(self)
 	Game.state_reset.connect(reset_climate)
 	Game.state_save.connect(func(d: Dictionary): d["climate"] = climate.duplicate(true))
@@ -131,7 +132,7 @@ func effects_text(s: int = -1) -> String:
 		AUTUMN:
 			return tr("Pilzzeit, alles andere wächst langsamer. Keine Aussaat mehr, Stürme bremsen Schiffe, Häuser brauchen etwas Holz.")
 		_:
-			return tr("Nichts wächst, kurze Tage, Schnee bremst Bauen und Laufen. Jeder Siedler braucht Holz zum Heizen und mehr Essen. Vorräte verderben nicht.")
+			return tr("Nichts wächst, kurze Tage, Schnee bremst Bauen und Laufen. Jeder Siedler braucht Holz oder Kohle zum Heizen und mehr Essen. Vorräte verderben nicht.")
 
 
 func jump_to_season(s: int) -> void:
@@ -290,12 +291,12 @@ func _on_new_day() -> void:
 	if season() == AUTUMN and day_in_season() == int(season_days()):
 		var wt := winter_type()
 		if wt == "normal":
-			Game.notify(tr("Morgen beginnt der Winter! Ihr braucht etwa %d Holz zum Heizen und haltbare Vorräte.") % winter_wood_need(), "holz")
+			Game.notify(tr("Morgen beginnt der Winter! %s Legt auch haltbare Vorräte an.") % Extras.need_text(winter_wood_need()), "holz")
 		else:
-			Game.notify(tr("Morgen beginnt der Winter (%s)! Ihr braucht etwa %d Holz zum Heizen und haltbare Vorräte.") % [type_name("w", wt), winter_wood_need()], "holz")
+			Game.notify(tr("Morgen beginnt der Winter (%s)! %s Legt auch haltbare Vorräte an.") % [type_name("w", wt), Extras.need_text(winter_wood_need())], "holz")
 
 
-## Heizen: jeder Siedler braucht im Herbst etwas, im Winter viel Holz.
+## Heizen: jeder Siedler braucht im Herbst etwas, im Winter viel Holz (Kohle zuerst, Extras.burn_fuel).
 func _heat(days: float) -> void:
 	var per := heat_per_settler()
 	if per <= 0.0:
@@ -306,14 +307,13 @@ func _heat(days: float) -> void:
 		if w.settlers.is_empty():
 			continue
 		var acc: float = float(_heat_acc.get(w, 0.0)) + per * w.settlers.size() * days
-		var need := int(acc)
-		if need > 0:
-			var got := Game.take_stock("holz", need, w)
-			acc -= need
-			if got < need:
+		var res := Extras.burn_fuel(w, acc)  # zuerst Kohle, dann Holz
+		acc = float(res[0])
+		if res[1] != null:
+			if res[1] == false:
 				if not cold.has(w):
 					cold[w] = true
-					Game.notify_at(w, tr("Kein Holz zum Heizen: die Siedler frieren! Sie werden schneller hungrig und arbeiten langsamer."), "holz")
+					Game.notify_at(w, Extras.cold_text(w), "holz")
 					Sound.play_on("fehler", w)
 			elif cold.has(w):
 				cold.erase(w)
@@ -578,7 +578,7 @@ func climate_text() -> String:
 		parts.append(_winter_hint_text())
 	elif s == AUTUMN:
 		var d := type_def("w", wf)
-		parts.append("%s %s" % [d.get("text", ""), tr("Ihr braucht etwa %d Holz zum Heizen.") % winter_wood_need()])
+		parts.append("%s %s" % [d.get("text", ""), Extras.need_text(winter_wood_need())])
 		if wf != "normal":
 			parts.append(str(d.get("desc", "")))
 	elif s == WINTER and wf != "normal":
@@ -611,7 +611,7 @@ func _forecast(s: int) -> void:
 		AUTUMN:
 			var wt := winter_type()
 			var d := type_def("w", wt)
-			var msg := "%s %s" % [d.get("text", ""), tr("Ihr braucht etwa %d Holz zum Heizen.") % winter_wood_need()]
+			var msg := "%s %s" % [d.get("text", ""), Extras.need_text(winter_wood_need())]
 			if wt != "normal":
 				msg += " " + str(d.get("desc", ""))
 			Game.notify(msg, "schnee", "lager")
