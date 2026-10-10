@@ -1173,8 +1173,10 @@ func _refresh_settler_list() -> void:
 			act.size_flags_stretch_ratio = 1.4
 			h.add_child(act)
 			# Talente mit Arbeitstempo-Bonus (nur breit; schmal zeigt das Berufsmenue Sterne)
-			var tl := UiTheme.label(TalentInfo.short_list(s.mind), 13)
+			# jedes Talent in einer eigenen Zeile (höchstens zwei), damit nichts abgeschnitten wird
+			var tl := UiTheme.label(TalentInfo.column_text(s.mind), 12)
 			tl.clip_text = true
+			tl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 			tl.custom_minimum_size.x = SETTLER_COLS[3][2]
 			tl.mouse_filter = Control.MOUSE_FILTER_PASS
 			tl.tooltip_text = "\n".join(s.mind.best_talents().map(func(k): return TalentInfo.line(sref.mind, k)))

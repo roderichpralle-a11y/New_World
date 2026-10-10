@@ -538,7 +538,7 @@ Spielstände würfeln die Werte reproduzierbar aus der Siedler-ID).
 - **Anzeige der Talente** (`scripts/ui/talent_info.gd`, Stern im Code gezeichnet, weil die Schrift kein ★ hat):
   Infofenster je Talent eine Zeile „Talent: Bauen (+40 % schneller, lernt +160 % schneller)“ mit Stern, sonst
   „Talent: keins“; Berufsknöpfe mit Stern, wenn die Fähigkeit des Berufs ein Talent ist (Tooltip mit Bonus).
-  Siedlerliste: Spalte „Talent“ (z. B. „Holz +25 %“, nur breit, sortierbar), Stern im Berufsmenü, Bonus im Tooltip
+  Siedlerliste: Spalte „Talent“ (z. B. „Holz +25 %“, ein Talent je Zeile, höchstens zwei Zeilen, bei mehr „…“; nur breit, sortierbar), Stern im Berufsmenü, Bonus im Tooltip
   am Namen. Meldung beim Erwachsenwerden nennt die Talente mit Bonus.
 - **Anzeige**: Infofenster (Charakter, Begabungen, Krankheit, Laune mit Arbeitskraft, wichtigste
   Gründe, Eigenschaften und Fähigkeiten mit + für Begabung als Text; seit josh 2026-10-09 ohne Balken

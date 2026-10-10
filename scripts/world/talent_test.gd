@@ -84,14 +84,14 @@ static func run(main) -> void:
 			name_tip = "40" in n.tooltip_text
 			var row: Node = n.get_parent()
 			for x in row.get_children():
-				if x is Label and x.text == TalentInfo.short_list(m):
+				if x is Label and x.text == TalentInfo.column_text(m):
 					col = x.text
 		if n is OptionButton and n.tooltip_text.contains(TalentInfo.short_list(m)):
 			for i in n.item_count:
 				if n.get_item_icon(i) == TalentInfo.star():
 					menu_star.append(n.get_item_text(i))
 	print("Talente: Liste schmal=", hud._settler_narrow, " Spalte Talent '", col, "' Name-Tooltip mit Bonus=", name_tip, " Menue mit Stern ", menu_star)
-	var col_ok: bool = (col == "") if hud._settler_narrow else (col == TalentInfo.short_list(m))
+	var col_ok: bool = (col == "") if hud._settler_narrow else (col == TalentInfo.column_text(m))
 	_okprint(col_ok and name_tip, "Siedlerliste: Spalte Talent (nur breit) und Tooltip am Namen")
 	_okprint(Data.jobs.baumeister.name in menu_star and not Data.jobs.holzfaeller.name in menu_star, "Siedlerliste: Stern im Berufsmenue")
 	hud._toggle(hud._settler_panel)

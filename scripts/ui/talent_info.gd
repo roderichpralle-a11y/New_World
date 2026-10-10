@@ -58,6 +58,15 @@ static func short_list(m: SettlerMind) -> String:
 	return ", ".join(m.best_talents().map(func(k): return short(m, k)))
 
 
+## Text der Spalte "Talent" in der Siedlerliste: jedes Talent in einer eigenen Zeile, höchstens
+## zwei Zeilen (gleich hohe Zeilen); gibt es mehr, endet die zweite mit "…" (alle im Tooltip).
+static func column_text(m: SettlerMind) -> String:
+	var parts: Array = m.best_talents().map(func(k): return short(m, k))
+	if parts.size() > 2:
+		parts = [parts[0], parts[1] + " …"]
+	return "\n".join(parts)
+
+
 ## Passt der Beruf zu einem Talent des Siedlers?
 static func job_match(m: SettlerMind, job: String) -> bool:
 	var sk: String = Data.jobs.get(job, {}).get("skill", "")
