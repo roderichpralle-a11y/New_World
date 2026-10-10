@@ -174,7 +174,6 @@ func build_from_save(w: Dictionary, m: Dictionary) -> void:
 				for i in max(0, int(n.def.get("den_cap", 1)) - have):
 					_spawn_at_den(n)
 	IslandTraits.patch_spice(self, island)  # Gewürzsträucher (Palmeninsel) für ältere Spielstände
-	StartFish.patch(self, island)  # Fischgründe der Startinsel für ältere Spielstände
 	Game.on_population_changed()
 
 

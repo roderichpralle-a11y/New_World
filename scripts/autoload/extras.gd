@@ -6,8 +6,8 @@ extends Node
 ## - Erfrieren: wer auf einer Insel ohne Brennstoff friert (Seasons.cold), sammelt Kälte. Nach einer
 ##   Schonzeit sinkt die Gesundheit, dann stirbt der Siedler ("freeze", "erfroren"); Kinder und Alte zuerst.
 ##   Palmeninseln (kein Schnee, `snow_biomes`) sind ausgenommen. Zahlen: seasons.json `freeze`.
-## - Fischgründe der Startinsel (StartFish), Belohnung der Einführung (tutorial_reward) und die
-##   Essreihenfolge (Game.choose_food) haben hier ihre Testhilfen.
+## - Belohnung der Einführung (tutorial_reward) und die Essreihenfolge (Game.choose_food) haben
+##   hier ihre Testhilfen.
 ## Instanz: Kind von Seasons (kein eigener Autoload), meldet sich als System bei Game an.
 
 static var inst: Extras = null
@@ -254,7 +254,7 @@ static func free_spot(w, type: String):
 
 
 # ---------------------------------------------------------------- Selbsttest
-## --coaltest=1 Kohle vor Holz, --freezetest=1 Erfrieren (mit --season=3), --fishtest=1 Fischgründe,
+## --coaltest=1 Kohle vor Holz, --freezetest=1 Erfrieren (mit --season=3),
 ## --tutdone=1 Einführung zu Ende spielen (Belohnung), --foodorder=1 haltbares Essen zuerst.
 func autotest_setup(args: Dictionary, _main) -> void:
 	_args = args
@@ -263,8 +263,6 @@ func autotest_setup(args: Dictionary, _main) -> void:
 		_coal_test(w)
 	if args.has("freezetest"):
 		_freeze_setup(w)
-	if args.has("fishtest"):
-		StartFish.self_test(w)
 	if args.has("foodorder"):
 		_food_test(w)
 	if args.has("tutdone"):
@@ -283,9 +281,6 @@ func autotest_report() -> String:
 		print("   Heizen: Kohle %d Holz %d (1 Kohle = %.1f Holz), frierend %d Inseln, erfroren %d, Kaelte %s" % [Game.amount("kohle", w), Game.amount("holz", w), coal_ratio(), Seasons.cold.size(), int(Game.stats.get("frozen", 0)), ex])
 	if _args.has("freezetest"):
 		print("   Erfroren der Reihe nach (Name, Kind, alt, Alter): %s" % [_test_deaths])
-	if _args.has("fishtest") or _args.has("fixture"):
-		var hw = Sea.all_worlds()[0] if not Sea.all_worlds().is_empty() else w
-		print("   Fischgruende Heimatinsel: %d" % hw.nodes.filter(func(n): return n.type == "fischgrund").size())
 	if _args.has("tutdone") or _args.has("tuttest"):
 		var huts: int = w.buildings.filter(func(b): return b.type == "huette" and b.complete).size()
 		print("   Einfuehrung: tut=%d/%d, Siedler %d, Huetten %d" % [int(Game.goals.get("tut", 0)), Data.goals.get("tutorial", []).size(), w.settlers.size(), huts])

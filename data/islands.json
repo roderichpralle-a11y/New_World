@@ -6,7 +6,7 @@
     "grass": [["baum", 0.025], ["busch", 0.03], ["fels", 0.015]],
     "sand": [["fels", 0.025]], "fish": 0.07,
     "ring": [["busch", 4, 6.5, 10.0, true], ["baum", 8, 7.0, 12.0, true], ["fels", 3, 7.0, 13.0, false]],
-    "dens": [], "special": [], "min_fish": 5
+    "dens": [], "special": []
   },
   "tropen": {
     "name": "Palmeninsel", "desc": "Weißer Strand und Kokospalmen. Nur ein paar Wildschweine wühlen im Unterholz. Nur hier wachsen Gewürze. Räucherei, Konservenfabrik und Solarpark arbeiten hier schneller.",

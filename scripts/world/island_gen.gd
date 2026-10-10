@@ -80,7 +80,6 @@ static func generate(seed_value: int, size: int, opts: Dictionary = {}) -> Dicti
 
 	var nodes := _place_nodes(terrain, size, c, rng, seed_value, biome)
 	_place_extra(terrain, size, c, seed_value, biome, nodes)
-	StartFish.place(terrain, size, c, seed_value, biome, nodes)  # Startinsel: min_fish Fischgründe
 	return {"size": size, "terrain": terrain, "nodes": nodes, "center": c}
 
 

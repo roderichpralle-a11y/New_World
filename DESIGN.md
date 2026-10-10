@@ -371,10 +371,9 @@ sind jedes Jahr anders. Im Herbst sagen die Alten voraus, wie hart der Winter wi
 
 ## Kohle, Erfrieren und weitere Ergänzungen (Herausforderung)
 
-josh, 2026-10-09: Kohle heizt zuerst, Siedler können erfrieren, haltbares Essen zuerst, 5 Fischgründe auf
-der Startinsel, Belohnung für die Einführung, keine Balken mehr im Siedler-Infofenster. Code in
+josh, 2026-10-09: Kohle heizt zuerst, Siedler können erfrieren, haltbares Essen zuerst, Belohnung für die Einführung, keine Balken mehr im Siedler-Infofenster. Code in
 `scripts/autoload/extras.gd` (`Extras`, kein eigener Autoload: Seasons hängt ihn in `_ready` als Kind an,
-er meldet sich als System bei Game an) und `scripts/world/start_fish.gd` (`StartFish`).
+er meldet sich als System bei Game an).
 
 - **Kohle heizt zuerst** (`Extras.burn_fuel`, aufgerufen von `Seasons._heat`): der Heizbedarf wird in Holz
   gerechnet (`heat_wood_per_settler`). Liegt Kohle im Lager der Insel, brennt zuerst sie: je ganze
@@ -399,14 +398,6 @@ er meldet sich als System bei Game an) und `scripts/world/start_fish.gd` (`Start
   Zahl), sobald die Gesundheit des Ersten sinkt einmal „Die ersten Siedler erfrieren!“ (Art
   `gesundheit`), dann je Toter „… ist erfroren.“ Laune-Grund „Friert (kein Holz, keine Kohle)“.
 - **Haltbares Essen zuerst**: siehe „Nahrung, Vitamine und Gleichgewicht“ (`Game.durable_first`).
-- **5 Fischgründe auf der Startinsel** (islands.json `min_fish`): `StartFish.place` legt nach allen
-  anderen Rohstoffen in einem eigenen Durchgang (eigener Zufall) fehlende Fischgründe auf freies Wasser
-  am Ufer, nah am Lagerfeuer zuerst, mindestens 4 (zur Not 3) Felder von anderen entfernt; der Rest der
-  Karte bleibt gleich. Über 100 Seeds hatte die Startinsel schon vorher 4–17 Fischgründe (Schnitt 9,6),
-  nur etwa jede hundertste weniger als 5 (Spiel-Seeds 111, 340, 359, 386 von 1–399). Ältere Spielstände
-  bekommen die fehlenden beim Laden (`StartFish.patch` in `World.build_from_save`, bis `min_fish`; danach
-  fehlt keiner mehr, es passiert also nur einmal) mit der Meldung „Vor der Küste der Heimatinsel gibt es
-  jetzt N neue Fischgründe“.
 - **Belohnung für die Einführung** (`Extras.tutorial_reward`, aus `GoalCard._advance`, wenn der letzte
   Schritt erfüllt ist; nicht beim Überspringen und nicht beim stillen Nachholen alter Spielstände): eine
   fertige Hütte auf dem ersten freien Platz um das Lagerfeuer (Ring für Ring, eine Zelle Abstand zu
@@ -429,7 +420,6 @@ er meldet sich als System bei Game an) und `scripts/world/start_fish.gd` (`Start
 - **Testhilfen**: `--coaltest=1` (Kohle vor Holz, Texte; mit `--season=3` ein Winter mit `--coal=N
   --coalwood=N`), `--freezetest=1` (mit `--season=3 --winter=normal`: ein Kind und eine Alte dazu, das
   Lager bleibt ohne Brennstoff; Bericht mit Kälte und Gesundheit je Siedler, Reihenfolge der Toten),
-  `--fishtest=1` (100 Seeds vorher/nachher, übrige Karte gleich, Seeds mit zu wenigen),
   `--foodorder=1` (Essensreihenfolge), `--tutdone=1` (letzter Einführungsschritt: 2 Siedler, Hütte).
 
 ## Inselstärken, Gewürze und fremde Händler (Herausforderung)
@@ -1146,7 +1136,6 @@ oder „neu“; danach heißen der Spielstand-Platz (`slot_<tag>`) und die Rekor
 | `scripts/autoload/sea.gd` | Inseln, Welten je Insel, Schiffsreisen, Inselwechsel |
 | `scripts/world/island_gen.gd` | Inselgenerator (Seed → Gelände + Rohstoffe) |
 | `scripts/world/island_traits.gd` | Inselstärken (`biome_bonus`) und Gewürzsträucher |
-| `scripts/world/start_fish.gd` | Fischgründe der Startinsel (`min_fish`), auch für ältere Spielstände |
 | `scripts/autoload/extras.gd` | Kohleheizung, Erfrieren, Belohnung der Einführung und ihre Selbsttests (Kind von Seasons) |
 | `scripts/world/world.gd` | Tilemaps, Wegfindung (AStarGrid2D), Entitäten, Bauen, Effekte, Tag/Nacht |
 | `scripts/world/game_camera.gd` | Ziehen, Zoom (Mausrad, zwei Finger), Tippen |
@@ -1218,7 +1207,7 @@ godot --headless -- --autotest=120 --scale=10 --tuttest=1  # spielt die Einführ
 godot --headless --fixed-fps 60 -- --autotest=25 --scale=10 --seed=11 --tutdone=1  # Einführung beenden: 2 Siedler, Hütte
 godot --headless --fixed-fps 60 -- --autotest=100 --scale=10 --seed=11 --season=3 --coaltest=1  # Kohle vor Holz
 godot --headless --fixed-fps 60 -- --autotest=200 --scale=10 --seed=11 --season=3 --winter=normal --freezetest=1  # Erfrieren
-godot --headless --fixed-fps 60 -- --autotest=5 --scale=10 --fishtest=1  # Fischgründe der Startinsel (auch --foodorder=1)
+godot --headless --fixed-fps 60 -- --autotest=5 --scale=10 --foodorder=1  # Essensreihenfolge
 godot --headless -- --autotest=150 --scale=10 --schooltest=1  # Steinhaus und Schule: Geburten, Schulkinder
 godot --headless -- --autotest=130 --scale=10 --seed=7 --needstest=1  # Bedürfnisstufen und Fachkräfte
 godot --headless -- --autotest=160 --scale=10 --seed=7 --tradetest2=1  # fremde Händler (auch --spicetest, --biometest)
