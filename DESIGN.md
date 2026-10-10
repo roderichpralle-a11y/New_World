@@ -831,6 +831,16 @@ bringt ein Fest, Einwanderer und Waren. Dazu eine Wertung mit Rekorden (Menü > 
   (`fest_days` = 1 Tag, Laune „Feiert das neue Zeitalter“ +`people.json fest_mood` = 15, „Fest!“ über den
   Siedlern), Belohnung über `Game.grant_reward` auf die besiedelte Insel mit den meisten freien Wohnplätzen
   (Einwanderer zuerst als Paar, mit niemandem verwandt; Waren auf dieselbe Insel).
+- **Fest-Video**: Beim Fest geht mitten im Bild ein kleines Video auf (`FestVideo`, `scripts/ui/fest_video.gd`,
+  Signal `Exams.fest_started(Anlass)`): 5,5 Sekunden Pixelbühne (96 Pixel hoch, 100..180 breit, ganzzahlig
+  vergrößert, Handy 360 px: x3, PC 960x540: x4) mit Nachthimmel und Meer, Wimpelkette und drei Laternen,
+  6 Siedlern aus den Spiel-Sprites, die um ein flackerndes Lagerfeuer tanzen (Funken, Arme hoch, kleine
+  Sprünge), 8 Feuerwerksraketen, Konfetti und einem roten Banner „Fest!“ mit dem Anlass („Ein neues
+  Zeitalter: Antike“). Alles wird im Code gezeichnet, ohne neue Bilddateien; jedes Bild hängt nur von der
+  Zeit ab. Es läuft in Echtzeit (auch bei Tempo 3 oder Pause gleich lang), das Spiel läuft darunter weiter
+  (kein Anhalten, damit es nicht mit anderen Fenstern um das Tempo streitet). Sound `stufe`. Tippen oder
+  Klicken (auch Esc, Leertaste, Enter) überspringt, danach schließt es sich selbst. Ein neues Fest ersetzt
+  ein laufendes Video. In Selbsttests erscheint es nur mit `--festvideo=1` oder `--panel=fest`.
 - **Anzeige**: im Forschungsfenster unter der Überschrift des nächsten Zeitalters ein Kasten mit jeder
   Bedingung (Haken und grün, wenn erfüllt, sonst blasses Symbol und rote Zahl) und der Belohnung
   (`ExamView`, alle 0,5 s aufgefrischt); Forschungen dieses Zeitalters zeigen „Prüfung“ (Tippen nennt, was
@@ -865,6 +875,10 @@ bringt ein Fest, Einwanderer und Waren. Dazu eine Wertung mit Rekorden (Menü > 
   ist, aber eine des nächsten Zeitalters (wie früher der Sprung); `--strictexam` schaltet das ab.
   Bildschirmfotos: `--panel=research --examscroll=1`, `--examhint=1` (Zielkarte aufgeklappt),
   `--panel=score` (`--scorescroll=1`), `--gameovershot=1`.
+  Fest-Video: `--festvideo=1` (besteht eine echte Prüfung: Video offen mit Anlass und Sound, im Bild, schließt
+  nach 5,5 s selbst, Spiel läuft weiter, Überspringen per Klick, Fingertipp und Taste, ohne Testschalter kein
+  Video; Ausgabe `FESTVIDEO ...` und am Ende `FESTVIDEO OK`), Bildschirmfoto `--panel=fest --festframe=2.4`
+  (Standbild zu dieser Sekunde).
 
 ## Aufträge mit Wahl
 
@@ -1225,7 +1239,8 @@ godot --headless --fixed-fps 60 -- --autotest=30 --scale=10 --seed=7 --basictrad
 godot --headless --fixed-fps 60 -- --autotest=820 --scale=10 --seed=11 --bot=1 --noevents=1 --winter=normal  # Spiel-Bot v2, 4 Jahre
 #   --fixed-fps 60 vor "--" rechnet so schnell wie moeglich (gleicher Spielverlauf); --seed=N feste Insel
 #   dazu --wildlife=1: Tierbestand je Insel und Bau; --weak=1: ohne Waffenkunde (Tiere gefährlicher), Bildschirmfoto: --island=<id>, --panel=sea
-# Bildschirmfoto-Optionen: --panel=research|build|stock, --selectb=<typ>, --look=1
+# Bildschirmfoto-Optionen: --panel=research|build|stock|fest (--festframe=<s>), --selectb=<typ>, --look=1
+godot --headless --fixed-fps 60 -- --autotest=25 --scale=10 --festvideo=1  # Fest-Video
 xvfb-run godot --rendering-driver opengl3 -- --autotest=20 --shot=/tmp/bild.png
 godot --headless --export-release "Web" build/web/index.html
 ```
