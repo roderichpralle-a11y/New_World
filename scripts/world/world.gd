@@ -42,6 +42,9 @@ var _mat_needle: ShaderMaterial
 var _layers: Array = []
 var _unreachable: Dictionary = {}
 var _storage_warn_time: float = -10.0
+## Forschung braucht Schriften (Writing): angefangene Einheiten je Ware (nicht gespeichert), letzte Meldung
+var writing_debt: Dictionary = {}
+var writing_warn_time: float = -10.0
 var _placing: String = ""
 var _ghost_cell: Vector2i
 var _move_b = null  # Gebaeude, das gerade verschoben wird (sonst null)
@@ -170,6 +173,7 @@ func build_from_save(w: Dictionary, m: Dictionary) -> void:
 				var have := animals.filter(func(an): return an.home == n.cell).size()
 				for i in max(0, int(n.def.get("den_cap", 1)) - have):
 					_spawn_at_den(n)
+	IslandTraits.patch_spice(self, island)  # Gewürzsträucher (Palmeninsel) für ältere Spielstände
 	Game.on_population_changed()
 
 
@@ -594,6 +598,8 @@ func find_workshop(kind: String, from: Vector2i, sid: int):
 			continue
 		if b.prod_blocker() != "":
 			continue
+		if not pool_allows(b, sid):
+			continue
 		var scarce := INF
 		for res in b.prod_def().get("outputs", {}):
 			scarce = min(scarce, float(Game.amount(res, self)))
@@ -615,6 +621,8 @@ func find_research_place(from: Vector2i, sid: int):
 			continue
 		if _unreachable.has(b) and _unreachable[b] > Game.time_days:
 			continue
+		if not pool_allows(b, sid):
+			continue
 		var score := float(b.research_def().get("factor", 1.0)) * 100.0 - Vector2(b.cell - from).length()
 		if score > best_score:
 			best_score = score
@@ -622,11 +630,18 @@ func find_research_place(from: Vector2i, sid: int):
 	return best
 
 
+## Fachkräfte-Pool (Bedürfnisstufen): darf Siedler sid (0 = irgendwer) an diesem Platz arbeiten?
+func pool_allows(b, sid: int = 0) -> bool:
+	return HouseNeeds.pool_allows(self, b, sid)
+
+
 ## Ausbau (z. B. Huette -> Holzhaus): das Gebaeude wird zur Baustelle des neuen Typs.
 func upgrade_building(b: Building) -> Building:
 	var to: String = b.def.get("upgrade", "")
 	if to == "" or not Game.is_unlocked(to) or not b.complete:
 		return null
+	if not HouseNeeds.full_level(b):
+		return null  # Häuser ab Stufe 2: erst wenn ihre Bedürfnisse erfüllt sind
 	var c := b.cell
 	var bid := b.id
 	for s in settlers:
@@ -717,9 +732,9 @@ func find_field_task(from: Vector2i, sid: int):
 
 func assign_homes() -> void:
 	var free := {}
-	# Bessere Haeuser zuerst belegen: dort kommen mehr Kinder zur Welt
+	# Bessere Haeuser (hoehere Stufe) zuerst belegen: dort kommen mehr Kinder zur Welt
 	var homes := buildings.filter(func(b): return b.housing() > 0)
-	homes.sort_custom(func(a, b): return float(a.def.get("birth_bonus", 1.0)) > float(b.def.get("birth_bonus", 1.0)))
+	homes.sort_custom(func(a, b): return a.house_level() > b.house_level())
 	for b in homes:
 		free[b] = b.housing()
 	for s in settlers:
@@ -741,9 +756,9 @@ func assign_homes() -> void:
 	movers.sort_custom(func(a, b): return a.is_adult() and not b.is_adult())
 	for s in movers:
 		var cur = building_by_id(s.home_id)
-		var cur_bonus := float(cur.def.get("birth_bonus", 1.0))
+		var cur_lvl: int = cur.house_level()
 		for h in free:
-			if free[h] > 0 and float(h.def.get("birth_bonus", 1.0)) > cur_bonus:
+			if free[h] > 0 and h.house_level() > cur_lvl:
 				free[h] -= 1
 				free[cur] += 1
 				s.home_id = h.id
@@ -819,18 +834,26 @@ func unique_name(sex: String, rng: RandomNumberGenerator) -> String:
 	return name + " " + ["II", "III", "IV", "V"][rng.randi() % 4]
 
 
-func spawn_newcomer(sex: String) -> Settler:
+## Erwachsener Neuankoemmling am Strand (Schiffbruechige, Einwanderer). opts (Game.spawn_immigrants):
+## talent (Faehigkeit mit sicherer Begabung), talent_val, skill (Stufe darin), hunger (Standard 40).
+func spawn_newcomer(sex: String, opts: Dictionary = {}) -> Settler:
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
 	var best = beach_near(rng)
 	if best == null:
 		return null
 	var mind := SettlerMind.roll(rng)
+	var talent := str(opts.get("talent", ""))
+	if Data.skills.has(talent):
+		mind.talents[talent] = maxf(float(mind.talents[talent]),
+			float(opts.get("talent_val", rng.randf_range(1.5, float(Data.ppl("talent_max"))))))
 	var skills := {}
 	for sk in Data.skills:
 		skills[sk] = clampi(roundi(1.0 + (float(mind.talents[sk]) - 0.8) * 3.0 + rng.randf_range(0.0, 1.0)), 1, 5)
+	if Data.skills.has(talent):
+		skills[talent] = maxi(int(skills[talent]), int(opts.get("skill", clampi(4 + Game.current_age() / 2, 4, 7))))
 	var s := spawn_settler({"name": unique_name(sex, rng), "sex": sex, "age": rng.randf_range(4.0, 12.0),
-		"skills": skills, "mind": mind, "job": "frei", "x": best.x, "y": best.y, "hunger": 40.0})
+		"skills": skills, "mind": mind, "job": "frei", "x": best.x, "y": best.y, "hunger": float(opts.get("hunger", 40.0))})
 	assign_homes()
 	spawn_effect("chips_fischgrund", s.position)
 	Game.on_population_changed()
@@ -874,7 +897,8 @@ func remove_settler(s: Settler) -> void:
 	assign_homes()
 
 
-func kill_settler(s: Settler, reason: String) -> void:
+## reason: Anzeigetext, cause: Schluessel der Todesart ("starve", "sick", "old", "killed").
+func kill_settler(s: Settler, reason: String, cause: String = "") -> void:
 	if not settlers.has(s):
 		return
 	s.abort_plan()
@@ -885,7 +909,7 @@ func kill_settler(s: Settler, reason: String) -> void:
 	_add_grave(s.position, Game.time_days + 3.0)
 	s.queue_free()
 	assign_homes()
-	Game.on_settler_died(s, reason)
+	Game.on_settler_died(s, reason, cause)
 
 
 func _add_grave(p: Vector2, until: float) -> void:
@@ -901,7 +925,7 @@ func _add_grave(p: Vector2, until: float) -> void:
 # ================================================================== Effekte
 ## Geraeusch beim Abbauen je Rohstoffquelle
 const CHIP_SOUNDS := {"baum": "axt", "palme": "axt", "fels": "stein", "erzader": "stein", "goldader": "stein",
-	"busch": "pfluecken", "pilzkreis": "pfluecken", "fischgrund": "platsch"}
+	"busch": "pfluecken", "pilzkreis": "pfluecken", "fischgrund": "platsch", "gewuerzstrauch": "pfluecken"}
 
 
 func spawn_effect(kind: String, p: Vector2) -> void:
@@ -918,6 +942,7 @@ func spawn_effect(kind: String, p: Vector2) -> void:
 		"chips_wolfsbau": [Color("#7e5438"), Color("#4a3428")],
 		"chips_eberbau": [Color("#6e5a40"), Color("#4a3428")],
 		"chips_baerenhoehle": [Color("#8a8c9e"), Color("#4a3428")],
+		"chips_gewuerzstrauch": [Color("#c0502a"), Color("#5aa852")],
 		"blood": [Color("#c03030"), Color("#ff6a5a")],
 		"leaves": [Color("#62ac52"), Color("#8acb62")],
 		"dust": [Color("#e8d8b0"), Color("#c8b890")],
@@ -993,6 +1018,13 @@ func warn_storage_full(res: String) -> void:
 	if Game.time_days - _storage_warn_time > 1.0:
 		_storage_warn_time = Game.time_days
 		Game.notify(tr("Kein Platz mehr für %s. Baue ein Lager oder stelle im Lager mehr Platz dafür ein.") % Data.resource_name(res), "haus")
+
+
+## Forschung braucht Schriften: ein Forscher dieser Insel hat pts Punkte erarbeitet (mit Bonus). Verbraucht
+## Schreibwaren (rates: Ware -> Einheiten je 100 Punkte) aus diesem Lager; liefert den Faktor fuer die Punkte
+## (1.0, oder balance.writing_missing_factor, wenn etwas fehlt). Siehe Writing.consume.
+func use_writing(rates: Dictionary, pts: float) -> float:
+	return Writing.consume(self, rates, pts)
 
 
 # ================================================================== Tag und Nacht
@@ -1233,7 +1265,7 @@ func serialize() -> Dictionary:
 		"buildings": buildings.map(func(b): return b.serialize()),
 		"settlers": settlers.map(func(s): return s.serialize()),
 		"graves": graves.map(func(g): return [pos_to_cell(g[0].position).x, pos_to_cell(g[0].position).y, g[1]]),
-		"animals": animals.map(func(a): return a.serialize()),
+		"animals": animals.filter(func(a): return not a is Raider).map(func(a): return a.serialize()),  # Piraten: Events
 		"den_breed": _den_breed,
 	}
 
@@ -1329,6 +1361,7 @@ func sync_ships() -> void:
 		sp.position = cell_to_pos(spot)
 		entities.add_child(sp)
 		_ship_nodes[id] = sp
+	Merchant.add_ship(self, taken)  # fremder Händler liegt im Hafen
 
 
 func _ship_spot(taken: Array):
@@ -1395,6 +1428,8 @@ func adult_count(type: String) -> int:
 
 ## Die letzten Tiere einer Art werden geschont (Jaeger, Wachturm, Notwehr), Jungtiere immer.
 func is_protected(a) -> bool:
+	if a is Raider:
+		return false  # Piraten (Events) werden immer vertrieben
 	return not a.is_adult() or adult_count(a.type) <= int(Data.bal("hunt_min_keep", 2))
 
 

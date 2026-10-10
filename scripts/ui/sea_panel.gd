@@ -453,6 +453,8 @@ func _fill_island() -> void:
 			hs.add_child(UiTheme.icon_rect(Data.res_icon(r), 16))
 			hs.add_child(UiTheme.label(Data.resource_name(r), 13))
 		_details.add_child(hs)
+	IslandTraits.strength_row(_details, m)  # Inselstärken: Gebäude, die hier schneller arbeiten
+	TradePanel.sea_rows(self, m)  # fremder Händler hier oder angekündigt
 	if w and m.state == "settled":
 		_details.add_child(_wrap(tr("Hafen: %s. %s.") % [Sea.harbor_level_name(Sea.harbor_level(w)), Sea.berth_text(w)], 12))
 		var docked := Sea.ships_at(int(m.id))
@@ -731,7 +733,7 @@ func _fill_ship() -> void:
 	# Route
 	_details.add_child(UiTheme.label(tr("Route"), 15, UiTheme.TEXT, true))
 	if sh.route.is_empty():
-		_details.add_child(_hint(tr("Eine Route fährt immer wieder von Insel zu Insel. An jedem Halt lädt das Schiff, was du dort einstellst, und lädt alles andere ab.")))
+		_details.add_child(_hint(tr("Eine Route fährt von Insel zu Insel, immer wieder oder einmal hin und zurück. An jedem Halt lädt das Schiff, was du dort einstellst, und lädt alles andere ab.")))
 	for i in sh.route.size():
 		var st: Dictionary = sh.route[i]
 		var row := HBoxContainer.new()
@@ -754,9 +756,12 @@ func _fill_ship() -> void:
 		rm.pressed.connect(func():
 			sh.route.remove_at(ii)
 			sh.leg = 0
+			Sea.set_route_once(sh, Sea.is_once(sh))
 			refresh())
 		row.add_child(rm)
 		_details.add_child(row)
+	if sh.route.size() >= 2:
+		_route_mode_row(sh)
 	var acts := HFlowContainer.new()
 	acts.add_theme_constant_override("h_separation", 6)
 	acts.add_theme_constant_override("v_separation", 6)
@@ -776,6 +781,7 @@ func _fill_ship() -> void:
 			else:
 				sh.route.append({"island": next_i, "load": {}})
 			sh.paused = true
+			Sea.set_route_once(sh, Sea.is_once(sh))
 			_stop_i = sh.route.size() - 1
 			_go("stop"))
 		acts.add_child(add)
@@ -801,6 +807,33 @@ func _fill_ship() -> void:
 			refresh())
 		_details.add_child(ul)
 	_details.add_child(_back_btn("ships"))
+
+
+## Fahrtart der Route: „Immer wieder“ oder „Einmal hin und zurück“ (Sea.set_route_once), dazu der Stand.
+func _route_mode_row(sh: Dictionary) -> void:
+	var row := HFlowContainer.new()
+	row.add_theme_constant_override("h_separation", 6)
+	row.add_theme_constant_override("v_separation", 4)
+	row.add_child(UiTheme.label(tr("Fahrt:"), 13, UiTheme.TEXT, true))
+	for once in [false, true]:
+		var b := UiTheme.button(tr("Einmal hin und zurück") if once else tr("Immer wieder"), "", 32)
+		b.add_theme_font_size_override("font_size", 13)
+		b.toggle_mode = true
+		b.button_pressed = Sea.is_once(sh) == once
+		b.tooltip_text = tr("Das Schiff fährt alle Halte einmal ab, kommt zum ersten Halt zurück, lädt dort alles ab und ist dann wieder frei.") if once \
+			else tr("Das Schiff fährt die Halte immer wieder ab, bis du die Route anhältst.")
+		var on: bool = once
+		b.pressed.connect(func():
+			if Sea.is_once(sh) != on:
+				Sea.set_route_once(sh, on)
+			refresh())
+		row.add_child(b)
+	_details.add_child(row)
+	if Sea.is_once(sh):
+		var left := Sea.once_stops_left(sh)
+		var t := (tr("Noch %d Halte, dann ist das Schiff wieder frei.") % left if left > 1 else tr("Noch ein Halt, dann ist das Schiff wieder frei.")) if left > 0 and not sh.paused \
+			else tr("Startet am Halt, den das Schiff als Nächstes anläuft, und kommt dorthin zurück.")
+		_details.add_child(_hint(t))
 
 
 func _fill_stop() -> void:

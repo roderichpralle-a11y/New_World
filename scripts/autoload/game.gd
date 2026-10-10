@@ -12,12 +12,25 @@ signal game_over
 signal research_changed
 ## Spieler hat etwas getan (fuer die Einfuehrung), z. B. ("job", "holzfaeller")
 signal player_action(kind: String, what: String)
+## Neues Spiel: reset_state ist fertig (die neue Welt entsteht erst danach). Systeme setzen
+## hier ihren Zustand zurueck.
+signal state_reset
+## Beim Speichern, kurz vor dem Schreiben: Systeme legen ihre eigenen Schluessel oben in `data` ab.
+signal state_save(data: Dictionary)
+## Nach dem Laden (alle Welten existieren schon, siehe after_load). old_rules < RULES heisst:
+## der Spielstand stammt von vor den neuen Regeln (Systeme stellen dann ihre Startwerte ein und
+## haengen eine Zeile an rules_lines an).
+signal state_load(data: Dictionary, old_rules: int)
+## Ein Siedler ist gestorben. cause: "starve" (verhungert), "sick", "old", "killed" oder "".
+signal settler_died(settler, cause: String)
 
 const LIVE_SAVE_PATH := "user://savegame.json"
 ## Die Testversion (Webadresse mit /test/) hat einen eigenen Spielstand. Beim ersten Start
 ## übernimmt sie eine Kopie des normalen Spielstands; der normale bleibt unberührt.
 var SAVE_PATH := LIVE_SAVE_PATH
 var is_test_build := false
+## "test" (/test/) oder "neu" (/neu/, Umbau "Mehr Herausforderung"); leer im normalen Spiel
+var build_tag := ""
 ## Fuenf Spielstaende: Platz 1 ist die bisherige Datei, die anderen haengen _2 .. _5 an.
 ## Der aktive Platz steht in user://settings.cfg [game] slot (Testversion: slot_test).
 const SLOTS := 5
@@ -28,6 +41,31 @@ var autostart := ""
 ## Vor dem Neuladen der Seite: nichts mehr speichern (sonst landet das laufende Spiel im neuen Platz)
 var save_locked := false
 const SAVE_VERSION := 3
+## Regelstand ("Mehr Herausforderung" = 1). SAVE_VERSION bleibt 3 (alte, noch im Browser
+## zwischengespeicherte Versionen lehnen unbekannte Versionen ab und wuerden Spielstaende loeschen).
+## Spielstaende ohne "rules" (= 0) bekommen die neuen Regeln ab dem Laden.
+const RULES := 1
+var rules: int = RULES
+var rules_day: float = 0.0  # time_days, ab dem die Regeln fuer diesen Spielstand gelten
+var rules_old: int = RULES  # Regelstand des geladenen Spielstands (vor dem Hochsetzen)
+## Zeilen fuer das Fenster "Neue Regeln": jedes System haengt in seinem state_load-Handler
+## (bei old_rules < 1) eine kurze Zeile in einfachem Deutsch an.
+var rules_lines: Array = []
+var rules_due := false  # Fenster Neue Regeln noch nicht gezeigt
+## Autoload-Systeme melden sich in _ready an (register_system). main.gd ruft im Selbsttest
+## autotest_setup(args, main) und autotest_report() auf, wenn es sie gibt.
+var systems: Array = []
+## Sicherung fuer aeltere Versionen (z. B. eine im Browser zwischengespeicherte alte Web-App):
+## Die behalten beim Speichern nur ihre eigenen Schluessel (OLD_SAVE_KEYS), die Inseldaten in
+## islands[0] aber unveraendert. Dort liegt deshalb unter "v2" eine Kopie der neuen Schluessel,
+## der Forschung und der Gebaeude und Waren, die alte Versionen nicht kennen (siehe _store_backup).
+const OLD_SAVE_KEYS := ["version", "seed", "time_days", "next_id", "stats", "lineage", "research", "goals",
+	"islands", "active", "voyages", "ships", "next_ship", "stock", "store_limits", "world"]
+const V2_BUILDINGS := ["tafelmacherei", "brunnen"]
+const V2_GOODS := ["tontafel", "gewuerze"]
+var _v2_restore: Dictionary = {}  # Insel-ID (Text) -> {"b": Gebaeude, "s": Waren} zum Zurueckholen
+var _notes: Array = []  # Meldungen, bevor das Spiel sichtbar laeuft (queue_note)
+var notes_live := false
 
 var world = null  # aktive (sichtbare) Insel, siehe Sea fuer alle Inseln
 var seed_value: int = 0
@@ -38,7 +76,9 @@ var speed: int = 1
 var stock: Dictionary = {}
 var store_limits: Dictionary = {}
 var next_id: int = 1
-var stats: Dictionary = {"births": 0, "deaths": 0, "max_pop": 0}
+## Statistik. Neuere Schluessel immer mit stats.get(k, 0) lesen (alte Spielstaende haben sie nicht):
+## starved = Hungertote, starve_day = time_days des letzten Hungertods (alte Spielstaende: rules_day).
+var stats: Dictionary = {"births": 0, "deaths": 0, "max_pop": 0, "starved": 0, "starve_day": 0.0}
 var selected = null
 var is_over: bool = false
 var lineage: Dictionary = {}  # Siedler-ID -> [Eltern-IDs], auch fuer Verstorbene
@@ -48,6 +88,8 @@ var research: Dictionary = {"current": "", "progress": {}, "done": [], "paid": [
 var goals: Dictionary = {"tut": 0, "ms": 0, "tv": 2}
 var eaten: Dictionary = {}  # gegessene Speisen seit Spielbeginn (fuer Statistik und Tests)
 var effects: Dictionary = {}  # Summe aller Forschungs-Effekte, z. B. {"build": 0.2}
+var reward_wait: Dictionary = {}  # Belohnungen ohne Lagerplatz, siehe _wait_goods
+var _wait_next := 0.0
 
 var _birth_timer: float = 0.0
 var _autosave_timer: float = 0.0
@@ -69,12 +111,26 @@ func _detect_test_build() -> void:
 		path = str(JavaScriptBridge.eval("window.location.pathname", true))
 	if "--testbuild" in OS.get_cmdline_user_args():
 		path = "/test/"
-	if not "/test" in path:  # /test/ und /test-en/
+	if "--neubuild" in OS.get_cmdline_user_args():
+		path = "/neu/"
+	if "/neu/" in path:  # Umbau "Mehr Herausforderung": eigener Spielstand
+		build_tag = "neu"
+	elif "/test" in path:  # /test/ und /test-en/
+		build_tag = "test"
+	else:
 		return
 	is_test_build = true
-	SAVE_PATH = "user://savegame_test.json"
-	if not FileAccess.file_exists(SAVE_PATH) and FileAccess.file_exists(LIVE_SAVE_PATH):
-		DirAccess.copy_absolute(LIVE_SAVE_PATH, SAVE_PATH)
+	SAVE_PATH = "user://savegame_%s.json" % build_tag
+	# Kopie des Spiels, das gerade im normalen Spiel aktiv ist ([game] slot), sonst Platz 1
+	var live := LIVE_SAVE_PATH
+	var cf := ConfigFile.new()
+	if cf.load("user://settings.cfg") == OK:
+		var n := clampi(int(cf.get_value("game", "slot", 1)), 1, SLOTS)
+		var p := LIVE_SAVE_PATH if n <= 1 else LIVE_SAVE_PATH.replace(".json", "_%d.json" % n)
+		if FileAccess.file_exists(p):
+			live = p
+	if not FileAccess.file_exists(SAVE_PATH) and FileAccess.file_exists(live):
+		DirAccess.copy_absolute(live, SAVE_PATH)
 
 
 func reset_state(new_seed: int) -> void:
@@ -83,10 +139,17 @@ func reset_state(new_seed: int) -> void:
 	stock = {}
 	store_limits = {}
 	next_id = 1
-	stats = {"births": 0, "deaths": 0, "max_pop": 0}
+	stats = {"births": 0, "deaths": 0, "max_pop": 0, "starved": 0, "starve_day": time_days}
 	lineage = {}
 	research = {"current": "", "progress": {}, "done": [], "paid": []}
 	goals = {"tut": 0, "ms": 0, "tv": 2}
+	rules = RULES
+	rules_old = RULES
+	rules_day = time_days
+	rules_lines = []
+	rules_due = false
+	reward_wait = {}
+	_notes.clear()
 	Sea.reset(new_seed)
 	_recompute_effects()
 	selected = null
@@ -94,6 +157,13 @@ func reset_state(new_seed: int) -> void:
 	_last_day = day()
 	set_speed(1)
 	research_changed.emit()
+	state_reset.emit()
+
+
+## Ein Autoload-System meldet sich an (in seinem _ready).
+func register_system(s: Node) -> void:
+	if not s in systems:
+		systems.append(s)
 
 
 func new_id() -> int:
@@ -148,6 +218,10 @@ func _process(delta: float) -> void:
 			if eff_add("ai_jobs") > 0.0:
 				for w in Sea.all_worlds():
 					AiJobs.tick(w)
+		if time_days >= _wait_next:
+			_wait_next = time_days + 0.25
+			if not reward_wait.is_empty():
+				_deliver_waiting()
 		# Geschichten am Lagerfeuer: ein kleines bisschen Forschung kommt immer voran
 		add_research(float(Data.bal("passive_research_per_day", 0.0)) * delta * mult / float(Data.bal("day_length")), false)
 		_birth_timer += delta / float(Data.bal("day_length"))
@@ -412,6 +486,8 @@ func choose_food(s, w = null) -> String:
 	if ids.is_empty():
 		return ""
 	var needed := _ingredient_goods(w)
+	if vit_need <= 0.0:
+		ids = durable_first(ids)  # josh: erst das haltbare Essen; wer Vitamine braucht, wählt frei
 	var meals: Array = s.mind.meals
 	var best := ""
 	var best_score := -INF
@@ -441,6 +517,25 @@ func choose_food(s, w = null) -> String:
 	return best
 
 
+## Haltbares Essen zuerst (josh 2026-10-09): ist haltbare Nahrung da (nicht in seasons.json
+## `perishable`), wählt choose_food nur unter ihr; das andere erst, wenn keine haltbare mehr da ist.
+## Ausnahme: wer unter `vitamin_target` Vitamine hat, wählt aus allem (sonst äße eine Insel mit
+## Bäckerei nur Brot und bekäme Skorbut).
+## Rohware, die eine Werkstatt weiterverarbeitet (Getreide für Mühle und Hühnerhof), zählt nicht als
+## haltbares Essen, sonst äßen die Siedler das Korn roh, bevor es zu Brot wird.
+func durable_first(ids: Array) -> Array:
+	if _raw_food.is_empty():
+		for t in Data.buildings:
+			for id in Data.buildings[t].get("production", {}).get("inputs", {}):
+				_raw_food[id] = true
+	var perish: Array = Seasons.cfg.get("perishable", [])
+	var keep := ids.filter(func(id): return not id in perish and not _raw_food.has(id))
+	return keep if not keep.is_empty() else ids
+
+
+var _raw_food: Dictionary = {}  # Waren, die eine Werkstatt weiterverarbeitet (durable_first)
+
+
 ## Waren, die eine fertige Werkstatt der Insel als Zutat braucht.
 func _ingredient_goods(w) -> Dictionary:
 	var out := {}
@@ -467,12 +562,14 @@ func food_variety(w = null) -> int:
 const NOTIFY_CATS := {"tag": "Tag und Jahreszeit", "siedler": "Siedler und Nachwuchs",
 	"gesundheit": "Krankheiten", "tod": "Todesfälle und verlorene Inseln", "bauen": "Bauen",
 	"lager": "Lager, Vorräte und Winter", "forschung": "Forschung und Zeitalter", "see": "Seefahrt",
-	"tiere": "Tiere und Jagd", "ki": "KI-Steuerung"}
+	"tiere": "Tiere und Jagd", "ereignis": "Ereignisse und Händler", "ki": "KI-Steuerung",
+	"ziel": "Meldungen zu Aufträgen"}
 ## Art einer Meldung nach ihrem Symbol, wenn der Aufruf keine Art nennt
 const NOTIFY_ICON_CAT := {"": "tag", "sonne": "tag", "herz": "siedler", "person": "siedler",
 	"abriss": "tod", "hammer": "bauen", "haus": "lager", "holz": "lager", "weizen": "lager",
 	"wissen": "forschung", "zeitalter": "forschung", "boot": "see", "anker": "see", "kompass": "see",
-	"schild": "tiere", "fleisch": "tiere", "ki": "ki"}
+	"schild": "tiere", "fleisch": "tiere", "ki": "ki", "ereignis": "ereignis", "haendler": "ereignis",
+	"feuer": "ereignis", "ratte": "ereignis", "ziel": "ziel"}
 var notify_off: Dictionary = {}  # Art -> true, wenn abgeschaltet (user://settings.cfg [notify])
 var goal_card_on: bool = true
 
@@ -490,6 +587,24 @@ func notify_at(w, text: String, icon: String = "", cat: String = "") -> void:
 	if w and w != world and Sea.worlds.size() > 1:
 		text = "%s: %s" % [Sea.island_name(w), text]
 	notify(text, icon, cat)
+
+
+## Meldung, die auch beim Laden nicht verloren geht: solange das Spiel noch nicht sichtbar laeuft
+## (Laden, Titelbild), wird sie gemerkt und mit flush_notes() gezeigt, danach wie notify().
+func queue_note(text: String, icon: String = "", cat: String = "") -> void:
+	if notes_live:
+		notify(text, icon, cat)
+	else:
+		_notes.append([text, icon, cat])
+
+
+## Zeigt die gemerkten Meldungen (main.gd, sobald das Spiel startet oder weiterlaeuft).
+func flush_notes() -> void:
+	notes_live = true
+	var list := _notes.duplicate()
+	_notes.clear()
+	for n in list:
+		notify(n[0], n[1], n[2])
 
 
 func _load_notify_settings() -> void:
@@ -519,10 +634,9 @@ func select(obj) -> void:
 
 # ---------------------------------------------------------------- Nachwuchs
 func _try_birth() -> void:
-	if total_food() < population() * int(Data.bal("birth_food_per_person")):
-		return
+	# Jede Insel zaehlt ihr eigenes Essen
 	for w in Sea.all_worlds():
-		if w.settlers.size() < housing_capacity(w):
+		if w.settlers.size() < housing_capacity(w) and total_food(w) >= w.settlers.size() * int(Data.bal("birth_food_per_person")):
 			_try_birth_on(w)
 
 
@@ -549,7 +663,7 @@ func _try_birth_on(w) -> void:
 	var father = pair[1]
 	var chance := float(Data.bal("birth_chance"))
 	# Abwechslungsreiche Kost macht Lust auf Familie
-	if food_variety() >= int(Data.bal("variety_min", 3)):
+	if food_variety(w) >= int(Data.bal("variety_min", 3)):
 		chance *= float(Data.bal("variety_birth_bonus", 1.0))
 	chance *= eff("birth")
 	# In besseren Haeusern kommen mehr Kinder zur Welt
@@ -573,6 +687,8 @@ func _try_birth_on(w) -> void:
 func home_birth_bonus(w, mother) -> float:
 	var home = w.building_by_id(mother.home_id)
 	if home and home.complete:
+		if not HouseNeeds.full_level(home):
+			return 1.0  # Bedürfnisse des Hauses nicht erfüllt: kein Bonus
 		return float(home.def.get("birth_bonus", 1.0))
 	return 1.0
 
@@ -588,6 +704,180 @@ func _try_newcomer(w, adults: Array) -> void:
 	if s:
 		notify_at(w, tr("%s ist an den Strand gespült worden und schließt sich euch an!") % s.display_name, "person")
 		Sound.play_on("glocke", w)
+
+
+# ---------------------------------------------------------------- Belohnungen
+## Gibt Waren auf Insel w; was dort keinen Platz hat, geht auf andere besiedelte Inseln mit Platz,
+## der Rest ist verloren. Liefert [untergebracht, davon auf anderen Inseln].
+func give_goods(w, id: String, n: int) -> Array:
+	var home = _isle(w)
+	var placed := 0
+	var elsewhere := 0
+	var where := {}  # andere Insel (Name) -> Menge
+	if n <= 0 or not Data.resources.has(id):
+		return [0, 0, where]
+	if home != null:
+		placed = add_stock(id, n, home)
+	if placed < n:
+		for o in Sea.all_worlds():
+			if o == home:
+				continue
+			var k := add_stock(id, n - placed, o)
+			if k > 0:
+				placed += k
+				elsewhere += k
+				where[Sea.island_name(o)] = int(where.get(Sea.island_name(o), 0)) + k
+			if placed >= n:
+				break
+	return [placed, elsewhere, where]
+
+
+## Besiedelte Insel mit den meisten freien Wohnplaetzen (ohne `exclude`); bei Gleichstand die
+## aktive, dann die Heimatinsel. null, wenn es keine gibt.
+func immigrant_world(exclude = null):
+	var best = null
+	var best_free := -INF
+	for w in Sea.all_worlds():
+		if w == exclude or w.settlers.is_empty():
+			continue
+		var free := float(housing_capacity(w) - w.settlers.size())
+		if w == world:
+			free += 0.2
+		if int(w.island_id) == 0:
+			free += 0.1
+		if free > best_free:
+			best_free = free
+			best = w
+	return best
+
+
+## Einwanderer: n Erwachsene ueber World.spawn_newcomer, abwechselnd Frau und Mann (zuerst das
+## Geschlecht, das auf der Insel seltener ist), mit niemandem verwandt. Kann niemand auf w landen,
+## kommen sie auf die besiedelte Insel mit den meisten freien Wohnplaetzen; wer gar nicht landen
+## kann, wird zu 10 Brettern (opts.convert = false schaltet das ab). opts: talent (Faehigkeit),
+## talent_val (Begabung, Standard 1,5 bis talent_max), skill (Stufe darin), hunger (Standard 80).
+## Liefert die neuen Siedler. Meldet nichts (das macht der Aufrufer).
+func spawn_immigrants(w, n: int, opts: Dictionary = {}) -> Array:
+	var out := []
+	if n <= 0:
+		return out
+	var o := opts.duplicate()
+	if not o.has("hunger"):
+		o["hunger"] = 80.0
+	var target = w if w != null and is_instance_valid(w) and w in Sea.all_worlds() else null
+	var order := []
+	if target != null:
+		order.append(target)
+	var alt = immigrant_world(target)
+	if alt != null:
+		order.append(alt)
+	for cand in order:
+		var adults: Array = cand.settlers.filter(func(x): return x.is_adult())
+		var women := adults.filter(func(x): return x.sex == "f").size()
+		var men := adults.size() - women
+		var first := "f" if women < men else ("m" if men < women else ("f" if _rng.randf() < 0.5 else "m"))
+		var i := 0
+		while out.size() < n:
+			var sex := first if i % 2 == 0 else ("m" if first == "f" else "f")
+			var s = cand.spawn_newcomer(sex, o)
+			if s == null:
+				break  # kein Strand erreichbar: naechste Insel
+			out.append(s)
+			i += 1
+		if out.size() >= n:
+			break
+	var missing := n - out.size()
+	if missing > 0 and o.get("convert", true):
+		give_goods(target if target != null else (alt if alt != null else world), "bretter", 10 * missing)
+	return out
+
+
+## Belohnung auf Insel w: Waren-IDs -> Menge (Ueberlauf auf andere Inseln, der Rest wartet auf Platz:
+## _wait_goods) und
+## "settlers": n Einwanderer (spawn_immigrants mit `opts`; wer nicht landen kann, wird zu 10 Brettern).
+## Liefert eine kurze Zusammenfassung fuer Meldungen, z. B. "2 Einwanderer, 10 Bretter".
+func grant_reward(w, reward: Dictionary, opts: Dictionary = {}) -> String:
+	var home = _isle(w)
+	var parts := []
+	var goods := {}
+	for k in reward:
+		var id := str(k)
+		if id != "settlers" and Data.resources.has(id) and int(reward[k]) > 0:
+			goods[id] = int(goods.get(id, 0)) + int(reward[k])
+	var n := int(reward.get("settlers", 0))
+	if n > 0:
+		var o := opts.duplicate()
+		o["convert"] = false
+		var came := spawn_immigrants(home, n, o)
+		if came.size() == 1:
+			parts.append(tr("1 Einwanderer"))
+		elif came.size() > 1:
+			parts.append(tr("%d Einwanderer") % came.size())
+		if came.size() < n:
+			goods["bretter"] = int(goods.get("bretter", 0)) + 10 * (n - came.size())
+	for id in goods:
+		var want := int(goods[id])
+		var r := give_goods(home, id, want)
+		var notes := []
+		var where: Dictionary = r[2]
+		for isl in where:
+			notes.append(tr("%d davon auf %s") % [int(where[isl]), isl])
+		var rest := want - int(r[0])
+		if rest > 0:
+			_wait_goods(home, id, rest)
+			notes.append(tr("%d warten auf Platz im Lager") % rest)
+		parts.append("%d %s" % [want, Data.resource_name(id)] + (" (%s)" % ", ".join(notes) if not notes.is_empty() else ""))
+	return ", ".join(parts)
+
+
+## Belohnungen, die in keinem Lager Platz hatten, warten (reward_wait: Insel-ID als Text -> {Ware: Menge})
+## und kommen ins Lager, sobald irgendwo Platz ist (zuerst auf ihrer Insel, siehe _deliver_waiting).
+func _wait_goods(w, id: String, n: int) -> void:
+	var key := str(w.island_id) if w != null else "0"
+	var e: Dictionary = reward_wait.get(key, {})
+	e[id] = int(e.get(id, 0)) + n
+	reward_wait[key] = e
+
+
+func waiting_total() -> int:
+	var n := 0
+	for k in reward_wait:
+		for id in reward_wait[k]:
+			n += int(reward_wait[k][id])
+	return n
+
+
+## Wartende Waren einlagern, aber nur so viel, dass ein Teil des Lagers (wait_free_share) frei bleibt:
+## sonst haette die naechste Ernte keinen Platz.
+func _deliver_waiting() -> void:
+	var share := float(Data.bal("wait_free_share", 0.15))
+	for key in reward_wait.keys():
+		var home = Sea.worlds.get(int(key))
+		if home == null:
+			home = world
+		var e: Dictionary = reward_wait[key]
+		var got := {}
+		var order: Array = Sea.all_worlds().filter(func(o): return o != home)
+		if home != null:
+			order.push_front(home)
+		for id in e.keys():
+			var size := maxi(1, Data.good_size(id))
+			for o in order:
+				var room := space_for(id, o) - int(share * float(storage_volume(o))) / size
+				var k := add_stock(id, mini(int(e[id]), maxi(0, room)), o) if room > 0 else 0
+				if k > 0:
+					e[id] = int(e[id]) - k
+					var l: Array = got.get(o, [])
+					l.append("%d %s" % [k, Data.resource_name(id)])
+					got[o] = l
+				if int(e[id]) <= 0:
+					break
+			if int(e[id]) <= 0:
+				e.erase(id)
+		if e.is_empty():
+			reward_wait.erase(key)
+		for o in got:
+			notify_at(o, tr("Wartende Waren sind jetzt im Lager: %s.") % ", ".join(got[o]), "hammer", "lager")
 
 
 ## Eltern, Geschwister, Großeltern und Kinder bekommen keinen Nachwuchs miteinander.
@@ -612,8 +902,13 @@ func register_lineage(sid: int, parents: Array) -> void:
 	lineage[sid] = parents.map(func(x): return int(x))
 
 
-func on_settler_died(s, reason: String) -> void:
+## cause: Schluessel der Todesart ("starve", "sick", "old", "killed"), reason: Anzeigetext.
+func on_settler_died(s, reason: String, cause: String = "") -> void:
 	stats.deaths += 1
+	if cause == "starve":
+		stats["starved"] = int(stats.get("starved", 0)) + 1
+		stats["starve_day"] = time_days
+	settler_died.emit(s, cause)
 	var text := tr("%s ist %s.") % [s.display_name, reason]
 	notify_at(s.world, text, "abriss")
 	Sound.play_on("tod", s.world)
@@ -647,6 +942,8 @@ func eff_add(key: String) -> float:
 
 func _recompute_effects() -> void:
 	effects = {}
+	Writing.clear_cache()  # Schreibwaren haengen davon ab, was freigeschaltet ist
+	Exams.sync()  # direkt eingetragene Forschungen (Testhilfen) ziehen die Pruefungen nach
 	for t in research.done:
 		var e: Dictionary = Data.techs.get(t, {}).get("effects", {})
 		for k in e:
@@ -659,6 +956,7 @@ func _recompute_effects() -> void:
 				seen[b.type] = true
 				for k in b.def.effects:
 					effects[k] = float(effects.get(k, 0.0)) + float(b.def.effects[k])
+	Quests.add_boons(effects)  # dauerhafte Segen aus Auftraegen (mit Obergrenze)
 
 
 func refresh_effects() -> void:
@@ -670,7 +968,7 @@ func is_researched(t: String) -> bool:
 	return t == "" or t in research.done
 
 
-## "done", "current", "available", "locked" oder "soon"
+## "done", "current", "available", "locked", "exam" (wartet auf die Pruefung, Exams) oder "soon"
 func tech_state(t: String) -> String:
 	if t in research.done:
 		return "done"
@@ -682,11 +980,14 @@ func tech_state(t: String) -> String:
 	for r in def.get("requires", []):
 		if not r in research.done:
 			return "locked"
+	if Exams.gates(t):
+		return "exam"
 	return "available"
 
 
 func is_unlocked(building_type: String) -> bool:
-	return is_researched(Data.buildings.get(building_type, {}).get("requires", ""))
+	# Bauplan aus einem Auftrag: baubar auch ohne die Forschung
+	return is_researched(Data.buildings.get(building_type, {}).get("requires", "")) or Quests.has_plan(building_type)
 
 
 func tech_progress(t: String) -> float:
@@ -703,6 +1004,8 @@ func start_research(t: String) -> String:
 	var st := tech_state(t)
 	if st == "current":
 		return ""
+	if st == "exam":
+		return tr("Erst die Prüfung für das Zeitalter %s bestehen.") % Data.age_name(Exams.passed + 1)
 	if st != "available":
 		return tr("Diese Forschung ist noch nicht möglich.")
 	if not t in research.paid:
@@ -740,17 +1043,13 @@ func add_research(points: float, apply_bonus: bool = true) -> void:
 		_finish_research(t)
 
 
-## Zeitalter: das spaeteste, aus dem schon etwas erforscht ist (0 = Steinzeit).
+## Zeitalter (0 = Steinzeit) = Zahl der bestandenen Pruefungen (Exams). Ein neues Zeitalter beginnt
+## erst mit der Pruefung (Exams.pass_exam meldet es).
 func current_age() -> int:
-	var a := 0
-	for t in research.done:
-		if Data.techs.has(t):
-			a = maxi(a, Data.age_of_tier(int(Data.techs[t].tier)))
-	return a
+	return Exams.current_age()
 
 
 func _finish_research(t: String) -> void:
-	var age_before := current_age()
 	research.progress.erase(t)
 	research.done.append(t)
 	research.current = ""
@@ -760,9 +1059,6 @@ func _finish_research(t: String) -> void:
 	if not unlocks.is_empty():
 		text += tr(" Neu zu bauen: ") + ", ".join(unlocks) + "."
 	notify(text, "wissen")
-	var age := current_age()
-	if age > age_before:
-		notify(tr("Ein neues Zeitalter beginnt: %s! %s") % [Data.age_name(age), Data.ages[age].get("desc", "")], "zeitalter")
 	Sound.play("forschung")
 	research_changed.emit()
 	stock_changed.emit()
@@ -778,7 +1074,7 @@ func slot_exists(n: int) -> bool:
 
 
 func _slot_key() -> String:
-	return "slot_test" if is_test_build else "slot"
+	return "slot_" + build_tag if is_test_build else "slot"
 
 
 func _load_slot() -> void:
@@ -934,13 +1230,106 @@ func save_game() -> void:
 		"lineage": lineage,
 		"research": research,
 		"goals": goals,
+		"rules": rules,
+		"rules_day": rules_day,
 	}
+	if not reward_wait.is_empty():
+		data["reward_wait"] = reward_wait
 	data.merge(Sea.serialize())
+	if rules_due and not rules_lines.is_empty():
+		data["rules_due"] = rules_lines.duplicate()  # Fenster noch nicht gesehen: beim naechsten Laden zeigen
+	state_save.emit(data)
+	_store_backup(data)
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if f:
 		f.store_string(JSON.stringify(data))
 		f.close()
 		_write_slot_info()
+
+
+## Kopie der neuen Spielstand-Teile in islands[0]["v2"] (siehe OLD_SAVE_KEYS).
+func _store_backup(data: Dictionary) -> void:
+	var list = data.get("islands", [])
+	if not (list is Array) or list.is_empty() or not (list[0] is Dictionary):
+		return
+	var v2 := {}
+	for k in data:
+		if not str(k) in OLD_SAVE_KEYS:
+			v2[k] = data[k]
+	v2["research"] = research.duplicate(true)
+	var isl := {}
+	for e in list:
+		var wd = e.get("world")
+		if not (wd is Dictionary):
+			continue
+		var bl: Array = Array(wd.get("buildings", [])).filter(func(b): return str(b.get("type", "")) in V2_BUILDINGS)
+		var st := {}
+		for id in V2_GOODS:
+			if int(wd.get("stock", {}).get(id, 0)) > 0:
+				st[id] = int(wd.stock[id])
+		if not bl.is_empty() or not st.is_empty():
+			isl[str(e.get("id", 0))] = {"b": bl, "s": st}
+	v2["isl"] = isl
+	list[0]["v2"] = v2
+
+
+## Beim Laden: Hat eine aeltere Version den Spielstand zuletzt gespeichert (kein "rules", aber
+## islands[0]["v2"]), kommen die neuen Teile aus der Sicherung zurueck. Veraendert d.
+func _merge_backup(d: Dictionary) -> void:
+	_v2_restore = {}
+	var list = d.get("islands", [])
+	if not (list is Array) or list.is_empty() or not (list[0] is Dictionary) or not list[0].has("v2"):
+		return
+	var v2 = list[0]["v2"]
+	list[0].erase("v2")
+	if d.has("rules") or not (v2 is Dictionary):
+		return  # zuletzt von dieser Version gespeichert: alles ist schon da
+	for k in v2:
+		if not str(k) in ["research", "isl"] and not d.has(k):
+			d[k] = v2[k]
+	var r: Dictionary = d.get("research", {})
+	var b: Dictionary = v2.get("research", {})
+	var done: Array = Array(r.get("done", []))
+	var paid: Array = Array(r.get("paid", []))
+	var prog: Dictionary = r.get("progress", {})
+	for t in b.get("done", []):
+		if not t in done:
+			done.append(t)
+	for t in b.get("paid", []):
+		if not t in paid:
+			paid.append(t)
+	for t in b.get("progress", {}):
+		if not prog.has(t) or float(prog[t]) < float(b.progress[t]):
+			prog[t] = b.progress[t]
+	var cur := str(r.get("current", ""))
+	if (cur == "" or not Data.techs.has(cur)) and not str(b.get("current", "")) in done:
+		cur = str(b.get("current", ""))
+	d["research"] = {"current": cur, "progress": prog, "done": done, "paid": paid}
+	_v2_restore = v2.get("isl", {}) if v2.get("isl") is Dictionary else {}
+	print("Spielstand von einer aelteren Version gespeichert: neue Teile aus der Sicherung uebernommen")
+
+
+## Gebaeude und Waren, die eine aeltere Version beim Speichern weggelassen hat, zurueckholen.
+func _restore_backup_world() -> void:
+	for key in _v2_restore:
+		var w = Sea.worlds.get(int(key))
+		var e = _v2_restore[key]
+		if w == null or not (e is Dictionary):
+			continue
+		for b in e.get("b", []):
+			var type := str(b.get("type", ""))
+			var c := Vector2i(int(b.get("x", 0)), int(b.get("y", 0)))
+			if not Data.buildings.has(type) or w.building_by_id(int(b.get("id", 0))) != null or not w.can_place(type, c):
+				continue
+			var bld = w.place_building(type, c, bool(b.get("complete", false)), int(b.get("id", 0)))
+			bld.progress = float(b.get("progress", 0.0))
+			bld.delivered = b.get("delivered", {})
+			bld.paused = bool(b.get("paused", false))
+			bld.refresh()
+		for id in e.get("s", {}):
+			if Data.resources.has(id) and int(w.stock.get(id, 0)) <= 0:
+				w.stock[id] = int(e.s[id])
+	_v2_restore = {}
 
 
 func load_save() -> Dictionary:
@@ -957,6 +1346,7 @@ func load_save() -> Dictionary:
 
 
 func apply_save_header(d: Dictionary) -> void:
+	_merge_backup(d)
 	seed_value = int(d.seed)
 	time_days = float(d.time_days)
 	# Bis Version 2 gab es ein gemeinsames Lager; Sea.build_from_save gibt es der Heimatinsel
@@ -971,7 +1361,27 @@ func apply_save_header(d: Dictionary) -> void:
 		if Data.resources.has(id):
 			store_limits[id] = int(sl[id])
 	next_id = int(d.next_id)
+	reward_wait = {}
+	var rw = d.get("reward_wait", {})
+	if rw is Dictionary:
+		for k in rw:
+			if rw[k] is Dictionary:
+				var e := {}
+				for id in rw[k]:
+					if Data.resources.has(str(id)) and int(rw[k][id]) > 0:
+						e[str(id)] = int(rw[k][id])
+				if not e.is_empty():
+					reward_wait[str(k)] = e
+	# Regelstand: alte Spielstaende (ohne "rules") bekommen die neuen Regeln ab jetzt
+	rules_old = int(d.get("rules", 0))
+	rules_day = float(d.get("rules_day", time_days)) if rules_old >= 1 else time_days
+	rules_lines = []
+	rules_due = false
 	stats = d.get("stats", stats)
+	if not stats.has("starved"):
+		stats["starved"] = 0
+	if not stats.has("starve_day"):
+		stats["starve_day"] = rules_day
 	lineage = {}
 	var lin: Dictionary = d.get("lineage", {})
 	for k in lin:
@@ -1000,6 +1410,32 @@ func apply_save_header(d: Dictionary) -> void:
 	selected = null
 	_last_day = day()
 	set_speed(1)
+
+
+## Nach Sea.build_from_save (main.gd): alle Welten existieren. Systeme lesen ihre Schluessel
+## (state_load); danach gilt der aktuelle Regelstand. Bei einem alten Spielstand (rules_old < RULES)
+## steht das Fenster "Neue Regeln" mit rules_lines aus (rules_due). Wurde es vor dem Speichern nicht
+## gezeigt, liegen die Zeilen im Spielstand unter "rules_due" und kommen beim naechsten Laden wieder.
+func after_load(data: Dictionary) -> void:
+	rules_lines = []
+	_restore_backup_world()
+	state_load.emit(data, rules_old)
+	if rules_old < RULES:
+		rules_due = true
+	else:
+		var due = data.get("rules_due", [])
+		if due is Array and not due.is_empty():
+			# Gespeichert in der damaligen Sprache: in die aktuelle umrechnen
+			var lines: Array = due.map(func(x): return Loc.name_of(str(x)))
+			lines.append_array(rules_lines)
+			rules_lines = lines
+			rules_due = true
+	rules = RULES
+
+
+## Das Fenster "Neue Regeln" ist gezeigt (oder im Selbsttest ausgegeben) worden.
+func rules_seen() -> void:
+	rules_due = false
 
 
 func delete_save() -> void:

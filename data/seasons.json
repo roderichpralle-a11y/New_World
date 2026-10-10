@@ -10,6 +10,7 @@
     "busch": [0.6, 1.4, 0.8, 0.0],
     "pilzkreis": [0.4, 0.5, 1.8, 0.0],
     "palme": [1.1, 1.1, 0.6, 0.3],
+    "gewuerzstrauch": [1.0, 1.2, 0.8, 0.3],
     "fischgrund": [1.2, 1.0, 0.8, 0.35],
     "feld": [1.0, 1.25, 0.6, 0.0],
     "obstgarten": [1.0, 1.2, 0.6, 0.0],
@@ -22,6 +23,10 @@
   "heat_wood_per_settler": [0.0, 0.0, 0.3, 1.0],
   "cold_hunger": 1.5,
   "cold_work": 0.75,
+  "_heat_coal_wood": "Kohle heizt zuerst: 1 Kohle ersetzt so viel Holz. Holz brennt erst, wenn keine Kohle mehr im Lager ist (Extras.burn_fuel).",
+  "heat_coal_wood": 2.0,
+  "_freeze": "Erfrieren (Extras): Kälte sammelt sich, solange die Insel friert, je Tag Brennstoff-Bedarf je Siedler (Winter 1, Herbst 0,3) x weak_factor bei Kindern und Alten. Über grace_days sinkt die Gesundheit um damage_per_day x denselben Faktor (Heilen läuft weiter). Im Warmen sinkt die Kälte um recover_per_day.",
+  "freeze": {"grace_days": 1.0, "damage_per_day": 100.0, "weak_factor": 1.5, "recover_per_day": 2.0},
   "hunger": [1.0, 0.95, 1.0, 1.15],
   "build": [1.0, 1.05, 1.0, 0.7],
   "walk": [1.0, 1.0, 1.0, 0.85],
@@ -29,5 +34,30 @@
   "spoil_per_day": [0.03, 0.08, 0.03, 0.0],
   "mods": {"sickness": [1.0, 0.8, 1.3, 2.0], "mood": [1.1, 1.05, 1.0, 0.9]},
   "snow_biomes": {"tropen": 0.0},
-  "perishable": ["beeren", "fisch", "fleisch", "pilze", "aepfel", "eier"]
+  "perishable": ["beeren", "fisch", "fleisch", "pilze", "aepfel", "eier"],
+  "_climate": "Wechselnde Winter und Sommer: jedes Jahr ein Wintertyp und ein Sommertyp. Jeder Typ ist eine Liste von Faktoren auf die Werte dieser Jahreszeit (gleiche Schlüssel wie oben, dazu sickness, mood, snow, growth je Typ und ill_<krankheit>); fehlt ein Schlüssel, gilt 1.",
+  "winters": {
+    "mild": {"name": "Milder Winter", "text": "Die Alten sagen einen milden Winter voraus.", "desc": "Weniger Brennstoff (60 %), Bauen und Laufen gehen leichter, Fische und Kokosnüsse wachsen besser nach, weniger Kranke.", "heat_wood_per_settler": 0.6, "hunger": 0.95, "sickness": 0.8, "mood": 1.11, "build": 1.2, "walk": 1.08, "sail": 0.9, "snow": 0.5, "growth": {"fischgrund": 1.7, "palme": 1.5}},
+    "normal": {"name": "Winter", "text": "Die Alten sagen einen gewöhnlichen Winter voraus.", "desc": "Ein gewöhnlicher Winter: jeder Siedler braucht 1 Holz oder eine halbe Kohle am Tag zum Heizen."},
+    "hart": {"name": "Harter Winter", "text": "Die Alten sagen einen harten Winter voraus!", "desc": "Heizen braucht 40 % mehr Holz oder Kohle, alle werden schneller hungrig, Bauen und Laufen dauern länger, Fische und Kokosnüsse wachsen kaum nach, mehr Kranke.", "heat_wood_per_settler": 1.4, "hunger": 1.06, "sickness": 1.15, "mood": 0.95, "build": 0.85, "walk": 0.92, "sail": 1.1, "snow": 1.15, "growth": {"fischgrund": 0.4, "palme": 0.4}},
+    "bitter": {"name": "Eiswinter", "text": "Die Alten sagen einen Eiswinter voraus! So kalt war es lange nicht.", "desc": "Heizen braucht fast doppelt so viel Holz oder Kohle (180 %), alle werden schneller hungrig, Bauen dauert viel länger, Fische und Kokosnüsse wachsen gar nicht nach, viele Kranke.", "heat_wood_per_settler": 1.8, "hunger": 1.12, "sickness": 1.3, "mood": 0.9, "build": 0.75, "walk": 0.88, "sail": 1.25, "snow": 1.4, "growth": {"fischgrund": 0.0, "palme": 0.0}}
+  },
+  "summers": {
+    "normal": {"name": "Sommer", "text": "Die Alten sagen einen gewöhnlichen Sommer voraus.", "desc": "Ein gewöhnlicher Sommer."},
+    "heiss": {"name": "Heißer Sommer", "text": "Die Alten sagen einen heißen Sommer voraus.", "desc": "Frische Nahrung verdirbt noch schneller, Felder, Beeren und Pilze wachsen langsamer, mehr Ruhr. Räuchern und Backen macht Essen haltbar.", "spoil_per_day": 1.5, "decay": 1.25, "sickness": 1.25, "mood": 0.9, "growth": {"busch": 0.8, "feld": 0.8, "obstgarten": 0.85, "pilzkreis": 0.6}, "ill_ruhr": 2.0}
+  },
+  "winter_hints": {
+    "mild": {"text": "Die Alten erwarten einen milden Winter."},
+    "normal": {"text": "Die Alten erwarten einen gewöhnlichen Winter."},
+    "streng": {"text": "Die Alten erwarten einen strengen Winter. Genaueres sagen sie im Herbst."}
+  },
+  "_climate_odds": "Gewichte je Jahr; es gilt die Zeile mit dem größten from_year <= Jahr. climate_no_repeat: Eiswinter nach Eiswinter wird ein harter Winter.",
+  "climate_odds": [
+    {"from_year": 1, "winter": {"mild": 50, "normal": 50}, "summer": {"normal": 100}},
+    {"from_year": 2, "winter": {"mild": 30, "normal": 55, "hart": 15}, "summer": {"normal": 85, "heiss": 15}},
+    {"from_year": 3, "winter": {"mild": 25, "normal": 50, "hart": 20, "bitter": 5}, "summer": {"normal": 80, "heiss": 20}},
+    {"from_year": 4, "winter": {"mild": 20, "normal": 45, "hart": 25, "bitter": 10}, "summer": {"normal": 75, "heiss": 25}},
+    {"from_year": 8, "winter": {"mild": 15, "normal": 40, "hart": 30, "bitter": 15}, "summer": {"normal": 70, "heiss": 30}}
+  ],
+  "climate_no_repeat": {"bitter": "hart"}
 }

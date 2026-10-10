@@ -46,6 +46,7 @@
   "grief_days": 2.5,
   "joy_mood": 12.0,
   "joy_days": 1.5,
+  "fest_mood": 15.0,
 
   "comfort_techs_start": 2,
   "comfort_techs_full": 22,

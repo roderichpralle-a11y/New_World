@@ -78,3 +78,9 @@ ki
 roboter
 atom
 zeitalter
+tontafel
+gewuerze
+ereignis
+haendler
+feuer
+ratte

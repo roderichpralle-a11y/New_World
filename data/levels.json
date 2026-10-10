@@ -1,0 +1,37 @@
+{
+  "_info": "Bedürfnisstufen der Häuser (siehe DESIGN.md, Bedürfnisstufen). levels[k-1] gehört zu Stufe k (buildings.json level). Verbraucher der Gruppe k = Bewohner von Häusern ab Stufe k (Erwachsene 1, Kinder child_weight). kind: good (Ware je Verbraucher und Tag), stock (Vorrat der Waren je Verbraucher), variety (Nahrungssorten im Lager), building (fertiges Gebäude mit diesem Schlüssel), food und warm (Stufe 1, nur Anzeige).",
+  "on": 0.7,
+  "off": 0.55,
+  "tau_days": 0.5,
+  "tick_days": 0.1,
+  "grace_days": 1.0,
+  "child_weight": 0.5,
+  "mood_ok_per_level": 2.0,
+  "mood_bad": 3.0,
+  "mood_bad_per_level": 2.0,
+  "turned_note_days": 3.0,
+  "levels": [
+    {"name": "Siedler", "needs": [
+      {"id": "nahrung", "kind": "food", "name": "Nahrung", "icon": "nahrung"},
+      {"id": "waerme", "kind": "warm", "name": "Wärme", "icon": "feuer"}
+    ]},
+    {"name": "Dorfbewohner", "needs": [
+      {"id": "abwechslung", "kind": "variety", "name": "Abwechslung", "icon": "aepfel", "sorts": 3},
+      {"id": "moebel", "kind": "good", "name": "Möbel", "good": "bretter", "rate": 0.15}
+    ]},
+    {"name": "Bürger", "needs": [
+      {"id": "essen", "kind": "stock", "name": "Zubereitetes Essen", "icon": "brot", "goods": ["brot", "raeucherfisch", "eier", "konserven"], "per": 0.5},
+      {"id": "hausrat", "kind": "good", "name": "Hausrat", "good": "werkzeug", "rate": 0.06},
+      {"id": "schule", "kind": "building", "name": "Schule", "icon": "wissen", "flag": "school"}
+    ]},
+    {"name": "Städter", "needs": [
+      {"id": "glas", "kind": "good", "name": "Glas", "good": "glas", "rate": 0.08},
+      {"id": "papier", "kind": "good", "name": "Papier", "good": "papier", "rate": 0.08},
+      {"id": "gewuerze", "kind": "good", "name": "Gewürze", "good": "gewuerze", "rate": 0.05}
+    ]},
+    {"name": "Großstädter", "needs": [
+      {"id": "strom", "kind": "good", "name": "Strom", "good": "strom", "rate": 0.4},
+      {"id": "elektronik", "kind": "good", "name": "Elektronik", "good": "elektronik", "rate": 0.04}
+    ]}
+  ]
+}

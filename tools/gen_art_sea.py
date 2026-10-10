@@ -209,6 +209,10 @@ def gen_objects2():
     for f in range(2):
         atlas.paste(boat(f), (f * 32, 64))
     gen_ships(atlas)
+    # Gewuerzstrauch voll/leer (gen_art_challenge)
+    import gen_art_challenge
+    atlas.paste(gen_art_challenge.spice_bush(True), (112, 48))
+    atlas.paste(gen_art_challenge.spice_bush(False), (128, 48))
     atlas.save(os.path.join(OUT, "objects2.png"))
 
 
@@ -270,8 +274,10 @@ def bear(frame, attack=False):
 
 
 def gen_animals():
-    atlas = new(24 * 5, 24 * 3)
-    for row, fn in enumerate([wolf, boar, bear]):
+    import gen_art_challenge
+    # Zeile 3: Pirat (Data.ANIMAL_ROWS, kein Eintrag in animals.json)
+    atlas = new(24 * 5, 24 * 4)
+    for row, fn in enumerate([wolf, boar, bear, gen_art_challenge.pirate]):
         for f in range(4):
             atlas.paste(fn(f), (f * 24, row * 24))
         atlas.paste(fn(0, attack=True), (4 * 24, row * 24))

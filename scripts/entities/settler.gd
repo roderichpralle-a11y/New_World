@@ -292,9 +292,10 @@ func _needs(days: float) -> void:
 	_update_scale()
 	if health <= 0.0:
 		var why := mind.death_reason()
-		world.kill_settler(self, why if why != "" else tr("verhungert"))
+		# Ohne Krankheit ist der Siedler verhungert (Schluessel "starve" fuer die Statistik)
+		world.kill_settler(self, why if why != "" else tr("verhungert"), "sick" if why != "" else "starve")
 	elif age >= max_age + Game.eff_add("life"):
-		world.kill_settler(self, tr("im hohen Alter von %d Jahren gestorben") % int(age))
+		world.kill_settler(self, tr("im hohen Alter von %d Jahren gestorben") % int(age), "old")
 
 
 ## Kinder lernen beim Spielen ein wenig, in der Schule viel, vor allem in ihren Begabungen.
@@ -666,6 +667,7 @@ func _plan_work() -> bool:
 			return _plan_free_gather()
 		_:
 			var targets: Array = Data.jobs.get(job, {}).get("targets", [])
+			targets = IslandTraits.gather_order(targets, world)  # Sammler: Gewürze zuerst, wenn genug Essen da ist
 			if _plan_gather(targets):
 				return true
 			# Ist das eigene Lager voll, hilft der Siedler woanders aus
@@ -734,14 +736,15 @@ func _plan_gather(types: Array) -> bool:
 func _tool_for_node(t: String) -> String:
 	return {"baum": "axe", "fels": "pick", "busch": "basket", "fischgrund": "rod", "palme": "basket",
 		"pilzkreis": "basket", "erzader": "pick", "goldader": "pick", "beute": "spear", "wolfsbau": "shovel",
-		"eberbau": "shovel", "baerenhoehle": "pick"}.get(t, "")
+		"eberbau": "shovel", "baerenhoehle": "pick", "gewuerzstrauch": "basket"}.get(t, "")
 
 
 func _verb(t: String) -> String:
 	return {"baum": tr("Fällt einen Baum"), "fels": tr("Schlägt Steine"), "busch": tr("Pflückt Beeren"),
 		"fischgrund": tr("Angelt"), "palme": tr("Pflückt Kokosnüsse"), "pilzkreis": tr("Sammelt Pilze"),
 		"erzader": tr("Schlägt Erz"), "goldader": tr("Schürft Gold"), "beute": tr("Zerlegt die Beute"),
-		"wolfsbau": tr("Räumt den Bau aus"), "eberbau": tr("Räumt den Bau aus"), "baerenhoehle": tr("Räumt die Höhle aus")}.get(t, tr("Arbeitet"))
+		"wolfsbau": tr("Räumt den Bau aus"), "eberbau": tr("Räumt den Bau aus"), "baerenhoehle": tr("Räumt die Höhle aus"),
+		"gewuerzstrauch": tr("Erntet Gewürze")}.get(t, tr("Arbeitet"))
 
 
 func _do_harvest(node) -> void:
@@ -907,7 +910,7 @@ func _plan_production(kind: String) -> bool:
 	var p: Dictionary = b.prod_def()
 	var tool_name: String = p.get("tool", Data.jobs.get(job, {}).get("tool", "hammer"))
 	_plan.append({"a": "work", "t": 0.3, "act": tr("Holt Rohstoffe"), "done": _do_take_inputs.bind(b)})
-	_plan.append({"a": "work", "t": float(p.time) / work_factor(p.get("skill", "handwerk"), "production"), "act": p.get("verb", tr("Arbeitet")),
+	_plan.append({"a": "work", "t": float(p.time) / (work_factor(p.get("skill", "handwerk"), "production") * b.biome_factor()), "act": p.get("verb", tr("Arbeitet")),
 		"tool": tool_name, "face": b.position, "done": _do_produce.bind(b)})
 	activity = "%s (%s)" % [p.get("verb", tr("Arbeitet")), b.def.name]
 	return true
@@ -919,7 +922,7 @@ func _do_take_inputs(b) -> void:
 		return
 	if carry_n > 0:
 		_do_deliver()
-	b.mark_active(float(b.prod_def().time) / work_factor(b.prod_def().get("skill", "handwerk"), "production") + 0.5)
+	b.mark_active(float(b.prod_def().time) / (work_factor(b.prod_def().get("skill", "handwerk"), "production") * b.biome_factor()) + 0.5)
 
 
 func _do_produce(b) -> void:
@@ -977,11 +980,16 @@ func _do_research(b) -> void:
 		return
 	var pts := float(Data.bal("research_per_work", 1.0)) * float(b.research_def().get("factor", 1.0)) * skill_factor("wissen") \
 		* mind.research_factor() * mind.work_power() * float(Data.bal("work_pace", 1.0))
-	Game.add_research(pts)
+	# Forschung braucht Schriften: Tontafeln, Papier, Strom ... aus dem Lager dieser Insel (Writing)
+	var wf: float = world.use_writing(Writing.goods_for(Game.research.current), pts * Game.eff("research"))
+	activity = Writing.research_activity(wf, world)
+	Game.add_research(pts * wf)
 	gain_xp("wissen", 0.5)
 	b.mark_active(3.0)
 	if _rng.randf() < 0.2:
 		world.float_text(position + Vector2(0, -28), tr("Idee!"), "")
+	if not world.pool_allows(b, id):
+		return  # Fachkräfte-Pool voll (Bedürfnisstufen): Platz räumen
 	if Game.has_research_goal() and not Game.is_night() and hunger >= float(Data.bal("eat_below")) * 0.6:
 		_plan.push_front({"a": "work", "t": float(Data.bal("research_work_time", 2.5)), "act": tr("Forscht"),
 			"tool": "book", "face": b.position, "done": _do_research.bind(b)})
@@ -1208,7 +1216,7 @@ func take_damage(n: float, by) -> void:
 	world.spawn_effect("blood", position + Vector2(0, -8))
 	if health <= 0.0:
 		var who: String = by.def.get("by", tr("von einem Tier")) if by is Animal else tr("von einem Tier")
-		world.kill_settler(self, tr("%s getötet worden") % who)
+		world.kill_settler(self, tr("%s getötet worden") % who, "killed")
 
 
 func _face(v: Vector2) -> void:

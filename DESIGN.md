@@ -3,6 +3,11 @@
 Gemütliches Aufbauspiel in Pixel-Grafik (Godot 4.7, GDScript, Compatibility-Renderer,
 Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
 
+Seit der Erweiterung „Mehr Herausforderung“ (Regeln ab Version 2) kommen dazu: wechselnde Winter und
+Sommer, Inselstärken mit Gewürzen und fremden Händlern, Bedürfnisstufen der Häuser mit Fachkräften,
+angekündigte Ereignisse, Forschung mit Schriften (Tontafeln, Papier, Strom), Prüfungen beim
+Zeitalterwechsel mit Wertung und Aufträge mit Wahl. Überblick und Zusammenspiel: „Regeln ab Version 2“.
+
 ## Spielregeln (Etappe 1)
 
 - Start: eine zufällige Insel aus einem Seed, Lagerfeuer und eine Hütte, zwei Siedler
@@ -140,7 +145,21 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
   dort ab), „Neue Insel suchen“ (schnellstes freies Schiff, kommt zurück), **Routen** (Reiter
   „Schiffe“): bis 6 Halte; an jedem Halt lädt das Schiff alles ab, was dort nicht geladen wird,
   und lädt bis zur eingestellten Menge. Fahrzeit `(voyage_days_base + voyage_days_per_dist *
-  Entfernung) / (eff(ship_speed) * Tempo des Schiffs) * Seasons.sail_mult()`. Liegende Schiffe
+  Entfernung) / (eff(ship_speed) * Tempo des Schiffs) * Seasons.sail_mult()`.
+  **Fahrtart** (josh: „Bei den Routen kann es auch einmal Routen geben, also hin und zurück“): unter den
+  Halten „Fahrt: Immer wieder | Einmal hin und zurück“ (`sea_panel._route_mode_row`). Einmal: Start ist der
+  erste Halt, an dem das Schiff lädt (der, den es als Nächstes anläuft); es fährt alle anderen Halte an,
+  kommt zum Start zurück, lädt dort alles ab (lädt nichts mehr) und ist wieder frei: Route angehalten
+  (`idle_ships` zählt es), die Halte bleiben, „Route starten“ fährt sie noch einmal; Meldung „Die … ist
+  zurück in …“. Anzeige „Noch 2 Halte, dann ist das Schiff wieder frei.“. Ein übersprungener Halt (Hafen zu
+  klein) zählt mit. Spielstand im Schiff (optional): `once` (bool), `once_left` (Halte, die noch kommen,
+  -1 = nicht begonnen), `once_from` (Starthalt); alte Routen ohne `once` fahren immer wieder. Code:
+  `Sea.set_route_once`, `is_once`, `once_stops_left`, `_once_stop` (in `_route_step`), `_once_finish`
+  (nach dem Laden), `_once_skip`. Halte hinzufügen oder entfernen und das Umstellen beginnen die
+  Zählung neu. Test `--fixture=sea.json --oncetest=1` (`RouteTest`, Sea meldet sich dafür mit
+  `Game.register_system` an): Halte 0 → 1 → 0, Ladung je Strecke, frei danach, Speichern mitten auf der
+  Fahrt, alte Route fährt weiter, neu starten, umstellen („Einmal-Route OK/FEHLER“); `--oncetest=shot
+  --panel=sea --seaview=ship` fürs Bildschirmfoto. Liegende Schiffe
   zeigt `World.sync_ships` im Wasser vor dem Hafen. Forschung **Seehandel** (Stufe VI).
 - **Seekarte** (Knopf „Inseln“, `scripts/ui/sea_panel.gd`): Reiter Inseln und Schiffe, Ansichten
   `island`, `send`, `ships`, `ship`, `stop`. Die Karte zoomt (Mausrad, zwei Finger, Knöpfe „-“ „+“
@@ -229,6 +248,8 @@ Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
   aktuelle Ziel aus (`goals.hide` = Ziel-ID), das nächste erscheint wieder. `goals.tv` = 2 markiert die
   Einführung mit neun Schritten; Spielstände ohne `tv` rechnen ihren Schritt aus der alten
   Siebener-Einführung um (`apply_save_header`). Prüfart `job`: Siedler mit Beruf `what`, alle Inseln.
+  Wer die Einführung zu Ende spielt (nicht überspringt), bekommt 2 Siedler und eine fertige Hütte
+  (siehe „Kohle, Erfrieren und weitere Ergänzungen“).
 - **Nahrung in der Oberleiste**: Zahl der Nahrungsgüter und dahinter `Game.food_days()`, für wie viele
   Tage die Nahrung der angezeigten Insel reicht: Summe aus Menge mal Sättigung, geteilt durch die
   Siedler (Kinder zählen voll) und den Tagesbedarf `hunger_per_day` mit Jahreszeit und Kälte. Rot
@@ -271,9 +292,10 @@ Spielstand-Eintrag (alte Spielstände landen einfach in der passenden Jahreszeit
 - **Tiere vermehren sich nur im Frühling**: baut der Tier-Faden auf `Seasons.season() == Seasons.SPRING`.
 - **Für andere Systeme**: `Seasons.season_mod(key)` (`mods`: `sickness`, `mood`, Standard 1.0),
   `Seasons.is_warm(world)`.
-- **Heizen**: je Siedler und Tag `heat_wood_per_settler` Holz (Herbst 0,3, Winter 1) aus dem Lager.
-  Fehlt Holz, frieren die Siedler der Insel (`Seasons.cold`): Hunger x`cold_hunger`, Arbeit
-  x`cold_work`.
+- **Heizen**: je Siedler und Tag `heat_wood_per_settler` Holz (Herbst 0,3, Winter 1) aus dem Lager,
+  Kohle zuerst (1 Kohle = `heat_coal_wood` Holz, siehe „Kohle, Erfrieren und weitere Ergänzungen“).
+  Fehlt beides, frieren die Siedler der Insel (`Seasons.cold`): Hunger x`cold_hunger`, Arbeit
+  x`cold_work`, nach einer Schonzeit erfrieren sie.
 
 Fünf weitere Jahreszeit-Mechaniken:
 
@@ -295,6 +317,180 @@ Fünf weitere Jahreszeit-Mechaniken:
 Herbstlaub: Laubbäume und Büsche färben sich im Herbst orange (gleicher Shader), Laub fällt. Grafiken
 der Symbole und Partikel: `tools/gen_art_seasons.py` → `assets/sprites/seasons.png`.
 Test: `--season=<0..3>` startet in einer Jahreszeit, Bericht zeigt Jahreszeit und Holz.
+
+### Wechselnde Winter und Sommer (Herausforderung)
+
+Jedes Jahr hat einen **Wintertyp** (`mild` Milder Winter, `normal`, `hart` Harter Winter, `bitter` Eiswinter)
+und einen **Sommertyp** (`normal`, `heiss` Heißer Sommer). Regelzeile für alte Spielstände: „Winter und Sommer
+sind jedes Jahr anders. Im Herbst sagen die Alten voraus, wie hart der Winter wird.“
+
+- **Würfeln**: zu Jahresbeginn (Frühlingsanfang) einmal, nur in `Seasons._process` mit Welt
+  (`_ensure_year`), deterministisch aus `hash("<seed>:<jahr>:klima")` (`Seasons.roll_year`). Gewichte in
+  `seasons.json` `climate_odds` (es gilt die Zeile mit dem größten `from_year` <= Jahr):
+  Jahr 1 mild 50 / normal 50 (nie heiß), Jahr 2 mild 30 / normal 55 / hart 15, heiß 15 %, Jahr 3 25/50/20/Eis 5,
+  heiß 20 %, Jahr 4–7 20/45/25/10, heiß 25 %, ab Jahr 8 15/40/30/15, heiß 30 %. `climate_no_repeat`: auf einen
+  Eiswinter folgt höchstens ein harter Winter. Das Ergebnis wird gespeichert (spätere Änderungen der Gewichte
+  ändern keinen schon angekündigten Winter).
+- **Wirkung**: `seasons.json` `winters`/`summers` je Typ: Faktoren auf die Werte dieser Jahreszeit (gleiche
+  Schlüssel wie die Listen: `heat_wood_per_settler`, `hunger`, `build`, `walk`, `sail`, `spoil_per_day`,
+  `decay`; aus `mods`: `sickness`, `mood`; dazu `snow`, `growth` {Typ: Faktor}, `ill_<krankheit>`; fehlt =
+  1). `Seasons._val`, `season_mod`, `growth` und `snow_amount` rechnen den Faktor ein, damit wirkt er auf
+  Heizen, Hunger, Nahrung-Tage, Bauen, Laufen, Schiffe, Verderb, Krankheit, Laune und Nachwachsen.
+  Ergebnis im Winter (mild / normal / hart / Eis): Heizholz je Siedler und Tag 0,6 / 1 / 1,4 / 1,8, Hunger
+  1,09 / 1,15 / 1,22 / 1,29, Krankheit 1,6 / 2 / 2,3 / 2,6, Bauen 0,84 / 0,7 / 0,6 / 0,53, Fischgründe
+  0,6 / 0,35 / 0,14 / 0; Palmen ebenso. Heißer Sommer: Verderb 12 % statt 8 %, Aas x1,25, Krankheit 1,0
+  statt 0,8, Laune −3, Felder und Beeren x0,8, Obstgarten x0,85, Pilze x0,6, Ruhr doppelt so häufig
+  (`SettlerMind._pick_illness`). Gewächshaus und Bäume bleiben gleich. Die Faktoren des laufenden Jahres liegen
+  zwischengespeichert in `_w_tab`/`_s_tab` (eine Nachschlage-Operation je Abfrage).
+- **Vorhersage** (ehrlich, nie falsch; Meldungsart `lager`, Symbol `sonne`/`schnee`): Frühlingsanfang: ein
+  heißer Sommer wird angekündigt. Sommeranfang: grobe Vorhersage („Die Alten erwarten einen milden /
+  gewöhnlichen / strengen Winter“, streng = hart oder Eiswinter; `winter_hints`). Herbstanfang: genauer Typ,
+  Wirkung und geschätztes Heizholz aller Inseln (`Seasons.winter_wood_need()`). Letzter Herbsttag: die alte
+  Wintervorwarnung, mit Typ. Forschung **Astronomie** (Wirkung `forecast`) nennt den genauen Typ schon im
+  Sommer. Signal `Seasons.climate_announced(kind, type)` (`summer`, `winter_hint`, `winter`).
+- **Anzeige**: `Seasons.season_title()` („Harter Winter“, sonst der Jahreszeit-Name) in Meldungen, im
+  Laune-Grund und ab 900 Pixel Breite in der Leiste. **Klima-Symbol** (`scripts/ui/climate_badge.gd`,
+  `Seasons.badge()`) rechts neben der Jahreszeit, auch auf dem Handy: Sonne auf Rot (heißer Sommer, ab der
+  Ankündigung bis Sommerende), Schneeflocke auf Grün (mild), Blau (hart bzw. grob „streng“) oder Dunkelblau
+  (Eiswinter), sobald der Winter bekannt ist. Antippen der Jahreszeit zeigt zusätzlich
+  `Seasons.climate_text()`. Schmale Bildschirme (< 480): Leiste enger, Tag ohne Uhrzeit.
+- **Für andere Systeme**: `Seasons.winter_type(y = dieses Jahr)` und `Seasons.summer_type(y)` (steht ab
+  Frühling fest, auch wenn noch nicht angekündigt), `winter_forecast()` (was die Siedler wissen: "", Typ
+  oder "streng"), `climate_factor(key)`, `Seasons.climate` (alle Jahre, z. B. für eine Wertung). `growth(type,
+  w)` fragt `Events.growth_factor(type, w)` (Dürre, siehe Angekündigte Ereignisse) und nimmt das Kleinere aus
+  Klima- und Ereignisfaktor (Faktor auf den Jahreszeitwert; Hitze und Dürre stapeln nicht).
+- **Spielstand**: `climate` = {"<jahr>": {"w": Typ, "s": Typ}} über `Game.state_save`/`state_load`, alle Jahre.
+  Alter Spielstand ohne `climate`: das laufende Jahr ist ein Schonjahr (normal/normal), gewürfelt wird ab dem
+  nächsten Jahr. Unbekannte Typen werden beim Laden zu `normal`. Neues Spiel: `state_reset` leert alles.
+- **Testhilfen**: `--winter=mild|normal|hart|bitter` und `--summer=normal|heiss` legen den Typ für alle
+  Jahre fest (nach `--season`), `--climate=off` macht alle Jahre gewöhnlich (vergleichbare Läufe),
+  `--climatetest=1` druckt die Verteilung über 200 Seeds x 20 Jahre, die Werte je Typ, alle Vorhersagen
+  und Antipp-Texte, Astronomie, Speichern/Laden und den alten Spielstand. `--climatetap=1` tippt kurz vor dem
+  Bildschirmfoto die Jahreszeit an (`=2`: Vorhersage der Jahreszeit) und meldet die Breite der Leiste. Der
+  20-Sekunden-Bericht zeigt Klima, Heizholz und das Symbol.
+
+## Kohle, Erfrieren und weitere Ergänzungen (Herausforderung)
+
+josh, 2026-10-09: Kohle heizt zuerst, Siedler können erfrieren, haltbares Essen zuerst, Belohnung für die Einführung, keine Balken mehr im Siedler-Infofenster. Code in
+`scripts/autoload/extras.gd` (`Extras`, kein eigener Autoload: Seasons hängt ihn in `_ready` als Kind an,
+er meldet sich als System bei Game an).
+
+- **Kohle heizt zuerst** (`Extras.burn_fuel`, aufgerufen von `Seasons._heat`): der Heizbedarf wird in Holz
+  gerechnet (`heat_wood_per_settler`). Liegt Kohle im Lager der Insel, brennt zuerst sie: je ganze
+  `heat_coal_wood` (2) Holz Bedarf eine Kohle. Holz brennt erst, wenn keine Kohle mehr da ist. 2 ist
+  derselbe Wert wie in der Köhlerei (4 Holz → 2 Kohle): Kohle spart also kein Holz, braucht aber nur
+  halb so viel Lagerplatz. Achtung: Kohle für Schmelzofen, Glashütte und Stahlwerk wird im Winter mit
+  verheizt. `Extras.fuel(w)` = Holz + Kohle x 2. Vorhersage im Herbst, Antippen der Jahreszeit und
+  Wintervorwarnung nennen mit Kohle (oder nach der Forschung Köhlerei) „etwa N Holz oder halb so viel
+  Kohle; Kohle wird zuerst verbrannt (im Lager: K)“ (`Extras.need_text`). Der Bot rechnet die Kohle in
+  seine Holzreserve ein (`heat_reserve` minus Kohle x 2, Notfall-Holzfäller nach `Extras.fuel`).
+- **Erfrieren** (seasons.json `freeze`): solange eine Insel friert (`Seasons.cold`, kein Holz und keine
+  Kohle), sammelt jeder Siedler dort Kälte (`Extras.exposure`, Spielstand `frost` {Siedler-ID: Wert}),
+  je Tag so viel, wie die Jahreszeit Brennstoff verlangt (normaler Winter 1, Herbst 0,3, Eiswinter 1,8),
+  Kinder und Alte (ab 80 % des Höchstalters) x`weak_factor` 1,5. Über `grace_days` (1) sinkt die
+  Gesundheit um `damage_per_day` (100) x denselben Faktor; das normale Heilen (40 am Tag, wenn satt)
+  läuft weiter. Bei 0 stirbt der Siedler (`World.kill_settler(s, "erfroren", "freeze")`,
+  `stats.frozen`). Im Warmen sinkt die Kälte um `recover_per_day` (2). Normaler Winter ohne jeden
+  Brennstoff: Kinder und Alte sterben nach etwa 1,6 Tagen, Erwachsene nach etwa 2,7; Eiswinter
+  schneller. Inseln ohne Schnee (`snow_biomes` 0, Palmeninsel) sind ausgenommen.
+  Meldungen: sobald der Brennstoff ausgeht „Kein Holz und keine Kohle … erfrieren in etwa N Stunden,
+  Kinder und Alte zuerst“ (`Extras.cold_text`, Schätzung für den Schwächsten; über 72 Stunden ohne
+  Zahl), sobald die Gesundheit des Ersten sinkt einmal „Die ersten Siedler erfrieren!“ (Art
+  `gesundheit`), dann je Toter „… ist erfroren.“ Laune-Grund „Friert (kein Holz, keine Kohle)“.
+- **Haltbares Essen zuerst**: siehe „Nahrung, Vitamine und Gleichgewicht“ (`Game.durable_first`).
+- **Belohnung für die Einführung** (`Extras.tutorial_reward`, aus `GoalCard._advance`, wenn der letzte
+  Schritt erfüllt ist; nicht beim Überspringen und nicht beim stillen Nachholen alter Spielstände): eine
+  fertige Hütte auf dem ersten freien Platz um das Lagerfeuer (Ring für Ring, eine Zelle Abstand zu
+  anderen Gebäuden; ohne Platz 16 Holz) und 2 Einwanderer über `Game.grant_reward(w, {"settlers": 2})`
+  (eine Frau und ein Mann, mit niemandem verwandt). Meldung „Belohnung für die Einführung: 2 Einwanderer
+  und eine fertige Hütte am Lagerfeuer.“
+- **Siedler-Infofenster ohne Balken**: Sättigung, Gesundheit, Vitamine, Laune, Erholung, Eigenschaften und
+  Fähigkeiten haben keine Balken mehr; Eigenschaften und Fähigkeiten stehen als eine Textzeile
+  („Bauen 3 · Nahrung 4+ · …“, `Hud._info_text`). Die Werte selbst gibt es weiter (Siedlerliste, Laune-Gründe).
+- **Alte Spielstände**: zwei Zeilen im Fenster „Neue Regeln“ (Kohle/Erfrieren, haltbares Essen).
+- **Messung mit dem Bot** (3 Seeds 11/22/33, `--autotest=820 --noevents=1 --winter=normal`, je zwei Läufe
+  vorher und nachher, dazu ein Gegenversuch ohne die Essensreihenfolge): kein Skorbut, keine
+  Erfrorenen, keine Hungertoten, Vitamine im Schnitt gleich (88). Die Essensreihenfolge kostet etwas:
+  verdorben je Lauf 184 statt 161 (+14 %), höchstens 26,5 statt 29,8 Siedler, Steinzeit-Prüfung im
+  Schnitt Tag 24,0 statt 22,2 (3 von 6 Läufen erst in Jahr 3, vorher 0 von 6). Ohne sie (nur Kohle,
+  Erfrieren, Bot) lagen die Werte wie vorher (159 verdorben, 29 Siedler, Tag 22,7). Der Bot friert je
+  Lauf 0–2 Mal kurz (wie vorher), die Schonzeit reicht immer. Ein erster Versuch, bei dem Getreide als
+  haltbares Essen galt, ließ die Siedler das Korn roh essen (Brot fast nie) und wurde verworfen; ohne die
+  Vitamin-Ausnahme aßen die Siedler im `--schooltest` nur Brot und bekamen Skorbut (3 Fälle).
+- **Testhilfen**: `--coaltest=1` (Kohle vor Holz, Texte; mit `--season=3` ein Winter mit `--coal=N
+  --coalwood=N`), `--freezetest=1` (mit `--season=3 --winter=normal`: ein Kind und eine Alte dazu, das
+  Lager bleibt ohne Brennstoff; Bericht mit Kälte und Gesundheit je Siedler, Reihenfolge der Toten),
+  `--foodorder=1` (Essensreihenfolge), `--tutdone=1` (letzter Einführungsschritt: 2 Siedler, Hütte).
+
+## Inselstärken, Gewürze und fremde Händler (Herausforderung)
+
+Jede Inselart kann etwas besonders gut, Palmeninseln haben Gewürze, und an Häfen kommen fremde Händler, die
+gegen Gold handeln. Regelzeile für alte Spielstände: „Jede Inselart hat Stärken. Palmeninseln haben
+Gewürze. Händler kommen an Häfen und handeln gegen Gold.“
+
+- **Inselstärken** (buildings.json `biome_bonus` = {Inselart: Faktor}): Felseninsel Erzmine x2, Steinbruch
+  und Stahlwerk x1,5; Waldinsel Sägegrube, Köhlerei, Papiermühle x1,5; Palmeninsel Räucherei,
+  Konservenfabrik, Solarpark x1,5; Heimatinsel keine. Der Faktor teilt die Zeit eines Arbeitsgangs
+  (`Building.biome_factor()` in `Settler._plan_production` und `_do_take_inputs`); Wege, Pausen und
+  Rohstoffe bleiben gleich, darum ist der Gewinn im Spiel kleiner als der Faktor.
+  Anzeige: Bauliste „Inselstärke: hier x1,5 so schnell“ (grün) bzw. „Schneller auf: Felseninsel x1,5“,
+  dieselbe Zeile im Infofenster des Gebäudes, Seekarte „Stärken:“ mit Gebäudesymbolen, islands.json-`desc`
+  nennt sie. Helfer: `IslandTraits` (`scripts/world/island_traits.gd`): `factor`, `strengths`,
+  `good_biomes`, `bonus_text`, `times` (x1,5 mit deutschem Komma).
+- **Gewürze**: Rohstoffquelle `gewuerzstrauch` nur auf Palmeninseln, 8 Stück je Insel aus islands.json
+  `extra` = [[Typ, Anzahl, Abstand von, bis, nur auf Gras]]. `IslandGen._place_extra` setzt sie in einem
+  eigenen Durchgang mit eigenem Zufall (`hash([seed, "extra"])`), alle anderen Rohstoffe bleiben für jeden
+  Seed gleich. Sammler (`jobs.json` targets) pflücken sie nur, solange die Insel genug Essen hat, dann
+  aber zuerst (`IslandTraits.gather_order`: Essen >= 10 je Siedler). Wachstum je Jahreszeit in
+  seasons.json. Alter Spielstand: `IslandTraits.patch_spice` setzt beim Laden die Sträucher einer
+  Palmeninsel, die noch keinen hat, auf ihre Plätze (nur freie Felder, nicht neben Gebäude) und meldet
+  „Auf … wachsen jetzt 8 Gewürzsträucher.“; sobald einer steht, passiert nichts mehr.
+- **Fremde Händler** (Autoload `Merchant`, `scripts/autoload/merchant.gd`, Werte in `data/merchant.json`):
+  sobald eine besiedelte Insel einen fertigen Hafen hat (`Sea.harbor_level >= 1`, die Werft zählt), kommt
+  der erste Händler `first_after_days` (2) Tage später. Einen Tag vorher (`announce_days`) wählt er die
+  Insel (nur mit Hafen und Siedlern, ohne angekündigte Piraten `Events.busy(w)`, Gewicht
+  (1 + Hafenstufe) x Siedler) und meldet sich (Meldungsart `ereignis`, Symbol `haendler`). Er liegt
+  `stay_days` (1) im Hafen, als eingefärbte Kogge vor dem Ufer (`add_ship`, Farbe `ship_tint`), und kommt
+  `interval` (4–6) Tage nach der Abfahrt wieder. Kann keine Insel ihn aufnehmen, verschiebt er sich um
+  `postpone_days`. Geht die angekündigte Insel bis zur Ankunft nicht mehr (z. B. Piraten angekündigt),
+  wählt er eine andere und kündigt sich dort wieder einen Tag vorher an. Seehandel (Wirkung `trade` in techs.json): Abstand x0,7 und ein Verkaufslos mehr.
+- **Lose**: 4 Verkaufs- und 3 Ankaufslose (dazu je 2 einfache, siehe unten), jedes 1–3-mal (`lot_times`). Losgröße für 6–14 Gold
+  (`lot_gold`, resources.json `price`), billige Waren in Fünferschritten. Er verkauft zu x1,0–1,25
+  (aufgerundet) und kauft zu x0,5–0,65 (abgerundet, mindestens 1 Gold). Angebot je Zeitalter (`sells`:
+  Ware → ab Zeitalter); Gewürze bietet er immer an, solange keine Palmeninsel besiedelt ist, sonst in der
+  Hälfte der Besuche. Ankauf aus `buys`, Gewürze zuerst, dann Waren, die die Insel hat.
+  **Einfache Waren** (josh: „Gehandelt werden können auch einfache Güter wie Holz“): zusätzlich je Besuch
+  `basic_sell_lots` (2) Verkaufs- und `basic_buy_lots` (2) Ankaufslose aus `basic` (Holz, Stein, Lehm,
+  Getreide, Bretter, Ziegel ab Steinzeit, Kohle ab Antike; Ware → ab Zeitalter), Losgröße für
+  `basic_lot_gold` (3–6) Gold in Fünferschritten (z. B. 30–60 Holz, 10–25 Bretter), gleiche Preisspannen.
+  Eigener Zufall (`hash([seed, Besuch, "haendler_einfach"])`), eine Ware nie zugleich im Ver- und Ankauf,
+  beim Ankauf zuerst Waren, die die Insel in der Menge hat. Die seltenen Lose bleiben vollständig (4 + 3),
+  Ziegel und die einfachen Waren stehen dafür nicht mehr in `sells`/`buys`. `Merchant.is_basic(id)`. Zufall
+  `hash([seed, Besuch, ...])`: gleicher Spielstand, gleiche Lose. Gold und Waren gehören immer der Insel,
+  an der er liegt; `buy_block`/`sell_block` liefern den Grund, warum es nicht geht („zu wenig Gold“,
+  „kein Platz im Lager“, „ausverkauft“, „nur 3 im Lager“ …). Jeder Handel zählt `stats.trades` und sendet
+  `Game.player_action("trade", Ware)`.
+- **Handelsfenster** (`scripts/ui/trade_panel.gd`, in `hud._panels()`): Name, Insel und Restzeit, Gold
+  dieser Insel, Hinweis auf Gold anderer Inseln, Zeilen „Er verkauft“ / „Er kauft“ mit Symbol, Menge,
+  „noch 2x“ bzw. Grund, Preis und 36 px hohem Knopf (auf 360 px Breite passend). Geöffnet über den
+  **Händler-Knopf** oben (`scripts/ui/top_alerts.gd`, hud.top_alerts: breit links neben der
+  Geschwindigkeit, schmal darunter; gold = liegt im Hafen, blass = angekündigt), das Infofenster eines
+  Hafens oder der Werft und die Seekarte (Inselansicht: „Händler hier“ mit „Handeln“). Die Hilfe hat
+  einen eigenen Absatz (`TradePanel.HELP`).
+- **Spielstand**: oben `merchant` = {next, plan, island, until, seq, name_i, sells, buys} (Lose als
+  [{id, n, gold, left}]). Alter Spielstand ohne `merchant`: erster Besuch `rules_day` + 2, falls schon ein
+  Hafen steht, sonst 2 Tage nach dem ersten Hafen. Neues Spiel: `state_reset` leert alles.
+- **Testhilfen**: `--tradetest2=1` (Werft, Waren und 40 Gold; prüft Lose, gleiche Lose bei gleichem Seed,
+  Kauf, Verkauf, Gründe, Schiff, Speichern/Laden, Seehandel, alten Spielstand, Abfahrt, Ankündigung und den
+  zweiten Besuch, druckt „Handel OK/FEHLER“; `=shot` legt nur den Händler hin), `--basictrade=1`
+  (einfache Waren: Anzahl Lose, Losgrößen, 40 Besuche, Kohle erst ab Antike, Kauf, Verkauf, Speichern;
+  druckt „Einfache Waren OK/FEHLER“), `--spicetest=1`
+  (Generator, 20 Seeds, Kolonie, Reihenfolge der Sammler, alter Spielstand, Ernte über 2 Tage),
+  `--biometest=1` (Tabelle, Arbeitszeit, Planung des Siedlers; je ein Tag Heimat/Felsen/Heimat nur zur
+  Info), `--merchant=off` (keine Händler, für vergleichbare Läufe), `--goisland=N` (vor den Tests auf
+  Insel N wechseln, dazu `--goplace=steinbruch,…` fertige Gebäude dort), `--panel=trade` (Handelsfenster
+  fürs Bildschirmfoto).
+  Der 20-Sekunden-Bericht zeigt Händler (Zustand, Insel, Tag, Lose, Handel) und Gewürze je Insel.
 
 ## Charaktere der Siedler
 
@@ -334,8 +530,9 @@ Spielstände würfeln die Werte reproduzierbar aus der Siedler-ID).
 - **Freizeit**: `rest` sinkt bei Arbeit je nach Bedarf, unter 35 macht der Siedler Pause
   (`Settler._plan_leisure`: Feuer, zu Hause, Strand, mit Kindern spielen, Bibliothek/Schreibstube,
   gewichtet nach Gemüt und Klugheit), außer in einer Hungersnot (weniger als 3 Nahrung je Siedler).
-- **Anzeige**: Infofenster (Charakter, Begabungen, Krankheit, Balken Vitamine/Laune/Erholung,
-  Arbeitskraft, wichtigste Gründe, Eigenschaften, Fähigkeiten mit + für Begabung), Siedlerliste
+- **Anzeige**: Infofenster (Charakter, Begabungen, Krankheit, Laune mit Arbeitskraft, wichtigste
+  Gründe, Eigenschaften und Fähigkeiten mit + für Begabung als Text; seit josh 2026-10-09 ohne Balken
+  für Sättigung, Gesundheit, Vitamine, Laune, Erholung, Eigenschaften und Fähigkeiten), Siedlerliste
   (Spalte Laune, rot bei Krankheit, Filter „Nur Kranke“, Lebensstil im Zähler).
 - Test: `--chartest=1` (täglicher Bericht), `--comfort=<n>` (n Forschungen erledigt), `--sick=<n>`.
 
@@ -356,7 +553,11 @@ einmal aufgebaut ist. Dafür gilt:
   Bedarf hinausgeht; dazu gedeckter Vitaminbedarf (bis `vitamin_target`, doppelt bei Mangel unter
   `vit_low`); Abwechslung gegenüber `mind.meals`; Bonus für Verderbliches (`Seasons.spoil_rate(id)`);
   Bonus für große Vorräte; Abzug, wenn eine fertige Werkstatt die Ware als Zutat braucht (Weizen,
-  Fisch). `Game.eat_food(prefer_vitamins, w)` bleibt als einfache Wahl (Sättigendstes oder
+  Fisch). **Haltbares zuerst** (josh 2026-10-09, `Game.durable_first`): hat der Siedler genug Vitamine
+  (mindestens `vitamin_target`), wählt er nur unter haltbarem Essen (nicht in seasons.json `perishable`,
+  ohne Rohware einer Werkstatt wie Getreide: Brot, Räucherfisch, Kokos, Konserven), das andere erst, wenn
+  nichts Haltbares mehr da ist. Wer Vitamine braucht, wählt aus allem. Innerhalb der Gruppe gilt die
+  Wertung oben. `Game.eat_food(prefer_vitamins, w)` bleibt als einfache Wahl (Sättigendstes oder
   Vitaminreichstes) für andere Aufrufer. Die Mahlzeit meldet `mind.on_meal(id, Data.food_vitamins(id))`.
   `Game.eaten` zählt alles, `Game.last_eaten` ist die letzte Sorte. Test: `--foodtest=1`.
 - **Notessen**: ist das Lager der Insel leer (oder voll mit anderem), essen sehr hungrige Siedler
@@ -371,14 +572,153 @@ einmal aufgebaut ist. Dafür gilt:
   Vorrat und Nachwachsen der Nahrungsquellen. Der Bericht zeigt je Siedler Sättigung/Vitamine/Gesundheit
   und alles Gegessene.
 
+## Bedürfnisstufen der Bewohner (Herausforderung)
+
+Häuser haben eine **Stufe** (buildings.json `level`): Hütte 1 Siedler, Holzhaus 2 Dorfbewohner, Steinhaus 3
+Bürger, Mietshaus 4 Städter, Wohnblock 5 Großstädter. Ausbau Hütte → Holzhaus → Steinhaus → Mietshaus →
+Wohnblock (`upgrade`, Forschung wie bisher). Kinder-Bonus (`birth_bonus`) Holzhaus 1,4, Steinhaus 1,8,
+Mietshaus 1,8, Wohnblock 2,0. Regelzeile für alte Spielstände: „Häuser haben Bedürfnisse. Nur zufriedene
+Häuser stellen Fachkräfte für höhere Werkstätten (z. B. Schmiede ab Holzhaus-Stufe).“
+
+- **Bedürfnisse** (`data/levels.json`, `levels[k-1]` = Stufe k; jede Stufe braucht zusätzlich alles der
+  Stufen darunter): 1 Nahrung, Wärme (nur Anzeige); 2 Abwechslung (3 Nahrungssorten im Lager), Möbel
+  (0,15 Bretter je Verbraucher und Tag); 3 Zubereitetes Essen (Vorrat Brot/Räucherfisch/Eier/Konserven von
+  0,5 je Verbraucher), Hausrat (0,06 Werkzeug), Schule (fertiges Gebäude mit `school`); 4 Glas 0,08,
+  Papier 0,08, Gewürze 0,05; 5 Strom 0,4, Elektronik 0,04. Arten (`kind`): `good` (Verbrauch), `stock`
+  (nur Vorrat), `variety`, `building` (`flag`), `food`, `warm`.
+- **Rechnung** (`HouseNeeds`, `scripts/autoload/house_needs.gd`): je Insel alle `tick_days` (0,1 Tag,
+  nur mit Welt, nicht bei Spielende oder Pause). Verbraucher der Gruppe k = Bewohner fertiger Häuser ab
+  Stufe k (Erwachsene 1, Kinder `child_weight` 0,5). Waren werden über einen Bruchteil-Zähler (`acc`)
+  ganzzahlig mit `Game.take_stock` verbraucht; Erfüllung = bekommen / gewollt, was fehlt, bleibt nicht
+  als Schuld stehen. Jede Erfüllung wird geglättet (`tau_days` 0,5). Zufriedenheit der Stufe k =
+  Mittel aller Bedürfnisse der Stufen 2..k. `ok(k)` mit Hysterese: an ab `on` 0,7, aus unter `off` 0,55.
+  Ein Haus der Stufe L **zählt als** die höchste Stufe k <= L, bei der `ok(2)` bis `ok(k)` alle gelten
+  (streng: ein Steinhaus ohne Möbel zählt als Stufe 1, auch wenn Stufe 3 im Mittel reichen würde), sonst
+  als Stufe 1. `HouseNeeds.level_ok(w, k)` ist ebenso streng. Das Infofenster sagt „Zählt nur als
+  Hausstufe 1 (Siedler), es fehlt: Möbel (Bretter) ...“. Bedürfnisse mit Ware heißen in der Anzeige
+  „Möbel (Bretter)“, „Hausrat (Werkzeug)“ (`HouseNeeds.need_label`); Hausstufen heißen immer „Hausstufe“,
+  „Stufe“ bleibt den Forschungsstufen.
+  Wechsel melden sich (Meldungsart `siedler`, Symbol `haus`), nur wenn es Häuser dieser Stufe gibt.
+- **Fachkräfte-Pool**: Werkstätten und Forschungsplätze haben `worker_level` (Standard 1): Stufe 2
+  Schmelze, Schmiede, Werft, Bibliothek, Schreibstube 3 und 4; 3 Glashütte, Papiermühle, Universität,
+  Stahlwerk, Konservenfabrik; 4 Fabrik, Kraftwerk, Elektronikwerk, Labor; 5 Solarpark, Fusionsreaktor,
+  KI-Zentrum. Fachkräfte(k) = Erwachsene in Häusern, die als Stufe >= k zählen; belegt(k) = Siedler in
+  fertigen Gebäuden mit `worker_level` >= k. Einen Platz der Stufe L darf ein Siedler nur nehmen, wenn
+  für alle k = 2..L belegt(k) < Fachkräfte(k) (ohne ihn selbst). Eine Stelle: `World.pool_allows(b, sid)`
+  (→ `HouseNeeds.pool_allows`), abgefragt in `World.find_workshop`, `World.find_research_place`, beim
+  Weiterforschen in `Settler._do_research` und in `AiJobs`. Wer schon arbeitet, hört nach dem
+  laufenden Arbeitsgang auf, wenn der Pool kleiner wird. Abgewiesene melden sich je Insel und Stufe
+  höchstens alle `turned_note_days` (3 Tage). Schalter `balance.json` `worker_levels` (false: keine Sperre).
+- **Weitere Wirkungen**: Kinder-Bonus des Hauses und Laune „Wohnt schön“ nur, wenn das Haus als seine
+  volle Stufe zählt (`HouseNeeds.full_level`); Laune „Bedürfnisse erfüllt“ +2 x Stufe x (0,5 + Charakter)
+  bzw. „Bedürfnisse fehlen: …“ −(3 + 2 x Stufe) für Bewohner ab Stufe 2 (nur gemerkte Werte). Ausbau eines
+  Hauses ab Stufe 2 erst, wenn es voll zufrieden ist (`World.upgrade_building`, Knopf gesperrt).
+  `World.assign_homes` setzt Siedler zuerst in die höchsten Häuser. Nachwuchs rechnet je Insel mit deren
+  eigenem Essen und eigener Abwechslung.
+- **Anzeige** (`scripts/ui/needs_info.gd`, je eine Zeile in hud.gd): Haus: „Hausstufe 5: Großstädter“,
+  rote Zeile „Zählt nur als Stufe …“, Balken Zufriedenheit (grün/rot), je Stufe die Bedürfnisse mit Wert
+  (grün ab 0,7, gelb ab 0,4, sonst rot). Werkstatt/Forschung ab Stufe 2: „Arbeiter ab Stufe …“,
+  „Fachkräfte Stufe k: belegt / vorhanden“ und ein roter Hinweis, wenn Plätze frei bleiben. Ausbau:
+  gesperrter Knopf mit Grund. Siedler: „Zuhause: Wohnblock · Bürger“ (Stufe, als die das Haus zählt).
+  Bauliste: Stufe und neue Bedürfnisse bzw. Arbeiterstufe.
+- **Für andere Systeme**: `HouseNeeds.effective_level(b)`, `full_level(b)`, `count_level(w, k)` (Häuser,
+  die als Stufe >= k zählen), `level_ok(w, k)`, `level_sat(w, k)`, `level_name(k)`, `pool(w, k)` →
+  [belegt, Fachkräfte], `turned_away`.
+- **Spielstand**: oben `needs` = {"<insel-id>": {sat: {Bedürfnis: 0..1}, ok: {"2".."5": bool}, acc:
+  {Ware: Rest}, grace: time_days}}. Alter Spielstand (oder Insel ohne Eintrag): alles zufrieden, `ok` an
+  und einen Tag Schonfrist (`grace_days`), in der keine Stufe abfällt.
+- **Testhilfen**: `--needstest=1` (alles erforscht, alle Häuser und Fachgebäude, 36 Siedler; vier
+  Abschnitte: alles da, ohne Waren, auch ohne zubereitetes Essen, wieder alles; prüft Pool, Kinder-Bonus,
+  Laune, Ausbau, Speichern/Laden und alten Spielstand, druckt „Bedürfnis-Test OK/FEHLER“).
+  `--needstest=shot|drop` baut dasselbe und hält alle Waren bzw. alle außer den Bedürfnis-Waren vorrätig
+  (für Bildschirmfotos). `--needsscroll=N` rollt das Infofenster nach `--selectb` um N Pixel.
+  `--workerlevels=0` schaltet die Sperre ab. Der 20-Sekunden-Bericht zeigt je Insel Zufriedenheit,
+  Häuser, Fachkräfte und Abgewiesene.
+
+## Angekündigte Ereignisse (Herausforderung)
+
+Ab dem zweiten Jahr trifft jede Insel ab und zu ein Ereignis, das sich vorher ankündigt: Dürre, Ratten,
+Brand, Seuche, Sturmflut und ab dem Mittelalter Piraten. Wer vorbereitet ist (Forschung, Gebäude, Vorräte),
+kommt gut durch; wer eine Dürre, Seuche oder einen Piratenüberfall ohne Tote übersteht, bekommt einen
+Einwanderer. Regelzeile für alte Spielstände: „Ab dem zweiten Jahr kündigen sich Ereignisse an: Dürre,
+Ratten, Brand, Seuche, Sturmflut und ab dem Mittelalter Piraten. Wer sie gut übersteht, bekommt Einwanderer.“
+
+- **Zeitplan** (Autoload `Events`, `scripts/autoload/events.gd`, Werte in `data/events.json`): frühestens ab
+  Spieltag `start_day` (13 = erster Tag von Jahr 2), nie während der Einführung (`Game.goals.tut` kleiner
+  als die Zahl der Einführungsziele). Je besiedelter Insel höchstens ein Ereignis; das nächste frühestens
+  `interval` (8–16) Tage nach dem Ende des letzten, dazu zufällig eine Jahreszeit früher, gleich oder später
+  (`season_jitter` 1, mindestens `min_gap` 5 Tage; im Mittel bleibt es bei 12 Tagen). So wandern Ereignisse
+  durch das Jahr (vorher kamen sie Jahr für Jahr in derselben Jahreszeit). Neue oder geladene Inseln
+  haben `grace_days` (8) Schonzeit. Wer während der Vorwarnung stirbt, zählt nicht als Toter des Ereignisses.
+  Zwischen zwei Ankündigungen auf allen Inseln mindestens `global_gap` (3) Tage. Ab `min_settlers` (6)
+  Siedlern (Seuche und Piraten 8). Ankündigung `lead` (1–2) Tage vorher, Eintritt tagsüber (`strike_tod`
+  0,3–0,55). Die Art wird nach der Jahreszeit beim Eintritt gewürfelt (`weights` Frühling, Sommer, Herbst,
+  Winter; heißer Sommer x2 für Dürre und Brand; keine Seuche im harten oder strengen Winter), nie zweimal
+  dieselbe Art hintereinander, nur Arten, die auf der Insel etwas treffen (`eligible`). Passt keine, wird
+  `retry_days` später neu gewürfelt. Zufall `hash([seed, Insel, Nummer, "ereignis"])`.
+  Stärke = clamp(0,5 + 0,1 x (Jahr − 2) + Siedler / 30, 0,5, 2,5).
+- **Arten**:
+  - **Dürre** (Sommer): bis zum Ende des Sommers (mindestens 1,5 Tage) wachsen Feld, Obstgarten, Beeren und
+    Pilze mit 0,4 (mit Bewässerung 0,7). `Seasons.growth` nimmt das Kleinere aus Klima und Ereignis (kein
+    Produkt: ein heißer Sommer mit Dürre ergibt 0,4). Nur mit fertigem Feld oder Obstgarten.
+  - **Ratten**: fressen clamp(0,15 + 0,08 x Stärke, 0,15, 0,35) von Getreide, Mehl, Obst, Beeren, Pilzen,
+    Kokos, Fisch, Eiern und Brot (`goods`; Konserven, Tontafeln, Papier nie), mit Großem Lager die Hälfte.
+    Ab 30 solcher Waren.
+  - **Brand**: 1 + ⌊Stärke / 1,25⌋ Gebäude (das erste zufällig, dann die nächsten) werden **beschädigt**,
+    nicht abgerissen: wieder Baustelle, einfache Baustoffe (`basic_goods`) bleiben zu 70 % (`keep`), andere
+    ganz, Bauarbeit von vorn, Bewohner und Arbeiter ziehen aus (`Events.damage_building`). Baumeister bauen
+    mit der normalen Baustellen-Logik wieder auf. Ein Brunnen in bis zu 8 Feldern löscht das Feuer.
+    Nie: Lager, Häfen und Ufergebäude (`coast`), Gebäude mit Wirkung (`effects`), Felder, Lagerfeuer, Brunnen.
+  - **Seuche** (2 Tage): Krankheitsrisiko x(1 + (m − 1) / Heilkunst) mit m = clamp(2 + 0,6 x Stärke, 2,5, 4)
+    (`SettlerMind`, Heilkunde und Impfung über die Wirkung `heal`); 70 % der neuen Krankheiten sind die
+    Seuchen-Krankheit (Fieber oder Ruhr, bei der Ankündigung genannt); ein Siedler erkrankt sofort.
+  - **Sturmflut** (Herbst, Winter): Felder und Obstgärten bis 2 Felder vom Wasser verlieren ihre Ernte
+    (brach), 1 + ⌊Stärke / 1,25⌋ Gebäude am Ufer werden beschädigt (Baustoffe 80 %). Deichbau (Wirkung
+    `flood`) verhindert alles. Häfen, Werften und Ufergebäude bleiben heil.
+  - **Piraten** (ab Zeitalter 2, mit Hafen oder Werft): clamp(2 + Siedler / 10 + (Zeitalter − 2), 2, 7)
+    Piraten (`Raider`, `scripts/entities/raider.gd`, Unterklasse von `Animal`, Werte in events.json
+    `raider`, Grafik Zeile 3 in animals.png) landen etwa 12 Felder vom Lager am Strand, ihr Schiff (rot
+    gefärbte Kogge) liegt davor. Sie gehen zum nächsten Lager, plündern dort 4 Sekunden und gehen zurück;
+    die Beute (je Pirat 6 + 4 x Stärke aus `loot`: Gold, Werkzeug, Eisen …) nehmen sie erst beim Ablegen aus
+    dem Lager. Nach einem halben Tag gehen alle zurück, nach 0,8 Tagen sind sie fort. Sie greifen Siedler in
+    3 Feldern an; Jäger und Wachtürme bekämpfen sie wie wilde Tiere. Vertriebene zählen `stats.pirates`,
+    nicht als Jagd (kein Fleisch, keine Felle, nicht in `stats.kills`); wurde mindestens die Hälfte
+    vertrieben, lassen sie je Vertriebenem 1 Gold zurück. Der Händler meidet die Insel (`Events.busy`).
+- **Ende**: Meldungen bei Ankündigung (Ton `warnung`, was passiert, was hilft und ob es schon da ist:
+  „Hilft: Bewässerung (noch nicht erforscht).“), Eintritt (Ton `glocke`) und Ende (Meldungsart `ereignis`).
+  Ohne Tote nach Dürre, Seuche oder Piraten (`reward`): `stats.events_survived` + 1 und ein Einwanderer, ohne
+  freien Wohnplatz Waren je Zeitalter (`reward_goods`) über `Game.grant_reward`. `stats.events` zählt alle.
+- **Anzeige**: Ereignis-Knopf (`scripts/ui/event_chip.gd`) in `hud.top_alerts`: Symbol der Art, gelb =
+  angekündigt, rot = läuft; breit dazu „Dürre in 30 Std.“ bzw. „Seuche noch 20 Std.“ und „+1“ für weitere
+  Inseln, schmal nur das Symbol. Antippen zeigt alle Ereignisse mit Insel, Zeit und Gegenmittel. Liegen
+  die Knöpfe unter der Geschwindigkeit, rücken die Meldungen darunter. Infofenster eines Piraten: Kraft,
+  was er tut, seine Beute.
+- **Für andere Systeme**: `Events.busy(w)` (Piraten angekündigt oder da), `growth_factor(type, w)`,
+  `sickness_factor(w)`, `epidemic_illness(w)`, `event_of(w)`, `chip()`, `describe_all()`,
+  `damage_building(w, b, keep)`, `near_water(w, c, size, r)`; Signal `changed`.
+- **Spielstand**: oben `events` = {islands: {"<insel-id>": {next, last, ev}}, last, seq}; `ev` = {type, at,
+  strike, end, power, deaths, struck, ill?, count?, left?, kills?, loot?, landing?}. Piraten selbst werden
+  nie gespeichert (`World.serialize` lässt `Raider` aus); nach dem Laden landen die übrigen (`left`) neu.
+  Alter Spielstand: jede Insel `grace_days` Schonzeit ab dem Laden.
+- **Testhilfen**: `--eventtest=<duerre|ratten|brand|seuche|sturmflut|piraten|all>` (Ankündigung 0,05 Tage
+  vorher, prüft die Wirkung, Gegenmittel, Belohnung, bei Piraten Speichern/Laden, Beute erst beim Ablegen
+  und Abwehr mit Wachturm und Jägern; druckt „Ereignis-Test … OK/FEHLER“), `--eventsched=1` (sechs Jahre
+  Zeitplan im Zeitraffer: erster Tag, Abstände, keine Art zweimal, Jahreszeit), `--noevents=1` (keine
+  Ereignisse, für vergleichbare Läufe), `--skiptut=1` (Einführung überspringen, damit Bot-Läufe Ereignisse
+  sehen). Bildschirmfotos: `--eventshot=<art>[:now]` (angekündigt bzw. eingetreten), `--eventtap=1`
+  (Knopf kurz vor dem Bild antippen), `--selectraider=1` (`--raiderwait=N` Sekunden) wählt einen Piraten.
+  Der 20-Sekunden-Bericht zeigt je Insel das Ereignis bzw. den nächsten Termin.
+
 ## Zeitalter
 
 `techs.json` hat neben `_tiers` (16 Stufennamen) die Liste `_ages`: acht Zeitalter mit je zwei Stufen
 (Steinzeit 1–2, Antike 3–4, Mittelalter 5–6, Renaissance 7–8, Industrialisierung 9–10, Moderne 11–12,
 Informationszeitalter 13–14, Zukunft 15–16). `Data.age_of_tier(tier)`, `Data.age_name(i)`,
-`Game.current_age()` = spätestes Zeitalter mit mindestens einer erforschten Sache. Beim Eintritt in ein
-neues Zeitalter meldet `_finish_research` es. Im Forschungsmenü steht über jedem Zeitalter eine
+`Game.current_age()` = Zahl der bestandenen Prüfungen (`Exams.passed`, siehe „Prüfungen beim
+Zeitalterwechsel und Wertung“); das neue Zeitalter meldet `Exams.pass_exam`. Im Forschungsmenü steht über jedem Zeitalter eine
 Überschrift; Zeitalter jenseits des nächsten zeigen nur die Überschrift (`_age_header`).
+`_ages[i].writing` nennt die Schreibwaren, die Forscher in diesem Zeitalter verbrauchen (siehe
+„Forschung braucht Schriften“).
 
 - **Neue Waren**: Glas, Papier, Stahl, Maschinen, Strom (Größe 0), Elektronik, Konserven (Nahrung 30/8,
   verdirbt nicht). **Neue Werkstätten** (Handwerker): Glashütte, Papiermühle, Stahlwerk, Fabrik,
@@ -396,12 +736,387 @@ neues Zeitalter meldet `_finish_research` es. Im Forschungsmenü steht über jed
 - **Grafik**: `tools/gen_art_ages.py` (Gebäude ab Zelle 35 in buildings.png, Symbole `ICONS_AGES`).
 - **Test**: `--prodtest=1 --ages=1` baut nur die Gebäude der neuen Zeitalter.
 
+## Forschung braucht Schriften
+
+Teil der Regeln ab Version 2 (siehe unten). Forscher verbrauchen ab der Antike Schreibwaren, und
+Forschungen kosten mehr.
+
+- **Verbrauch**: je 100 gutgeschriebene Forschungspunkte (Punkte mal `eff("research")`) die Mengen aus
+  `techs.json` `_ages[i].writing`: Steinzeit nichts, Antike 10 Tontafeln, Mittelalter 4 Tontafeln,
+  Renaissance 2,5 Papier, Industrialisierung 1,5 Papier, Moderne 1 Papier + 2 Strom,
+  Informationszeitalter 2 Strom + 0,15 Elektronik, Zukunft 1,5 Strom + 0,1 Elektronik. Je Forschung ist das
+  fest `ceil(Punkte × Rate / 100)`, z. B. Heilkunde 300 Punkte = 30 Tontafeln, Papier 3900 Punkte = 156
+  Tontafeln. Genommen wird aus dem Lager der Insel des Forschers (Forschung ist gemeinsam, Lager je Insel:
+  eine Kolonie mit eigener Schreibstube braucht eigene Tafeln oder ein Schiff, das sie bringt).
+- **Rückfall**: eine Ware zählt nur, wenn ein Gebäude, das sie herstellt, schon freigeschaltet ist
+  (`Game.is_unlocked`); lässt sich keine Ware des Zeitalters herstellen, gilt die Liste des Zeitalters davor
+  (wiederholt). So brauchen Antike-Forschungen vor der Töpferei nichts, die Forschung Papier noch Tontafeln,
+  Elektrizität nur Papier und Computer nur Strom. Es zählt, was freigeschaltet ist, nicht was gebaut ist:
+  nach Papier brauchen Forschungen Papier, auch wenn noch keine Papiermühle steht (die Meldung sagt dann
+  „Baue: Papiermühle“). Das Ergebnis je Forschung wird zwischengespeichert (`Writing.goods_for`) und in
+  `Game._recompute_effects` geleert.
+- **Fehlt etwas**: liegt von einer Ware keine ganze Einheit im Lager, bringt der Arbeitsgang nur
+  `balance.writing_missing_factor` (0,2) der Punkte und verbraucht nichts. Meldung (Art Forschung) höchstens
+  einmal am Tag je Insel mit dem Gebäude, das fehlt („Baue: Tafelmacherei“) oder nichts liefert („Prüfe:
+  ...“); der Forscher zeigt „Forscht langsam, es fehlen Tontafeln“. Passive Forschung
+  (`passive_research_per_day`) und Punkte aus Belohnungen (`Game.add_research` direkt) bleiben frei.
+- **Code**: Autoload `Writing` (`scripts/autoload/writing.gd`). `Settler._do_research` ruft
+  `world.use_writing(Writing.goods_for(t), pts * eff)` (→ `Writing.consume`) und multipliziert die Punkte
+  mit dem Ergebnis. Bruchteile sammeln sich in `World.writing_debt` (nicht gespeichert: beim Laden geht
+  höchstens eine Einheit je Ware verloren). `stats.writing_used` zählt alle verbrauchten Einheiten (mit
+  `stats.get(k, 0)` lesen).
+- **Tafelmacherei** (Wissen, nach Töpferei, Holz 12 + Stein 6): ein Handwerker formt Lehm 2 → Tontafeln 3
+  (4 s), gemessen etwa 15–25 Tafeln am Tag; eine Lehmgrube mit einem Steinmetz reicht dafür.
+- **Kosten und Punkte**: Kosten Stufe 1 wie bisher, Stufe 2 ×1,5 (aufgerundet), ab Stufe 3 ×2; Gold und
+  Felle bleiben gleich, Backkunst und Tierhaltung kosten weiter Mehl bzw. Weizen. Punkte Stufe 1–4 wie bisher,
+  5–6 ×1,25, 7 ×1,5, 8 ×1,4, ab 9 ×1,25 (ab Stufe 5 auf 50 gerundet; Stufe 7 braucht jetzt mehr als
+  Stufe 6). Die Zahlen stehen direkt in `techs.json` (`research_cost_factor` bleibt 1).
+  Ausnahme Eisenkette (Balance-Runde 2026-10-09): Bergbau 500 → 420, Eisenverhüttung 600 → 500,
+  Schmiedekunst 650 → 550 Punkte (je etwa −15 %, zusammen 280 Punkte weniger). Grund: Schmiede und
+  Werkzeug sind der letzte Schritt zur Antike-Prüfung (10 Werkzeug); mit 3 Forschern lag der Weg
+  rechnerisch bei Jahr 7, so bei etwa Jahr 6 (mit 5 Forschern Jahr 4–5).
+- **Oberfläche**: jede Forschungszeile „Beim Forschen: 24 Tontafeln“ (Rest für diese Forschung, auch bei
+  gesperrten, in `_row_height` mitgezählt); Kopf des Forschungsfensters „Noch nötig: 63 Tontafeln (Lager: 0)“
+  und rot „Es fehlen Tontafeln: Forschung nur 20 %. Baue: Tafelmacherei.“; Zeitalter-Überschrift
+  „Forscher brauchen: Tontafeln“; Infofenster eines Forschungsgebäudes „Verbraucht beim Forschen:
+  Tontafeln (Lager: N)“ (rot, wenn etwas fehlt; in der Steinzeit „Ab der Antike brauchen Forscher
+  Tontafeln.“).
+- **Alte Spielstände**: nichts zu übernehmen. Bezahlte Forschungen kosten nichts nach, der Fortschritt bleibt
+  in Punkten (der Prozentwert sinkt, wo die Punkte gestiegen sind). Läuft gerade eine Forschung ab der
+  Antike ohne Tafeln, forscht sie mit 20 %, bis eine Tafelmacherei liefert. Zeile im Fenster „Neue Regeln“.
+- **Test**: `--writingtest=1`: prüft zuerst die Rückfall-Regel für elf Forschungsstände und
+  `World.use_writing` direkt, dann Stufe 1–4 erforscht außer Schmiedekunst, Schreibstube, Lehmgrube,
+  Tafelmacherei und Steinhaus fertig, 2 Forscher, Handwerker, Steinmetz, 0 Tontafeln; Tagesbericht
+  „Schrifttest Tag ...“ mit Punkten am Tag, Tafeln hergestellt/verbraucht und langsamen Arbeitsgängen
+  (gemessen: erst etwa 35–40 Punkte am Tag, mit Tafeln 100–135). `--writingtest=2`: ohne Tafelmacherei,
+  bleibt bei etwa 20 Punkten am Tag. `--build=1 --research=1`: sobald eine bezahlte Forschung Tontafeln
+  braucht, baut der Bot Tafelmacherei und Lehmgrube, teilt Steinmetz und Handwerker ein (nur bei genug
+  Essen) und hält beide an, wenn genug auf Vorrat ist (Antike direkt: `--comfort=12`). Bildschirmfoto:
+  `--panel=research --researchscroll=<forschung>`. Der 20-Sekunden-Bericht hat eine Zeile „Schriften: ...“.
+
+## Prüfungen beim Zeitalterwechsel und Wertung
+
+Teil der Regeln ab Version 2. Ein neues Zeitalter beginnt erst nach einer Prüfung; jede bestandene Prüfung
+bringt ein Fest, Einwanderer und Waren. Dazu eine Wertung mit Rekorden (Menü > Wertung).
+
+- **Sperre**: eine Forschung ist nur möglich, wenn ihr Zeitalter (`Data.age_of_tier(tier)`) höchstens
+  `Exams.passed` ist; sonst hat sie den Zustand `exam` (`Game.tech_state`, Reihenfolge done/soon/current/
+  locked/exam/available). `Game.current_age()` = `Exams.passed` (0 = Steinzeit). So lassen sich auch
+  Forschungen mit Voraussetzungen aus früheren Zeitaltern (Handkarren, Glasmacherei, Papier, Uhrwerk) nicht
+  vorziehen. `Game.start_research` meldet „Erst die Prüfung für das Zeitalter X bestehen.“
+- **Prüfungen** in `techs.json` `_ages[i].exam` (i = 0..6; Prüfung i öffnet Zeitalter i+1, die Zukunft hat
+  keine): `{checks: [...], fest_days, reward: {Ware: Menge, "settlers": n}}`. Bedingungen wie bei den Zielen
+  (`GoalChecks`), dazu neu `age_techs` {age, n} (erforschte Forschungen dieses Zeitalters), `houses` {what, n}
+  (dieses Haus oder ein besseres über `upgrade` oder die Hausstufe `level`, siehe Bedürfnisstufen), `no_starve_days` {n} (Tage
+  seit dem letzten Hungertod, `stats.starve_day`), `food` {n}, `variety` mit `all` (alle Inseln), `tech`
+  {what}, `exams` {n}. Waren werden auf allen Inseln gezählt und nicht verbraucht. Unbekannte Gebäude-IDs
+  zählen 0 und erscheinen lesbar („Mietshaus“). Werte (zum Nachjustieren nach josh's Spieltest):
+  - Steinzeit → Antike: 8 Steinzeit-Forschungen, 6 Siedler, 1 Holzhaus (oder besser), 3 Sorten Nahrung;
+    2 Einwanderer, 10 Bretter, 10 Ziegel, 10 Tontafeln.
+  - Antike → Mittelalter: 8 Antike-Forschungen, 12 Siedler, 1 Steinhaus, 20 Brot, 10 Werkzeug, 12 Tage ohne
+    Hungertod; 2 Einwanderer, 10 Werkzeug, 6 Eisen.
+  - Mittelalter → Renaissance: 8 Forschungen, 20 Siedler, 2 besiedelte Inseln, 1 Wachturm, 20 Werkzeug;
+    2 Einwanderer, 20 Ziegel, 12 Kohle.
+  - Renaissance → Industrialisierung: 6 Forschungen, 28 Siedler, 3 Inseln, 1 Universität, 20 Glas, 20 Papier;
+    3 Einwanderer, 20 Eisen, 20 Kohle.
+  - Industrialisierung → Moderne: 5 Forschungen, 36 Siedler, 1 Mietshaus, 20 Stahl, 6 Maschinen,
+    20 Konserven; 3 Einwanderer, 12 Stahl, 4 Maschinen.
+  - Moderne → Informationszeitalter: 6 Forschungen, 45 Siedler, 1 Wohnblock, 1 Kraftwerk, 1 Gewächshaus;
+    3 Einwanderer, 16 Glas, 40 Strom.
+  - Informationszeitalter → Zukunft: 4 Forschungen, 55 Siedler, 4 Inseln, 1 Forschungslabor, 30 Elektronik;
+    3 Einwanderer, 20 Elektronik, 10 Gold.
+- **Bestehen** geschieht von selbst: `Exams` prüft alle 0,25 Tage (und gleich nach einer fertigen Forschung),
+  nur wenn das Spiel läuft (nicht auf dem Titelbild, nicht bei Pause). Dann: nächstes Zeitalter, Meldung
+  „Prüfung bestanden! Ein neues Zeitalter beginnt: ...“ (früher in `_finish_research`), Sound `stufe`, Fest
+  (`fest_days` = 1 Tag, Laune „Feiert das neue Zeitalter“ +`people.json fest_mood` = 15, „Fest!“ über den
+  Siedlern), Belohnung über `Game.grant_reward` auf die besiedelte Insel mit den meisten freien Wohnplätzen
+  (Einwanderer zuerst als Paar, mit niemandem verwandt; Waren auf dieselbe Insel).
+- **Anzeige**: im Forschungsfenster unter der Überschrift des nächsten Zeitalters ein Kasten mit jeder
+  Bedingung (Haken und grün, wenn erfüllt, sonst blasses Symbol und rote Zahl) und der Belohnung
+  (`ExamView`, alle 0,5 s aufgefrischt); Forschungen dieses Zeitalters zeigen „Prüfung“ (Tippen nennt, was
+  fehlt); der Kopf sagt „Alles erforscht, was jetzt geht. Bestehe die Prüfung ...“, wenn nichts anderes mehr
+  geht. Die Zielkarte zeigt die Prüfung vor den Zielen, sobald sie das Weiterforschen aufhält (die
+  Forschungen des Zeitalters reichen schon oder nichts anderes ist mehr zu erforschen; `Exams.blocking`),
+  mit „Es fehlt noch: ...“ als Erklärung. Dieses Pseudo-Ziel (`exam_<i>`) bringt nie ein Ziel weiter.
+- **Wertung** (`Exams.score_parts`, nimmt nie ab): 10 je Höchstbevölkerung, 50 je besiedelte Insel (auch
+  verlorene, mit Heimat), 10 je entdeckte Insel, 15 je Forschung, 250 je Prüfung, 25 je erreichtes Ziel
+  (`goals.ms`), 60 je Jahr ohne Hungertod (`stats.good_years`), 40 je Auftrag (`stats.quests`, Teil D),
+  500 für eine gebaute Zukunftsstadt (`stats.future_city`). Menü > Wertung (neben Spielstände) zeigt die
+  Punkte und die Rekorde; das Spielende-Fenster zeigt „Wertung: N Punkte“ und „Neuer Rekord: ...“.
+- **Rekorde** in `user://settings.cfg` Abschnitt `[records]` (Testversion `[records_test]`), für alle
+  Spielstände des Geräts: `score`, `max_pop`, `best_streak` (längste Zeit ohne Hungertod in Tagen), `days`
+  (längstes Spiel), `age_1` .. `age_7` (frühester Spieltag, an dem das Zeitalter erreicht wurde; nur aus
+  echten Prüfungen). Aktualisiert jeden Morgen, bei jeder Prüfung und am Spielende.
+- **Spielstand**: Schlüssel `exams` = `{passed, days, fest_until, year, y_starved, beaten}` (`days[i]` =
+  `time_days`, als Prüfung i bestanden wurde, -1 = übernommen; `beaten` = in diesem Spiel gebrochene Rekorde).
+  Neue `stats`: `good_years`, `best_streak`, `future_city` (mit `stats.get(k, 0)` lesen).
+  `Exams.sync()` in `Game._recompute_effects` zieht `passed` auf das späteste erforschte Zeitalter nach
+  (Testhilfen, die Forschungen direkt eintragen).
+- **Alte Spielstände**: ohne `exams` gilt als bestanden, was erforscht, bezahlt oder gerade in Arbeit ist
+  (nichts Bezahltes wird gesperrt), die Tage sind -1 (keine Zeitalter-Rekorde). Jahre ohne Hungertod zählen ab
+  dem Laden. Zeile im Fenster „Neue Regeln“.
+- **Code**: Autoload `Exams` (`scripts/autoload/exams.gd`), Bedingungen `GoalChecks`
+  (`scripts/ui/goal_checks.gd`, auch von `GoalCard` benutzt, für Aufträge erweiterbar), Oberfläche `ExamView`
+  (`scripts/ui/exam_view.gd`).
+- **Test**: `--examtest=N`: prüft Daten, unbekannte IDs, Haus-Stufen, Sperre und Speichern, besteht N Prüfungen
+  sofort, erfüllt dann alle Bedingungen der Prüfung N bis auf ein Gebäude, reicht es nach 40 s nach und
+  zeigt, dass sie von selbst besteht (mit Fest-Laune). Der Bericht hat eine Zeile „Pruefungen: ...“.
+  `--build=1 --research=1`: der Forschungs-Bot überspringt eine Prüfung, wenn keine andere Forschung bezahlbar
+  ist, aber eine des nächsten Zeitalters (wie früher der Sprung); `--strictexam` schaltet das ab.
+  Bildschirmfotos: `--panel=research --examscroll=1`, `--examhint=1` (Zielkarte aufgeklappt),
+  `--panel=score` (`--scorescroll=1`), `--gameovershot=1`.
+
+## Aufträge mit Wahl
+
+Teil der Regeln ab Version 2. Nach der Einführung bietet das Auftragsbrett drei Aufträge an; der Spieler
+sucht sich einen aus. Belohnungen sind Waren, Forschungspunkte, Einwanderer, dauerhafte Segen oder Baupläne.
+
+- **Ablauf**: Die Ziele (Meilensteine) bleiben die Zeile „Ziel“ der Zielkarte (bzw. die Prüfung, wenn sie
+  das Weiterforschen aufhält); darunter steht die Zeile „Auftrag“. Tippen auf die Zeile oder „Wählen (3)“ /
+  „Details“ öffnet das Fenster „Aufträge“ (auch Menü > Aufträge, falls die Zielkarte aus ist). Nur ein
+  Auftrag läuft zur Zeit, jeder hat eine Frist. Angebote gelten 1 Tag (`offer_days`), danach kommen nach
+  `cooldown` (0,5 Tage) neue; ebenso nach Erfüllen, Scheitern oder Aufgeben. „Andere Aufträge“ bringt sofort
+  drei neue, danach erst wieder nach `reroll_days` (1 Tag). Scheitern, Aufgeben und Neu-Würfeln kosten
+  nichts. Ein Angebot, das schon erfüllt ist, fällt weg. Das Brett öffnet 0,25 Tage nach der Einführung
+  (alte Spielstände gleich nach dem Laden). Zufall aus `hash([seed, seq, "auftrag"])`: gleicher Spielstand,
+  gleiche Angebote.
+- **Vorlagen** (`goals.json` `quests.templates`, Gewicht `w` 1–3 bestimmt die Belohnung, `days` die Frist
+  nach dem Annehmen; A = Zeitalter, P = Siedler auch auf See, R = Forschungspunkte je Tag, gemessen über
+  den letzten Tag, mindestens 4):
+  - `vorrat_essen` (w1, 4 T.): beste herstellbare Speise (Brot, Räucherfisch, Konserven, Eier, sonst die
+    sättigendste), Lager aller Inseln = jetzt + round5(max(15, 1,5·P)).
+  - `vorrat_ware` (w1, 4 T.): herstellbares Material, + round5(clamp(4·P / Preis, 8, 100)).
+  - `winterholz` (w1, bis Winterbeginn): Holz + P·3 (× Winterhärte, so wie die Siedler sie kennen
+    (`Seasons.winter_forecast`, unbekannt = normal, „streng“ = hart): mild 0,75, normal 1, hart 1,5, bitter 2), weniger Kohle im Lager × `heat_coal_wood` (sie heizt zuerst), nur Frühling/Sommer mit mindestens 3 Tagen bis zum Winter.
+  - `bauen` (w1, 4 T.; w2, 6 T. bei mehr als 60 Baukosten): ein freigeschaltetes Gebäude, das es noch nicht
+    gibt (keine Denkmäler); sonst `bauen_mehr`: noch eins des größten Wohnhauses.
+  - `wohnen` (w1, 5 T.): Wohnplätze + max(4, 0,25·P). `wachsen` (w2, 6 T.): Siedler + max(2, 0,15·P).
+  - `forschen` (w2, 6 T.): eine wählbare Forschung (nie hinter einer Prüfung), bezahlt oder bezahlbar,
+    mit höchstens 0,7·R·6 Restpunkten.
+  - `jagd` (w1, 4 T., erst mit Jäger): min(3 + A, erlegbare Tiere), je Art bleiben `hunt_min_keep`.
+  - `winter` (w2, bei hartem/bittrem Winter w3; bis zum Frühling): kein Hungertod; nur an Herbsttag 1–2.
+    Scheitert beim ersten Hungertod (`stats.starved`), gelingt, wenn die Frist erreicht ist.
+  - `liefern` (w2, 5 T.): ab 2 besiedelten Inseln und einem Schiff: Menge auf Insel Y (`stock_at`).
+  - `geburten` (w1, 5 T.): 2 + P/8. `entdecken` (w2, 4 T., mit Schiff): eine neue Insel.
+    `abwechslung` (w1, 3 T.): eine Sorte Nahrung mehr auf der besten Insel.
+  Lager-Ziele höchstens `stock_space` (0,7) des freien Platzes, sonst (unter 8) keine Vorlage.
+  „Herstellbar“: ein fertiges Gebäude stellt es her oder erntet es, eine Rohstoffquelle auf einer
+  besiedelten Insel liefert es für einen freigeschalteten Beruf, oder Jäger jagen (Fleisch, Felle).
+- **Belohnungen**: jedes Angebot eine; die drei Angebote haben verschiedene Vorlagen und möglichst
+  verschiedene Arten, das leichteste bekommt Waren, höchstens eins einen Segen.
+  - Waren **passend zur Lage** (josh: „Die Mengen der Belohnungen von Quests sollten an die Situation in
+    Form von Menge und Art angepasst werden“; `QuestRewards`, `scripts/autoload/quest_rewards.gd`, Werte in
+    `goals.json` `quests.adapt`). Art aus dem Bedarf (`QuestRewards.needs`), Gewicht in Klammern:
+    Essen für weniger als 2 Tage (6, haltbarste Speise: Räucherfisch, ab Antike Brot, ab Industrie
+    Konserven), Sommer/Herbst Essen bis Winterende (Herbst 5, Sommer 3,5), Brennstoff bis Winterende nach
+    Wintervorhersage (Herbst/Winter 5, Sommer 3; Kohle im Lager zählt doppelt mit, ist die Köhlerei frei
+    oder Kohle da, gibt es Kohle statt Holz, halbe Menge, Grund „zum Heizen im Winter“), Schreibwaren der laufenden Forschung (3), Bedürfnisse
+    der Hausstufen, die es gibt (3; Bretter, Werkzeug, Brot, Glas, Papier, Gewürze ...), nächste Prüfung:
+    Lagerwaren und Baukosten der verlangten Häuser/Gebäude, sobald baubar oder die Forschung wählbar ist
+    (3), Kosten der drei günstigsten wählbaren Forschungen (2), Baustoffe unter 30 + 3 je Siedler (1).
+    Punkte = Gewicht x Fehlbedarf in Gold / Budget (0,5–1,5); Zufall unter allen ab 60 % des Besten.
+    Nie die Ware, die der Auftrag selbst verlangt, keine Ware doppelt in einer Runde, nie Waren, von denen
+    genug da ist (`plenty`: ein Viertel des Lagers aller Inseln und mindestens 40 + 4 je Siedler).
+    Ohne Bedarf: `goods_by_age` (Gewürze ab Renaissance) bis zum Zeitalter, nur Brauchbares (`usable`:
+    Nahrung, Baukosten oder Rohstoff freigeschalteter Gebäude, Kosten naher Forschungen, Hausbedürfnisse,
+    Schreibwaren); ist von allem genug da, gibt es Forschungspunkte statt Waren.
+    Menge: Budget `goods_budget` (25) · w · (1 + A) Gold · Siedler-Faktor clamp(P / 8, 0,5, 2) / `price`;
+    bei bekanntem Fehlbedarf 1,5-mal der Fehlbedarf, mindestens 30 % und höchstens 100 % des Budgets;
+    höchstens `goods_space` (0,4) der Lagerkapazität und 60 % des freien Platzes aller Inseln für diese
+    Ware, mindestens 3 (passt nichts, nimmt es das Dringendste trotzdem; der Rest wartet auf Platz).
+    Beispiele (2 Siedler, Steinzeit): Hunger 16 Räucherfisch, Herbst mit knappem Essen 12 Räucherfisch,
+    Herbst ohne Holz 35 Holz (Gewicht 3: 110). Anzeige mit Grund: „15 Bretter (für die Bewohner)“
+    (`reward.why`: hunger, winter, heizen, schrift, haeuser, pruefung, forschung, bauen; im Spielstand
+    optional, unbekannte fallen weg). Auf die sichtbare Insel, Überlauf auf andere (`Game.grant_reward`).
+    Fällt eine andere Belohnung aus (Segen voll, Gebäude schon frei), wird die Ersatzware erst bei der
+    Auszahlung gewählt.
+  - Forschungspunkte: max(20·w, w·R). Direkt auf die laufende Forschung (`Game.add_research(p, false)`,
+    also ohne Schreibwaren aus Teil E), was übrig ist oder ohne laufende Forschung in `rp_bank`; die Bank
+    geht an die nächste gestartete Forschung (Meldung „Gesparte Forschungspunkte ...“).
+  - Einwanderer (ab w2, nur wenn auf den Inseln so viele Wohnplätze frei sind und das Essen für 2 Tage
+    reicht, `QuestRewards.settlers_ok`): 1 (w2) oder 2 (w3), Begabung beim Angebot gewählt (`talents`, Jagd erst mit
+    Jäger), Begabung 1,5–1,8, Stufe 4 + A/2, Hunger 80, über `Game.grant_reward` (wer nicht landen kann,
+    wird zu Brettern).
+  - Segen (ab w2, dauerhaft, `boons` mit Obergrenze `cap`): Fischfang/Holzfällen/Steinabbau/Beerensammeln
+    +15 % (bis 45 %), Ernte/Forschung/Lagerplatz/Bautempo/Werkstätten/Nachwuchs +10 % (bis 30 %),
+    Heilung +25 % (bis 75 %), Lauftempo +5 % (bis 15 %), Tragen +1 (bis 3), Hunger −5 % (bis −15 %).
+    Volle Segen werden nicht mehr angeboten (sonst Waren statt dessen). `Game._recompute_effects` rechnet
+    sie über `Quests.add_boons(effects)` ein.
+  - Bauplan (ab w2): ein baubares Gebäude ohne Hafen, Schiffe oder Wirkung, dessen Forschung schon wählbar
+    ist (Voraussetzungen erforscht, Zeitalter erreicht, also nie an einer Prüfung vorbei), mit
+    beschaffbaren Bau- und Betriebswaren. `Game.is_unlocked` fragt `Quests.has_plan`; die Bauliste zeigt
+    „Bauplan aus einem Auftrag.“. Nie für die laufende Forschung und nie für die Forschung, die ein Auftrag
+    „Erforsche X“ selbst verlangt (`plan_choices(exclude_tech)`). Ist das Gebäude bis zur Auszahlung
+    schon frei, gibt es Waren.
+- **Oberfläche**: Zielkarte (`GoalCard`, Zeile aus `QuestView.goal_row`): Symbol, „Auftrag“, Knopf,
+  Text, Balken mit „wert/ziel“ und Restzeit („4 T. 14 Std.“). Das X blendet nur das Ziel aus, der Auftrag
+  bleibt. Fenster „Aufträge“ (`hud._quest_panel`, in `_panels()`): drei Kästen mit Text, Frist, Belohnung
+  und „Annehmen“, darunter „Andere Aufträge“; beim laufenden Auftrag Fortschritt, Restzeit und „Aufgeben“
+  (zweimal tippen); unten „Segen und Baupläne“ und die Zählung. Meldungsart `ziel` („Aufträge“).
+- **Spielstand**: Schlüssel `quests` = `{offers, active, next, offers_until, reroll_at, plans, boons,
+  rp_bank, rp_marks, seq, stats, last}`; ein Auftrag ist `{tpl, w, days, until, accepted, check: {type, what,
+  n, base, island, max}, survive, reward: {kind, what|key|talent, n|v}}`. Texte werden nicht gespeichert
+  (`Quests.text_of` baut sie aus der Vorlage, die Sprache stimmt also). Zähler (Tiere, Geburten, Inseln,
+  Hungertote) haben `base` = Wert beim Annehmen. Beim Laden fallen unbekannte Vorlagen, Waren, Gebäude,
+  Forschungen und Segen weg, Zahlen werden umgewandelt, Segen auf die Obergrenze gekürzt.
+  `stats.quests` (erledigt, 40 Punkte in der Wertung) und `stats.quests_failed`.
+- **Alte Spielstände**: ohne `quests` öffnet das Brett gleich nach dem Laden, auch mitten in der Einführung
+  (dann steht die Auftragszeile unter dem Einführungsschritt). Zeile im Fenster „Neue Regeln“.
+- **Bedingungen**: `GoalChecks` (gemeinsam mit Zielen und Prüfungen) kann dafür neu `base`, `stock_at`
+  {what, island}, `variety` mit `max` (beste Insel) und `starved`.
+- **Code**: Autoload `Quests` (`scripts/autoload/quests.gd`, tickt alle 0,05 Tage, nur wenn das Spiel
+  läuft), Oberfläche `QuestView` (`scripts/ui/quest_view.gd`). Die Winterhärte kommt aus
+  `Quests.winter_type()` (Vorhersage aus den wechselnden Wintern; so verrät die Holzmenge nichts Geheimes).
+- **Test**: `--questtest=N`: Generator (40 Runden, Regeln), jede Belohnungsart direkt (Waren, Forschung mit
+  Bank, Einwanderer mit Begabung, Segen bis zur Obergrenze, Bauplan), Speichern/Laden mit unbekannten IDs,
+  alter Spielstand, danach im laufenden Spiel Angebot N annehmen und erfüllen, einen Auftrag scheitern
+  lassen, einen aufgeben, „Andere Aufträge“, Winter ohne und mit Hungertod, Ablauf der Angebote.
+  `--questreward=goods|research|settlers|boon|plan` erzwingt die Belohnung, `--questfast=1` jede Frist 0,3
+  Tage, `--questauto=1` überspringt die Einführung und nimmt jedes erste Angebot an (z. B. mit
+  `--build=1 --research=1`). `--questadapt=1` (`QuestRewardsTest`): Belohnung je Lage (Hunger, Herbst mit
+  knappem Essen, Herbst ohne Holz, mit Köhlerei Kohle statt Holz und Kohle im Lager deckt den Bedarf, Überfluss, Schreibwaren, Prüfung, Hausstufe 2, Mengen nach Siedlern,
+  Zeitalter und Platz, Einwanderer nur mit Dach, 30 Angebotsrunden ohne doppelte Ware, Spielstand),
+  druckt „Belohnung angepasst OK/FEHLER“; `--questadapt=shot --questshot=offers --panel=quests` zeigt
+  eine Belohnung mit Grund. Der 20-Sekunden-Bericht hat eine Zeile „Auftraege: ...“. Bildschirmfotos:
+  `--questshot=offers|active|card` (mit `--panel=quests` das Fenster), `--panel=build --cat=nahrung` zeigt
+  den Bauplan.
+
+## Regeln ab Version 2 (Herausforderung)
+
+Grundgerüst für die Erweiterung „Mehr Herausforderung“ (Bedürfnisse, Schriften, Klima, Ereignisse,
+Aufträge, Prüfungen, Händler). josh: „Die neuen Regeln greifen ab dem Laden“, alte Spielstände laden also
+weiter und bekommen die neuen Regeln ab dem Ladezeitpunkt.
+
+| Teil | Abschnitt | Autoload | Spielstand | Daten |
+|---|---|---|---|---|
+| H | Wechselnde Winter und Sommer (unter Jahreszeiten) | `Seasons` | `climate` | `seasons.json` |
+| G | Inselstärken, Gewürze und fremde Händler | `Merchant` | `merchant` | `merchant.json`, `islands.json`, `buildings.json` `biome_bonus` |
+| B | Bedürfnisstufen der Bewohner | `HouseNeeds` | `needs` | `levels.json`, `buildings.json` `level`/`worker_level` |
+| C | Angekündigte Ereignisse | `Events` | `events` | `events.json` |
+| E | Forschung braucht Schriften | `Writing` | – | `techs.json` `_ages[i].writing` |
+| J | Prüfungen beim Zeitalterwechsel und Wertung | `Exams` | `exams` | `techs.json` `_ages[i].exam` |
+| D | Aufträge mit Wahl | `Quests` | `quests` | `goals.json` `quests` |
+
+Reihenfolge der Autoloads in `project.godot`: Seasons, Writing, Exams, Quests, HouseNeeds, Merchant, Events
+(alle nach Game und Sea). Ein alter Spielstand zeigt im Fenster „Neue Regeln“ je Teil genau eine Zeile.
+
+**Zusammenspiel der Teile**:
+- Klima → Aufträge: Winterholz und das Gewicht des Winter-Auftrags folgen der Wintervorhersage
+  (`Quests.winter_type()` aus `Seasons.winter_forecast()`).
+- Kohle → Aufträge: Kohle im Lager zählt beim Winterholz-Auftrag und bei der Belohnung „zum Heizen im
+  Winter“ als Brennstoff mit (`Extras.fuel`, 1 Kohle = `heat_coal_wood` Holz); ist die Köhlerei frei,
+  ist die Heiz-Belohnung Kohle statt Holz. Kohle verkauft der Händler ab der Antike als einfache Ware.
+- Kälte → Klima: wie schnell Siedler ohne Brennstoff auskühlen, folgt dem Heizbedarf der Jahreszeit
+  (`Extras.cold_rate` = `Seasons.heat_per_settler()`), im Eiswinter also 1,8-mal so schnell.
+- Klima → Ereignisse: Hitze verdoppelt Dürre und Brand, keine Seuche im harten Winter; `Seasons.growth`
+  nimmt das Kleinere aus Klima und Dürre (`Events.growth_factor`).
+- Prüfungen → alle: `Game.current_age()` = bestandene Prüfungen (Piraten ab Mittelalter, Händlerwaren,
+  Auftragsbelohnungen, Baupläne nur bis zum erreichten Zeitalter, Forschungsaufträge nie hinter einer Prüfung).
+- Hausstufen → Prüfungen: `houses` zählt über die Ausbaukette und `level` (Mietshaus, Wohnblock).
+- Fachkräfte-Pool und Schriften wirken beide beim Forschen: `World.find_research_place` und die Fortsetzung
+  in `Settler._do_research` fragen `pool_allows`, die Punkte kosten Schreibwaren aus dem Lager der Insel.
+  Tafelmacherei und Lehmgrube sind Stufe 1. Hausbedürfnisse (Papier ab Stufe 4) und Forscher teilen sich
+  das Lager.
+- Ereignisse → Händler: der Händler meidet Inseln mit angekündigten Piraten (`Events.busy`). Ratten fressen
+  keine Tontafeln und kein Papier.
+- Aufträge → Wertung: 40 Punkte je erledigtem Auftrag (`stats.quests`); Segen und Baupläne laufen über
+  `Game._recompute_effects` bzw. `Game.is_unlocked` (Baupläne zählen damit auch für die Schreibwaren).
+- Oberleiste: Klima-Symbol neben der Jahreszeit; Händler- und Ereignisknopf in `hud.top_alerts`
+  (`TopAlerts`, rechts neben dem Tempo, auf schmalen Bildschirmen darunter).
+- Selbsttest `--integtest=1` (`scripts/autoload/integration_test.gd`) prüft diese Verbindungen
+  („Zusammenspiel OK/FEHLER“).
+
+- **Regelstand**: `Game.RULES` (= 1). Der Spielstand bekommt die Schlüssel `rules` (int) und `rules_day`
+  (float, `time_days`, ab dem die Regeln für diesen Spielstand gelten). `SAVE_VERSION` bleibt 3: eine alte,
+  im Browser zwischengespeicherte Version lehnt unbekannte Versionen ab und würde den Spielstand löschen.
+  Speichert so eine alte Version erneut, fehlen die neuen Schlüssel wieder; jede Übernahme muss also
+  wiederholbar sein. Damit dabei nichts verloren geht, legt `Game.save_game` (`_store_backup`) eine Kopie
+  aller neuen Schlüssel (alles außer `OLD_SAVE_KEYS`), der Forschung (`done`, `paid`, `progress`,
+  `current`) und je Insel der Gebäude und Waren, die alte Versionen nicht kennen (`V2_BUILDINGS`
+  Tafelmacherei, Brunnen; `V2_GOODS` Tontafeln, Gewürze), unter `islands[0]["v2"]` ab; alte Versionen
+  geben die Inseldaten unverändert weiter. Fehlt beim Laden `rules`, aber `v2` ist da
+  (`_merge_backup`), kommt alles zurück: Prüfungen, Aufträge, Segen, Klima, Ereignisse, Händler,
+  Forschungen (Vereinigung), Gebäude an ihrem Platz, wenn er frei ist (`_restore_backup_world`), und
+  Waren, die dort fehlen. Bekannte Grenze: Gewürzsträucher (Palmeninsel) erzeugen in der alten Version
+  Fehlermeldungen, bleiben aber im Spielstand. Alter Spielstand: `rules` fehlt (= 0), `rules_day` = Ladezeitpunkt. `Game.rules_old`
+  ist der Regelstand des geladenen Spielstands; `rules_day` steht schon fest, wenn `state_load` kommt.
+- **Systeme**: Autoloads melden sich in `_ready` mit `Game.register_system(self)` an (`Game.systems`).
+  Signale in `Game`:
+  - `state_reset()` am Ende von `reset_state` (neues Spiel; die neue Welt entsteht erst danach),
+  - `state_save(data: Dictionary)` in `save_game` kurz vor dem Schreiben: eigene Schlüssel oben in
+    `data` eintragen (nicht in `research` oder `goals`, die baut `apply_save_header` neu),
+  - `state_load(data: Dictionary, old_rules: int)` aus `Game.after_load(data)`, das main.gd direkt nach
+    `Sea.build_from_save` aufruft (alle Welten existieren). Danach gilt `rules = RULES`.
+  JSON liefert Zahlen als float und Schlüssel als Text: immer mit `int()`/`str()` umwandeln.
+- **Selbsttest der Systeme**: main.gd ruft für jedes angemeldete System `autotest_setup(args, main)`
+  (nach den normalen Testvorbereitungen, vor der Schleife; darf `await` benutzen) und bei jedem
+  20-Sekunden-Bericht `autotest_report()` (Text oder „“). So bekommen neue Systeme eigene Testschalter,
+  ohne main.gd zu ändern. Systeme ticken über `Game.time_days`, nie über `Game.set_speed()`.
+- **Meldungen beim Laden**: `Game.queue_note(text, icon, cat)` merkt sich Meldungen, solange das Spiel noch
+  nicht sichtbar läuft (Laden, Titelbild: dort würden sie unter dem Titelbild verschwinden).
+  `Game.flush_notes()` zeigt sie: in `main._on_continue` (nach dem Fenster „Neue Regeln“),
+  `_on_new_game` und im Selbsttest; danach wirkt `queue_note` wie `notify`.
+- **Fenster „Neue Regeln“**: Jedes System hängt in seinem `state_load`-Handler bei `old_rules < 1` ein bis
+  zwei Zeilen in einfachem Deutsch (mit `tr()`) an `Game.rules_lines` an. Bei einem alten Spielstand ist
+  `Game.rules_due` gesetzt; sobald das Spiel weiterläuft (nicht auf dem Titelbild), zeigt
+  `Hud.show_rules_dialog(lines, on_close, pause)` die Zeilen einmal an, das Spiel steht so lange
+  („Verstanden“). Wird vorher gespeichert, liegen die Zeilen als `rules_due` im Spielstand und kommen beim
+  nächsten Laden wieder (in der dann gewählten Sprache: `Loc.name_of`). Ohne Zeilen erscheint kein Fenster. Der Selbsttest gibt stattdessen
+  `NEUE REGELN (...)` und die Zeilen aus (`Game.rules_seen()`).
+- **Statistik**: `stats.starved` (Hungertote) und `stats.starve_day` (`time_days` des letzten Hungertods,
+  alte Spielstände: `rules_day`), immer mit `stats.get(k, 0)` lesen. `World.kill_settler(s, reason, cause)`
+  bekommt neben dem Anzeigetext einen Schlüssel: `starve` (verhungert), `sick`, `old`, `killed`.
+  Signal `Game.settler_died(settler, cause)`.
+- **Belohnungen** (für Ereignisse, Aufträge, Prüfungen):
+  - `Game.grant_reward(w, reward, opts = {}) -> String`: `reward` = {Waren-ID: Menge, "settlers": n}.
+    Waren kommen auf Insel `w`, was dort keinen Platz hat, auf andere Inseln mit Platz („30 Bretter
+    (10 davon auf Möweninsel)“). Der Rest geht nicht verloren, sondern wartet (`Game.reward_wait`,
+    Spielstand `reward_wait`) und kommt ins Lager, sobald Platz ist (alle 0,25 Tage geprüft, es bleibt
+    aber immer `wait_free_share` (15 %) des Lagers frei, damit die Ernte Platz hat); die Meldung sagt
+    „(20 warten auf Platz im Lager)“, beim Einlagern „Wartende Waren sind jetzt im Lager: ...“. Einwanderer über `spawn_immigrants` (mit `opts`), wer nicht landen kann, wird zu
+    10 Brettern. Liefert eine kurze Zusammenfassung („2 Einwanderer, 10 Bretter“); melden muss der Aufrufer.
+  - `Game.spawn_immigrants(w, n, opts = {}) -> Array`: Erwachsene über `World.spawn_newcomer(sex, opts)`,
+    abwechselnd Frau und Mann, zuerst das auf der Insel seltenere Geschlecht, mit niemandem verwandt.
+    Kann niemand auf `w` landen: besiedelte Insel mit den meisten freien Wohnplätzen
+    (`Game.immigrant_world(exclude)`), sonst 10 Bretter je Person (`opts.convert = false` schaltet das ab).
+    `opts`: `talent` (Fähigkeit), `talent_val` (Begabung, Standard 1,5 bis `talent_max`), `skill`
+    (Stufe darin, Standard 4 + Zeitalter/2, höchstens 7), `hunger` (Standard 80).
+  - `Game.give_goods(w, id, n) -> [untergebracht, davon auf anderen Inseln]`.
+- **Meldungsart** `ereignis` („Ereignisse und Händler“); Symbole `ereignis`, `haendler`, `feuer`, `ratte`
+  gehören ohne Angabe zu dieser Art.
+- **Preise**: jede Ware in `resources.json` hat `price` (Gold je Einheit, für Händler und Belohnungen);
+  Schiffe und Strom haben keinen.
+- **Neue Inhalte, vorerst nur Daten und Grafik** (die Regeln dazu bauen die einzelnen Erweiterungen):
+  Waren `tontafel` (Tontafeln) und `gewuerze` (Gewürze, kein Essen); Rohstoffquelle `gewuerzstrauch`
+  (2 Gewürze, wächst in 4 Tagen nach; auf Palmeninseln, siehe Inselstärken); Gebäude `tafelmacherei` (Wissen, nach
+  Töpferei, Lehm 2 → Tontafeln 3 über die normale Werkstatt-Logik) und `brunnen` (1x1, Seefahrt und Schutz,
+  nach Brunnenbau); Forschungen `brunnenbau` (Stufe 2) und `deichbau` (Stufe 4, Wirkung `flood`).
+- **Grafik**: `tools/gen_art_challenge.py` (von `gen_art.py` und `gen_art_sea.py` aufgerufen, hängt nur
+  hinten an): buildings.png Zelle 51 `tablets` (Tafelmacherei), 52 `well` (Brunnen); Symbole `tontafel`,
+  `gewuerze`, `ereignis`, `haendler`, `feuer`, `ratte`; objects2.png `spice_full`/`spice_empty`
+  (x 112/128, y 48); animals.png Zeile 3 (Höhe jetzt 96) mit dem Piraten (`Data.ANIMAL_ROWS`, kein Eintrag
+  in animals.json; `Data.animal_tex("pirat", frame)`).
+- **Alte Spielstände prüfen**: Mit dem Stand vor der Erweiterung (Commit 5851837) in einem eigenen
+  `XDG_DATA_HOME` je Lauf `--build=1 --research=1` (2 Jahre), `--seatest=1`, `--schooltest=1` und
+  `--prodtest=1 --ages=1` laufen lassen und `savegame.json` aufheben. Neue Version:
+  `--fixture=<datei> --autotest=60` (einmal `NEUE REGELN`, kein SCRIPT ERROR), danach `--keep`
+  (keine zweite Ausgabe).
+- **Testhilfen**: `--seed=N` (feste Insel für neue Spiele), `--fixture=<pfad>` (Spielstand vor dem Laden in
+  den aktiven Platz kopieren, weiter wie `--keep`), `--rulesdialog=1` (Bildschirmfoto des Fensters, ohne
+  alten Spielstand mit Beispielzeilen), `--place=brunnen,tafelmacherei` (fertige Gebäude hinstellen),
+  `--panel=build --cat=see --buildscroll=brunnen` (Bauliste bis zum Gebäude rollen), `--rewardtest=1`
+  (Belohnung mit Einwanderern, Lagerüberlauf und ein Hungertod).
+
 ## Testversion
 
 Pushes auf den Zweig `claude/entwicklungsbaum-x33t1h` landen unter `/New_World/test/`, main unter `/`
 (Workflow mit `destination_dir` und `keep_files`). Die Testversion speichert in
 `user://savegame_test.json` und kopiert beim ersten Start den normalen Spielstand
 (`Game._detect_test_build`, lokal `--testbuild`). Der Titel zeigt „Testversion“.
+Der Umbau „Mehr Herausforderung“ (Zweig `claude/project-thread-m73c7d`) landet unter `/New_World/neu/`
+mit eigenem Spielstand `user://savegame_neu.json` (lokal `--neubuild`). Beim ersten Start kopiert sie das
+Spiel, das im normalen Spiel gerade aktiv ist (`settings.cfg` [game] `slot`, sonst Platz 1). `Game.build_tag` ist „test“
+oder „neu“; danach heißen der Spielstand-Platz (`slot_<tag>`) und die Rekorde (`records_<tag>`).
 
 ## Ordner
 
@@ -410,13 +1125,28 @@ Pushes auf den Zweig `claude/entwicklungsbaum-x33t1h` landen unter `/New_World/t
 | `data/*.json` | Alle Spielwerte (Ressourcen, Rohstoffquellen, Gebäude, Berufe, Balance, Namen) |
 | `scripts/autoload/data.gd` | Lädt JSON, Sprite-Regionen (`OBJECT_REGIONS`), Icons |
 | `scripts/autoload/game.gd` | Zeit, Vorräte, Nachwuchs, Abstammung, Forschung und Effekte, Speichern/Laden |
-| `scripts/autoload/seasons.gd` | Jahreszeiten: Kalender, Wachstum, Heizen, Verderb, Frost, Schnee |
+| `scripts/autoload/writing.gd` | Forschung braucht Schriften (Schreibwaren je Zeitalter) |
+| `scripts/autoload/exams.gd` | Prüfungen beim Zeitalterwechsel, Fest, Wertung und Rekorde |
+| `scripts/autoload/quests.gd` | Aufträge mit Wahl (Brett, Belohnungen, Segen, Baupläne) |
+| `scripts/autoload/integration_test.gd` | Selbsttest `--integtest=1`: Zusammenspiel der Erweiterungen |
+| `scripts/autoload/seasons.gd` | Jahreszeiten: Kalender, Wachstum, Heizen, Verderb, Frost, Schnee, Klima (wechselnde Winter und Sommer) |
+| `scripts/autoload/house_needs.gd` | Bedürfnisstufen der Häuser, Fachkräfte-Pool (`data/levels.json`) |
+| `scripts/autoload/merchant.gd`, `merchant_test.gd` | Fremde Händler (`data/merchant.json`) und ihre Selbsttests |
+| `scripts/autoload/events.gd`, `events_test.gd` | Angekündigte Ereignisse (`data/events.json`) und ihre Selbsttests |
 | `scripts/autoload/sea.gd` | Inseln, Welten je Insel, Schiffsreisen, Inselwechsel |
 | `scripts/world/island_gen.gd` | Inselgenerator (Seed → Gelände + Rohstoffe) |
+| `scripts/world/island_traits.gd` | Inselstärken (`biome_bonus`) und Gewürzsträucher |
+| `scripts/autoload/extras.gd` | Kohleheizung, Erfrieren, Belohnung der Einführung und ihre Selbsttests (Kind von Seasons) |
 | `scripts/world/world.gd` | Tilemaps, Wegfindung (AStarGrid2D), Entitäten, Bauen, Effekte, Tag/Nacht |
 | `scripts/world/game_camera.gd` | Ziehen, Zoom (Mausrad, zwei Finger), Tippen |
-| `scripts/entities/*.gd` | `Settler` (KI), `SettlerMind` (Charakter), `Building`, `ResNode`, `Animal` |
+| `scripts/entities/*.gd` | `Settler` (KI), `SettlerMind` (Charakter), `Building`, `ResNode`, `Animal`, `Raider` (Pirat) |
 | `scripts/ui/hud.gd`, `ui_theme.gd`, `sea_panel.gd` | Oberfläche im Code gebaut, Pixel-Theme, Seekarte |
+| `scripts/ui/goal_card.gd`, `goal_checks.gd` | Zielkarte oben links; gemeinsame Prüfung von Zielen, Prüfungen und Aufträgen |
+| `scripts/ui/exam_view.gd`, `quest_view.gd` | Prüfungskasten und Fenster „Wertung“; Auftragszeile und Fenster „Aufträge“ |
+| `scripts/ui/climate_badge.gd` | Klima-Symbol neben der Jahreszeit |
+| `scripts/ui/needs_info.gd` | Anzeige der Bedürfnisstufen im Infofenster und in der Bauliste |
+| `scripts/ui/trade_panel.gd`, `top_alerts.gd` | Handelsfenster der Händler, Hinweis-Knöpfe oben rechts |
+| `scripts/ui/event_chip.gd` | Ereignis-Knopf oben rechts (angekündigte Ereignisse) |
 | `tools/gen_art.py`, `gen_art_sea.py` | Erzeugen alle Grafiken in `assets/sprites/` (Pillow) |
 
 ## Koordinaten
@@ -430,7 +1160,7 @@ Pushes auf den Zweig `claude/entwicklungsbaum-x33t1h` landen unter `/New_World/t
 
 ## Datenformate
 
-- **resources.json**: `{id: {name, icon, category: "material"|"food", nutrition?, vitamins?, size, order}}`.
+- **resources.json**: `{id: {name, icon, category: "material"|"food", nutrition?, vitamins?, size, order, price?}}`.
   Alles mit `category: food` wird gegessen.
 - **nodes.json**: Rohstoffquellen. `yield`, `capacity`, `work_time`, `skill`, `terrain`
   (`grass`, `land`, `shore_water`), `solid`, `regrow_days`, `on_empty` (`regrow`|`remove`),
@@ -439,7 +1169,8 @@ Pushes auf den Zweig `claude/entwicklungsbaum-x33t1h` landen unter `/New_World/t
   `storage`, `light`, `ground`, `farm` {yield, amount, grow_days, sow_time, harvest_time}.
 - **jobs.json**: `skill`, `tool` (Sprite in tools.png), `targets` (Knotentypen oder
   `farm`/`construction`), optional `requires` (Forschung).
-- **islands.json**: Inselarten, siehe Etappe 3. **animals.json**: `hp`, `damage`, `speed`,
+- **islands.json**: Inselarten, siehe Etappe 3 (dazu `extra`, siehe Inselstärken). **merchant.json**: fremde
+  Händler, siehe dort; buildings.json `biome_bonus`. **events.json**: angekündigte Ereignisse, siehe dort. **animals.json**: `hp`, `damage`, `speed`,
   `aggro`, `night_aggro`, `attack_time`, `meat`, `felle`, `leash`, `row` (Zeile in animals.png),
   `plural`, `plural_dat`, `food`, `winter_food`, `food_name`, `food_per_animal`, `roam`, `litter`,
   `den_max`, `adult_days`, `hibernate`.
@@ -451,7 +1182,8 @@ Pushes auf den Zweig `claude/entwicklungsbaum-x33t1h` landen unter `/New_World/t
   Spielstand) kehren ausgeräumte Baue zurück und jeder Bau wird einmalig auf `den_cap` Tiere aufgefüllt. Version 1 (nur `world`) wird beim Laden als
   Heimatinsel übernommen. Version 1 und 2 hatten ein gemeinsames `stock`: das bekommt beim Laden
   die Heimatinsel. Das Gelände wird aus dem Seed neu erzeugt, nur Rohstoffe, Gebäude,
-  Siedler und Tiere werden gespeichert.
+  Siedler und Tiere werden gespeichert. Seit den neuen Regeln außerdem `rules`, `rules_day`, `rules_due`
+  (siehe „Regeln ab Version 2“) und die Schlüssel der einzelnen Systeme (über `Game.state_save`).
 
 ## Erweitern (spätere Etappen)
 
@@ -472,14 +1204,69 @@ godot --headless -- --autotest=120 --scale=10 --build=1     # Simulation mit Ber
 godot --headless -- --autotest=400 --scale=10 --build=1 --research=1   # forscht automatisch
 godot --headless -- --autotest=60 --scale=10 --prodtest=1  # alle Werkstätten, alles erforscht
 godot --headless -- --autotest=120 --scale=10 --tuttest=1  # spielt die Einführung durch
+godot --headless --fixed-fps 60 -- --autotest=25 --scale=10 --seed=11 --tutdone=1  # Einführung beenden: 2 Siedler, Hütte
+godot --headless --fixed-fps 60 -- --autotest=100 --scale=10 --seed=11 --season=3 --coaltest=1  # Kohle vor Holz
+godot --headless --fixed-fps 60 -- --autotest=200 --scale=10 --seed=11 --season=3 --winter=normal --freezetest=1  # Erfrieren
+godot --headless --fixed-fps 60 -- --autotest=5 --scale=10 --foodorder=1  # Essensreihenfolge
 godot --headless -- --autotest=150 --scale=10 --schooltest=1  # Steinhaus und Schule: Geburten, Schulkinder
+godot --headless -- --autotest=130 --scale=10 --seed=7 --needstest=1  # Bedürfnisstufen und Fachkräfte
+godot --headless -- --autotest=160 --scale=10 --seed=7 --tradetest2=1  # fremde Händler (auch --spicetest, --biometest)
+godot --headless -- --autotest=200 --scale=10 --seed=7 --eventtest=all  # angekündigte Ereignisse (auch --eventsched=1)
 godot --headless -- --autotest=230 --scale=10 --build=1   # ein ganzes Jahr, Bericht mit Jahreszeit und Holz
 godot --headless -- --autotest=300 --scale=10 --seatest=1  # Werft, drei Inseln entdecken und besiedeln
+godot --headless --fixed-fps 60 -- --autotest=60 --scale=10 --fixture=alt.json  # alten Spielstand weiterspielen
+godot --headless --fixed-fps 60 -- --autotest=200 --scale=10 --writingtest=1  # Forschung braucht Tontafeln
+godot --headless --fixed-fps 60 -- --autotest=100 --scale=10 --examtest=0  # Prüfung beim Zeitalterwechsel
+godot --headless --fixed-fps 60 -- --autotest=120 --scale=10 --questtest=1  # Aufträge mit Wahl
+godot --headless --fixed-fps 60 -- --autotest=10 --scale=10 --seed=7 --questadapt=1  # Belohnungen passend zur Lage
+godot --headless --fixed-fps 60 -- --autotest=60 --scale=10 --seed=7 --integtest=1  # Zusammenspiel der Erweiterungen
+godot --headless --fixed-fps 60 -- --autotest=40 --scale=10 --fixture=sea.json --oncetest=1  # Einmal-Route hin und zurück
+godot --headless --fixed-fps 60 -- --autotest=30 --scale=10 --seed=7 --basictrade=1  # Händler mit einfachen Waren
+godot --headless --fixed-fps 60 -- --autotest=820 --scale=10 --seed=11 --bot=1 --noevents=1 --winter=normal  # Spiel-Bot v2, 4 Jahre
+#   --fixed-fps 60 vor "--" rechnet so schnell wie moeglich (gleicher Spielverlauf); --seed=N feste Insel
 #   dazu --wildlife=1: Tierbestand je Insel und Bau; --weak=1: ohne Waffenkunde (Tiere gefährlicher), Bildschirmfoto: --island=<id>, --panel=sea
 # Bildschirmfoto-Optionen: --panel=research|build|stock, --selectb=<typ>, --look=1
 xvfb-run godot --rendering-driver opengl3 -- --autotest=20 --shot=/tmp/bild.png
 godot --headless --export-release "Web" build/web/index.html
 ```
+
+**Spiel-Bot v2 (`--bot=1`, `scripts/world/bot.gd`)** misst die Balance: er spielt wie ein aufmerksamer
+Spieler und nur über die öffentliche Spiellogik (Baustellen mit `place_building`, Berufe mit `set_job`,
+Forschung mit `start_research`, `Quests.accept`, Werkstätten an/aus, Hoechstmengen im Lager mit
+`Game.set_limit`). Er bekommt keine Waren geschenkt und erzwingt keine Prüfung. Die alten Bots
+`--build=1`/`--research=1` bleiben unverändert; `--bot=1` ersetzt sie (nicht zusammen benutzen).
+- Einführung: drückt „Überspringen“ auf der Zielkarte, damit Aufträge und Ereignisse kommen.
+- Forschung: erst ein Auftrag mit Forschung, dann Steinzeit (Schrift … Brunnenbau), dann Antike
+  (Backkunst zuerst); nur Bezahlbares, Heizholz bleibt liegen. Überspringt eine Forschung, die eine
+  Ware braucht, die der gewünschten Forschung fehlt.
+- Bauen (Wunschliste): Lager bei über 85 % zuerst (ab dem ersten Lager), Auftragsgebäude, Brunnen
+  vor angekündigtem Brand, bis zur Steinzeit-Prüfung das Holzhaus (Bretter dafür liegen schon vor
+  der Zimmerei bereit), Obstgärten und Felder (je 1 + Siedler/4, Felder nur, solange kein
+  Getreideberg liegt), Bäckerei und Mühle (Mühle erst nach der Prüfung, eine zweite bei
+  Getreideberg), Räucherei, Schreibstube, Wohnplätze, Sägegrube, Lehmgrube und Tafelmacherei,
+  Lager, Ziegelei, Steinhaus, Steinbruch, Schule …
+  Wohnplätze nur, wenn die Nahrung reicht und die Siedlung nicht über das hinauswächst, was der letzte
+  Winter satt gemacht hat (plus ein Viertel, mindestens 20; nach knappem Winter kein Wachstum).
+- Berufe: Baumeister bei Baustellen, Forscher, Sammler/Fischer/Bauern nach einem Regler auf
+  Nahrung-Tage (Ziel je Jahreszeit, im Herbst Wintervorrat) und nur so viele, wie Quellen da sind,
+  Holzfäller nach Heizholz-Vorhersage (`Seasons.winter_forecast()`), Werkstätten nach Zielmengen.
+- Aufträge: nimmt das beste Angebot an (Gebäude, Vorräte, Forschung; keine Schiffe/Häfen).
+Ausgabe: alle 20 s `BOT (Tag ..)`, `BOT Berufe soll ..` und `BOT Nahrungskette ..` (Getreide/Mehl/Brot,
+Lagerplatz, größte Waren, Werkstätten), je Jahr `BOT Jahr N zu Ende ..`, bei jeder bestandenen Prüfung
+`BOT: Pruefung N bestanden (Tag x). Bedingungen zuerst erfuellt: ..` (wann jede Bedingung zuerst
+erfüllt war) und am Ende eine Zeile `ERGEBNIS: Tag .. | Siedler .. | Pruefungen .. [Zeitalter Tag ..
+(Jahr ..)] | Forschungen .. (Steinzeit, Antike, spaeter) | Hungertote .. (Jahr 1-2: ..) | Tote .. |
+Tontafeln verbraucht .. | Auftraege erledigt, gescheitert | Ereignisse ueberstanden x von y | Wertung`.
+Abnahme (3 Seeds 11/22/33, `--autotest=820 --noevents=1 --winter=normal`): Steinzeit-Prüfung in Jahr 2
+(vor Tag 25), mindestens 3 Antike-Forschungen, Tontafeln verbraucht, keine Hungertoten in Jahr 1–2.
+Läufe sind nicht ganz gleich (Zufall je Siedler): die Prüfung streut etwa zwischen Tag 19 und 25.
+Stand Balance-Runde 2026-10-09 (Seeds 11/22/33, 820 s je mit und ohne Ereignisse, dazu Seed 11 über
+8 Jahre): Steinzeit-Prüfung Tag 21–28 (Jahr 2–3), keine Hungertoten, Ereignisse alle überstanden; die
+Antike-Prüfung schafft der Bot in 8 Jahren nicht, weil er nie Werkzeug herstellt (Köhlerei erst spät,
+Mine nicht immer platzierbar, nur 3–4 Forscher, Forschung oft ohne Bezahlbares). Die Antike-Prüfung ist
+damit vom Bot nicht messbar; die Punkte der Eisenkette sind von Hand gerechnet. Derselbe Seed streut
+um bis zu 5 Tage (Seed 11 ohne Ereignisse: Tag 21 und Tag 26 bei gleichen Steinzeit-Daten); eine
+Kürzung der Steinzeit-Stufe-2-Punkte um 15 % brachte keinen messbaren Unterschied und wurde verworfen.
 
 Bei jedem Push auf `main` baut GitHub Actions die Web-Version und legt sie auf den
 Branch `gh-pages` (GitHub Pages).
