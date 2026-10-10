@@ -287,14 +287,11 @@ static func _test_brand(main) -> void:
 	var rebuilt := await _until(main, func(): return hit.all(func(b): return is_instance_valid(b) and b.complete), 2.0)
 	print("Ereignis-Test Brand ", _okf(rebuilt), " wieder aufgebaut nach %.2f Tagen (gleiche Gebäude-ID, Bewohner ziehen wieder ein: %d)" % [Game.time_days - t0,
 		w.settlers.filter(func(s): return hit.any(func(b): return s.home_id == b.id)).size()])
-	# Brunnen: neben jedem Kandidaten einer, dann wird gelöscht
-	for b in Events._damage_candidates(w):
-		if not w.buildings.any(func(x): return x.type == "brunnen" and b.dist_sq(x.cell) <= 64):
-			_place_near(w, "brunnen", b.entrance_cell(), 7)
-	var before2: int = w.buildings.filter(func(b): return b.complete).size()
-	var ev2 := await _force_wait(main, w, "brand")
-	await _until(main, func(): return _gone(w), 0.2)
-	print("Ereignis-Test Brand ", _okf(int(ev2.get("saved", 0)) >= 1 and int(ev2.get("burnt", 0)) == 0 and w.buildings.filter(func(b): return b.complete).size() == before2), " mit Brunnen: gelöscht %d, abgebrannt %d" % [int(ev2.get("saved", 0)), int(ev2.get("burnt", 0))])
+	# Den Brunnen gibt es nicht mehr: nichts schützt vor Feuer, die Ankündigung nennt keinen Brunnen
+	var said: String = Events._what("brand", {}) + " " + Events._counter(w, "brand")
+	var no_well: bool = not Data.buildings.has("brunnen") and not Data.techs.has("brunnenbau") and not "brunnen" in said.to_lower() \
+		and not "well" in said.to_lower() and not Events.type_def("brand").has("counter")
+	print("Ereignis-Test Brand ", _okf(no_well), " ohne Brunnen, Ankündigung: %s" % said.strip_edges())
 	for s in w.settlers:
 		if s.job == "baumeister":
 			s.set_job("frei")

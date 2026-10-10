@@ -679,8 +679,9 @@ Ratten, Brand, Seuche, Sturmflut und ab dem Mittelalter Piraten. Wer sie gut üb
   - **Brand**: 1 + ⌊Stärke / 1,25⌋ Gebäude (das erste zufällig, dann die nächsten) werden **beschädigt**,
     nicht abgerissen: wieder Baustelle, einfache Baustoffe (`basic_goods`) bleiben zu 70 % (`keep`), andere
     ganz, Bauarbeit von vorn, Bewohner und Arbeiter ziehen aus (`Events.damage_building`). Baumeister bauen
-    mit der normalen Baustellen-Logik wieder auf. Ein Brunnen in bis zu 8 Feldern löscht das Feuer.
-    Nie: Lager, Häfen und Ufergebäude (`coast`), Gebäude mit Wirkung (`effects`), Felder, Lagerfeuer, Brunnen.
+    mit der normalen Baustellen-Logik wieder auf. Kein Gebäude schützt davor (den Brunnen gibt es nicht
+    mehr, siehe „Entfernte Gebäude und Forschungen“); der Rat lautet, Holz, Bretter und Stein bereitzuhalten.
+    Nie: Lager, Häfen und Ufergebäude (`coast`), Gebäude mit Wirkung (`effects`), Felder, Lagerfeuer.
   - **Seuche** (2 Tage): Krankheitsrisiko x(1 + (m − 1) / Heilkunst) mit m = clamp(2 + 0,6 x Stärke, 2,5, 4)
     (`SettlerMind`, Heilkunde und Impfung über die Wirkung `heal`); 70 % der neuen Krankheiten sind die
     Seuchen-Krankheit (Fieber oder Ruhr, bei der Ankündigung genannt); ein Siedler erkrankt sofort.
@@ -1059,7 +1060,7 @@ Reihenfolge der Autoloads in `project.godot`: Seasons, Writing, Exams, Quests, H
   wiederholbar sein. Damit dabei nichts verloren geht, legt `Game.save_game` (`_store_backup`) eine Kopie
   aller neuen Schlüssel (alles außer `OLD_SAVE_KEYS`), der Forschung (`done`, `paid`, `progress`,
   `current`) und je Insel der Gebäude und Waren, die alte Versionen nicht kennen (`V2_BUILDINGS`
-  Tafelmacherei, Brunnen; `V2_GOODS` Tontafeln, Gewürze), unter `islands[0]["v2"]` ab; alte Versionen
+  Tafelmacherei; `V2_GOODS` Tontafeln, Gewürze), unter `islands[0]["v2"]` ab; alte Versionen
   geben die Inseldaten unverändert weiter. Fehlt beim Laden `rules`, aber `v2` ist da
   (`_merge_backup`), kommt alles zurück: Prüfungen, Aufträge, Segen, Klima, Ereignisse, Händler,
   Forschungen (Vereinigung), Gebäude an ihrem Platz, wenn er frei ist (`_restore_backup_world`), und
@@ -1115,10 +1116,10 @@ Reihenfolge der Autoloads in `project.godot`: Seasons, Writing, Exams, Quests, H
 - **Neue Inhalte, vorerst nur Daten und Grafik** (die Regeln dazu bauen die einzelnen Erweiterungen):
   Waren `tontafel` (Tontafeln) und `gewuerze` (Gewürze, kein Essen); Rohstoffquelle `gewuerzstrauch`
   (2 Gewürze, wächst in 4 Tagen nach; auf Palmeninseln, siehe Inselstärken); Gebäude `tafelmacherei` (Wissen, nach
-  Töpferei, Lehm 2 → Tontafeln 3 über die normale Werkstatt-Logik) und `brunnen` (1x1, Seefahrt und Schutz,
-  nach Brunnenbau); Forschungen `brunnenbau` (Stufe 2) und `deichbau` (Stufe 4, Wirkung `flood`).
+  Töpferei, Lehm 2 → Tontafeln 3 über die normale Werkstatt-Logik); Forschung `deichbau` (Stufe 4, Wirkung
+  `flood`). Den Brunnen und Brunnenbau gab es auch, sie sind wieder entfernt (siehe unten).
 - **Grafik**: `tools/gen_art_challenge.py` (von `gen_art.py` und `gen_art_sea.py` aufgerufen, hängt nur
-  hinten an): buildings.png Zelle 51 `tablets` (Tafelmacherei), 52 `well` (Brunnen); Symbole `tontafel`,
+  hinten an): buildings.png Zelle 51 `tablets` (Tafelmacherei), Zelle 52 bleibt leer (war der Brunnen); Symbole `tontafel`,
   `gewuerze`, `ereignis`, `haendler`, `feuer`, `ratte`; objects2.png `spice_full`/`spice_empty`
   (x 112/128, y 48); animals.png Zeile 3 (Höhe jetzt 96) mit dem Piraten (`Data.ANIMAL_ROWS`, kein Eintrag
   in animals.json; `Data.animal_tex("pirat", frame)`).
@@ -1129,9 +1130,25 @@ Reihenfolge der Autoloads in `project.godot`: Seasons, Writing, Exams, Quests, H
   (keine zweite Ausgabe).
 - **Testhilfen**: `--seed=N` (feste Insel für neue Spiele), `--fixture=<pfad>` (Spielstand vor dem Laden in
   den aktiven Platz kopieren, weiter wie `--keep`), `--rulesdialog=1` (Bildschirmfoto des Fensters, ohne
-  alten Spielstand mit Beispielzeilen), `--place=brunnen,tafelmacherei` (fertige Gebäude hinstellen),
-  `--panel=build --cat=see --buildscroll=brunnen` (Bauliste bis zum Gebäude rollen), `--rewardtest=1`
+  alten Spielstand mit Beispielzeilen), `--place=wachturm,tafelmacherei` (fertige Gebäude hinstellen),
+  `--panel=build --cat=wissen --buildscroll=tafelmacherei` (Bauliste bis zum Gebäude rollen), `--rewardtest=1`
   (Belohnung mit Einwanderern, Lagerüberlauf und ein Hungertod).
+- **Entfernte Gebäude und Forschungen** (josh, Oktober 2026: „Lass den Brunnen weg. Entferne ihn aus dem
+  Code.“): Den Brunnen (`brunnen`) und die Forschung Brunnenbau (`brunnenbau`) gibt es nicht mehr, auch
+  nicht im Bot, in Ereignissen, Aufträgen oder der Grafik. `scripts/autoload/retired.gd` (`Retired`, kein
+  Autoload) kennt ihre alten Kosten (`BUILDINGS`, `TECHS`) und räumt alte Spielstände auf:
+  `Retired.strip_save` (aus `Game.apply_save_header`, nach `_merge_backup`, vor dem Aufbau der Inseln)
+  nimmt Brunnen aus den Inseldaten (auch Version 1 mit `world`) und aus der Sicherung für ältere Versionen
+  (`_v2_restore`, damit dort keine Brunnen mehr zurückkommen) und Brunnenbau aus `done`, `paid`,
+  `progress` und `current` (war es die laufende Forschung, ist keine gewählt). Zurück kommt je Insel das
+  Baumaterial: ein fertiger Brunnen 10 Stein und 4 Holz, eine Baustelle das schon gelieferte Material,
+  dazu die bezahlten Kosten von Brunnenbau (15 Stein, 15 Holz) auf die Heimatinsel; jedes Gebäude (ID)
+  zählt einmal. `Retired.give_back` (aus `Game.after_load`, nach `state_load`) gibt es über
+  `Game.grant_reward`: erst ins Lager der Insel, so weit Platz ist, dann auf andere Inseln, der Rest wartet
+  auf Platz (`reward_wait`); nichts geht verloren. Einmal kommt die Meldung „Brunnen gibt es nicht mehr:
+  3 Brunnen sind abgebaut. Baumaterial zurück: 41 Stein, 25 Holz.“ Danach steht im Spielstand nichts mehr
+  davon, beim nächsten Laden passiert nichts. Test: `--fixture=<alter Stand mit Brunnen>
+  --retiredtest=n:3,stein:41,holz:25` (erwartete Zahl und Summe aller Inseln; druckt „Entfernt OK/FEHLER“).
 
 ## Testversion
 
@@ -1241,6 +1258,7 @@ godot --headless -- --autotest=200 --scale=10 --seed=7 --eventtest=all  # angek�
 godot --headless -- --autotest=230 --scale=10 --build=1   # ein ganzes Jahr, Bericht mit Jahreszeit und Holz
 godot --headless -- --autotest=300 --scale=10 --seatest=1  # Werft, drei Inseln entdecken und besiedeln
 godot --headless --fixed-fps 60 -- --autotest=60 --scale=10 --fixture=alt.json  # alten Spielstand weiterspielen
+godot --headless --fixed-fps 60 -- --autotest=10 --scale=10 --fixture=wells.json --retiredtest=n:3,stein:41,holz:25  # Brunnen entfernt
 godot --headless --fixed-fps 60 -- --autotest=200 --scale=10 --writingtest=1  # Forschung braucht Tontafeln
 godot --headless --fixed-fps 60 -- --autotest=100 --scale=10 --examtest=0  # Prüfung beim Zeitalterwechsel
 godot --headless --fixed-fps 60 -- --autotest=120 --scale=10 --questtest=1  # Aufträge mit Wahl
@@ -1264,14 +1282,13 @@ Forschung mit `start_research`, `Quests.accept`, Werkstätten an/aus, Hoechstmen
 `Game.set_limit`). Er bekommt keine Waren geschenkt und erzwingt keine Prüfung. Die alten Bots
 `--build=1`/`--research=1` bleiben unverändert; `--bot=1` ersetzt sie (nicht zusammen benutzen).
 - Einführung: drückt „Überspringen“ auf der Zielkarte, damit Aufträge und Ereignisse kommen.
-- Forschung: erst ein Auftrag mit Forschung, dann Steinzeit (Schrift … Brunnenbau), dann Antike
+- Forschung: erst ein Auftrag mit Forschung, dann Steinzeit (Schrift … Mühlenbau), dann Antike
   (Backkunst zuerst); nur Bezahlbares, Heizholz bleibt liegen. Überspringt eine Forschung, die eine
   Ware braucht, die der gewünschten Forschung fehlt.
-- Bauen (Wunschliste): Lager bei über 85 % zuerst (ab dem ersten Lager), Auftragsgebäude, Brunnen
-  vor angekündigtem Brand, bis zur Steinzeit-Prüfung das Holzhaus (Bretter dafür liegen schon vor
-  der Zimmerei bereit), Obstgärten und Felder (je 1 + Siedler/4, Felder nur, solange kein
-  Getreideberg liegt), Bäckerei und Mühle (Mühle erst nach der Prüfung, eine zweite bei
-  Getreideberg), Räucherei, Schreibstube, Wohnplätze, Sägegrube, Lehmgrube und Tafelmacherei,
+- Bauen (Wunschliste): Lager bei über 85 % zuerst (ab dem ersten Lager), Auftragsgebäude, bis zur
+  Steinzeit-Prüfung das Holzhaus (Bretter dafür liegen schon vor der Zimmerei bereit), Obstgärten und
+  Felder (je 1 + Siedler/4, Felder nur, solange kein Getreideberg liegt), Bäckerei und Mühle (Mühle
+  erst nach der Prüfung, eine zweite bei Getreideberg), Räucherei, Schreibstube, Wohnplätze, Sägegrube, Lehmgrube und Tafelmacherei,
   Lager, Ziegelei, Steinhaus, Steinbruch, Schule …
   Wohnplätze nur, wenn die Nahrung reicht und die Siedlung nicht über das hinauswächst, was der letzte
   Winter satt gemacht hat (plus ein Viertel, mindestens 20; nach knappem Winter kein Wachstum).

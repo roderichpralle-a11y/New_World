@@ -328,7 +328,7 @@ func _check_fallback() -> void:
 		return out
 	# [hoechste erforschte Stufe, zusaetzlich erforscht, nicht erforscht, Forschung, erwartet]
 	var cases := [
-		[2, [], ["toepferei", "brunnenbau"], "heilkunde", {}],
+		[2, [], ["toepferei"], "heilkunde", {}],
 		[2, [], [], "heilkunde", {"tontafel": 30}],
 		[4, [], [], "baumeisterkunst", {"tontafel": 40}],
 		[6, [], [], "papier", {"tontafel": 156}],
