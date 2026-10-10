@@ -1952,7 +1952,7 @@ func _build_help_panel() -> void:
 	var v: VBoxContainer = r[1]
 	var rt := RichTextLabel.new()
 	rt.bbcode_enabled = true
-	rt.text = tr(HELP_TEXT) + "\n\n" + tr(CHALLENGE_HELP) + TradePanel.help_text()  # + Erweiterung, Inselstärken, Gewürze und Händler
+	rt.text = tr(HELP_TEXT) + "\n\n" + tr(CHALLENGE_HELP) + TradePanel.help_text() + Extras.help_text()  # + Erweiterung, Händler, Kohle und Kälte
 	rt.custom_minimum_size = Vector2(360, 300)
 	rt.scroll_active = true
 	v.add_child(rt)
@@ -2032,6 +2032,14 @@ func _bar_row(text: String, value: float, color: Color) -> ProgressBar:
 	return b
 
 
+## Überschrift und ein umbrechender Textabsatz im Infofenster.
+func _info_text(head: String, text: String) -> void:
+	_info_box.add_child(UiTheme.label(head, 15, UiTheme.TEXT, true))
+	var l := UiTheme.label(text, 13)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_info_box.add_child(l)
+
+
 func _info_signature() -> String:
 	var o = _info_obj
 	if o == null or not is_instance_valid(o):
@@ -2084,13 +2092,6 @@ func _info_settler(s: Settler) -> void:
 	var ill := UiTheme.label("", 14, Color("#c03a2a"), true)
 	ill.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_info_box.add_child(ill)
-	var hb := _bar_row(tr("Sättigung"), s.hunger, Color("#e0a040"))
-	var gb := _bar_row(tr("Gesundheit"), s.health, UiTheme.GOOD)
-	var vb := _bar_row(tr("Vitamine"), m.vit, Color("#7ac040"))
-	var mb := _bar_row(tr("Laune"), m.mood, Color("#e070a0"))
-	var rb: ProgressBar = null
-	if s.is_adult() and m.leisure_share() > 0.0:
-		rb = _bar_row(tr("Erholung"), m.rest, Color("#60b0d0"))
 	var wp := UiTheme.label("", 14, UiTheme.TEXT, true)
 	_info_box.add_child(wp)
 	var why := UiTheme.label("", 12, DIM)
@@ -2098,12 +2099,6 @@ func _info_settler(s: Settler) -> void:
 	_info_box.add_child(why)
 	_updaters.append(func():
 		act.text = s.activity
-		hb.value = s.hunger
-		gb.value = s.health
-		vb.value = m.vit
-		mb.value = m.mood
-		if rb:
-			rb.value = m.rest
 		ill.visible = m.sick != ""
 		ill.text = tr("Krank: %s%s") % [m.illness_name(), tr(" (muss liegen)") if m.needs_bed() else ""]
 		wp.text = tr("Laune: %s · Arbeitskraft %d %%") % [m.mood_text(), int(round(m.work_power() * 100.0))] if s.is_adult() \
@@ -2117,17 +2112,17 @@ func _info_settler(s: Settler) -> void:
 		why.visible = not lines.is_empty())
 	var home = world.building_by_id(s.home_id)
 	_info_box.add_child(UiTheme.label(tr("Zuhause: %s") % (home.def.name + NeedsInfo.home_suffix(home) if home else tr("keins (schläft draußen)")), 13))
-	_info_box.add_child(UiTheme.label(tr("Eigenschaften"), 15, UiTheme.TEXT, true))
+	# Eigenschaften und Fähigkeiten als Text, ohne Balken (josh 2026-10-09)
 	var tdefs: Dictionary = Data.ppl("traits", {})
+	var tl := []
 	for k in SettlerMind.TRAITS:
-		var v := m.trait_value(k)
-		_bar_row("%s %d" % [tdefs[k].name, int(round(v))], v * 10.0, Color("#b08ad8"))
-	_info_box.add_child(UiTheme.label(tr("Fähigkeiten (+ = begabt)"), 15, UiTheme.TEXT, true))
+		tl.append("%s %d" % [tdefs[k].name, int(round(m.trait_value(k)))])
+	_info_text(tr("Eigenschaften"), " · ".join(tl))
+	var sl := []
 	for sk in Data.skills:
-		var lvl := int(s.skill_level(sk))
 		var t := float(m.talents.get(sk, 1.0))
-		var stars := " ++" if t >= 1.6 else (" +" if t >= 1.3 else "")
-		_bar_row("%s %d%s" % [Data.skills[sk].name, lvl, stars], lvl * 10.0, Color("#5a8ad8"))
+		sl.append("%s %d%s" % [Data.skills[sk].name, int(s.skill_level(sk)), "++" if t >= 1.6 else ("+" if t >= 1.3 else "")])
+	_info_text(tr("Fähigkeiten (+ = begabt)"), " · ".join(sl))
 	if not s.is_adult():
 		_info_box.add_child(UiTheme.label(tr("Kinder arbeiten noch nicht."), 13))
 	else:

@@ -171,6 +171,7 @@ func _advance(g: Dictionary, silent: bool) -> void:
 	if was_tut:
 		if not in_tutorial():
 			hud.toast(tr("Einführung geschafft! Jetzt warten Ziele mit Belohnungen auf dich."), "ziel")
+			Extras.tutorial_reward(Game.world)  # 2 Siedler und eine fertige Hütte
 	else:
 		var parts := []
 		for res in g.get("reward", {}):

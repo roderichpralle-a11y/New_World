@@ -409,7 +409,7 @@ func _update_mood(days: float) -> void:
 	if absf(sm) > 0.01:
 		r.append([(tr("Freut sich über: %s") if sm > 0.0 else tr("Leidet unter: %s")) % Seasons.season_title(), sm * 60.0])
 	if not Seasons.is_warm(s.world):
-		r.append([tr("Friert (kein Heizholz)"), -15.0])
+		r.append([tr("Friert (kein Holz, keine Kohle)"), -15.0])
 	var target := base
 	for x in r:
 		target += float(x[1])

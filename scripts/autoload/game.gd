@@ -486,6 +486,8 @@ func choose_food(s, w = null) -> String:
 	if ids.is_empty():
 		return ""
 	var needed := _ingredient_goods(w)
+	if vit_need <= 0.0:
+		ids = durable_first(ids)  # josh: erst das haltbare Essen; wer Vitamine braucht, wählt frei
 	var meals: Array = s.mind.meals
 	var best := ""
 	var best_score := -INF
@@ -513,6 +515,25 @@ func choose_food(s, w = null) -> String:
 	eaten[best] = int(eaten.get(best, 0)) + 1
 	last_eaten = best
 	return best
+
+
+## Haltbares Essen zuerst (josh 2026-10-09): ist haltbare Nahrung da (nicht in seasons.json
+## `perishable`), wählt choose_food nur unter ihr; das andere erst, wenn keine haltbare mehr da ist.
+## Ausnahme: wer unter `vitamin_target` Vitamine hat, wählt aus allem (sonst äße eine Insel mit
+## Bäckerei nur Brot und bekäme Skorbut).
+## Rohware, die eine Werkstatt weiterverarbeitet (Getreide für Mühle und Hühnerhof), zählt nicht als
+## haltbares Essen, sonst äßen die Siedler das Korn roh, bevor es zu Brot wird.
+func durable_first(ids: Array) -> Array:
+	if _raw_food.is_empty():
+		for t in Data.buildings:
+			for id in Data.buildings[t].get("production", {}).get("inputs", {}):
+				_raw_food[id] = true
+	var perish: Array = Seasons.cfg.get("perishable", [])
+	var keep := ids.filter(func(id): return not id in perish and not _raw_food.has(id))
+	return keep if not keep.is_empty() else ids
+
+
+var _raw_food: Dictionary = {}  # Waren, die eine Werkstatt weiterverarbeitet (durable_first)
 
 
 ## Waren, die eine fertige Werkstatt der Insel als Zutat braucht.
