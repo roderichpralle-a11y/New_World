@@ -128,6 +128,7 @@ func setup(p_world: World, p_camera: GameCamera) -> void:
 	_update_sea_button()
 	_refresh_top()
 	goal_card.attach_pointer(root)
+	FestVideo.attach(self)  # Fest-Video bei jedem Fest (scripts/ui/fest_video.gd)
 	_layout()
 	_watch_updates.call_deferred()
 
