@@ -6,7 +6,8 @@ extends RefCounted
 ## Art: Waren, die der Kolonie gerade fehlen oder bald fehlen (Bedarf, `needs`):
 ##   hunger  Essen reicht für weniger als 2 Tage: die haltbarste Speise des Zeitalters
 ##   winter  Sommer und Herbst: Essen bis Winterende (haltbar zuerst: Räucherfisch, Brot, Konserven)
-##   heizen  Sommer bis Winter: Heizholz bis Winterende (nach Wintervorhersage)
+##   heizen  Sommer bis Winter: Brennstoff bis Winterende (nach Wintervorhersage; Kohle zählt mit,
+##           mit Köhlerei gibt es Kohle statt Holz)
 ##   schrift laufende Forschung: fehlende Schreibwaren (Tontafeln, Papier)
 ##   haeuser Bedürfnisse der Hausstufen, die es gibt (Bretter, Werkzeug, Brot, Glas, Papier, Gewürze ...)
 ##   pruefung nächste Prüfung: Lagerwaren und Baukosten der verlangten Häuser und Gebäude
@@ -47,7 +48,7 @@ static func why_text(why: String) -> String:
 		"winter":
 			return Loc.t("Vorrat für den Winter")
 		"heizen":
-			return Loc.t("Heizholz für den Winter")
+			return Loc.t("zum Heizen im Winter")
 		"schrift":
 			return Loc.t("für die laufende Forschung")
 		"haeuser":
@@ -204,9 +205,18 @@ static func needs(ctx: Dictionary) -> Array:
 			need *= clampf(1.0 - Seasons.season_progress(), 0.0, 1.0)
 		elif season == 2:
 			need += p * Seasons.heat_per_settler(2) * Seasons.season_days() * clampf(1.0 - Seasons.season_progress(), 0.0, 1.0)
-		var short := ceili(need) - Game.amount_all("holz")
-		if short > 0 and not plenty("holz"):
-			out.append({"id": "holz", "why": "heizen", "short": short, "weight": 5.0 if season >= 2 else 3.0})
+		var have := 0.0
+		for w in Sea.all_worlds():
+			have += Extras.fuel(w)  # Kohle zählt mit (1 Kohle = heat_coal_wood Holz)
+		var short := ceili(need - have)
+		# Wer schon mit Kohle heizt (Köhlerei frei oder Kohle im Lager), bekommt Kohle: sie wird zuerst
+		# verbrannt und braucht halb so viel Platz. Sonst Holz.
+		var coal := (Game.is_unlocked("koehlerei") or Game.amount_all("kohle") > 0) and _rewardable("kohle") and not plenty("kohle")
+		var weight := 5.0 if season >= 2 else 3.0
+		if short > 0 and coal:
+			out.append({"id": "kohle", "why": "heizen", "short": ceili(float(short) / Extras.coal_ratio()), "weight": weight})
+		elif short > 0 and not plenty("holz"):
+			out.append({"id": "holz", "why": "heizen", "short": short, "weight": weight})
 	# Schreibwaren der laufenden Forschung
 	var cur := str(Game.research.current)
 	if cur != "":

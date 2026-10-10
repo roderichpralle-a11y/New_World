@@ -339,7 +339,9 @@ func make_quest(id: String, ctx: Dictionary) -> Dictionary:
 			var start := float(Seasons.year() - 1) * Seasons.year_days() + 3.0 * Seasons.season_days()
 			if start - now < 3.0:
 				return {}
-			var delta := _cap_space("holz", winter_wood(p, winter_mult()))
+			# Kohle im Lager heizt zuerst (Extras.burn_fuel) und spart so viel Holz
+			var coal := int(float(Game.amount_all("kohle")) * Extras.coal_ratio())
+			var delta := _cap_space("holz", winter_wood(p, winter_mult()) - coal)
 			if delta < 8:
 				return {}
 			return _quest(id, {"type": "stock", "what": "holz", "n": Game.amount_all("holz") + delta}, {"until": start})

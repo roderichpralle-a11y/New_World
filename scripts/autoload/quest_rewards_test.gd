@@ -83,6 +83,19 @@ static func adapt_test(main, mode: String = "1") -> void:
 	var t3 := _roll(1)
 	var t3w := _roll(3)
 	print("Belohnung angepasst ", _okf(_top(t3).begins_with("holz/heizen") and _top(t3w).begins_with("holz/heizen")), " Herbst, kein Holz (Winter braucht %d): Gewicht 1 %s | Gewicht 3 %s" % [need, t3, t3w])
+	# 3b Mit Köhlerei gibt es Kohle statt Holz (halbe Menge); Kohle im Lager deckt den Bedarf mit
+	var had_kiln: bool = "koehlerei" in Game.research.done
+	if not had_kiln:
+		Game.research.done.append("koehlerei")
+	w.stock["kohle"] = 0
+	var t3c := _roll(1)
+	w.stock["kohle"] = ceili(need / Extras.coal_ratio()) + 2
+	var t3d := _roll(1)
+	print("Belohnung angepasst ", _okf(Game.is_unlocked("koehlerei") and _top(t3c).begins_with("kohle/heizen") and not t3d.keys().any(func(k): return k.ends_with("/heizen"))),
+		" Herbst, kein Holz, Köhlerei frei: %s | %d Kohle im Lager: %s" % [t3c, int(w.stock["kohle"]), t3d])
+	w.stock["kohle"] = 0
+	if not had_kiln:
+		Game.research.done.erase("koehlerei")
 	_rich(w, "holz")
 	# 4 Frühling ohne Bedarf an Essen und Holz: nie Waren, von denen genug da ist; alles brauchbar
 	Seasons.jump_to_season(0)

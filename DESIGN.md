@@ -897,7 +897,7 @@ sucht sich einen aus. Belohnungen sind Waren, Forschungspunkte, Einwanderer, dau
     sättigendste), Lager aller Inseln = jetzt + round5(max(15, 1,5·P)).
   - `vorrat_ware` (w1, 4 T.): herstellbares Material, + round5(clamp(4·P / Preis, 8, 100)).
   - `winterholz` (w1, bis Winterbeginn): Holz + P·3 (× Winterhärte, so wie die Siedler sie kennen
-    (`Seasons.winter_forecast`, unbekannt = normal, „streng“ = hart): mild 0,75, normal 1, hart 1,5, bitter 2), nur Frühling/Sommer mit mindestens 3 Tagen bis zum Winter.
+    (`Seasons.winter_forecast`, unbekannt = normal, „streng“ = hart): mild 0,75, normal 1, hart 1,5, bitter 2), weniger Kohle im Lager × `heat_coal_wood` (sie heizt zuerst), nur Frühling/Sommer mit mindestens 3 Tagen bis zum Winter.
   - `bauen` (w1, 4 T.; w2, 6 T. bei mehr als 60 Baukosten): ein freigeschaltetes Gebäude, das es noch nicht
     gibt (keine Denkmäler); sonst `bauen_mehr`: noch eins des größten Wohnhauses.
   - `wohnen` (w1, 5 T.): Wohnplätze + max(4, 0,25·P). `wachsen` (w2, 6 T.): Siedler + max(2, 0,15·P).
@@ -918,8 +918,9 @@ sucht sich einen aus. Belohnungen sind Waren, Forschungspunkte, Einwanderer, dau
     Form von Menge und Art angepasst werden“; `QuestRewards`, `scripts/autoload/quest_rewards.gd`, Werte in
     `goals.json` `quests.adapt`). Art aus dem Bedarf (`QuestRewards.needs`), Gewicht in Klammern:
     Essen für weniger als 2 Tage (6, haltbarste Speise: Räucherfisch, ab Antike Brot, ab Industrie
-    Konserven), Sommer/Herbst Essen bis Winterende (Herbst 5, Sommer 3,5), Heizholz bis Winterende nach
-    Wintervorhersage (Herbst/Winter 5, Sommer 3), Schreibwaren der laufenden Forschung (3), Bedürfnisse
+    Konserven), Sommer/Herbst Essen bis Winterende (Herbst 5, Sommer 3,5), Brennstoff bis Winterende nach
+    Wintervorhersage (Herbst/Winter 5, Sommer 3; Kohle im Lager zählt doppelt mit, ist die Köhlerei frei
+    oder Kohle da, gibt es Kohle statt Holz, halbe Menge, Grund „zum Heizen im Winter“), Schreibwaren der laufenden Forschung (3), Bedürfnisse
     der Hausstufen, die es gibt (3; Bretter, Werkzeug, Brot, Glas, Papier, Gewürze ...), nächste Prüfung:
     Lagerwaren und Baukosten der verlangten Häuser/Gebäude, sobald baubar oder die Forschung wählbar ist
     (3), Kosten der drei günstigsten wählbaren Forschungen (2), Baustoffe unter 30 + 3 je Siedler (1).
@@ -983,7 +984,7 @@ sucht sich einen aus. Belohnungen sind Waren, Forschungspunkte, Einwanderer, dau
   `--questreward=goods|research|settlers|boon|plan` erzwingt die Belohnung, `--questfast=1` jede Frist 0,3
   Tage, `--questauto=1` überspringt die Einführung und nimmt jedes erste Angebot an (z. B. mit
   `--build=1 --research=1`). `--questadapt=1` (`QuestRewardsTest`): Belohnung je Lage (Hunger, Herbst mit
-  knappem Essen, Herbst ohne Holz, Überfluss, Schreibwaren, Prüfung, Hausstufe 2, Mengen nach Siedlern,
+  knappem Essen, Herbst ohne Holz, mit Köhlerei Kohle statt Holz und Kohle im Lager deckt den Bedarf, Überfluss, Schreibwaren, Prüfung, Hausstufe 2, Mengen nach Siedlern,
   Zeitalter und Platz, Einwanderer nur mit Dach, 30 Angebotsrunden ohne doppelte Ware, Spielstand),
   druckt „Belohnung angepasst OK/FEHLER“; `--questadapt=shot --questshot=offers --panel=quests` zeigt
   eine Belohnung mit Grund. Der 20-Sekunden-Bericht hat eine Zeile „Auftraege: ...“. Bildschirmfotos:
@@ -1012,6 +1013,11 @@ Reihenfolge der Autoloads in `project.godot`: Seasons, Writing, Exams, Quests, H
 **Zusammenspiel der Teile**:
 - Klima → Aufträge: Winterholz und das Gewicht des Winter-Auftrags folgen der Wintervorhersage
   (`Quests.winter_type()` aus `Seasons.winter_forecast()`).
+- Kohle → Aufträge: Kohle im Lager zählt beim Winterholz-Auftrag und bei der Belohnung „zum Heizen im
+  Winter“ als Brennstoff mit (`Extras.fuel`, 1 Kohle = `heat_coal_wood` Holz); ist die Köhlerei frei,
+  ist die Heiz-Belohnung Kohle statt Holz. Kohle verkauft der Händler ab der Antike als einfache Ware.
+- Kälte → Klima: wie schnell Siedler ohne Brennstoff auskühlen, folgt dem Heizbedarf der Jahreszeit
+  (`Extras.cold_rate` = `Seasons.heat_per_settler()`), im Eiswinter also 1,8-mal so schnell.
 - Klima → Ereignisse: Hitze verdoppelt Dürre und Brand, keine Seuche im harten Winter; `Seasons.growth`
   nimmt das Kleinere aus Klima und Dürre (`Events.growth_factor`).
 - Prüfungen → alle: `Game.current_age()` = bestandene Prüfungen (Piraten ab Mittelalter, Händlerwaren,

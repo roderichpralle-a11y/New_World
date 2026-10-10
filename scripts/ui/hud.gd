@@ -1907,7 +1907,7 @@ Am Anfang kennen die Siedler nur Arbeit. Je weiter deine Siedlung entwickelt ist
 
 [b]Nahrung[/b]
 Siedler essen am Lagerfeuer. Jede Speise sättigt unterschiedlich stark und bringt unterschiedlich viele Vitamine: Beeren, Äpfel und Kokosnüsse machen kaum satt, sind aber voller Vitamine. Brot, Räucherfisch und Fleisch machen lange satt, haben aber kaum Vitamine. Rohes Getreide sättigt schlecht, erst Mühle und Bäckerei machen daraus gutes Brot.
-Wer hungert, arbeitet langsamer und verhungert schließlich. Wer zu wenig Vitamine bekommt, arbeitet ebenfalls langsamer, wird leichter krank und bekommt Skorbut. Sorge also für satt machende Speisen und für Obst. Im Fenster eines Siedlers siehst du seine Vitamine. Ist das Lager leer, essen Hungrige direkt am Strauch oder am Ufer. Sammelplätze sind schnell leer gepflückt und wachsen nur langsam nach.
+Wer hungert, arbeitet langsamer und verhungert schließlich. Wer zu wenig Vitamine bekommt, arbeitet ebenfalls langsamer, wird leichter krank und bekommt Skorbut. Sorge also für satt machende Speisen und für Obst. Fehlen einem Siedler Vitamine, steht das in seinem Fenster bei der Laune. Ist das Lager leer, essen Hungrige direkt am Strauch oder am Ufer. Sammelplätze sind schnell leer gepflückt und wachsen nur langsam nach.
 
 [b]Nachwuchs[/b]
 Kinder kommen nur zur Welt, wenn es freie Wohnplätze in Hütten gibt und genug Nahrung im Lager ist. In Holzhäusern kommen 40 % öfter Kinder zur Welt, in Steinhäusern 80 %. Kinder werden nach 3 Tagen erwachsen, mit einer Schule (Forschung Unterricht) doppelt so schnell. Niemand lebt ewig, also sorge rechtzeitig für Nachwuchs.
@@ -1934,7 +1934,7 @@ Gibt es mindestens drei Sorten Nahrung im Lager, kommen öfter Kinder zur Welt.
 Jede Insel hat ihr eigenes Lager. Waren kommen nur mit Schiffen auf eine andere Insel. Mit der Forschung Schiffsbau baust du am Ufer eine Werft; im Fenster der Werft wählst du das nächste Schiff. Ruderboote sind klein und landen an jedem Strand, Koggen tragen viel, Schnellsegler sind schnell, Galeonen riesig. Jedes Schiff braucht Seeleute (Beruf Seemann) und einen Liegeplatz in seinem Heimathafen: Werft 1, Anlegesteg 2, Hafen 2, Großer Hafen 3, Kais 1. Koggen und Schnellsegler laufen nur Inseln mit Hafen an, Galeonen nur Große Häfen. Holz-, Erz- und Proviantkai laden ihre Waren dreimal so schnell.
 
 [b]Seekarte und Routen[/b]
-Über den Knopf Inseln öffnest du die Seekarte. "Schiff hierher schicken" bringt Siedler und Waren zu einer Insel, "Neue Insel suchen" schickt ein Schiff auf Erkundung. Unter "Schiffe" legst du Routen fest: An jedem Halt lädt das Schiff die eingestellten Waren und lädt alles andere ab, dann fährt es weiter, immer wieder.
+Über den Knopf Inseln öffnest du die Seekarte. "Schiff hierher schicken" bringt Siedler und Waren zu einer Insel, "Neue Insel suchen" schickt ein Schiff auf Erkundung. Unter "Schiffe" legst du Routen fest: An jedem Halt lädt das Schiff die eingestellten Waren und lädt alles andere ab, dann fährt es weiter, immer wieder. Mit „Einmal hin und zurück“ fährt es die Route nur einmal und ist danach wieder frei.
 
 [b]Neue Inseln[/b]
 Palmeninseln haben Kokosnüsse und viel Fisch, Waldinseln Pilze und Holz, Felseninseln Erz und Gold. Gold brauchst du für die höchsten Forschungen. Je weiter draußen, desto mehr wilde Tiere.
