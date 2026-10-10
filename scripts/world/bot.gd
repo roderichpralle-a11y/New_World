@@ -758,7 +758,7 @@ func _apply_jobs(adults: Array, want: Dictionary) -> void:
 
 func _skill_for(s, job: String) -> float:
 	var sk: String = Data.jobs.get(job, {}).get("skill", "")
-	return s.skill_level(sk) if sk != "" else 0.0
+	return s.skill_factor(sk) if sk != "" else 0.0  # Stufe und Talent
 
 
 func _set_job(s, job: String) -> void:

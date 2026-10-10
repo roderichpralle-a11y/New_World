@@ -892,7 +892,7 @@ func _on_placement(active: bool, type: String, valid: bool) -> void:
 const DIM := Color("#6e5a50")
 ## Sortierbare Spalten: Schluessel, Text, Breite (0 = dehnbar; breit / schmal)
 const SETTLER_COLS := [["name", "Name", 0, 0], ["age", "Alter", 62, 30], ["act", "Tätigkeit", 0, -1],
-	["job", "Beruf", 150, 84], ["busy", "Auslastung", 110, 40], ["hunger", "Satt", 120, 44], ["mood", "Laune", 120, 44]]
+	["talent", "Talent", 120, -1], ["job", "Beruf", 150, 84], ["busy", "Auslastung", 110, 40], ["hunger", "Satt", 120, 44], ["mood", "Laune", 120, 44]]
 var _settler_scroll: ScrollContainer
 var _settler_updaters: Array = []
 var _settler_tick: float = 0.0
@@ -1105,6 +1105,9 @@ func _refresh_settler_list() -> void:
 			"job":
 				va = _settler_job_label(a)
 				vb = _settler_job_label(b)
+			"talent":
+				va = TalentInfo.short_list(a.mind)
+				vb = TalentInfo.short_list(b.mind)
 			"busy":
 				va = a.busy_percent() if a.is_adult() else -2
 				vb = b.busy_percent() if b.is_adult() else -2
@@ -1148,6 +1151,8 @@ func _refresh_settler_list() -> void:
 		var other: bool = s.world != world
 		nb.text = s.display_name + ("  (%s)" % Sea.island_name(s.world) if other else "")
 		nb.tooltip_text = tr("Auf der Karte zeigen")
+		if not s.mind.best_talents().is_empty():
+			nb.tooltip_text += "\n" + "\n".join(s.mind.best_talents().map(func(k): return TalentInfo.line(sref.mind, k)))
 		nb.pressed.connect(func():
 			_settler_panel.visible = false
 			if is_instance_valid(sref) and sref.world != world:
@@ -1167,12 +1172,23 @@ func _refresh_settler_list() -> void:
 			act.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			act.size_flags_stretch_ratio = 1.4
 			h.add_child(act)
-		var jw: int = SETTLER_COLS[3][3] if narrow else SETTLER_COLS[3][2]
+			# Talente mit Arbeitstempo-Bonus (nur breit; schmal zeigt das Berufsmenue Sterne)
+			var tl := UiTheme.label(TalentInfo.short_list(s.mind), 13)
+			tl.clip_text = true
+			tl.custom_minimum_size.x = SETTLER_COLS[3][2]
+			tl.mouse_filter = Control.MOUSE_FILTER_PASS
+			tl.tooltip_text = "\n".join(s.mind.best_talents().map(func(k): return TalentInfo.line(sref.mind, k)))
+			h.add_child(tl)
+		var jw: int = SETTLER_COLS[4][3] if narrow else SETTLER_COLS[4][2]
 		if s.is_adult():
 			# Beruf direkt in der Liste waehlen
 			var ob := OptionButton.new()
 			ob.focus_mode = Control.FOCUS_NONE
 			ob.custom_minimum_size = Vector2(jw, row_h - 2)
+			if narrow:
+				# Talent-Sterne im Menue machen den Knopf sonst breiter als das Handy
+				ob.fit_to_longest_item = false
+				ob.custom_minimum_size.x = 136
 			ob.clip_text = true
 			ob.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 			ob.add_theme_font_size_override("font_size", 14)
@@ -1182,11 +1198,14 @@ func _refresh_settler_list() -> void:
 			for j in Data.jobs:
 				if not Data.job_unlocked(j) and j != s.job:
 					continue
-				ob.add_item(Data.jobs[j].name, ids.size())
+				if TalentInfo.job_match(s.mind, j):
+					ob.add_icon_item(TalentInfo.star(), Data.jobs[j].name, ids.size())
+				else:
+					ob.add_item(Data.jobs[j].name, ids.size())
 				ids.append(j)
 				if j == s.job:
 					ob.select(ids.size() - 1)
-			ob.tooltip_text = tr("Beruf wählen")
+			ob.tooltip_text = tr("Beruf wählen") + (tr("\nStern: passt zum Talent (%s)") % TalentInfo.short_list(s.mind) if not s.mind.best_talents().is_empty() else "")
 			ob.item_selected.connect(func(i):
 				sref.set_job(ids[i])
 				Game.player_action.emit("job", ids[i]))
@@ -1197,7 +1216,7 @@ func _refresh_settler_list() -> void:
 			h.add_child(kl)
 		# Auslastung: Anteil der eigenen Arbeit an der Tageszeit
 		var bz := VBoxContainer.new()
-		bz.custom_minimum_size.x = SETTLER_COLS[4][3] if narrow else SETTLER_COLS[4][2]
+		bz.custom_minimum_size.x = SETTLER_COLS[5][3] if narrow else SETTLER_COLS[5][2]
 		bz.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		bz.add_theme_constant_override("separation", 1)
 		bz.mouse_filter = Control.MOUSE_FILTER_PASS
@@ -1210,7 +1229,7 @@ func _refresh_settler_list() -> void:
 		h.add_child(bz)
 		# Saettigung: Balken mit Prozentzahl
 		var sat := VBoxContainer.new()
-		sat.custom_minimum_size.x = SETTLER_COLS[5][3] if narrow else SETTLER_COLS[5][2]
+		sat.custom_minimum_size.x = SETTLER_COLS[6][3] if narrow else SETTLER_COLS[6][2]
 		sat.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		sat.add_theme_constant_override("separation", 1)
 		var pl := UiTheme.label("", 12)
@@ -1221,7 +1240,7 @@ func _refresh_settler_list() -> void:
 		h.add_child(sat)
 		# Laune, rot bei Krankheit
 		var md := VBoxContainer.new()
-		md.custom_minimum_size.x = SETTLER_COLS[6][3] if narrow else SETTLER_COLS[6][2]
+		md.custom_minimum_size.x = SETTLER_COLS[7][3] if narrow else SETTLER_COLS[7][2]
 		md.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		md.add_theme_constant_override("separation", 1)
 		var ml := UiTheme.label("", 12)
@@ -2087,9 +2106,20 @@ func _info_settler(s: Settler) -> void:
 	var m: SettlerMind = s.mind
 	var ch := UiTheme.label("", 13)
 	ch.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	var tal := m.best_talents().map(func(k): return Data.skills[k].name)
-	ch.text = tr("Charakter: %s") % m.character_text() + (tr("\nBegabt für: %s") % ", ".join(tal) if not tal.is_empty() else "")
+	ch.text = tr("Charakter: %s") % m.character_text()
 	_info_box.add_child(ch)
+	# Talente mit Bonus gut sichtbar (josh 2026-10-10), je Talent eine Zeile mit Stern
+	for sk in m.best_talents():
+		var th := HBoxContainer.new()
+		th.add_theme_constant_override("separation", 4)
+		th.add_child(UiTheme.icon_rect(TalentInfo.star(), 16))
+		var tl := UiTheme.label(TalentInfo.line(m, sk), 14, UiTheme.TEXT, true)
+		tl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		tl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		th.add_child(tl)
+		_info_box.add_child(th)
+	if m.best_talents().is_empty():
+		_info_box.add_child(UiTheme.label(tr("Talent: keins"), 13, DIM))
 	var ill := UiTheme.label("", 14, Color("#c03a2a"), true)
 	ill.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_info_box.add_child(ill)
@@ -2122,12 +2152,16 @@ func _info_settler(s: Settler) -> void:
 	var sl := []
 	for sk in Data.skills:
 		var t := float(m.talents.get(sk, 1.0))
-		sl.append("%s %d%s" % [Data.skills[sk].name, int(s.skill_level(sk)), "++" if t >= 1.6 else ("+" if t >= 1.3 else "")])
+		sl.append("%s %d%s" % [Data.skills[sk].name, int(s.skill_level(sk)), "++" if t >= 1.6 else ("+" if m.is_talent(sk) else "")])
 	_info_text(tr("Fähigkeiten (+ = begabt)"), " · ".join(sl))
 	if not s.is_adult():
 		_info_box.add_child(UiTheme.label(tr("Kinder arbeiten noch nicht."), 13))
 	else:
 		_info_box.add_child(UiTheme.label(tr("Beruf"), 15, UiTheme.TEXT, true))
+		if not m.best_talents().is_empty():
+			var hint := UiTheme.label(tr("Stern: Beruf passt zum Talent"), 12, DIM)
+			hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			_info_box.add_child(hint)
 		var grid := GridContainer.new()
 		grid.columns = 2
 		grid.add_theme_constant_override("h_separation", 4)
@@ -2142,6 +2176,9 @@ func _info_settler(s: Settler) -> void:
 			var tip: String = jd.desc
 			if jd.skill != "":
 				tip += tr("\nFähigkeit: %s (Stufe %d)") % [Data.skills[jd.skill].name, int(s.skill_level(jd.skill))]
+			if TalentInfo.job_match(m, j):
+				b.icon = TalentInfo.star()
+				tip += "\n" + TalentInfo.line(m, jd.skill)
 			b.tooltip_text = tip
 			var jid: String = j
 			if not Data.job_unlocked(j):

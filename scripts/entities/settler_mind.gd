@@ -118,16 +118,33 @@ func character_text() -> String:
 	return ", ".join(parts) if not parts.is_empty() else tr("durchschnittlich")
 
 
-## Faehigkeiten mit Begabung ab 1.3, beste zuerst.
+## Faehigkeiten mit Begabung ab talent_show (Talente), beste zuerst.
 func best_talents() -> Array:
-	var ks := talents.keys().filter(func(k): return talents[k] >= 1.3)
+	var ks := talents.keys().filter(func(k): return is_talent(k))
 	ks.sort_custom(func(a, b): return talents[a] > talents[b])
 	return ks
 
 
+## Zaehlt die Begabung als Talent (Anzeige mit Stern)?
+func is_talent(sk: String) -> bool:
+	return float(talents.get(sk, 1.0)) >= float(Data.ppl("talent_show", 1.3)) - 0.001
+
+
+## Arbeitstempo durch Begabung: 1 + talent_work_bonus je Punkt ueber 1 (1.8 -> +40 %).
+## Schwaechen (unter 1) bremsen die Arbeit nicht.
+func talent_work(sk: String) -> float:
+	return 1.0 + float(Data.ppl("talent_work_bonus", 0.5)) * maxf(0.0, float(talents.get(sk, 1.0)) - 1.0)
+
+
+## Lernfaktor durch Begabung: ueber 1 verstaerkt (talent_learn_bonus, 1.8 -> 2.6), darunter wie bisher.
+func talent_learn(sk: String) -> float:
+	var t := float(talents.get(sk, 1.0))
+	return t if t <= 1.0 else 1.0 + float(Data.ppl("talent_learn_bonus", 2.0)) * (t - 1.0)
+
+
 ## Lerntempo fuer eine Faehigkeit: Begabung mal Klugheit.
 func learn_factor(sk: String) -> float:
-	return float(talents.get(sk, 1.0)) * (0.6 + 0.08 * trait_value("iq"))
+	return talent_learn(sk) * (0.6 + 0.08 * trait_value("iq"))
 
 
 ## Forschungstempo: Kluge forschen schneller.
