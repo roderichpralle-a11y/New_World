@@ -210,6 +210,8 @@ func _maybe_autotest() -> void:
 		Game.refresh_effects()
 	if args.has("rewardtest"):
 		_autotest_reward()
+	if args.has("talenttest"):
+		TalentTest.run(self)  # Talente: Bonus und Anzeige (scripts/world/talent_test.gd)
 	# Systeme (Game.systems) richten ihre eigenen Testhilfen ein
 	for sys in Game.systems:
 		if is_instance_valid(sys) and sys.has_method("autotest_setup"):
@@ -304,6 +306,10 @@ func _maybe_autotest() -> void:
 		if args.has("select"):
 			Game.select(world.settlers[0])
 			camera.focus(world.settlers[0].position)
+			if args.has("infoscroll"):
+				# Testhilfe: Infofenster nach unten rollen (Berufswahl mit Talent-Sternen)
+				await get_tree().process_frame
+				hud._info_panel.get_child(0).scroll_vertical = int(args.infoscroll)
 		if args.has("buildmenu"):
 			hud._toggle(hud._build_panel)
 		if args.has("hidegoal"):

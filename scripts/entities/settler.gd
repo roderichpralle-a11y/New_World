@@ -178,10 +178,11 @@ func skill_level(sk: String) -> float:
 	return float(skills.get(sk, 1.0))
 
 
+## Tempo aus Stufe und Talent (SettlerMind.talent_work).
 func skill_factor(sk: String) -> float:
 	if sk == "":
 		return 1.0
-	return 0.6 + 0.08 * skill_level(sk)
+	return (0.6 + 0.08 * skill_level(sk)) * mind.talent_work(sk)
 
 
 func gain_xp(sk: String, amount: float = 1.0, quiet: bool = false) -> void:
@@ -285,9 +286,9 @@ func _needs(days: float) -> void:
 	age += days * grow
 	if not was_adult and is_adult():
 		job = "frei"
-		var tal := mind.best_talents().map(func(k): return Data.skills[k].name)
+		var tal := TalentInfo.short_list(mind)
 		Game.notify(tr("%s ist erwachsen und kann jetzt arbeiten.%s") % [display_name,
-			(tr(" Begabt für: %s.") % ", ".join(tal)) if not tal.is_empty() else ""], "person")
+			(tr(" Talent: %s schneller.") % tal) if tal != "" else ""], "person")
 		abort_plan()
 	_update_scale()
 	if health <= 0.0:

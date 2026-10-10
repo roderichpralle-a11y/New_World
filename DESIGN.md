@@ -13,7 +13,7 @@ Zeitalterwechsel mit Wertung und Aufträge mit Wahl. Überblick und Zusammenspie
 - Start: eine zufällige Insel aus einem Seed, Lagerfeuer und eine Hütte, zwei Siedler
   (Lena, Jonas) mit unterschiedlichen Fähigkeiten.
 - **Fähigkeiten** `holz`, `stein`, `nahrung`, `bauen` (Stufe 1–10). Arbeitstempo =
-  `0.6 + 0.08 * Stufe`. Jede Arbeit bringt Erfahrung, Stufe steigt nach
+  `0.6 + 0.08 * Stufe`, mal Talent (siehe „Charaktere“). Jede Arbeit bringt Erfahrung, Stufe steigt nach
   `skill_xp_per_level * Stufe` Punkten.
 - **Berufe** (`data/jobs.json`): Frei, Holzfäller, Steinmetz, Sammler, Fischer, Bauer,
   Baumeister. Freie Siedler bauen zuerst, sammeln dann Nahrung wenn knapp, sonst das
@@ -501,7 +501,12 @@ Spielstände würfeln die Werte reproduzierbar aus der Siedler-ID).
 - **Eigenschaften** 1–10 (`traits`): `iq` Klugheit (Lerntempo `0.6+0.08*iq`, Forschung `0.7+0.06*iq`),
   `konst` Gesundheit (robust/kränklich: Krankheitsrisiko, Dauer und Schaden), `fleiss` (weniger
   Freizeitbedarf, Arbeit `0.9+0.022*fleiss`), `gemuet` (Grundlaune). Anzeige als Wörter ab 7,5 bzw. bis 3,5.
-- **Begabungen** je Fähigkeit 0,5–1,8 (`talents`): Faktor auf jede Erfahrung (`Settler.gain_xp`).
+- **Begabungen** je Fähigkeit 0,5–1,8 (`talents`). Ab `talent_show` (1,3) heißt sie **Talent** (Stern im Spiel).
+  Seit josh 2026-10-10 stärker: Arbeitstempo mal `SettlerMind.talent_work` = 1 + `talent_work_bonus` (0,5) je Punkt
+  über 1 (1,3 → +15 %, 1,5 → +25 %, 1,8 → +40 %; steckt in `Settler.skill_factor`, also in jeder Arbeit und in der
+  Forschung), Schwächen unter 1 bremsen nicht. Erfahrung mal `talent_learn` = 1 + `talent_learn_bonus` (2,0) je Punkt
+  über 1 (1,8 → 2,6-fach statt 1,8-fach), unter 1 wie bisher die Begabung selbst (`Settler.gain_xp`). Die KI
+  (`AiJobs`) und der Test-Bot wählen nach `skill_factor`, also mit Talent.
   Kinder: `SettlerMind.inherit` mischt Eltern (`trait_inherit`) mit Zufall. Kinder starten mit Fähigkeit
   1–3 nach Begabung und lernen beim Spielen (`play_xp_per_day`), in der Schule viel mehr
   (`school_xp_per_day`), jeweils mal Begabung. Lena und Jonas haben feste Werte (`World.build_new`).
@@ -530,11 +535,18 @@ Spielstände würfeln die Werte reproduzierbar aus der Siedler-ID).
 - **Freizeit**: `rest` sinkt bei Arbeit je nach Bedarf, unter 35 macht der Siedler Pause
   (`Settler._plan_leisure`: Feuer, zu Hause, Strand, mit Kindern spielen, Bibliothek/Schreibstube,
   gewichtet nach Gemüt und Klugheit), außer in einer Hungersnot (weniger als 3 Nahrung je Siedler).
+- **Anzeige der Talente** (`scripts/ui/talent_info.gd`, Stern im Code gezeichnet, weil die Schrift kein ★ hat):
+  Infofenster je Talent eine Zeile „Talent: Bauen (+40 % schneller, lernt +160 % schneller)“ mit Stern, sonst
+  „Talent: keins“; Berufsknöpfe mit Stern, wenn die Fähigkeit des Berufs ein Talent ist (Tooltip mit Bonus).
+  Siedlerliste: Spalte „Talent“ (z. B. „Holz +25 %“, nur breit, sortierbar), Stern im Berufsmenü, Bonus im Tooltip
+  am Namen. Meldung beim Erwachsenwerden nennt die Talente mit Bonus.
 - **Anzeige**: Infofenster (Charakter, Begabungen, Krankheit, Laune mit Arbeitskraft, wichtigste
   Gründe, Eigenschaften und Fähigkeiten mit + für Begabung als Text; seit josh 2026-10-09 ohne Balken
   für Sättigung, Gesundheit, Vitamine, Laune, Erholung, Eigenschaften und Fähigkeiten), Siedlerliste
   (Spalte Laune, rot bei Krankheit, Filter „Nur Kranke“, Lebensstil im Zähler).
-- Test: `--chartest=1` (täglicher Bericht), `--comfort=<n>` (n Forschungen erledigt), `--sick=<n>`.
+- Test: `--chartest=1` (täglicher Bericht), `--comfort=<n>` (n Forschungen erledigt), `--sick=<n>`,
+  `--talenttest=1` (Tempo- und Lernbonus, Texte, Sterne im Infofenster und in der Siedlerliste, Spalte nur bei
+  breitem Fenster; druckt „Talente OK/FEHLER“), `--select=1 --infoscroll=2000` (Bildschirmfoto der Berufswahl).
 
 ## Nahrung, Vitamine und Gleichgewicht
 
@@ -1220,6 +1232,7 @@ godot --headless --fixed-fps 60 -- --autotest=100 --scale=10 --examtest=0  # Pr�
 godot --headless --fixed-fps 60 -- --autotest=120 --scale=10 --questtest=1  # Aufträge mit Wahl
 godot --headless --fixed-fps 60 -- --autotest=10 --scale=10 --seed=7 --questadapt=1  # Belohnungen passend zur Lage
 godot --headless --fixed-fps 60 -- --autotest=60 --scale=10 --seed=7 --integtest=1  # Zusammenspiel der Erweiterungen
+godot --headless --fixed-fps 60 -- --autotest=20 --scale=10 --talenttest=1  # Talente: Bonus, Sterne, Spalte (Spalte nur mit Fenster)
 godot --headless --fixed-fps 60 -- --autotest=40 --scale=10 --fixture=sea.json --oncetest=1  # Einmal-Route hin und zurück
 godot --headless --fixed-fps 60 -- --autotest=30 --scale=10 --seed=7 --basictrade=1  # Händler mit einfachen Waren
 godot --headless --fixed-fps 60 -- --autotest=820 --scale=10 --seed=11 --bot=1 --noevents=1 --winter=normal  # Spiel-Bot v2, 4 Jahre
