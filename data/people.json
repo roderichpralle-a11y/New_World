@@ -11,6 +11,9 @@
   "talent_min": 0.5,
   "talent_max": 1.8,
   "talent_noise": 0.35,
+  "talent_show": 1.3,
+  "talent_work_bonus": 0.5,
+  "talent_learn_bonus": 2.0,
 
   "vit_per_day": 25.0,
   "vit_start": 70.0,
@@ -40,6 +43,8 @@
   "mood_rate_per_day": 1.6,
   "mood_work_min": 0.75,
   "mood_work_max": 1.12,
+  "mood_unhappy_below": 40.0,
+  "mood_unhappy_work": 0.5,
   "mood_birth_min": 0.4,
   "mood_birth_max": 1.3,
   "grief_mood": 30.0,

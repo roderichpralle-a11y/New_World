@@ -61,7 +61,7 @@ var systems: Array = []
 ## der Forschung und der Gebaeude und Waren, die alte Versionen nicht kennen (siehe _store_backup).
 const OLD_SAVE_KEYS := ["version", "seed", "time_days", "next_id", "stats", "lineage", "research", "goals",
 	"islands", "active", "voyages", "ships", "next_ship", "stock", "store_limits", "world"]
-const V2_BUILDINGS := ["tafelmacherei", "brunnen"]
+const V2_BUILDINGS := ["tafelmacherei"]
 const V2_GOODS := ["tontafel", "gewuerze"]
 var _v2_restore: Dictionary = {}  # Insel-ID (Text) -> {"b": Gebaeude, "s": Waren} zum Zurueckholen
 var _notes: Array = []  # Meldungen, bevor das Spiel sichtbar laeuft (queue_note)
@@ -1347,6 +1347,7 @@ func load_save() -> Dictionary:
 
 func apply_save_header(d: Dictionary) -> void:
 	_merge_backup(d)
+	Retired.strip_save(d, _v2_restore)  # Brunnen und Brunnenbau gibt es nicht mehr (retired.gd)
 	seed_value = int(d.seed)
 	time_days = float(d.time_days)
 	# Bis Version 2 gab es ein gemeinsames Lager; Sea.build_from_save gibt es der Heimatinsel
@@ -1425,6 +1426,7 @@ func after_load(data: Dictionary) -> void:
 	rules_lines = []
 	_restore_backup_world()
 	state_load.emit(data, rules_old)
+	Retired.give_back()
 	if rules_old < RULES:
 		rules_due = true
 	else:

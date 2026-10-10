@@ -59,7 +59,7 @@ const BUILDING_CELLS := {
 	"greenhouse": [43, 1], "apartment": [44, 1], "electronics": [45, 1], "solarpark": [46, 1],
 	"lab": [47, 1], "ai_center": [48, 1], "fusion": [49, 1], "future_city": [50, 1],
 	# Herausforderung (tools/gen_art_challenge.py)
-	"tablets": [51, 1], "well": [52, 1],
+	"tablets": [51, 1],  # Zelle 52 (frueher Brunnen) ist frei
 }
 ## Etappe 3 in objects2.png: name -> [x, y, w, h, frames]
 const OBJECT2_REGIONS := {

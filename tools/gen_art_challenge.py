@@ -1,11 +1,10 @@
-"""Grafiken fuer "Mehr Herausforderung": Tafelmacherei, Brunnen, Gewuerzstrauch, Pirat und
+"""Grafiken fuer "Mehr Herausforderung": Tafelmacherei, Gewuerzstrauch, Pirat und
 neue Symbole (Tontafel, Gewuerze, Ereignis, Haendler, Feuer, Ratte).
 
 Wird von gen_art.py (Gebaeude, Symbole) und gen_art_sea.py (objects2.png, animals.png)
 aufgerufen. Alles haengt hinten an, damit die bisherigen Bilder unveraendert bleiben.
 """
-from gen_art import (WOOD, STONE, LEAF, THATCH, CLAY, IRON, WATER, FIRE, new, put, add_outline, blob,
-                     stone_wall, ground_line)
+from gen_art import (WOOD, LEAF, THATCH, CLAY, FIRE, new, put, add_outline, blob, ground_line)
 
 TABLET = [(112, 92, 76), (146, 120, 98), (176, 150, 124), (204, 182, 156)]
 SPICE = [(150, 40, 30), (200, 70, 40), (236, 120, 50), (250, 180, 80)]
@@ -77,59 +76,9 @@ def tablet_works():
     return img
 
 
-def well():
-    """Brunnen (1x1): runder Steinbrunnen mit Holzdach, Kurbel und Eimer."""
-    img = new(64, 64)
-    # Brunnenring: Steinwand mit ovalem Rand oben
-    stone_wall(img, 23, 46, 18, 13)
-    for x in range(22, 42):
-        dx = (x + 0.5 - 32) / 10
-        for y in range(42, 49):
-            dy = (y + 0.5 - 45.5) / 3.5
-            if dx * dx + dy * dy <= 1:
-                put(img, x, y, STONE[3] if dy < 0 else STONE[2])
-    for x in range(25, 39):
-        dx = (x + 0.5 - 32) / 7
-        for y in range(43, 48):
-            dy = (y + 0.5 - 45.5) / 2.2
-            if dx * dx + dy * dy <= 1:
-                put(img, x, y, WATER[0] if dy < 0 else WATER[1])
-    # Pfosten
-    for x0 in (22, 40):
-        for y in range(24, 50):
-            put(img, x0, y, WOOD[1])
-            put(img, x0 + 1, y, WOOD[2])
-    # Kurbelwelle mit Seil und Eimer
-    for x in range(22, 42):
-        put(img, x, 30, WOOD[0])
-    put(img, 42, 30, WOOD[2])
-    put(img, 43, 31, WOOD[2])
-    put(img, 43, 32, WOOD[1])
-    for y in range(31, 37):
-        put(img, 31, y, (200, 186, 150))
-    for y in range(37, 42):
-        for x in range(29, 34):
-            put(img, x, y, WOOD[2] if x not in (29, 33) else WOOD[1])
-    for x in range(29, 34):
-        put(img, x, 38, IRON[1])
-    # Satteldach
-    for y in range(14, 26):
-        half = (y - 14) + 3
-        for x in range(32 - half, 32 + half):
-            c = WOOD[2] if (x - 32) % 4 else WOOD[1]
-            if x < 32:
-                c = WOOD[3] if (x - 32) % 4 else WOOD[2]
-            put(img, x, y, c)
-    for x in range(17, 47):
-        put(img, x, 26, WOOD[0])
-    ground_line(img, 22, 42)
-    add_outline(img)
-    return img
-
-
 def challenge_buildings():
-    """Zellen 51 (Tafelmacherei) und 52 (Brunnen) in buildings.png."""
-    return [tablet_works(), well()]
+    """Zelle 51 (Tafelmacherei) in buildings.png. Zelle 52 war der Brunnen (entfernt) und bleibt leer."""
+    return [tablet_works()]
 
 
 # ------------------------------------------------------------------ Natur

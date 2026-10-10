@@ -583,7 +583,7 @@ func _rats(w, ev: Dictionary) -> String:
 
 # ---------------------------------------------------------------- Brand und Sturmflut
 ## Gebäude, die Feuer oder Flut beschädigen können: fertig, kein Feld, kein Lager, kein Hafen, nicht am
-## Ufer gebaut (coast), ohne besondere Wirkung, kein Lagerfeuer oder Brunnen.
+## Ufer gebaut (coast), ohne besondere Wirkung, kein Lagerfeuer (no_damage).
 func _damage_candidates(w) -> Array:
 	var no: Array = _c("no_damage", [])
 	return w.buildings.filter(func(b): return b.complete and not b.is_ground() and not b.type in no \
@@ -627,27 +627,13 @@ func _fire(w, ev: Dictionary) -> String:
 	var rng := _rng_for(w)
 	var first = cands[rng.randi() % cands.size()]
 	cands.sort_custom(func(a, b): return a.dist_sq(first.cell) < b.dist_sq(first.cell))
-	var r := float(d.get("well_radius", 8))
-	var well := str(d.get("well", "brunnen"))
-	var wells: Array = w.buildings.filter(func(b): return b.complete and b.type == well)
 	var burnt := []
-	var saved := []
 	for b in cands.slice(0, _hits(float(ev.power))):
-		var near: bool = wells.any(func(x): return b.dist_sq(x.cell) <= r * r)
-		_fires.append([w, b, 2.5 if near else 7.0])
-		if near:
-			saved.append(str(b.def.name))
-		else:
-			damage_building(w, b, float(d.get("keep", 0.7)))
-			burnt.append(str(b.def.name))
+		_fires.append([w, b, 7.0])
+		damage_building(w, b, float(d.get("keep", 0.7)))
+		burnt.append(str(b.def.name))
 	ev["burnt"] = burnt.size()
-	ev["saved"] = saved.size()
-	var parts := []
-	if not burnt.is_empty():
-		parts.append(tr("Abgebrannt: %s. Baumeister bauen es wieder auf, ein Teil des Baumaterials ist noch da.") % ", ".join(burnt))
-	if not saved.is_empty():
-		parts.append(tr("Am Brunnen schnell gelöscht: %s.") % ", ".join(saved))
-	return " ".join(parts)
+	return tr("Abgebrannt: %s. Baumeister bauen es wieder auf, ein Teil des Baumaterials ist noch da.") % ", ".join(burnt)
 
 
 func _flood(w, ev: Dictionary) -> String:
@@ -1008,7 +994,7 @@ func _ev_from(e, t: float):
 	for k in ["ill"]:
 		if e.has(k):
 			ev[k] = str(e[k])
-	for k in ["count", "left", "kills", "lost", "burnt", "saved", "fields"]:
+	for k in ["count", "left", "kills", "lost", "burnt", "fields"]:
 		if e.has(k):
 			ev[k] = maxi(0, int(e[k]))
 	if e.get("landing") is Array and e.landing.size() == 2:

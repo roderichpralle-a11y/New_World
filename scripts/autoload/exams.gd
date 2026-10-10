@@ -10,6 +10,8 @@ extends Node
 ## Wertung (Punkte) und Rekorde (user://settings.cfg [records], Testversionen [records_test], [records_neu]).
 ## Spielstand: Schluessel "exams" = {passed, days, fest_until, year, y_starved, beaten}.
 
+signal fest_started(reason: String)  # Fest beginnt (Anlass, übersetzt): FestVideo zeigt das Fest-Video
+
 const CHECK_DAYS := 0.25
 const SETTINGS := "user://settings.cfg"
 
@@ -272,6 +274,7 @@ func pass_exam() -> void:
 		Game.notify_at(w, tr("Zum Fest kommen Geschenke: %s.") % got, "zeitalter")
 	Sound.play("stufe")
 	_fest_text(99)
+	fest_started.emit(tr("Ein neues Zeitalter: %s") % Data.age_name(a))
 	Game.research_changed.emit()
 	Game.stock_changed.emit()
 	_daily_stats()

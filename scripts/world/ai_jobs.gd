@@ -71,7 +71,7 @@ static func _best_for(cands: Array, job: String):
 	var best = null
 	var best_v := -INF
 	for s in cands:
-		var v: float = s.skill_level(sk) if sk != "" else 0.0
+		var v: float = s.skill_factor(sk) if sk != "" else 0.0  # Stufe und Talent
 		if v > best_v:
 			best_v = v
 			best = s

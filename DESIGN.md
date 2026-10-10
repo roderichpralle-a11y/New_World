@@ -13,7 +13,7 @@ Zeitalterwechsel mit Wertung und Aufträge mit Wahl. Überblick und Zusammenspie
 - Start: eine zufällige Insel aus einem Seed, Lagerfeuer und eine Hütte, zwei Siedler
   (Lena, Jonas) mit unterschiedlichen Fähigkeiten.
 - **Fähigkeiten** `holz`, `stein`, `nahrung`, `bauen` (Stufe 1–10). Arbeitstempo =
-  `0.6 + 0.08 * Stufe`. Jede Arbeit bringt Erfahrung, Stufe steigt nach
+  `0.6 + 0.08 * Stufe`, mal Talent (siehe „Charaktere“). Jede Arbeit bringt Erfahrung, Stufe steigt nach
   `skill_xp_per_level * Stufe` Punkten.
 - **Berufe** (`data/jobs.json`): Frei, Holzfäller, Steinmetz, Sammler, Fischer, Bauer,
   Baumeister. Freie Siedler bauen zuerst, sammeln dann Nahrung wenn knapp, sonst das
@@ -502,7 +502,12 @@ Spielstände würfeln die Werte reproduzierbar aus der Siedler-ID).
 - **Eigenschaften** 1–10 (`traits`): `iq` Klugheit (Lerntempo `0.6+0.08*iq`, Forschung `0.7+0.06*iq`),
   `konst` Gesundheit (robust/kränklich: Krankheitsrisiko, Dauer und Schaden), `fleiss` (weniger
   Freizeitbedarf, Arbeit `0.9+0.022*fleiss`), `gemuet` (Grundlaune). Anzeige als Wörter ab 7,5 bzw. bis 3,5.
-- **Begabungen** je Fähigkeit 0,5–1,8 (`talents`): Faktor auf jede Erfahrung (`Settler.gain_xp`).
+- **Begabungen** je Fähigkeit 0,5–1,8 (`talents`). Ab `talent_show` (1,3) heißt sie **Talent** (Stern im Spiel).
+  Seit josh 2026-10-10 stärker: Arbeitstempo mal `SettlerMind.talent_work` = 1 + `talent_work_bonus` (0,5) je Punkt
+  über 1 (1,3 → +15 %, 1,5 → +25 %, 1,8 → +40 %; steckt in `Settler.skill_factor`, also in jeder Arbeit und in der
+  Forschung), Schwächen unter 1 bremsen nicht. Erfahrung mal `talent_learn` = 1 + `talent_learn_bonus` (2,0) je Punkt
+  über 1 (1,8 → 2,6-fach statt 1,8-fach), unter 1 wie bisher die Begabung selbst (`Settler.gain_xp`). Die KI
+  (`AiJobs`) und der Test-Bot wählen nach `skill_factor`, also mit Talent.
   Kinder: `SettlerMind.inherit` mischt Eltern (`trait_inherit`) mit Zufall. Kinder starten mit Fähigkeit
   1–3 nach Begabung und lernen beim Spielen (`play_xp_per_day`), in der Schule viel mehr
   (`school_xp_per_day`), jeweils mal Begabung. Lena und Jonas haben feste Werte (`World.build_new`).
@@ -522,6 +527,13 @@ Spielstände würfeln die Werte reproduzierbar aus der Siedler-ID).
   Erholung, Trauer um Tote (Familie und Partner stark, `SettlerMind.is_close`), Freude über ein Baby,
   Jahreszeit (`season_mod("mood")`), Frieren. Laune wirkt auf Arbeit (`mood_work_min..max`) und
   Geburten (`mood_birth_min..max`, kranke Mütter kaum).
+- **Unzufriedene arbeiten nur halb** (josh 2026-10-10: „wenn arbeiter unzufrieden sind arbeiten sie nur
+  noch zur Hälfte“): unter `people.json mood_unhappy_below` = 40 (Laune „unzufrieden“ und „verzweifelt“,
+  dieselbe Grenze wie im Text, `mind.is_unhappy()`) ist der Laune-Faktor `mood_unhappy_work` = 0,5 statt
+  0,75–0,90 (`mind.mood_work_factor()`, nie besser als die Laune-Kurve). Er steckt in der Arbeitskraft und
+  wirkt damit gleich auf Sammeln, Fischen, Felder, Bauen, Werkstätten und Forschung. Zwischen Laune 40
+  und 39 halbiert sich die Arbeit fast (vorher 0,90, jetzt 0,5). Das Infofenster zeigt bei Erwachsenen
+  unter der Laune rot „Unzufrieden: arbeitet nur halb so schnell“ (bzw. „Verzweifelt: …“).
 - **Arbeitskraft** `mind.work_power()`: Gesundheit × Hunger × Laune × Krankheit × Vitamine × Alter
   (letzte 20 % des Lebens `work_old`) × Fleiß. Steckt in `Settler.work_factor` und in der Forschung.
 - **Lebensstil** `SettlerMind.comfort()` 0–1 aus der Zahl erforschter Forschungen
@@ -531,11 +543,21 @@ Spielstände würfeln die Werte reproduzierbar aus der Siedler-ID).
 - **Freizeit**: `rest` sinkt bei Arbeit je nach Bedarf, unter 35 macht der Siedler Pause
   (`Settler._plan_leisure`: Feuer, zu Hause, Strand, mit Kindern spielen, Bibliothek/Schreibstube,
   gewichtet nach Gemüt und Klugheit), außer in einer Hungersnot (weniger als 3 Nahrung je Siedler).
+- **Anzeige der Talente** (`scripts/ui/talent_info.gd`, Stern im Code gezeichnet, weil die Schrift kein ★ hat):
+  Infofenster je Talent eine Zeile „Talent: Bauen (+40 % schneller, lernt +160 % schneller)“ mit Stern, sonst
+  „Talent: keins“; Berufsknöpfe mit Stern, wenn die Fähigkeit des Berufs ein Talent ist (Tooltip mit Bonus).
+  Siedlerliste: Spalte „Talent“ (z. B. „Holz +25 %“, ein Talent je Zeile, höchstens zwei Zeilen, bei mehr „…“; nur breit, sortierbar), Stern im Berufsmenü, Bonus im Tooltip
+  am Namen. Meldung beim Erwachsenwerden nennt die Talente mit Bonus.
 - **Anzeige**: Infofenster (Charakter, Begabungen, Krankheit, Laune mit Arbeitskraft, wichtigste
   Gründe, Eigenschaften und Fähigkeiten mit + für Begabung als Text; seit josh 2026-10-09 ohne Balken
   für Sättigung, Gesundheit, Vitamine, Laune, Erholung, Eigenschaften und Fähigkeiten), Siedlerliste
   (Spalte Laune, rot bei Krankheit, Filter „Nur Kranke“, Lebensstil im Zähler).
-- Test: `--chartest=1` (täglicher Bericht), `--comfort=<n>` (n Forschungen erledigt), `--sick=<n>`.
+- Test: `--chartest=1` (täglicher Bericht), `--comfort=<n>` (n Forschungen erledigt), `--sick=<n>`,
+  `--talenttest=1` (Tempo- und Lernbonus, Texte, Sterne im Infofenster und in der Siedlerliste, Spalte nur bei
+  breitem Fenster; druckt „Talente OK/FEHLER“), `--select=1 --infoscroll=2000` (Bildschirmfoto der Berufswahl),
+  `--moodtest=1` (Arbeitskraft bei Laune 90/50/39/30/10 für Bauen, Sammeln, Werkstatt, Forschung, dann je
+  Tag „MOOD Tag ..: unzufrieden x von y“ mit Summe der Siedler-Tage; mit `--bot=1` die Unzufriedenen-Quote),
+  `--moodtest=2` hält dazu den ersten Siedler unzufrieden (Bildschirmfoto mit `--select=1`).
 
 ## Nahrung, Vitamine und Gleichgewicht
 
@@ -668,8 +690,9 @@ Ratten, Brand, Seuche, Sturmflut und ab dem Mittelalter Piraten. Wer sie gut üb
   - **Brand**: 1 + ⌊Stärke / 1,25⌋ Gebäude (das erste zufällig, dann die nächsten) werden **beschädigt**,
     nicht abgerissen: wieder Baustelle, einfache Baustoffe (`basic_goods`) bleiben zu 70 % (`keep`), andere
     ganz, Bauarbeit von vorn, Bewohner und Arbeiter ziehen aus (`Events.damage_building`). Baumeister bauen
-    mit der normalen Baustellen-Logik wieder auf. Ein Brunnen in bis zu 8 Feldern löscht das Feuer.
-    Nie: Lager, Häfen und Ufergebäude (`coast`), Gebäude mit Wirkung (`effects`), Felder, Lagerfeuer, Brunnen.
+    mit der normalen Baustellen-Logik wieder auf. Kein Gebäude schützt davor (den Brunnen gibt es nicht
+    mehr, siehe „Entfernte Gebäude und Forschungen“); der Rat lautet, Holz, Bretter und Stein bereitzuhalten.
+    Nie: Lager, Häfen und Ufergebäude (`coast`), Gebäude mit Wirkung (`effects`), Felder, Lagerfeuer.
   - **Seuche** (2 Tage): Krankheitsrisiko x(1 + (m − 1) / Heilkunst) mit m = clamp(2 + 0,6 x Stärke, 2,5, 4)
     (`SettlerMind`, Heilkunde und Impfung über die Wirkung `heal`); 70 % der neuen Krankheiten sind die
     Seuchen-Krankheit (Fieber oder Ruhr, bei der Ankündigung genannt); ein Siedler erkrankt sofort.
@@ -832,6 +855,16 @@ bringt ein Fest, Einwanderer und Waren. Dazu eine Wertung mit Rekorden (Menü > 
   (`fest_days` = 1 Tag, Laune „Feiert das neue Zeitalter“ +`people.json fest_mood` = 15, „Fest!“ über den
   Siedlern), Belohnung über `Game.grant_reward` auf die besiedelte Insel mit den meisten freien Wohnplätzen
   (Einwanderer zuerst als Paar, mit niemandem verwandt; Waren auf dieselbe Insel).
+- **Fest-Video**: Beim Fest geht mitten im Bild ein kleines Video auf (`FestVideo`, `scripts/ui/fest_video.gd`,
+  Signal `Exams.fest_started(Anlass)`): 5,5 Sekunden Pixelbühne (96 Pixel hoch, 100..180 breit, ganzzahlig
+  vergrößert, Handy 360 px: x3, PC 960x540: x4) mit Nachthimmel und Meer, Wimpelkette und drei Laternen,
+  6 Siedlern aus den Spiel-Sprites, die um ein flackerndes Lagerfeuer tanzen (Funken, Arme hoch, kleine
+  Sprünge), 8 Feuerwerksraketen, Konfetti und einem roten Banner „Fest!“ mit dem Anlass („Ein neues
+  Zeitalter: Antike“). Alles wird im Code gezeichnet, ohne neue Bilddateien; jedes Bild hängt nur von der
+  Zeit ab. Es läuft in Echtzeit (auch bei Tempo 3 oder Pause gleich lang), das Spiel läuft darunter weiter
+  (kein Anhalten, damit es nicht mit anderen Fenstern um das Tempo streitet). Sound `stufe`. Tippen oder
+  Klicken (auch Esc, Leertaste, Enter) überspringt, danach schließt es sich selbst. Ein neues Fest ersetzt
+  ein laufendes Video. In Selbsttests erscheint es nur mit `--festvideo=1` oder `--panel=fest`.
 - **Anzeige**: im Forschungsfenster unter der Überschrift des nächsten Zeitalters ein Kasten mit jeder
   Bedingung (Haken und grün, wenn erfüllt, sonst blasses Symbol und rote Zahl) und der Belohnung
   (`ExamView`, alle 0,5 s aufgefrischt); Forschungen dieses Zeitalters zeigen „Prüfung“ (Tippen nennt, was
@@ -866,6 +899,10 @@ bringt ein Fest, Einwanderer und Waren. Dazu eine Wertung mit Rekorden (Menü > 
   ist, aber eine des nächsten Zeitalters (wie früher der Sprung); `--strictexam` schaltet das ab.
   Bildschirmfotos: `--panel=research --examscroll=1`, `--examhint=1` (Zielkarte aufgeklappt),
   `--panel=score` (`--scorescroll=1`), `--gameovershot=1`.
+  Fest-Video: `--festvideo=1` (besteht eine echte Prüfung: Video offen mit Anlass und Sound, im Bild, schließt
+  nach 5,5 s selbst, Spiel läuft weiter, Überspringen per Klick, Fingertipp und Taste, ohne Testschalter kein
+  Video; Ausgabe `FESTVIDEO ...` und am Ende `FESTVIDEO OK`), Bildschirmfoto `--panel=fest --festframe=2.4`
+  (Standbild zu dieser Sekunde).
 
 ## Aufträge mit Wahl
 
@@ -1034,7 +1071,7 @@ Reihenfolge der Autoloads in `project.godot`: Seasons, Writing, Exams, Quests, H
   wiederholbar sein. Damit dabei nichts verloren geht, legt `Game.save_game` (`_store_backup`) eine Kopie
   aller neuen Schlüssel (alles außer `OLD_SAVE_KEYS`), der Forschung (`done`, `paid`, `progress`,
   `current`) und je Insel der Gebäude und Waren, die alte Versionen nicht kennen (`V2_BUILDINGS`
-  Tafelmacherei, Brunnen; `V2_GOODS` Tontafeln, Gewürze), unter `islands[0]["v2"]` ab; alte Versionen
+  Tafelmacherei; `V2_GOODS` Tontafeln, Gewürze), unter `islands[0]["v2"]` ab; alte Versionen
   geben die Inseldaten unverändert weiter. Fehlt beim Laden `rules`, aber `v2` ist da
   (`_merge_backup`), kommt alles zurück: Prüfungen, Aufträge, Segen, Klima, Ereignisse, Händler,
   Forschungen (Vereinigung), Gebäude an ihrem Platz, wenn er frei ist (`_restore_backup_world`), und
@@ -1090,10 +1127,10 @@ Reihenfolge der Autoloads in `project.godot`: Seasons, Writing, Exams, Quests, H
 - **Neue Inhalte, vorerst nur Daten und Grafik** (die Regeln dazu bauen die einzelnen Erweiterungen):
   Waren `tontafel` (Tontafeln) und `gewuerze` (Gewürze, kein Essen); Rohstoffquelle `gewuerzstrauch`
   (2 Gewürze, wächst in 4 Tagen nach; auf Palmeninseln, siehe Inselstärken); Gebäude `tafelmacherei` (Wissen, nach
-  Töpferei, Lehm 2 → Tontafeln 3 über die normale Werkstatt-Logik) und `brunnen` (1x1, Seefahrt und Schutz,
-  nach Brunnenbau); Forschungen `brunnenbau` (Stufe 2) und `deichbau` (Stufe 4, Wirkung `flood`).
+  Töpferei, Lehm 2 → Tontafeln 3 über die normale Werkstatt-Logik); Forschung `deichbau` (Stufe 4, Wirkung
+  `flood`). Den Brunnen und Brunnenbau gab es auch, sie sind wieder entfernt (siehe unten).
 - **Grafik**: `tools/gen_art_challenge.py` (von `gen_art.py` und `gen_art_sea.py` aufgerufen, hängt nur
-  hinten an): buildings.png Zelle 51 `tablets` (Tafelmacherei), 52 `well` (Brunnen); Symbole `tontafel`,
+  hinten an): buildings.png Zelle 51 `tablets` (Tafelmacherei), Zelle 52 bleibt leer (war der Brunnen); Symbole `tontafel`,
   `gewuerze`, `ereignis`, `haendler`, `feuer`, `ratte`; objects2.png `spice_full`/`spice_empty`
   (x 112/128, y 48); animals.png Zeile 3 (Höhe jetzt 96) mit dem Piraten (`Data.ANIMAL_ROWS`, kein Eintrag
   in animals.json; `Data.animal_tex("pirat", frame)`).
@@ -1104,9 +1141,25 @@ Reihenfolge der Autoloads in `project.godot`: Seasons, Writing, Exams, Quests, H
   (keine zweite Ausgabe).
 - **Testhilfen**: `--seed=N` (feste Insel für neue Spiele), `--fixture=<pfad>` (Spielstand vor dem Laden in
   den aktiven Platz kopieren, weiter wie `--keep`), `--rulesdialog=1` (Bildschirmfoto des Fensters, ohne
-  alten Spielstand mit Beispielzeilen), `--place=brunnen,tafelmacherei` (fertige Gebäude hinstellen),
-  `--panel=build --cat=see --buildscroll=brunnen` (Bauliste bis zum Gebäude rollen), `--rewardtest=1`
+  alten Spielstand mit Beispielzeilen), `--place=wachturm,tafelmacherei` (fertige Gebäude hinstellen),
+  `--panel=build --cat=wissen --buildscroll=tafelmacherei` (Bauliste bis zum Gebäude rollen), `--rewardtest=1`
   (Belohnung mit Einwanderern, Lagerüberlauf und ein Hungertod).
+- **Entfernte Gebäude und Forschungen** (josh, Oktober 2026: „Lass den Brunnen weg. Entferne ihn aus dem
+  Code.“): Den Brunnen (`brunnen`) und die Forschung Brunnenbau (`brunnenbau`) gibt es nicht mehr, auch
+  nicht im Bot, in Ereignissen, Aufträgen oder der Grafik. `scripts/autoload/retired.gd` (`Retired`, kein
+  Autoload) kennt ihre alten Kosten (`BUILDINGS`, `TECHS`) und räumt alte Spielstände auf:
+  `Retired.strip_save` (aus `Game.apply_save_header`, nach `_merge_backup`, vor dem Aufbau der Inseln)
+  nimmt Brunnen aus den Inseldaten (auch Version 1 mit `world`) und aus der Sicherung für ältere Versionen
+  (`_v2_restore`, damit dort keine Brunnen mehr zurückkommen) und Brunnenbau aus `done`, `paid`,
+  `progress` und `current` (war es die laufende Forschung, ist keine gewählt). Zurück kommt je Insel das
+  Baumaterial: ein fertiger Brunnen 10 Stein und 4 Holz, eine Baustelle das schon gelieferte Material,
+  dazu die bezahlten Kosten von Brunnenbau (15 Stein, 15 Holz) auf die Heimatinsel; jedes Gebäude (ID)
+  zählt einmal. `Retired.give_back` (aus `Game.after_load`, nach `state_load`) gibt es über
+  `Game.grant_reward`: erst ins Lager der Insel, so weit Platz ist, dann auf andere Inseln, der Rest wartet
+  auf Platz (`reward_wait`); nichts geht verloren. Einmal kommt die Meldung „Brunnen gibt es nicht mehr:
+  3 Brunnen sind abgebaut. Baumaterial zurück: 41 Stein, 25 Holz.“ Danach steht im Spielstand nichts mehr
+  davon, beim nächsten Laden passiert nichts. Test: `--fixture=<alter Stand mit Brunnen>
+  --retiredtest=n:3,stein:41,holz:25` (erwartete Zahl und Summe aller Inseln; druckt „Entfernt OK/FEHLER“).
 
 ## Testversion
 
@@ -1216,17 +1269,21 @@ godot --headless -- --autotest=200 --scale=10 --seed=7 --eventtest=all  # angek�
 godot --headless -- --autotest=230 --scale=10 --build=1   # ein ganzes Jahr, Bericht mit Jahreszeit und Holz
 godot --headless -- --autotest=300 --scale=10 --seatest=1  # Werft, drei Inseln entdecken und besiedeln
 godot --headless --fixed-fps 60 -- --autotest=60 --scale=10 --fixture=alt.json  # alten Spielstand weiterspielen
+godot --headless --fixed-fps 60 -- --autotest=10 --scale=10 --fixture=wells.json --retiredtest=n:3,stein:41,holz:25  # Brunnen entfernt
 godot --headless --fixed-fps 60 -- --autotest=200 --scale=10 --writingtest=1  # Forschung braucht Tontafeln
 godot --headless --fixed-fps 60 -- --autotest=100 --scale=10 --examtest=0  # Prüfung beim Zeitalterwechsel
 godot --headless --fixed-fps 60 -- --autotest=120 --scale=10 --questtest=1  # Aufträge mit Wahl
+godot --headless --fixed-fps 60 -- --autotest=40 --scale=10 --moodtest=1  # Unzufriedene arbeiten halb
 godot --headless --fixed-fps 60 -- --autotest=10 --scale=10 --seed=7 --questadapt=1  # Belohnungen passend zur Lage
 godot --headless --fixed-fps 60 -- --autotest=60 --scale=10 --seed=7 --integtest=1  # Zusammenspiel der Erweiterungen
+godot --headless --fixed-fps 60 -- --autotest=20 --scale=10 --talenttest=1  # Talente: Bonus, Sterne, Spalte (Spalte nur mit Fenster)
 godot --headless --fixed-fps 60 -- --autotest=40 --scale=10 --fixture=sea.json --oncetest=1  # Einmal-Route hin und zurück
 godot --headless --fixed-fps 60 -- --autotest=30 --scale=10 --seed=7 --basictrade=1  # Händler mit einfachen Waren
 godot --headless --fixed-fps 60 -- --autotest=820 --scale=10 --seed=11 --bot=1 --noevents=1 --winter=normal  # Spiel-Bot v2, 4 Jahre
 #   --fixed-fps 60 vor "--" rechnet so schnell wie moeglich (gleicher Spielverlauf); --seed=N feste Insel
 #   dazu --wildlife=1: Tierbestand je Insel und Bau; --weak=1: ohne Waffenkunde (Tiere gefährlicher), Bildschirmfoto: --island=<id>, --panel=sea
-# Bildschirmfoto-Optionen: --panel=research|build|stock, --selectb=<typ>, --look=1
+# Bildschirmfoto-Optionen: --panel=research|build|stock|fest (--festframe=<s>), --selectb=<typ>, --look=1
+godot --headless --fixed-fps 60 -- --autotest=25 --scale=10 --festvideo=1  # Fest-Video
 xvfb-run godot --rendering-driver opengl3 -- --autotest=20 --shot=/tmp/bild.png
 godot --headless --export-release "Web" build/web/index.html
 ```
@@ -1237,14 +1294,13 @@ Forschung mit `start_research`, `Quests.accept`, Werkstätten an/aus, Hoechstmen
 `Game.set_limit`). Er bekommt keine Waren geschenkt und erzwingt keine Prüfung. Die alten Bots
 `--build=1`/`--research=1` bleiben unverändert; `--bot=1` ersetzt sie (nicht zusammen benutzen).
 - Einführung: drückt „Überspringen“ auf der Zielkarte, damit Aufträge und Ereignisse kommen.
-- Forschung: erst ein Auftrag mit Forschung, dann Steinzeit (Schrift … Brunnenbau), dann Antike
+- Forschung: erst ein Auftrag mit Forschung, dann Steinzeit (Schrift … Mühlenbau), dann Antike
   (Backkunst zuerst); nur Bezahlbares, Heizholz bleibt liegen. Überspringt eine Forschung, die eine
   Ware braucht, die der gewünschten Forschung fehlt.
-- Bauen (Wunschliste): Lager bei über 85 % zuerst (ab dem ersten Lager), Auftragsgebäude, Brunnen
-  vor angekündigtem Brand, bis zur Steinzeit-Prüfung das Holzhaus (Bretter dafür liegen schon vor
-  der Zimmerei bereit), Obstgärten und Felder (je 1 + Siedler/4, Felder nur, solange kein
-  Getreideberg liegt), Bäckerei und Mühle (Mühle erst nach der Prüfung, eine zweite bei
-  Getreideberg), Räucherei, Schreibstube, Wohnplätze, Sägegrube, Lehmgrube und Tafelmacherei,
+- Bauen (Wunschliste): Lager bei über 85 % zuerst (ab dem ersten Lager), Auftragsgebäude, bis zur
+  Steinzeit-Prüfung das Holzhaus (Bretter dafür liegen schon vor der Zimmerei bereit), Obstgärten und
+  Felder (je 1 + Siedler/4, Felder nur, solange kein Getreideberg liegt), Bäckerei und Mühle (Mühle
+  erst nach der Prüfung, eine zweite bei Getreideberg), Räucherei, Schreibstube, Wohnplätze, Sägegrube, Lehmgrube und Tafelmacherei,
   Lager, Ziegelei, Steinhaus, Steinbruch, Schule …
   Wohnplätze nur, wenn die Nahrung reicht und die Siedlung nicht über das hinauswächst, was der letzte
   Winter satt gemacht hat (plus ein Viertel, mindestens 20; nach knappem Winter kein Wachstum).
