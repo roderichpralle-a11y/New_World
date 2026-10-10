@@ -524,13 +524,15 @@ func _assign_rewards(list: Array, ctx: Dictionary) -> void:
 	var order := range(list.size())
 	order.sort_custom(func(x, y): return int(list[x].w) < int(list[y].w) or (int(list[x].w) == int(list[y].w) and x < y))
 	var used := []
+	QuestRewards.begin()  # jede Ware nur einmal je Runde
 	var boon_ok := not boon_choices().is_empty()
 	for k in order.size():
 		var q: Dictionary = list[order[k]]
 		var plan_ok := not plan_choices(_quest_tech(q)).is_empty()
 		var kinds := ["goods", "research"]
 		if int(q.w) >= 2:
-			kinds.append("settlers")
+			if QuestRewards.settlers_ok(2 if int(q.w) >= 3 else 1):  # Einwanderer nur mit Dach und Essen
+				kinds.append("settlers")
 			if boon_ok and not "boon" in used:
 				kinds.append("boon")
 			if plan_ok:
@@ -565,7 +567,8 @@ func make_reward(kind: String, q: Dictionary, ctx: Dictionary) -> Dictionary:
 			var pl := plan_choices(_quest_tech(q))
 			if not pl.is_empty():
 				return {"kind": "plan", "what": str(_pick(pl))}
-	return goods_reward(w, int(ctx.A))
+	var g := QuestRewards.goods(w, ctx, str(q.get("check", {}).get("what", "")))  # passend zur Lage (Art und Menge)
+	return g if not g.is_empty() else make_reward("research", q, ctx)
 
 
 ## Waren im Wert goods_budget * w * (1 + Zeitalter) Gold (Menge = Budget / price), hoechstens goods_space
@@ -697,7 +700,10 @@ func give_reward(q: Dictionary) -> String:
 				Game.research_changed.emit()
 				return tr("Bauplan: %s (jetzt im Baumenü)") % GoalChecks.building_name(type)
 	# Segen schon voll oder Gebaeude schon freigeschaltet: Waren statt dessen
-	var g := goods_reward(w, Game.current_age())
+	QuestRewards.begin()
+	var g := QuestRewards.goods(w, context())
+	if g.is_empty():
+		return _give_research(float(make_reward("research", q, context()).n))
 	return Game.grant_reward(Game.world, {str(g.what): int(g.n)})
 
 
@@ -793,7 +799,8 @@ func text_of(q: Dictionary) -> String:
 func reward_text(r: Dictionary) -> String:
 	match str(r.get("kind", "")):
 		"goods":
-			return "%d %s" % [int(r.n), Data.resource_name(str(r.what))]
+			var why := QuestRewards.why_text(str(r.get("why", "")))
+			return "%d %s" % [int(r.n), Data.resource_name(str(r.what))] + (" (%s)" % why if why != "" else "")
 		"research":
 			return tr("%d Forschungspunkte") % int(r.n)
 		"settlers":
@@ -1021,7 +1028,10 @@ func sanitize_reward(r) -> Dictionary:
 	match str(r.get("kind", "")):
 		"goods":
 			if Data.resources.has(str(r.get("what", ""))):
-				return {"kind": "goods", "what": str(r.what), "n": maxi(1, int(r.get("n", 1)))}
+				var g := {"kind": "goods", "what": str(r.what), "n": maxi(1, int(r.get("n", 1)))}
+				if str(r.get("why", "")) in QuestRewards.WHY:
+					g["why"] = str(r.why)
+				return g
 		"research":
 			return {"kind": "research", "n": maxi(1, int(r.get("n", 1)))}
 		"settlers":
@@ -1050,6 +1060,8 @@ func autotest_setup(args: Dictionary, main) -> void:
 	_fast = args.has("questfast")
 	if args.has("questtest"):
 		await _quest_test(int(args.questtest), main)
+	if args.has("questadapt"):
+		QuestRewardsTest.adapt_test(main, str(args.questadapt))
 	if args.has("questshot"):
 		await _quest_shot(str(args.questshot), main)
 	if args.has("questauto"):
@@ -1141,7 +1153,7 @@ func _quest_test(n: int, main) -> void:
 		for t in ids:
 			uniq[t] = true
 		var small_big := offers.filter(func(q): return int(q.w) < 2 and str(q.reward.kind) in ["settlers", "boon", "plan"])
-		var reward_bad: bool = _force_reward == "" and (not "goods" in kinds or kinds.count("boon") > 1 or not small_big.is_empty())  # --questreward erzwingt die Art
+		var reward_bad: bool = _force_reward == "" and (not ("goods" in kinds or "research" in kinds) or kinds.count("boon") > 1 or not small_big.is_empty())  # --questreward erzwingt die Art
 		if uniq.size() != ids.size() or reward_bad or offers.size() != int(cfg().get("offer_count", 3)):
 			bad += 1
 			print("   Regel verletzt: ", ids, kinds)

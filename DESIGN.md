@@ -843,13 +843,36 @@ sucht sich einen aus. Belohnungen sind Waren, Forschungspunkte, Einwanderer, dau
   besiedelten Insel liefert es für einen freigeschalteten Beruf, oder Jäger jagen (Fleisch, Felle).
 - **Belohnungen**: jedes Angebot eine; die drei Angebote haben verschiedene Vorlagen und möglichst
   verschiedene Arten, das leichteste bekommt Waren, höchstens eins einen Segen.
-  - Waren: `goods_budget` (25) · w · (1 + A) Gold, Menge = Budget / `price`, höchstens `goods_space`
-    (0,4) der Lagerkapazität aller Inseln für diese Ware, mindestens 3; Waren je Zeitalter in
-    `goods_by_age` (Gewürze ab Renaissance). Auf die sichtbare Insel, Überlauf auf andere (`Game.grant_reward`).
+  - Waren **passend zur Lage** (josh: „Die Mengen der Belohnungen von Quests sollten an die Situation in
+    Form von Menge und Art angepasst werden“; `QuestRewards`, `scripts/autoload/quest_rewards.gd`, Werte in
+    `goals.json` `quests.adapt`). Art aus dem Bedarf (`QuestRewards.needs`), Gewicht in Klammern:
+    Essen für weniger als 2 Tage (6, haltbarste Speise: Räucherfisch, ab Antike Brot, ab Industrie
+    Konserven), Sommer/Herbst Essen bis Winterende (Herbst 5, Sommer 3,5), Heizholz bis Winterende nach
+    Wintervorhersage (Herbst/Winter 5, Sommer 3), Schreibwaren der laufenden Forschung (3), Bedürfnisse
+    der Hausstufen, die es gibt (3; Bretter, Werkzeug, Brot, Glas, Papier, Gewürze ...), nächste Prüfung:
+    Lagerwaren und Baukosten der verlangten Häuser/Gebäude, sobald baubar oder die Forschung wählbar ist
+    (3), Kosten der drei günstigsten wählbaren Forschungen (2), Baustoffe unter 30 + 3 je Siedler (1).
+    Punkte = Gewicht x Fehlbedarf in Gold / Budget (0,5–1,5); Zufall unter allen ab 60 % des Besten.
+    Nie die Ware, die der Auftrag selbst verlangt, keine Ware doppelt in einer Runde, nie Waren, von denen
+    genug da ist (`plenty`: ein Viertel des Lagers aller Inseln und mindestens 40 + 4 je Siedler).
+    Ohne Bedarf: `goods_by_age` (Gewürze ab Renaissance) bis zum Zeitalter, nur Brauchbares (`usable`:
+    Nahrung, Baukosten oder Rohstoff freigeschalteter Gebäude, Kosten naher Forschungen, Hausbedürfnisse,
+    Schreibwaren); ist von allem genug da, gibt es Forschungspunkte statt Waren.
+    Menge: Budget `goods_budget` (25) · w · (1 + A) Gold · Siedler-Faktor clamp(P / 8, 0,5, 2) / `price`;
+    bei bekanntem Fehlbedarf 1,5-mal der Fehlbedarf, mindestens 30 % und höchstens 100 % des Budgets;
+    höchstens `goods_space` (0,4) der Lagerkapazität und 60 % des freien Platzes aller Inseln für diese
+    Ware, mindestens 3 (passt nichts, nimmt es das Dringendste trotzdem; der Rest wartet auf Platz).
+    Beispiele (2 Siedler, Steinzeit): Hunger 16 Räucherfisch, Herbst mit knappem Essen 12 Räucherfisch,
+    Herbst ohne Holz 35 Holz (Gewicht 3: 110). Anzeige mit Grund: „15 Bretter (für die Bewohner)“
+    (`reward.why`: hunger, winter, heizen, schrift, haeuser, pruefung, forschung, bauen; im Spielstand
+    optional, unbekannte fallen weg). Auf die sichtbare Insel, Überlauf auf andere (`Game.grant_reward`).
+    Fällt eine andere Belohnung aus (Segen voll, Gebäude schon frei), wird die Ersatzware erst bei der
+    Auszahlung gewählt.
   - Forschungspunkte: max(20·w, w·R). Direkt auf die laufende Forschung (`Game.add_research(p, false)`,
     also ohne Schreibwaren aus Teil E), was übrig ist oder ohne laufende Forschung in `rp_bank`; die Bank
     geht an die nächste gestartete Forschung (Meldung „Gesparte Forschungspunkte ...“).
-  - Einwanderer (ab w2): 1 (w2) oder 2 (w3), Begabung beim Angebot gewählt (`talents`, Jagd erst mit
+  - Einwanderer (ab w2, nur wenn auf den Inseln so viele Wohnplätze frei sind und das Essen für 2 Tage
+    reicht, `QuestRewards.settlers_ok`): 1 (w2) oder 2 (w3), Begabung beim Angebot gewählt (`talents`, Jagd erst mit
     Jäger), Begabung 1,5–1,8, Stufe 4 + A/2, Hunger 80, über `Game.grant_reward` (wer nicht landen kann,
     wird zu Brettern).
   - Segen (ab w2, dauerhaft, `boons` mit Obergrenze `cap`): Fischfang/Holzfällen/Steinabbau/Beerensammeln
@@ -888,7 +911,11 @@ sucht sich einen aus. Belohnungen sind Waren, Forschungspunkte, Einwanderer, dau
   lassen, einen aufgeben, „Andere Aufträge“, Winter ohne und mit Hungertod, Ablauf der Angebote.
   `--questreward=goods|research|settlers|boon|plan` erzwingt die Belohnung, `--questfast=1` jede Frist 0,3
   Tage, `--questauto=1` überspringt die Einführung und nimmt jedes erste Angebot an (z. B. mit
-  `--build=1 --research=1`). Der 20-Sekunden-Bericht hat eine Zeile „Auftraege: ...“. Bildschirmfotos:
+  `--build=1 --research=1`). `--questadapt=1` (`QuestRewardsTest`): Belohnung je Lage (Hunger, Herbst mit
+  knappem Essen, Herbst ohne Holz, Überfluss, Schreibwaren, Prüfung, Hausstufe 2, Mengen nach Siedlern,
+  Zeitalter und Platz, Einwanderer nur mit Dach, 30 Angebotsrunden ohne doppelte Ware, Spielstand),
+  druckt „Belohnung angepasst OK/FEHLER“; `--questadapt=shot --questshot=offers --panel=quests` zeigt
+  eine Belohnung mit Grund. Der 20-Sekunden-Bericht hat eine Zeile „Auftraege: ...“. Bildschirmfotos:
   `--questshot=offers|active|card` (mit `--panel=quests` das Fenster), `--panel=build --cat=nahrung` zeigt
   den Bauplan.
 
@@ -1119,6 +1146,7 @@ godot --headless --fixed-fps 60 -- --autotest=60 --scale=10 --fixture=alt.json  
 godot --headless --fixed-fps 60 -- --autotest=200 --scale=10 --writingtest=1  # Forschung braucht Tontafeln
 godot --headless --fixed-fps 60 -- --autotest=100 --scale=10 --examtest=0  # Prüfung beim Zeitalterwechsel
 godot --headless --fixed-fps 60 -- --autotest=120 --scale=10 --questtest=1  # Aufträge mit Wahl
+godot --headless --fixed-fps 60 -- --autotest=10 --scale=10 --seed=7 --questadapt=1  # Belohnungen passend zur Lage
 godot --headless --fixed-fps 60 -- --autotest=60 --scale=10 --seed=7 --integtest=1  # Zusammenspiel der Erweiterungen
 godot --headless --fixed-fps 60 -- --autotest=40 --scale=10 --fixture=sea.json --oncetest=1  # Einmal-Route hin und zurück
 godot --headless --fixed-fps 60 -- --autotest=30 --scale=10 --seed=7 --basictrade=1  # Händler mit einfachen Waren
