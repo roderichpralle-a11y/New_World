@@ -192,6 +192,8 @@ func _maybe_autotest() -> void:
 			world.settlers[i].mind._fall_ill(ills[i % ills.size()])
 	if args.has("chartest"):
 		_autotest_chars()
+	if args.has("moodtest"):
+		_autotest_mood(int(args.moodtest))
 	if args.has("seatest"):
 		_autotest_sea()
 	if args.has("schooltest"):
@@ -447,6 +449,33 @@ func _autotest_chars() -> void:
 		for x in all.slice(0, 4):
 			print("      %s (%s): Laune %d %s, Erholung %d, Gründe %s" % [x.display_name, x.mind.character_text(), int(x.mind.mood),
 				x.mind.mood_text(), int(x.mind.rest), x.mind.reasons.map(func(r): return "%s %+d" % [r[0], int(r[1])])]))
+
+
+## Laune-Test (--moodtest=1): Arbeitskraft froh gegen unzufrieden, dann je Tag, wie viele Erwachsene
+## unzufrieden sind. --moodtest=2 haelt dazu den ersten Siedler unzufrieden (Bildschirmfoto mit --select=1).
+func _autotest_mood(mode: int) -> void:
+	var s = world.settlers[0]
+	var keep: float = s.mind.mood
+	for m in [90.0, 50.0, 39.0, 30.0, 10.0]:
+		s.mind.mood = m
+		print("MOOD %s Laune %d (%s): Laune-Faktor %.2f, Arbeitskraft %.0f %%, Bauen %.2f, Sammeln %.2f, Werkstatt %.2f, Forschung %.2f" % [
+			s.display_name, int(m), s.mind.mood_text(), s.mind.mood_work_factor(), s.mind.work_power() * 100.0,
+			s.work_factor("bauen", "build"), s.work_factor("nahrung", "gather_beeren"), s.work_factor("handwerk", "production"),
+			s.mind.research_factor() * s.mind.work_power()])
+	s.mind.mood = keep
+	var tally := [0, 0, 0]  # unzufriedene Siedler-Tage, Siedler-Tage, hoechstens gleichzeitig
+	Game.day_started.connect(func(d):
+		var adults := []
+		for w in Sea.all_worlds():
+			adults.append_array(w.settlers.filter(func(x): return x.is_adult()))
+		var sad := adults.filter(func(x): return x.mind.is_unhappy())
+		tally[0] += sad.size()
+		tally[1] += adults.size()
+		tally[2] = maxi(tally[2], sad.size())
+		print("MOOD Tag %d: unzufrieden %d von %d | gesamt %d von %d Siedler-Tagen (%.1f %%), hoechstens %d gleichzeitig" % [d, sad.size(),
+			adults.size(), tally[0], tally[1], 100.0 * tally[0] / maxf(1.0, tally[1]), tally[2]]))
+	if mode == 2:
+		get_tree().process_frame.connect(func(): if is_instance_valid(s): s.mind.mood = 30.0)
 
 
 ## Testhilfe: Tierbestand je Insel und Art (erwachsen/jung, satt, Futter am Bau).

@@ -2094,6 +2094,9 @@ func _info_settler(s: Settler) -> void:
 	_info_box.add_child(ill)
 	var wp := UiTheme.label("", 14, UiTheme.TEXT, true)
 	_info_box.add_child(wp)
+	var sad := UiTheme.label("", 13, Color("#c03a2a"), true)  # unzufrieden: halbe Arbeit (josh 2026-10-10)
+	sad.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_info_box.add_child(sad)
 	var why := UiTheme.label("", 12, DIM)
 	why.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_info_box.add_child(why)
@@ -2103,6 +2106,8 @@ func _info_settler(s: Settler) -> void:
 		ill.text = tr("Krank: %s%s") % [m.illness_name(), tr(" (muss liegen)") if m.needs_bed() else ""]
 		wp.text = tr("Laune: %s · Arbeitskraft %d %%") % [m.mood_text(), int(round(m.work_power() * 100.0))] if s.is_adult() \
 			else tr("Laune: %s") % m.mood_text()
+		sad.visible = s.is_adult() and m.is_unhappy()
+		sad.text = tr("%s: arbeitet nur halb so schnell") % m.mood_text().capitalize()
 		var rs: Array = m.reasons.duplicate()
 		rs.sort_custom(func(a, b): return absf(a[1]) > absf(b[1]))
 		var lines := []
