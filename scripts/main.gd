@@ -203,13 +203,15 @@ func _maybe_autotest() -> void:
 			if b.type == "huette":
 				print("Ausbau: ", world.upgrade_building(b) != null)
 	if args.has("place"):
-		# Testhilfe: fertige Gebaeude nahe der Mitte hinstellen, z. B. --place=brunnen,tafelmacherei
+		# Testhilfe: fertige Gebaeude nahe der Mitte hinstellen, z. B. --place=wachturm,tafelmacherei
 		for type in str(args.place).split(","):
 			if Data.buildings.has(type):
 				print("platziert ", type, " ", _place_on(world, type))
 		Game.refresh_effects()
 	if args.has("rewardtest"):
 		_autotest_reward()
+	if args.has("retiredtest"):
+		Retired.autotest(str(args.retiredtest))  # Brunnen entfernt (scripts/autoload/retired.gd)
 	# Systeme (Game.systems) richten ihre eigenen Testhilfen ein
 	for sys in Game.systems:
 		if is_instance_valid(sys) and sys.has_method("autotest_setup"):
@@ -383,7 +385,7 @@ func _maybe_autotest() -> void:
 					hud._fill_build_list()
 					hud._toggle(hud._build_panel)
 					if args.has("buildscroll"):
-						# Testhilfe: Liste bis zu diesem Gebaeude rollen, z. B. --buildscroll=brunnen
+						# Testhilfe: Liste bis zu diesem Gebaeude rollen, z. B. --buildscroll=tafelmacherei
 						await get_tree().process_frame
 						await get_tree().process_frame
 						for row in hud._build_list.get_children():

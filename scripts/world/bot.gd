@@ -6,7 +6,7 @@ extends RefCounted
 ## main.gd ruft setup() vor der Schleife, tick() jede Testsekunde, report() alle 20 s und finish() am Ende.
 
 const STONE_AGE := ["schrift", "steinwerkzeuge", "gartenbau", "holzbearbeitung", "zimmerei", "flechtkoerbe",
-	"raeuchern", "toepferei", "vorratshaltung", "steinbruch", "muehlenbau", "brunnenbau"]
+	"raeuchern", "toepferei", "vorratshaltung", "steinbruch", "muehlenbau"]
 const ANTIQUITY := ["backkunst", "maurerei", "bewaesserung", "koehlerei", "unterricht", "heilkunde", "gelehrsamkeit",
 	"tierhaltung", "handkarren", "bergbau", "eisenverhuettung", "schmiedekunst", "deichbau"]
 const FOOD_JOBS := ["fischer", "sammler", "bauer"]
@@ -385,10 +385,6 @@ func _wishlist() -> Array:
 		var qt := str(q.check.what)
 		if _count(qt) < int(q.check.n):
 			out.append([qt, "Auftrag"])
-	# Feuer angekündigt: ein Brunnen löscht in der Nähe
-	var ev: Dictionary = Events.event_of(w)
-	if str(ev.get("type", "")) == "brand" and not ev.get("struck", false) and _count("brunnen") == 0:
-		out.append(["brunnen", "Brand angekündigt"])
 	# Prüfung Steinzeit offen: das Holzhaus vor allem anderen (Bretter nicht für Mühle und Co. ausgeben)
 	if Exams.passed == 0 and Game.is_unlocked("holzhaus") and _count("holzhaus") == 0:
 		out.append(["holzhaus", "Pruefung"])
@@ -435,8 +431,6 @@ func _wishlist() -> Array:
 		out.append(["lager", "Stauraum"])  # wenn Ziegel für das große fehlen
 	if Game.is_unlocked("ziegelei") and _count("ziegelei") == 0 and (Exams.passed >= 1 or Game.research.done.size() >= 7):
 		out.append(["ziegelei", "Ziegel"])
-	if Game.is_unlocked("brunnen") and _count("brunnen") == 0 and pop >= 8:
-		out.append(["brunnen", "Brandschutz"])
 	if Game.is_unlocked("steinhaus") and _count("steinhaus") == 0:
 		out.append(["steinhaus", "Pruefung Antike"])
 	if Game.is_unlocked("steinbruch") and _count("steinbruch") == 0 and pop >= 8:
