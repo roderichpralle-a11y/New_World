@@ -440,7 +440,7 @@ func mood_text() -> String:
 		return tr("glücklich")
 	if mood >= 60.0:
 		return tr("zufrieden")
-	if mood >= 40.0:
+	if not is_unhappy():
 		return tr("geht so")
 	if mood >= 20.0:
 		return tr("unzufrieden")
@@ -459,7 +459,7 @@ func work_power() -> float:
 		f *= float(Data.ppl("work_starving", 0.5))
 	elif s.hunger < 30.0:
 		f *= lerpf(float(Data.ppl("work_hungry", 0.75)), 1.0, s.hunger / 30.0)
-	f *= lerpf(float(Data.ppl("mood_work_min", 0.75)), float(Data.ppl("mood_work_max", 1.12)), mood / 100.0)
+	f *= mood_work_factor()
 	if sick != "":
 		f *= maxf(0.3, float(Data.ppl("illnesses")[sick].get("work", 1.0)))
 	if vit < float(Data.ppl("vit_low", 30.0)):
@@ -468,3 +468,17 @@ func work_power() -> float:
 		f *= float(Data.ppl("work_old", 0.8))
 	f *= 0.9 + 0.022 * trait_value("fleiss")
 	return f
+
+
+## Laune auf die Arbeit. Ab "unzufrieden" (josh 2026-10-10) nur noch halb so schnell
+## (`mood_unhappy_work`), nie besser als die alte Laune-Kurve.
+func mood_work_factor() -> float:
+	var f := lerpf(float(Data.ppl("mood_work_min", 0.75)), float(Data.ppl("mood_work_max", 1.12)), mood / 100.0)
+	if is_unhappy():
+		f = minf(f, float(Data.ppl("mood_unhappy_work", 0.5)))
+	return f
+
+
+## Laune "unzufrieden" oder schlechter (gleiche Grenze wie mood_text).
+func is_unhappy() -> bool:
+	return mood < float(Data.ppl("mood_unhappy_below", 40.0))

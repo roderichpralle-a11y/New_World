@@ -526,6 +526,13 @@ Spielstände würfeln die Werte reproduzierbar aus der Siedler-ID).
   Erholung, Trauer um Tote (Familie und Partner stark, `SettlerMind.is_close`), Freude über ein Baby,
   Jahreszeit (`season_mod("mood")`), Frieren. Laune wirkt auf Arbeit (`mood_work_min..max`) und
   Geburten (`mood_birth_min..max`, kranke Mütter kaum).
+- **Unzufriedene arbeiten nur halb** (josh 2026-10-10: „wenn arbeiter unzufrieden sind arbeiten sie nur
+  noch zur Hälfte“): unter `people.json mood_unhappy_below` = 40 (Laune „unzufrieden“ und „verzweifelt“,
+  dieselbe Grenze wie im Text, `mind.is_unhappy()`) ist der Laune-Faktor `mood_unhappy_work` = 0,5 statt
+  0,75–0,90 (`mind.mood_work_factor()`, nie besser als die Laune-Kurve). Er steckt in der Arbeitskraft und
+  wirkt damit gleich auf Sammeln, Fischen, Felder, Bauen, Werkstätten und Forschung. Zwischen Laune 40
+  und 39 halbiert sich die Arbeit fast (vorher 0,90, jetzt 0,5). Das Infofenster zeigt bei Erwachsenen
+  unter der Laune rot „Unzufrieden: arbeitet nur halb so schnell“ (bzw. „Verzweifelt: …“).
 - **Arbeitskraft** `mind.work_power()`: Gesundheit × Hunger × Laune × Krankheit × Vitamine × Alter
   (letzte 20 % des Lebens `work_old`) × Fleiß. Steckt in `Settler.work_factor` und in der Forschung.
 - **Lebensstil** `SettlerMind.comfort()` 0–1 aus der Zahl erforschter Forschungen
@@ -546,7 +553,10 @@ Spielstände würfeln die Werte reproduzierbar aus der Siedler-ID).
   (Spalte Laune, rot bei Krankheit, Filter „Nur Kranke“, Lebensstil im Zähler).
 - Test: `--chartest=1` (täglicher Bericht), `--comfort=<n>` (n Forschungen erledigt), `--sick=<n>`,
   `--talenttest=1` (Tempo- und Lernbonus, Texte, Sterne im Infofenster und in der Siedlerliste, Spalte nur bei
-  breitem Fenster; druckt „Talente OK/FEHLER“), `--select=1 --infoscroll=2000` (Bildschirmfoto der Berufswahl).
+  breitem Fenster; druckt „Talente OK/FEHLER“), `--select=1 --infoscroll=2000` (Bildschirmfoto der Berufswahl),
+  `--moodtest=1` (Arbeitskraft bei Laune 90/50/39/30/10 für Bauen, Sammeln, Werkstatt, Forschung, dann je
+  Tag „MOOD Tag ..: unzufrieden x von y“ mit Summe der Siedler-Tage; mit `--bot=1` die Unzufriedenen-Quote),
+  `--moodtest=2` hält dazu den ersten Siedler unzufrieden (Bildschirmfoto mit `--select=1`).
 
 ## Nahrung, Vitamine und Gleichgewicht
 
@@ -1262,6 +1272,7 @@ godot --headless --fixed-fps 60 -- --autotest=10 --scale=10 --fixture=wells.json
 godot --headless --fixed-fps 60 -- --autotest=200 --scale=10 --writingtest=1  # Forschung braucht Tontafeln
 godot --headless --fixed-fps 60 -- --autotest=100 --scale=10 --examtest=0  # Prüfung beim Zeitalterwechsel
 godot --headless --fixed-fps 60 -- --autotest=120 --scale=10 --questtest=1  # Aufträge mit Wahl
+godot --headless --fixed-fps 60 -- --autotest=40 --scale=10 --moodtest=1  # Unzufriedene arbeiten halb
 godot --headless --fixed-fps 60 -- --autotest=10 --scale=10 --seed=7 --questadapt=1  # Belohnungen passend zur Lage
 godot --headless --fixed-fps 60 -- --autotest=60 --scale=10 --seed=7 --integtest=1  # Zusammenspiel der Erweiterungen
 godot --headless --fixed-fps 60 -- --autotest=20 --scale=10 --talenttest=1  # Talente: Bonus, Sterne, Spalte (Spalte nur mit Fenster)
