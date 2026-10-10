@@ -326,6 +326,56 @@ func make_lots(w) -> void:
 		else:
 			rest.append(lot)
 	state.buys = (first + have + rest).slice(0, int(_c("buy_lots", 3)))
+	_add_basic_lots(w)
+
+
+## Einfache Waren (merchant.json "basic": Holz, Stein, Lehm, Getreide, Bretter, Ziegel, Kohle): zusätzlich
+## zu den seltenen Losen basic_sell_lots Verkaufs- und basic_buy_lots Ankaufslose, Losgröße für
+## basic_lot_gold Gold. Eigener Zufall, damit die seltenen Lose davon unberührt bleiben. Eine Ware ist nie
+## zugleich im Verkauf und im Ankauf. Beim Ankauf zuerst Waren, die die Insel in der Menge hat.
+func _add_basic_lots(w) -> void:
+	var basic: Dictionary = cfg.get("basic", {})
+	if basic.is_empty():
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash([Game.seed_value, int(state.seq), "haendler_einfach"])
+	var taken: Array = (state.sells + state.buys).map(func(l): return str(l.id))
+	var pool := []
+	for id in basic:
+		if tradeable(str(id)) and int(basic[id]) <= Game.current_age() and not str(id) in taken:
+			pool.append(str(id))
+	pool.sort()
+	_shuffle(pool, rng)
+	var lg: Array = _c("basic_lot_gold", [3, 6])
+	var mk: Array = _c("sell_markup", [1.0, 1.25])
+	var br: Array = _c("buy_rate", [0.5, 0.65])
+	var n_sell := mini(int(_c("basic_sell_lots", 2)), pool.size())
+	for id in pool.slice(0, n_sell):
+		var n := _basic_n(id, lg, rng)
+		var gold := ceili(n * float(Data.resources[id].price) * rng.randf_range(float(mk[0]), float(mk[1])))
+		state.sells.append({"id": id, "n": n, "gold": maxi(1, gold), "left": _times(rng)})
+	var have := []
+	var rest := []
+	for id in pool.slice(n_sell):
+		var n := _basic_n(id, lg, rng)
+		var gold := maxi(1, floori(n * float(Data.resources[id].price) * rng.randf_range(float(br[0]), float(br[1]))))
+		var lot := {"id": id, "n": n, "gold": gold, "left": _times(rng)}
+		if Game.amount(id, w) >= n:
+			have.append(lot)
+		else:
+			rest.append(lot)
+	state.buys.append_array((have + rest).slice(0, int(_c("basic_buy_lots", 2))))
+
+
+## Losgröße einer einfachen Ware: für basic_lot_gold Gold, in Fünferschritten, mindestens 5.
+func _basic_n(id: String, lg: Array, rng: RandomNumberGenerator) -> int:
+	var n := rng.randf_range(float(lg[0]), float(lg[1])) / float(Data.resources[id].price)
+	return maxi(5, roundi(n / 5.0) * 5)
+
+
+## Gehört die Ware zu den einfachen Waren des Händlers?
+func is_basic(id: String) -> bool:
+	return cfg.get("basic", {}).has(id)
 
 
 func _shuffle(a: Array, rng: RandomNumberGenerator) -> void:
@@ -489,7 +539,7 @@ func _on_load(data: Dictionary, old_rules: int) -> void:
 ## aktiven Insel, Kauf, Verkauf, Gründe, Speichern/Laden, Seehandel), --spicetest=1 (Generator, alter
 ## Spielstand, Sammler-Reihenfolge), --biometest=1 (Inselstärken), --goisland=N (vorher auf Insel N
 ## wechseln, für Bildschirmfotos; mit --goplace=typ,typ fertige Gebäude dort), --tradetest2=shot (nur den
-## Händler hinlegen), --panel=trade (Handelsfenster offen lassen).
+## Händler hinlegen), --basictrade=1 (einfache Waren), --panel=trade (Handelsfenster offen lassen).
 func autotest_setup(args: Dictionary, main) -> void:
 	if str(args.get("merchant", "")) == "off":
 		enabled = false
@@ -504,6 +554,8 @@ func autotest_setup(args: Dictionary, main) -> void:
 		await MerchantTest.spice_test(main)
 	if args.has("tradetest2"):
 		await MerchantTest.trade_test(main, str(args.tradetest2))
+	if args.has("basictrade"):
+		await MerchantTest.basic_test(main)
 	if str(args.get("panel", "")) == "trade":
 		main.hud._trade_panel.open()
 

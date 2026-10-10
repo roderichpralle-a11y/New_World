@@ -197,6 +197,10 @@ var next_ship: int = 1
 var _ship_tick: float = 0.0
 
 
+func _ready() -> void:
+	Game.register_system(self)  # nur für die Testhilfe --oncetest (autotest_setup)
+
+
 func ship_def(sh: Dictionary) -> Dictionary:
 	return Data.ships.get(sh.type, {})
 
@@ -533,6 +537,7 @@ func _ship_tick_all() -> void:
 				sh.state = "dock"
 				if not sh.route.is_empty():
 					sh.leg = (int(sh.leg) + 1) % sh.route.size()
+				_once_finish(sh, w)
 			continue
 		if sh.route.size() >= 2 and not sh.paused:
 			_route_step(sh, w)
@@ -555,10 +560,11 @@ func _route_step(sh: Dictionary, w) -> void:
 	var stop: Dictionary = sh.route[sh.leg]
 	var target := int(stop.island)
 	if target == int(sh.at):
-		var keep: Array = stop.get("load", {}).keys()
+		var last := _once_stop(sh)  # Einmal-Route: letzter Halt lädt alles ab und lädt nichts
+		var keep: Array = [] if last else stop.get("load", {}).keys()
 		var moved := unload_goods(sh, keep)
 		var want := {}
-		for id in stop.get("load", {}):
+		for id in ({} if last else stop.get("load", {})):
 			want[id] = max(0, int(stop.load[id]) - int(sh.cargo.get(id, 0)))
 		var got := load_goods(sh, want)
 		for id in got:
@@ -570,6 +576,7 @@ func _route_step(sh: Dictionary, w) -> void:
 	if not can_visit(sh.type, target):
 		sh.note = tr("%s hat keinen passenden Hafen") % meta(target).get("name", "?")
 		sh.leg = (int(sh.leg) + 1) % sh.route.size()
+		_once_skip(sh, w)
 		return
 	var why := ship_blocker(sh)
 	if why != "":
@@ -876,3 +883,70 @@ func build_from_save(d: Dictionary) -> void:
 		w.sync_ships()
 	Game.refresh_effects()
 	islands_changed.emit()
+
+
+# ---------------------------------------------------------------- Einmal-Routen
+## „Einmal hin und zurück“ (josh): Mit sh.once = true fährt das Schiff seine Route nur einmal. Der erste
+## Halt, an dem es lädt, ist der Start; danach fährt es alle anderen Halte an und zurück zum Start, lädt
+## dort alles ab und lädt nichts mehr. Dann ist es wieder frei: Route angehalten (paused), die Halte
+## bleiben, „Route starten“ fährt sie noch einmal. Ohne once (alte Routen) fährt es immer wieder.
+## Spielstand im Schiff: once (bool), once_left (Halte, die noch kommen; -1 = nicht begonnen),
+## once_from (Index des Starthalts). Alles optional, fehlt es, ist es eine normale Route.
+func is_once(sh: Dictionary) -> bool:
+	return bool(sh.get("once", false))
+
+
+## Fahrtart einer Route umstellen (Seekarte). Beginnt die Zählung neu.
+func set_route_once(sh: Dictionary, on: bool) -> void:
+	sh["once"] = on
+	sh["once_left"] = -1
+	sh["once_from"] = 0
+
+
+## Halte, die bei einer laufenden Einmal-Route noch kommen (0 = keine Einmal-Route oder nicht begonnen).
+func once_stops_left(sh: Dictionary) -> int:
+	return maxi(0, int(sh.get("once_left", -1))) if is_once(sh) else 0
+
+
+## _route_step an einem Halt: zählt die Einmal-Route weiter. true = letzter Halt (alles abladen).
+func _once_stop(sh: Dictionary) -> bool:
+	if not is_once(sh):
+		return false
+	var left := int(sh.get("once_left", -1))
+	if left < 0:
+		sh["once_left"] = sh.route.size()  # alle anderen Halte und die Rückkehr
+		sh["once_from"] = int(sh.leg)
+		return false
+	sh["once_left"] = left - 1
+	return left - 1 <= 0
+
+
+## Ein Halt wird übersprungen (kein passender Hafen): zählt mit. Bleibt keiner übrig, endet die Fahrt.
+func _once_skip(sh: Dictionary, w) -> void:
+	if not is_once(sh) or int(sh.get("once_left", -1)) < 0:
+		return
+	sh["once_left"] = int(sh.once_left) - 1
+	if int(sh.once_left) <= 0:
+		_once_end(sh, w)
+
+
+## Nach dem Laden am letzten Halt: Route endet, Schiff ist frei.
+func _once_finish(sh: Dictionary, w) -> void:
+	if is_once(sh) and int(sh.get("once_left", -1)) == 0 and not sh.route.is_empty():
+		_once_end(sh, w)
+
+
+func _once_end(sh: Dictionary, w) -> void:
+	sh.paused = true
+	sh["once_left"] = -1
+	if not sh.route.is_empty():
+		sh.leg = clampi(int(sh.get("once_from", 0)), 0, sh.route.size() - 1)
+	Game.notify_at(w, tr("Die %s ist zurück in %s. Die Fahrt ist zu Ende, das Schiff ist wieder frei.") % [ship_label(sh), island_name(w)], "anker", "see")
+	islands_changed.emit()
+
+
+## Testhilfe (Game.systems): --oncetest=1 (mit --fixture=sea.json) fährt eine Einmal-Route, siehe RouteTest;
+## --oncetest=shot stellt nur die Route eines Schiffs auf „Einmal hin und zurück“ (mit --panel=sea --seaview=ship).
+func autotest_setup(args: Dictionary, main) -> void:
+	if args.has("oncetest"):
+		await RouteTest.once_test(main, str(args.oncetest))

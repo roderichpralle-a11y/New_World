@@ -8,6 +8,8 @@ extends RefCounted
 ##                   alter Spielstand (Sträucher kommen wieder, nur einmal), Sammler-Reihenfolge, Ernte
 ##   --tradetest2=1  Händler sofort auf der aktiven Insel: Lose, Kauf, Verkauf, Gründe, Speichern/Laden,
 ##                   Seehandel, alter Spielstand, dann Abfahrt, Ankündigung und nächster Besuch
+##   --basictrade=1  einfache Waren (Holz, Stein, ...): je Besuch 2 Verkaufs- und 2 Ankaufslose zusätzlich,
+##                   seltene Lose bleiben, Zeitalter, Losgrößen, 40 Besuche Statistik, Kauf und Verkauf
 
 
 static func _okf(c: bool) -> String:
@@ -166,14 +168,14 @@ static func trade_test(main, mode: String) -> void:
 	if mode == "shot":  # nur Händler hinlegen (Bildschirmfotos), keine Prüfungen
 		return
 	# 1 Lose im Rahmen
-	var lots_ok: bool = M.state.sells.size() == 4 and M.state.buys.size() == 3
+	var lots_ok: bool = M.state.sells.size() == 6 and M.state.buys.size() == 5  # 4 + 2 und 3 + 2 einfache
 	for l in M.state.sells:
 		var v := int(l.n) * float(Data.resources[l.id].price)
 		lots_ok = lots_ok and int(l.gold) >= ceili(v - 0.001) and int(l.gold) <= ceili(v * 1.25 + 0.001) and int(l.left) >= 1 and int(l.left) <= 3
 	for l in M.state.buys:
 		var v := int(l.n) * float(Data.resources[l.id].price)
 		lots_ok = lots_ok and int(l.gold) >= maxi(1, floori(v * 0.5 - 0.001)) and int(l.gold) <= maxi(1, floori(v * 0.65 + 0.001))
-	print("Handel ", _okf(lots_ok), " 4 Verkaufs- und 3 Ankaufslose, Preise x1,0-1,25 bzw. x0,5-0,65, je 1-3-mal")
+	print("Handel ", _okf(lots_ok), " 4+2 Verkaufs- und 3+2 Ankaufslose (seltene + einfache), Preise x1,0-1,25 bzw. x0,5-0,65, je 1-3-mal")
 	# 2 gleiche Lose für gleichen Seed und Besuch
 	var keep: Dictionary = M.state.duplicate(true)
 	M.make_lots(w)
@@ -243,7 +245,7 @@ static func trade_test(main, mode: String) -> void:
 	var iv_t: float = M.next_interval(7)
 	Game.effects = eff_keep
 	M.state = keep2
-	print("Handel ", _okf(n_sells == 5 and absf(iv_t / iv_n - 0.7) < 0.001), " Seehandel: %d Verkaufslose, Abstand %.2f statt %.2f Tage" % [n_sells, iv_t, iv_n])
+	print("Handel ", _okf(n_sells == 7 and absf(iv_t / iv_n - 0.7) < 0.001), " Seehandel: %d Verkaufslose, Abstand %.2f statt %.2f Tage" % [n_sells, iv_t, iv_n])
 	# 9 alter Spielstand: erster Besuch rules_day + 2, Regelzeile
 	var keep3: Dictionary = M.state.duplicate(true)
 	var lines_keep: Array = Game.rules_lines.duplicate()
@@ -270,4 +272,90 @@ static func trade_test(main, mode: String) -> void:
 	print("Handel ", _okf(lead > 0.9 and lead <= 1.01), " angekündigt %.2f Tage vorher für %s" % [lead, Sea.island_name(M.planned_world())])
 	while not M.present():
 		await _wait(main, 0.25)
-	print("Handel ", _okf(int(M.state.seq) == 1 and M.state.sells.size() == 4), " Besuch 2 in %s: verkauft %s | kauft %s" % [Sea.island_name(M.world()), M._lots_text(M.state.sells), M._lots_text(M.state.buys)])
+	print("Handel ", _okf(int(M.state.seq) == 1 and M.state.sells.size() == 6), " Besuch 2 in %s: verkauft %s | kauft %s" % [Sea.island_name(M.world()), M._lots_text(M.state.sells), M._lots_text(M.state.buys)])
+
+
+# ---------------------------------------------------------------- Einfache Waren
+static func basic_test(main) -> void:
+	var M = Merchant
+	var w = Game.world
+	Data.balance["base_storage"] = 4000
+	if Sea.harbor_level(w) < 1:
+		print("Einfache Waren: Werft hingestellt ", main._place_on(w, "werft"))
+		Game.refresh_effects()
+	w.stock["gold"] = 60
+	for id in ["holz", "stein", "lehm", "weizen", "bretter", "ziegel"]:
+		w.stock[id] = maxi(Game.amount(id, w), 80)
+	M.enabled = true
+	M.arrive(w)
+	var basic: Dictionary = M.cfg.get("basic", {})
+	var nb_s := int(M.cfg.get("basic_sell_lots", 2))
+	var nb_b := int(M.cfg.get("basic_buy_lots", 2))
+	print("Einfache Waren: Zeitalter %d, verkauft %s | kauft %s" % [Game.current_age(), M._lots_text(M.state.sells), M._lots_text(M.state.buys)])
+	# 1 je Besuch: einfache Lose zusätzlich, seltene bleiben vollständig
+	var bs: Array = M.state.sells.filter(func(l): return M.is_basic(str(l.id)))
+	var bb: Array = M.state.buys.filter(func(l): return M.is_basic(str(l.id)))
+	var rs: int = M.state.sells.size() - bs.size()
+	var rb: int = M.state.buys.size() - bb.size()
+	var ids_s: Array = M.state.sells.map(func(l): return str(l.id))
+	var ids_b: Array = M.state.buys.map(func(l): return str(l.id))
+	var both: Array = ids_s.filter(func(x): return x in ids_b)
+	print("Einfache Waren ", _okf(bs.size() == nb_s and bb.size() == nb_b and rs == int(M.cfg.sell_lots) and rb == int(M.cfg.buy_lots) and both.is_empty()), " %d einfache + %d seltene Verkaufslose, %d einfache + %d andere Ankaufslose, doppelt: %s" % [bs.size(), rs, bb.size(), rb, both])
+	# 2 Losgrößen: Fünferschritte, Wert im Rahmen basic_lot_gold
+	var lg: Array = M.cfg.get("basic_lot_gold", [3, 6])
+	var size_ok := true
+	for l in bs + bb:
+		var v := int(l.n) * float(Data.resources[str(l.id)].price)
+		size_ok = size_ok and int(l.n) % 5 == 0 and v >= float(lg[0]) * 0.5 - 0.01 and v <= float(lg[1]) * 1.5 + 0.01
+	print("Einfache Waren ", _okf(size_ok), " Losgrößen in Fünferschritten für etwa %d-%d Gold: %s" % [int(lg[0]), int(lg[1]), M._lots_text(bs + bb)])
+	# 3 Statistik über 40 Besuche: jede einfache Ware kommt vor, seltene Lose immer 4, Kohle erst ab Antike
+	var keep: Dictionary = M.state.duplicate(true)
+	var seen := {}
+	var rare_min := 99
+	var kohle_early := 0
+	for k in 40:
+		M.state.seq = 100 + k
+		M.make_lots(w)
+		var r: int = M.state.sells.filter(func(l): return not M.is_basic(str(l.id))).size()
+		rare_min = mini(rare_min, r)
+		for l in M.state.sells + M.state.buys:
+			if M.is_basic(str(l.id)):
+				seen[str(l.id)] = int(seen.get(str(l.id), 0)) + 1
+				if str(l.id) == "kohle" and Game.current_age() < int(basic.kohle):
+					kohle_early += 1
+	var all_seen := true
+	for id in basic:
+		if int(basic[id]) <= Game.current_age() and not seen.has(id):
+			all_seen = false
+	print("Einfache Waren ", _okf(all_seen and rare_min == int(M.cfg.sell_lots) and kohle_early == 0), " 40 Besuche: einfache Waren %s, seltene Verkaufslose je Besuch mindestens %d, Kohle vor ihrem Zeitalter %d" % [seen, rare_min, kohle_early])
+	var eff_keep: Dictionary = Game.effects.duplicate()
+	var age_keep: int = Exams.passed
+	Exams.passed = 2
+	M.state.seq = 7
+	M.make_lots(w)
+	var later: Array = (M.state.sells + M.state.buys).filter(func(l): return M.is_basic(str(l.id))).map(func(l): return str(l.id))
+	Exams.passed = age_keep
+	Game.effects = eff_keep
+	M.state = keep
+	print("Einfache Waren Info: im Mittelalter (Besuch 8): %s" % [later])
+	# 4 Kauf und Verkauf eines einfachen Loses
+	var si: int = M.state.sells.find(bs[0])
+	var g0 := Game.amount("gold", w)
+	var a0 := Game.amount(str(bs[0].id), w)
+	var e1: String = M.buy(si)
+	var buy_ok: bool = e1 == "" and Game.amount("gold", w) == g0 - int(bs[0].gold) and Game.amount(str(bs[0].id), w) == a0 + int(bs[0].n)
+	print("Einfache Waren ", _okf(buy_ok), " Kauf: %d %s für %d Gold | Gold %d -> %d" % [int(bs[0].n), str(bs[0].id), int(bs[0].gold), g0, Game.amount("gold", w)])
+	var bi: int = M.state.buys.find(bb[0])
+	if Game.amount(str(bb[0].id), w) < int(bb[0].n):
+		Game.add_stock(str(bb[0].id), int(bb[0].n), w)
+	g0 = Game.amount("gold", w)
+	a0 = Game.amount(str(bb[0].id), w)
+	var e2: String = M.sell(bi)
+	var sell_ok: bool = e2 == "" and Game.amount("gold", w) == g0 + int(bb[0].gold) and Game.amount(str(bb[0].id), w) == a0 - int(bb[0].n)
+	print("Einfache Waren ", _okf(sell_ok), " Verkauf: %d %s für %d Gold | Gold %d -> %d" % [int(bb[0].n), str(bb[0].id), int(bb[0].gold), g0, Game.amount("gold", w)])
+	# 5 Speichern und Laden behält die einfachen Lose
+	var d := {}
+	M._on_save(d)
+	var before: String = str(M.state.sells) + str(M.state.buys)
+	M._on_load(JSON.parse_string(JSON.stringify(d)), 1)
+	print("Einfache Waren ", _okf(str(M.state.sells) + str(M.state.buys) == before), " Speichern und Laden: Lose gleich")

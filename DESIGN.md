@@ -145,7 +145,21 @@ Zeitalterwechsel mit Wertung und Aufträge mit Wahl. Überblick und Zusammenspie
   dort ab), „Neue Insel suchen“ (schnellstes freies Schiff, kommt zurück), **Routen** (Reiter
   „Schiffe“): bis 6 Halte; an jedem Halt lädt das Schiff alles ab, was dort nicht geladen wird,
   und lädt bis zur eingestellten Menge. Fahrzeit `(voyage_days_base + voyage_days_per_dist *
-  Entfernung) / (eff(ship_speed) * Tempo des Schiffs) * Seasons.sail_mult()`. Liegende Schiffe
+  Entfernung) / (eff(ship_speed) * Tempo des Schiffs) * Seasons.sail_mult()`.
+  **Fahrtart** (josh: „Bei den Routen kann es auch einmal Routen geben, also hin und zurück“): unter den
+  Halten „Fahrt: Immer wieder | Einmal hin und zurück“ (`sea_panel._route_mode_row`). Einmal: Start ist der
+  erste Halt, an dem das Schiff lädt (der, den es als Nächstes anläuft); es fährt alle anderen Halte an,
+  kommt zum Start zurück, lädt dort alles ab (lädt nichts mehr) und ist wieder frei: Route angehalten
+  (`idle_ships` zählt es), die Halte bleiben, „Route starten“ fährt sie noch einmal; Meldung „Die … ist
+  zurück in …“. Anzeige „Noch 2 Halte, dann ist das Schiff wieder frei.“. Ein übersprungener Halt (Hafen zu
+  klein) zählt mit. Spielstand im Schiff (optional): `once` (bool), `once_left` (Halte, die noch kommen,
+  -1 = nicht begonnen), `once_from` (Starthalt); alte Routen ohne `once` fahren immer wieder. Code:
+  `Sea.set_route_once`, `is_once`, `once_stops_left`, `_once_stop` (in `_route_step`), `_once_finish`
+  (nach dem Laden), `_once_skip`. Halte hinzufügen oder entfernen und das Umstellen beginnen die
+  Zählung neu. Test `--fixture=sea.json --oncetest=1` (`RouteTest`, Sea meldet sich dafür mit
+  `Game.register_system` an): Halte 0 → 1 → 0, Ladung je Strecke, frei danach, Speichern mitten auf der
+  Fahrt, alte Route fährt weiter, neu starten, umstellen („Einmal-Route OK/FEHLER“); `--oncetest=shot
+  --panel=sea --seaview=ship` fürs Bildschirmfoto. Liegende Schiffe
   zeigt `World.sync_ships` im Wasser vor dem Hafen. Forschung **Seehandel** (Stufe VI).
 - **Seekarte** (Knopf „Inseln“, `scripts/ui/sea_panel.gd`): Reiter Inseln und Schiffe, Ansichten
   `island`, `send`, `ships`, `ship`, `stop`. Die Karte zoomt (Mausrad, zwei Finger, Knöpfe „-“ „+“
@@ -450,11 +464,18 @@ Gewürze. Händler kommen an Häfen und handeln gegen Gold.“
   `interval` (4–6) Tage nach der Abfahrt wieder. Kann keine Insel ihn aufnehmen, verschiebt er sich um
   `postpone_days`. Geht die angekündigte Insel bis zur Ankunft nicht mehr (z. B. Piraten angekündigt),
   wählt er eine andere und kündigt sich dort wieder einen Tag vorher an. Seehandel (Wirkung `trade` in techs.json): Abstand x0,7 und ein Verkaufslos mehr.
-- **Lose**: 4 Verkaufs- und 3 Ankaufslose, jedes 1–3-mal (`lot_times`). Losgröße für 6–14 Gold
+- **Lose**: 4 Verkaufs- und 3 Ankaufslose (dazu je 2 einfache, siehe unten), jedes 1–3-mal (`lot_times`). Losgröße für 6–14 Gold
   (`lot_gold`, resources.json `price`), billige Waren in Fünferschritten. Er verkauft zu x1,0–1,25
   (aufgerundet) und kauft zu x0,5–0,65 (abgerundet, mindestens 1 Gold). Angebot je Zeitalter (`sells`:
   Ware → ab Zeitalter); Gewürze bietet er immer an, solange keine Palmeninsel besiedelt ist, sonst in der
-  Hälfte der Besuche. Ankauf aus `buys`, Gewürze zuerst, dann Waren, die die Insel hat. Zufall
+  Hälfte der Besuche. Ankauf aus `buys`, Gewürze zuerst, dann Waren, die die Insel hat.
+  **Einfache Waren** (josh: „Gehandelt werden können auch einfache Güter wie Holz“): zusätzlich je Besuch
+  `basic_sell_lots` (2) Verkaufs- und `basic_buy_lots` (2) Ankaufslose aus `basic` (Holz, Stein, Lehm,
+  Getreide, Bretter, Ziegel ab Steinzeit, Kohle ab Antike; Ware → ab Zeitalter), Losgröße für
+  `basic_lot_gold` (3–6) Gold in Fünferschritten (z. B. 30–60 Holz, 10–25 Bretter), gleiche Preisspannen.
+  Eigener Zufall (`hash([seed, Besuch, "haendler_einfach"])`), eine Ware nie zugleich im Ver- und Ankauf,
+  beim Ankauf zuerst Waren, die die Insel in der Menge hat. Die seltenen Lose bleiben vollständig (4 + 3),
+  Ziegel und die einfachen Waren stehen dafür nicht mehr in `sells`/`buys`. `Merchant.is_basic(id)`. Zufall
   `hash([seed, Besuch, ...])`: gleicher Spielstand, gleiche Lose. Gold und Waren gehören immer der Insel,
   an der er liegt; `buy_block`/`sell_block` liefern den Grund, warum es nicht geht („zu wenig Gold“,
   „kein Platz im Lager“, „ausverkauft“, „nur 3 im Lager“ …). Jeder Handel zählt `stats.trades` und sendet
@@ -471,7 +492,9 @@ Gewürze. Händler kommen an Häfen und handeln gegen Gold.“
   Hafen steht, sonst 2 Tage nach dem ersten Hafen. Neues Spiel: `state_reset` leert alles.
 - **Testhilfen**: `--tradetest2=1` (Werft, Waren und 40 Gold; prüft Lose, gleiche Lose bei gleichem Seed,
   Kauf, Verkauf, Gründe, Schiff, Speichern/Laden, Seehandel, alten Spielstand, Abfahrt, Ankündigung und den
-  zweiten Besuch, druckt „Handel OK/FEHLER“; `=shot` legt nur den Händler hin), `--spicetest=1`
+  zweiten Besuch, druckt „Handel OK/FEHLER“; `=shot` legt nur den Händler hin), `--basictrade=1`
+  (einfache Waren: Anzahl Lose, Losgrößen, 40 Besuche, Kohle erst ab Antike, Kauf, Verkauf, Speichern;
+  druckt „Einfache Waren OK/FEHLER“), `--spicetest=1`
   (Generator, 20 Seeds, Kolonie, Reihenfolge der Sammler, alter Spielstand, Ernte über 2 Tage),
   `--biometest=1` (Tabelle, Arbeitszeit, Planung des Siedlers; je ein Tag Heimat/Felsen/Heimat nur zur
   Info), `--merchant=off` (keine Händler, für vergleichbare Läufe), `--goisland=N` (vor den Tests auf
@@ -891,13 +914,36 @@ sucht sich einen aus. Belohnungen sind Waren, Forschungspunkte, Einwanderer, dau
   besiedelten Insel liefert es für einen freigeschalteten Beruf, oder Jäger jagen (Fleisch, Felle).
 - **Belohnungen**: jedes Angebot eine; die drei Angebote haben verschiedene Vorlagen und möglichst
   verschiedene Arten, das leichteste bekommt Waren, höchstens eins einen Segen.
-  - Waren: `goods_budget` (25) · w · (1 + A) Gold, Menge = Budget / `price`, höchstens `goods_space`
-    (0,4) der Lagerkapazität aller Inseln für diese Ware, mindestens 3; Waren je Zeitalter in
-    `goods_by_age` (Gewürze ab Renaissance). Auf die sichtbare Insel, Überlauf auf andere (`Game.grant_reward`).
+  - Waren **passend zur Lage** (josh: „Die Mengen der Belohnungen von Quests sollten an die Situation in
+    Form von Menge und Art angepasst werden“; `QuestRewards`, `scripts/autoload/quest_rewards.gd`, Werte in
+    `goals.json` `quests.adapt`). Art aus dem Bedarf (`QuestRewards.needs`), Gewicht in Klammern:
+    Essen für weniger als 2 Tage (6, haltbarste Speise: Räucherfisch, ab Antike Brot, ab Industrie
+    Konserven), Sommer/Herbst Essen bis Winterende (Herbst 5, Sommer 3,5), Heizholz bis Winterende nach
+    Wintervorhersage (Herbst/Winter 5, Sommer 3), Schreibwaren der laufenden Forschung (3), Bedürfnisse
+    der Hausstufen, die es gibt (3; Bretter, Werkzeug, Brot, Glas, Papier, Gewürze ...), nächste Prüfung:
+    Lagerwaren und Baukosten der verlangten Häuser/Gebäude, sobald baubar oder die Forschung wählbar ist
+    (3), Kosten der drei günstigsten wählbaren Forschungen (2), Baustoffe unter 30 + 3 je Siedler (1).
+    Punkte = Gewicht x Fehlbedarf in Gold / Budget (0,5–1,5); Zufall unter allen ab 60 % des Besten.
+    Nie die Ware, die der Auftrag selbst verlangt, keine Ware doppelt in einer Runde, nie Waren, von denen
+    genug da ist (`plenty`: ein Viertel des Lagers aller Inseln und mindestens 40 + 4 je Siedler).
+    Ohne Bedarf: `goods_by_age` (Gewürze ab Renaissance) bis zum Zeitalter, nur Brauchbares (`usable`:
+    Nahrung, Baukosten oder Rohstoff freigeschalteter Gebäude, Kosten naher Forschungen, Hausbedürfnisse,
+    Schreibwaren); ist von allem genug da, gibt es Forschungspunkte statt Waren.
+    Menge: Budget `goods_budget` (25) · w · (1 + A) Gold · Siedler-Faktor clamp(P / 8, 0,5, 2) / `price`;
+    bei bekanntem Fehlbedarf 1,5-mal der Fehlbedarf, mindestens 30 % und höchstens 100 % des Budgets;
+    höchstens `goods_space` (0,4) der Lagerkapazität und 60 % des freien Platzes aller Inseln für diese
+    Ware, mindestens 3 (passt nichts, nimmt es das Dringendste trotzdem; der Rest wartet auf Platz).
+    Beispiele (2 Siedler, Steinzeit): Hunger 16 Räucherfisch, Herbst mit knappem Essen 12 Räucherfisch,
+    Herbst ohne Holz 35 Holz (Gewicht 3: 110). Anzeige mit Grund: „15 Bretter (für die Bewohner)“
+    (`reward.why`: hunger, winter, heizen, schrift, haeuser, pruefung, forschung, bauen; im Spielstand
+    optional, unbekannte fallen weg). Auf die sichtbare Insel, Überlauf auf andere (`Game.grant_reward`).
+    Fällt eine andere Belohnung aus (Segen voll, Gebäude schon frei), wird die Ersatzware erst bei der
+    Auszahlung gewählt.
   - Forschungspunkte: max(20·w, w·R). Direkt auf die laufende Forschung (`Game.add_research(p, false)`,
     also ohne Schreibwaren aus Teil E), was übrig ist oder ohne laufende Forschung in `rp_bank`; die Bank
     geht an die nächste gestartete Forschung (Meldung „Gesparte Forschungspunkte ...“).
-  - Einwanderer (ab w2): 1 (w2) oder 2 (w3), Begabung beim Angebot gewählt (`talents`, Jagd erst mit
+  - Einwanderer (ab w2, nur wenn auf den Inseln so viele Wohnplätze frei sind und das Essen für 2 Tage
+    reicht, `QuestRewards.settlers_ok`): 1 (w2) oder 2 (w3), Begabung beim Angebot gewählt (`talents`, Jagd erst mit
     Jäger), Begabung 1,5–1,8, Stufe 4 + A/2, Hunger 80, über `Game.grant_reward` (wer nicht landen kann,
     wird zu Brettern).
   - Segen (ab w2, dauerhaft, `boons` mit Obergrenze `cap`): Fischfang/Holzfällen/Steinabbau/Beerensammeln
@@ -936,7 +982,11 @@ sucht sich einen aus. Belohnungen sind Waren, Forschungspunkte, Einwanderer, dau
   lassen, einen aufgeben, „Andere Aufträge“, Winter ohne und mit Hungertod, Ablauf der Angebote.
   `--questreward=goods|research|settlers|boon|plan` erzwingt die Belohnung, `--questfast=1` jede Frist 0,3
   Tage, `--questauto=1` überspringt die Einführung und nimmt jedes erste Angebot an (z. B. mit
-  `--build=1 --research=1`). Der 20-Sekunden-Bericht hat eine Zeile „Auftraege: ...“. Bildschirmfotos:
+  `--build=1 --research=1`). `--questadapt=1` (`QuestRewardsTest`): Belohnung je Lage (Hunger, Herbst mit
+  knappem Essen, Herbst ohne Holz, Überfluss, Schreibwaren, Prüfung, Hausstufe 2, Mengen nach Siedlern,
+  Zeitalter und Platz, Einwanderer nur mit Dach, 30 Angebotsrunden ohne doppelte Ware, Spielstand),
+  druckt „Belohnung angepasst OK/FEHLER“; `--questadapt=shot --questshot=offers --panel=quests` zeigt
+  eine Belohnung mit Grund. Der 20-Sekunden-Bericht hat eine Zeile „Auftraege: ...“. Bildschirmfotos:
   `--questshot=offers|active|card` (mit `--panel=quests` das Fenster), `--panel=build --cat=nahrung` zeigt
   den Bauplan.
 
@@ -1173,7 +1223,10 @@ godot --headless --fixed-fps 60 -- --autotest=60 --scale=10 --fixture=alt.json  
 godot --headless --fixed-fps 60 -- --autotest=200 --scale=10 --writingtest=1  # Forschung braucht Tontafeln
 godot --headless --fixed-fps 60 -- --autotest=100 --scale=10 --examtest=0  # Prüfung beim Zeitalterwechsel
 godot --headless --fixed-fps 60 -- --autotest=120 --scale=10 --questtest=1  # Aufträge mit Wahl
+godot --headless --fixed-fps 60 -- --autotest=10 --scale=10 --seed=7 --questadapt=1  # Belohnungen passend zur Lage
 godot --headless --fixed-fps 60 -- --autotest=60 --scale=10 --seed=7 --integtest=1  # Zusammenspiel der Erweiterungen
+godot --headless --fixed-fps 60 -- --autotest=40 --scale=10 --fixture=sea.json --oncetest=1  # Einmal-Route hin und zurück
+godot --headless --fixed-fps 60 -- --autotest=30 --scale=10 --seed=7 --basictrade=1  # Händler mit einfachen Waren
 godot --headless --fixed-fps 60 -- --autotest=820 --scale=10 --seed=11 --bot=1 --noevents=1 --winter=normal  # Spiel-Bot v2, 4 Jahre
 #   --fixed-fps 60 vor "--" rechnet so schnell wie moeglich (gleicher Spielverlauf); --seed=N feste Insel
 #   dazu --wildlife=1: Tierbestand je Insel und Bau; --weak=1: ohne Waffenkunde (Tiere gefährlicher), Bildschirmfoto: --island=<id>, --panel=sea
