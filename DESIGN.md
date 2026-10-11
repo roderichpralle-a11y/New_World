@@ -1091,6 +1091,8 @@ Reihenfolge der Autoloads in `project.godot`: Seasons, Writing, Exams, Quests, H
   (nach den normalen Testvorbereitungen, vor der Schleife; darf `await` benutzen) und bei jedem
   20-Sekunden-Bericht `autotest_report()` (Text oder „“). So bekommen neue Systeme eigene Testschalter,
   ohne main.gd zu ändern. Systeme ticken über `Game.time_days`, nie über `Game.set_speed()`.
+- **Zeitknöpfe** oben rechts: Pause, normal, schnell (3x), sehr schnell (8x, josh 2026-10-11, Symbol
+  `sehr_schnell`); `Game.set_speed` erlaubt 0 bis 8. Schmal sind die Knöpfe 30 statt 34 px, damit die Zielkarte daneben passt.
 - **Meldungen beim Laden**: `Game.queue_note(text, icon, cat)` merkt sich Meldungen, solange das Spiel noch
   nicht sichtbar läuft (Laden, Titelbild: dort würden sie unter dem Titelbild verschwinden).
   `Game.flush_notes()` zeigt sie: in `main._on_continue` (nach dem Fenster „Neue Regeln“),

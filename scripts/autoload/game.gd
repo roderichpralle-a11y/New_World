@@ -192,7 +192,7 @@ func clock_text() -> String:
 
 
 func set_speed(s: int) -> void:
-	speed = clamp(s, 0, 3)
+	speed = clamp(s, 0, 8)  # 0 Pause, 1 normal, 3 schnell, 8 sehr schnell
 	Engine.time_scale = float(speed)
 	speed_changed.emit(speed)
 

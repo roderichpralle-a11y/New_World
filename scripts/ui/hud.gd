@@ -208,12 +208,12 @@ func _build_topbar() -> void:
 	var sh := HBoxContainer.new()
 	sh.add_theme_constant_override("separation", 4)
 	sp.add_child(sh)
-	for i in 3:
-		var icon_name: String = ["pause", "play", "schnell"][i]
+	for i in 4:  # Pause, normal, schnell (3x), sehr schnell (8x, josh 2026-10-11)
+		var icon_name: String = ["pause", "play", "schnell", "sehr_schnell"][i]
 		var b := UiTheme.button("", icon_name, 34)
 		b.toggle_mode = true
-		b.tooltip_text = [tr("Pause"), tr("Normal"), tr("Schnell (3x)")][i]
-		var spd: int = [0, 1, 3][i]
+		b.tooltip_text = [tr("Pause"), tr("Normal"), tr("Schnell (3x)"), tr("Sehr schnell (8x)")][i]
+		var spd: int = [0, 1, 3, 8][i]
 		b.pressed.connect(func(): Game.set_speed(spd))
 		sh.add_child(b)
 		_speed_btns.append([b, spd])
@@ -2721,6 +2721,12 @@ func _layout() -> void:
 	_place_bar.size.x = min(vs.x - 12, 620)
 	_place_bar.position = Vector2((vs.x - _place_bar.size.x) / 2.0, vs.y - _place_bar.size.y - 6)
 	var sp: Control = root.get_node(tr("SpeedPanel"))
+	# Schmal: vier Zeitknöpfe etwas kleiner, damit die Zielkarte daneben Platz hat
+	var narrow_top := portrait or vs.x < 760
+	for e in _speed_btns:
+		e[0].custom_minimum_size = Vector2(30, 30) if narrow_top else Vector2(34, 34)
+		e[0].reset_size()
+	sp.get_child(0).add_theme_constant_override("separation", 2 if narrow_top else 4)
 	sp.reset_size()
 	var top_h := 50.0
 	# Schmal: Jahreszeit nur als Symbol
