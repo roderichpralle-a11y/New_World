@@ -130,6 +130,7 @@ func setup(p_world: World, p_camera: GameCamera) -> void:
 	goal_card.attach_pointer(root)
 	AdminInfo.attach(self)  # Vorschläge des Verwalters (scripts/ui/admin_info.gd)
 	FestVideo.attach(self)  # Fest-Video bei jedem Fest (scripts/ui/fest_video.gd)
+	ProtestVideo.attach(self)  # Protest-Video bei Protest gegen Überstunden (scripts/ui/protest_video.gd)
 	_layout()
 	_watch_updates.call_deferred()
 

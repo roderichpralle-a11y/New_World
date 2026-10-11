@@ -25,6 +25,8 @@ extends Node
 
 signal changed
 signal proposal(job: String, text: String)
+## Die Leute eines Berufs hören unter Protest mit den Überstunden auf (text: übersetzter Grund, ProtestVideo).
+signal protest_started(job: String, text: String)
 
 const OFFICE := "verwaltung"
 const JOB := "verwalter"
@@ -221,6 +223,7 @@ func _tick() -> void:
 			orders[job].ot = false
 			protest[job] = Game.time_days + _c("protest_days", 6.0)
 			Game.notify(tr("Die Leute im Beruf %s hören unter Protest mit den Überstunden auf. Ihre Laune sinkt.") % _name(job), "wissen", "verwaltung")
+			protest_started.emit(job, tr("Die Leute im Beruf %s protestieren gegen zu lange Überstunden.") % _name(job))
 			changed.emit()
 	if not active():
 		return
