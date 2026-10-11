@@ -76,9 +76,62 @@ def tablet_works():
     return img
 
 
+def office():
+    """Verwaltung (2x2): Backsteinhaus mit hellem Obergeschoss, rotem Dach, Uhr im Giebel,
+    Fahne, Säulen am Eingang und einem Aushang mit Dienstplan."""
+    from gen_art import brick_wall, plaster_wall, tile_roof, door, window, STONE, ROOF_RED
+    img = new(64, 64)
+    brick_wall(img, 8, 40, 48, 20)
+    plaster_wall(img, 8, 28, 48, 12, beams=False)
+    for x in range(7, 57):  # Gesims
+        put(img, x, 39, STONE[3])
+        put(img, x, 40, STONE[1])
+    tile_roof(img, 5, 8, 54, 21, ROOF_RED)
+    # Uhr im Giebel
+    for y in range(14, 23):
+        for x in range(27, 37):
+            d = (x + 0.5 - 32) ** 2 + (y + 0.5 - 18.5) ** 2
+            if d <= 20:
+                put(img, x, y, WOOD[0] if d > 13 else (246, 240, 220))
+    for y in range(15, 19):
+        put(img, 32, y, (40, 30, 30))
+    for x in range(32, 35):
+        put(img, x, 18, (40, 30, 30))
+    # Fahne auf dem First
+    for y in range(0, 9):
+        put(img, 31, y, WOOD[1])
+    for y in range(1, 5):
+        for x in range(32, 32 + 9 - y):
+            put(img, x, y, (60, 100, 190) if y != 3 else (240, 210, 90))
+    # Fenster oben, Säulen und Tür unten
+    for x0 in (12, 22, 36, 46):
+        window(img, x0, 30, 6, 7)
+    for x0 in (20, 40):
+        for y in range(42, 59):
+            for x in range(x0, x0 + 3):
+                put(img, x, y, (236, 232, 222) if x < x0 + 2 else (196, 190, 180))
+    door(img, 27, 45, 10, 15, arch=True)
+    window(img, 11, 45, 6, 7)
+    window(img, 47, 45, 6, 7)
+    # Aushang (Dienstplan) neben der Tür
+    for y in range(47, 55):
+        for x in range(13, 18):
+            put(img, x, y, (240, 232, 200) if y > 47 else WOOD[1])
+    for y in range(49, 54, 2):
+        for x in range(14, 17):
+            put(img, x, y, (90, 80, 90))
+    # Treppe
+    for i, y in enumerate(range(59, 62)):
+        for x in range(24 - i, 40 + i):
+            put(img, x, y, STONE[3] if i % 2 == 0 else STONE[2])
+    ground_line(img, 6, 60)
+    add_outline(img)
+    return img
+
+
 def challenge_buildings():
-    """Zelle 51 (Tafelmacherei) in buildings.png. Zelle 52 war der Brunnen (entfernt) und bleibt leer."""
-    return [tablet_works()]
+    """Zelle 51 (Tafelmacherei) und 52 (Verwaltung; frueher Brunnen) in buildings.png."""
+    return [tablet_works(), office()]
 
 
 # ------------------------------------------------------------------ Natur

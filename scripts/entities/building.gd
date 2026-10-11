@@ -16,6 +16,7 @@ var farm_time: float = 0.0  # Spielzeit der Aussaat
 var reserved_by: int = 0
 var occupants: Array = []  # Siedler-IDs, die hier arbeiten (Produktion, Forschung)
 var paused: bool = false
+var adm: bool = false  # Verwaltung: Vertretung erlaubt (Admin)
 var ship_choice: String = "boot"  # Werft: welches Schiff als naechstes gebaut wird
 var ship_wip: String = ""  # Werft: Schiff, fuer das die Rohstoffe schon genommen sind
 var active_until: float = 0.0  # Echtzeit, bis zu der die Werkstatt als tr("in Betrieb") gilt
@@ -404,5 +405,5 @@ func serialize() -> Dictionary:
 	return {
 		"id": id, "type": type, "x": cell.x, "y": cell.y, "complete": complete,
 		"progress": progress, "delivered": delivered,
-		"farm_state": farm_state, "farm_time": farm_time, "paused": paused, "ship": ship_choice,
+		"farm_state": farm_state, "farm_time": farm_time, "paused": paused, "ship": ship_choice, "adm": adm,
 	}

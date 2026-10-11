@@ -128,6 +128,7 @@ func setup(p_world: World, p_camera: GameCamera) -> void:
 	_update_sea_button()
 	_refresh_top()
 	goal_card.attach_pointer(root)
+	AdminInfo.attach(self)  # Vorschläge des Verwalters (scripts/ui/admin_info.gd)
 	FestVideo.attach(self)  # Fest-Video bei jedem Fest (scripts/ui/fest_video.gd)
 	_layout()
 	_watch_updates.call_deferred()
@@ -431,8 +432,11 @@ func _fill_build_list() -> void:
 		tv.add_child(UiTheme.label(def.name, 16, UiTheme.TEXT, true))
 		var desc: String = def.desc
 		desc += NeedsInfo.build_desc(type)  # Bedürfnisstufen: Hausstufe bzw. Arbeiterstufe
+		var taken: bool = unlocked and def.get("unique", false) and Admin.exists(type)
 		if not unlocked:
 			desc = tr("Benötigt Forschung: %s") % Data.techs.get(def.requires, {}).get("name", "?")
+		elif taken:
+			desc = tr("Gibt es nur einmal und steht schon.") + " " + desc
 		elif Quests.plan_only(type):
 			desc = tr("Bauplan aus einem Auftrag.") + " " + desc
 		b.custom_minimum_size.y = _row_height(desc, 30)
@@ -451,6 +455,8 @@ func _fill_build_list() -> void:
 			var enough := Game.amount(res) >= int(def.cost[res])
 			cost.add_child(UiTheme.label(str(int(def.cost[res])), 14, UiTheme.TEXT if enough else UiTheme.BAD))
 		h.add_child(cost)
+		if taken:
+			b.disabled = true
 		if not unlocked:
 			b.disabled = true
 			ic.modulate = Color(0.2, 0.15, 0.15, 0.6)
@@ -1979,7 +1985,7 @@ func _build_help_panel() -> void:
 	var v: VBoxContainer = r[1]
 	var rt := RichTextLabel.new()
 	rt.bbcode_enabled = true
-	rt.text = tr(HELP_TEXT) + "\n\n" + tr(CHALLENGE_HELP) + TradePanel.help_text() + Extras.help_text()  # + Erweiterung, Händler, Kohle und Kälte
+	rt.text = tr(HELP_TEXT) + "\n\n" + tr(CHALLENGE_HELP) + TradePanel.help_text() + Extras.help_text() + Admin.help_text()  # + Erweiterung, Händler, Kohle und Kälte
 	rt.custom_minimum_size = Vector2(360, 300)
 	rt.scroll_active = true
 	v.add_child(rt)
@@ -2288,6 +2294,8 @@ func _info_building(b: Building) -> void:
 		_info_production(b)
 	if b.complete and b.def.has("research"):
 		_info_research(b)
+	if b.def.get("office", false):
+		AdminInfo.office_rows(self, b)  # Verwaltung: Verwalter und Anordnungen
 	if b.def.has("upgrade"):
 		_info_upgrade(b)
 	var mv := UiTheme.button(tr("Verschieben"), "hammer", 36)
@@ -2417,6 +2425,7 @@ func _info_production(b: Building) -> void:
 		b.paused = not b.paused
 		_rebuild_info())
 	_info_box.add_child(pb)
+	AdminInfo.workshop_rows(self, b)  # Verwaltung: Vertretung
 
 
 func _info_research(b: Building) -> void:

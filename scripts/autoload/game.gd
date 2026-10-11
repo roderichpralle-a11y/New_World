@@ -563,7 +563,7 @@ const NOTIFY_CATS := {"tag": "Tag und Jahreszeit", "siedler": "Siedler und Nachw
 	"gesundheit": "Krankheiten", "tod": "Todesfälle und verlorene Inseln", "bauen": "Bauen",
 	"lager": "Lager, Vorräte und Winter", "forschung": "Forschung und Zeitalter", "see": "Seefahrt",
 	"tiere": "Tiere und Jagd", "ereignis": "Ereignisse und Händler", "ki": "KI-Steuerung",
-	"ziel": "Meldungen zu Aufträgen"}
+	"ziel": "Meldungen zu Aufträgen", "verwaltung": "Verwaltung und Arbeitszeit"}
 ## Art einer Meldung nach ihrem Symbol, wenn der Aufruf keine Art nennt
 const NOTIFY_ICON_CAT := {"": "tag", "sonne": "tag", "herz": "siedler", "person": "siedler",
 	"abriss": "tod", "hammer": "bauen", "haus": "lager", "holz": "lager", "weizen": "lager",

@@ -149,6 +149,7 @@ func build_from_save(w: Dictionary, m: Dictionary) -> void:
 		bld.farm_state = b.get("farm_state", "fallow")
 		bld.farm_time = float(b.get("farm_time", 0.0))
 		bld.paused = bool(b.get("paused", false))
+		bld.adm = bool(b.get("adm", false))
 		if Data.ships.has(b.get("ship", "")):
 			bld.ship_choice = b.ship
 		bld.refresh()
@@ -459,6 +460,8 @@ func place_building(type: String, c: Vector2i, complete: bool, bid: int = 0) -> 
 ## ignore: Gebaeude, dessen eigene Felder als frei gelten (beim Verschieben).
 func can_place(type: String, c: Vector2i, ignore = null) -> bool:
 	var def: Dictionary = Data.buildings[type]
+	if def.get("unique", false) and Admin.exists(type, ignore):  # z. B. Verwaltung: nur eine im Spiel
+		return false
 	for y in int(def.size[1]):
 		for x in int(def.size[0]):
 			var cc := c + Vector2i(x, y)
@@ -606,6 +609,35 @@ func find_workshop(kind: String, from: Vector2i, sid: int):
 		var score := scarce * 4.0 + Vector2(b.cell - from).length()
 		if score < best_score:
 			best_score = score
+			best = b
+	return best
+
+
+## Vertretung (Admin): nächste leere Werkstatt mit eingeschalteter Vertretung, in der gerade die
+## Fachkraft fehlt; nicht für Werkstätten des eigenen Berufs (die nimmt der Siedler sowieso).
+func find_standin(from: Vector2i, sid: int, my_job: String):
+	if not Admin.active():
+		return null
+	var best = null
+	var best_d := INF
+	var short := {}
+	for b in buildings:
+		if not b.adm or not b.complete or not b.occupants.is_empty() or b.free_slots() <= 0:
+			continue
+		var kind: String = b.prod_def().get("job", "")
+		if kind == "" or Admin.KIND_JOB.get(kind, "") == my_job or b.prod_blocker() != "":
+			continue
+		if _unreachable.has(b) and _unreachable[b] > Game.time_days:
+			continue
+		if not pool_allows(b, sid):
+			continue
+		if not short.has(kind):
+			short[kind] = Admin.needs_standin(self, kind)
+		if not short[kind]:
+			continue
+		var d := Vector2(b.cell - from).length()
+		if d < best_d:
+			best_d = d
 			best = b
 	return best
 
