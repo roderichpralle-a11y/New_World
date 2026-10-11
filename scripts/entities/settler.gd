@@ -65,6 +65,12 @@ var _body: Node2D
 var _layers: Dictionary = {}
 var _tool: Sprite2D
 var _carry_icon: Sprite2D
+## Schubkarre (mit Handkarren beim Transportieren): _cart ganze Karre hinter der Ware,
+## _cart_front vordere Wannenwand davor; _cart_roll zaehlt Rad-Bilder nach gelaufener Strecke.
+var _cart: Sprite2D
+var _cart_front: Sprite2D
+var _cart_roll: float = 0.0
+var _cart_last: Vector2
 var _bubble: Sprite2D
 var _zzz: Label
 var _shadow: Sprite2D
@@ -143,11 +149,17 @@ func _build_visual() -> void:
 	_tool.position = Vector2(5, -8)
 	_tool.offset = Vector2(4, -4)
 	_body.add_child(_tool)
+	_cart = Sprite2D.new()
+	_cart.visible = false
+	_body.add_child(_cart)
 	_carry_icon = Sprite2D.new()
 	_carry_icon.position = Vector2(0, -27)
 	_carry_icon.scale = Vector2(0.75, 0.75)
 	_carry_icon.visible = false
 	_body.add_child(_carry_icon)
+	_cart_front = Sprite2D.new()
+	_cart_front.visible = false
+	_body.add_child(_cart_front)
 	_bubble = Sprite2D.new()
 	_bubble.position = Vector2(8, -28)
 	_bubble.visible = false
@@ -1316,14 +1328,52 @@ func _animate(delta: float) -> void:
 	_hurt -= delta
 	_body.modulate = Color(1, 0.5, 0.5) if _hurt > 0.0 else Color.WHITE
 	_carry_icon.visible = carry_n > 0 and not sleeping
+	var pushing := _animate_cart(frame)
 	if _carry_icon.visible:
 		_carry_icon.texture = Data.icon(Data.resources.get(carry_res, {}).get("icon", carry_res))
-		_carry_icon.position.y = -27 + sin(_anim_t * 4.0) * 0.6
+		if not pushing:
+			_carry_icon.position = Vector2(0, -27 + sin(_anim_t * 4.0) * 0.6)
+			_carry_icon.scale = Vector2(0.75, 0.75)
+			_carry_icon.show_behind_parent = false
 	_bubble.visible = hunger < 20.0 and not sleeping and int(_anim_t * 2.0) % 3 != 0
 	_zzz.visible = sleeping and visible and _body.rotation != 0
 	if _zzz.visible:
 		_zzz.position.y = -30 + sin(_anim_t * 2.0) * 2.0
 	queue_redraw()
+
+
+## Mit Handkarren schieben Erwachsene ihre Last in einer Schubkarre vor sich her: seitlich voraus,
+## nach unten vor dem Koerper, nach oben dahinter. Die Ware liegt dann in der Wanne. Das Rad dreht
+## sich nach der gelaufenen Strecke, die Karre wippt mit den Schritten (frame 1 und 3).
+func _animate_cart(frame: int) -> bool:
+	var pushing := pushes_cart()
+	_cart.visible = pushing
+	_cart_front.visible = pushing
+	if pushing:
+		_cart_roll += minf(position.distance_to(_cart_last) / 1.5, 1.0)
+		var fl := _flip and _dir == DIR_SIDE
+		var sx := -1.0 if fl else 1.0
+		var bob := Vector2(0, -1 if frame % 2 == 1 else 0)
+		var p: Vector2 = Data.CART_POS[_dir]
+		var wheel := int(_cart_roll) % 4
+		_cart.texture = Data.cart_tex(_dir, wheel)
+		_cart_front.texture = Data.cart_tex(_dir, wheel, true)
+		# Nach oben hinter dem Koerper: vor den Siedler-Bildern zeichnen (z_index -1 laege unter dem Boden)
+		for c in [_cart, _carry_icon, _cart_front]:
+			c.show_behind_parent = _dir == DIR_UP
+		for c in [_cart, _cart_front]:
+			c.position = Vector2(p.x * sx, p.y) + bob
+			c.flip_h = fl
+		var ld: Array = Data.CART_LOAD[_dir]
+		_carry_icon.position = Vector2(ld[0].x * sx, ld[0].y) + bob
+		_carry_icon.scale = Vector2(ld[1], ld[1])
+	_cart_last = position
+	return pushing
+
+
+## Schiebt gerade eine Schubkarre (Handkarren erforscht, erwachsen, laeuft mit Last).
+func pushes_cart() -> bool:
+	return carry_n > 0 and _moving and not sleeping and is_adult() and Game.is_researched("handkarren")
 
 
 func _draw() -> void:

@@ -27,6 +27,7 @@ var tex_ui: Texture2D = preload("res://assets/sprites/ui.png")
 var tex_objects2: Texture2D = preload("res://assets/sprites/objects2.png")
 var tex_animals: Texture2D = preload("res://assets/sprites/animals.png")
 var tex_objects3: Texture2D = preload("res://assets/sprites/objects3.png")
+var tex_cart: Texture2D = preload("res://assets/sprites/cart.png")
 var font_regular: Font = preload("res://assets/fonts/pixelify-sans-latin-400-normal.woff2")
 var font_bold: Font = preload("res://assets/fonts/pixelify-sans-latin-700-normal.woff2")
 
@@ -90,6 +91,14 @@ static func _object3_regions() -> Dictionary:
 const ANIMAL_CELL := 24
 ## Zeilen in animals.png fuer Figuren, die nicht in animals.json stehen (Piraten: events.json).
 const ANIMAL_ROWS := {"pirat": 3}
+## Schubkarre in cart.png (tools/gen_art_cart.py): Zellen 24x24, Spalten = 4 Rad-Bilder, Zeilen
+## 0-2 ganze Karre je Siedler-Richtung (unten, oben, seitlich nach rechts), 3-5 nur die vordere
+## Wannenwand, die ueber die Ware gelegt wird.
+const CART_CELL := 24
+## Bildmitte der Karre relativ zu den Fuessen des Siedlers je Richtung (seitlich: x gespiegelt nach links)
+const CART_POS := [Vector2(0, 0), Vector2(0, -20), Vector2(10, -8)]
+## Ware in der Wanne: [Mitte relativ zu den Fuessen, Groesse]
+const CART_LOAD := [[Vector2(0, -4), 0.625], [Vector2(0, -24), 0.5], [Vector2(11, -14), 0.625]]
 const TOOL_INDEX := {"axe": 0, "pick": 1, "basket": 2, "rod": 3, "hammer": 4, "sickle": 5,
 	"spoon": 6, "book": 7, "shovel": 8, "spear": 9}
 
@@ -218,6 +227,18 @@ func tool_tex(name: String) -> AtlasTexture:
 	var at := AtlasTexture.new()
 	at.atlas = tex_tools
 	at.region = Rect2(16 * int(TOOL_INDEX.get(name, 0)), 0, 16, 16)
+	_cache[key] = at
+	return at
+
+
+## Schubkarre: Richtung (Settler.DIR_*), Rad-Bild 0-3, front = nur die vordere Wannenwand.
+func cart_tex(dir: int, frame: int, front: bool = false) -> AtlasTexture:
+	var key := "c:%d:%d:%s" % [dir, frame, front]
+	if _cache.has(key):
+		return _cache[key]
+	var at := AtlasTexture.new()
+	at.atlas = tex_cart
+	at.region = Rect2((frame % 4) * CART_CELL, (dir + (3 if front else 0)) * CART_CELL, CART_CELL, CART_CELL)
 	_cache[key] = at
 	return at
 

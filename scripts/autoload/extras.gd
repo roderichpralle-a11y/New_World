@@ -255,8 +255,9 @@ static func free_spot(w, type: String):
 
 # ---------------------------------------------------------------- Selbsttest
 ## --coaltest=1 Kohle vor Holz, --freezetest=1 Erfrieren (mit --season=3),
-## --tutdone=1 Einführung zu Ende spielen (Belohnung), --foodorder=1 haltbares Essen zuerst.
-func autotest_setup(args: Dictionary, _main) -> void:
+## --tutdone=1 Einführung zu Ende spielen (Belohnung), --foodorder=1 haltbares Essen zuerst,
+## --cartshot=1 Schubkarren mit Handkarren (scripts/world/cart_test.gd, Bild mit --shot).
+func autotest_setup(args: Dictionary, main) -> void:
 	_args = args
 	var w = Game.world
 	if args.has("coaltest"):
@@ -267,6 +268,8 @@ func autotest_setup(args: Dictionary, _main) -> void:
 		_food_test(w)
 	if args.has("tutdone"):
 		_tut_test()
+	if args.has("cartshot"):
+		await CartTest.run(main, args)
 
 
 func autotest_report() -> String:
