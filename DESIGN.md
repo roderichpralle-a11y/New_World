@@ -1091,6 +1091,8 @@ Reihenfolge der Autoloads in `project.godot`: Seasons, Writing, Exams, Quests, H
   (nach den normalen Testvorbereitungen, vor der Schleife; darf `await` benutzen) und bei jedem
   20-Sekunden-Bericht `autotest_report()` (Text oder „“). So bekommen neue Systeme eigene Testschalter,
   ohne main.gd zu ändern. Systeme ticken über `Game.time_days`, nie über `Game.set_speed()`.
+- **Zeitknöpfe** oben rechts: Pause, normal, schnell (3x), sehr schnell (8x, josh 2026-10-11, Symbol
+  `sehr_schnell`); `Game.set_speed` erlaubt 0 bis 8. Schmal sind die Knöpfe 30 statt 34 px, damit die Zielkarte daneben passt.
 - **Meldungen beim Laden**: `Game.queue_note(text, icon, cat)` merkt sich Meldungen, solange das Spiel noch
   nicht sichtbar läuft (Laden, Titelbild: dort würden sie unter dem Titelbild verschwinden).
   `Game.flush_notes()` zeigt sie: in `main._on_continue` (nach dem Fenster „Neue Regeln“),
@@ -1252,6 +1254,33 @@ oder „neu“; danach heißen der Spielstand-Platz (`slot_<tag>`) und die Rekor
 - Neues Tier: Eintrag in `animals.json`, Zeile in `gen_art_sea.gen_animals`, Bau in `nodes.json`
   mit `spawns`.
 
+## Verwaltung (josh 2026-10-11, `scripts/autoload/admin.gd`, `scripts/ui/admin_info.gd`)
+
+- **Gebäude „Verwaltung“** (`verwaltung`, Gelehrsamkeit, 2x2, Bild `office` in Zelle 52 von buildings.png,
+  `tools/gen_art_challenge.py`): `"unique": true` heißt nur eins im ganzen Spiel (`World.can_place` über
+  `Admin.exists`, auch Baustellen; in der Bauliste dann gesperrt). **Beruf „Verwalter“**: nur einer;
+  `Settler.set_job` ruft `Admin.claim_manager`, der bisherige Verwalter wird „Frei“. Der Verwalter
+  arbeitet tagsüber in der Verwaltung seiner Insel (Wissen-Erfahrung), sonst hilft er aus. Die KI-Steuerung
+  zieht ihn nie ab. `Admin.active()`: fertige Verwaltung und erwachsener Verwalter (irgendwo).
+- **Vertretung** (`Building.adm`, im Spielstand „adm“): Schalter im Infofenster jeder Werkstatt, nur wenn
+  die Verwaltung arbeitet. `World.find_standin` gibt einem Siedler, der in seinem Beruf nichts zu tun hat
+  (`_plan_free_gather`, nach Nahrung bei Mangel), die nächste leere Werkstatt mit Vertretung, wenn dort
+  mehr solche Werkstätten leer stehen, als Fachkräfte gerade da sind (`Admin.needs_standin`: wach, keine
+  Pause, nicht krank im Bett, nicht schon in einer Werkstatt). Ein Arbeitsgang, dann plant er neu.
+- **Meldung**: alle 0,25 Tage zählt der Verwalter je Werkstattberuf (Koch, Handwerker, Steinmetz)
+  Werkstätten, die arbeiten könnten, und Leute; mehr Werkstätten als Leute → Meldung (Art
+  „verwaltung“, höchstens alle 2 Tage je Beruf) und Fenster mit „Überstunden“, „Schichtarbeit“, „Nichts
+  anordnen“ (Zeit springt auf normal). Sind beide schon angeordnet: Meldung „mehr Siedler einteilen“.
+- **Anordnungen je Beruf** (Infofenster der Verwaltung, `Admin.orders`): Überstunden = keine
+  Freizeitpausen; nach `overtime_years` (1) Jahr am Stück aus, Protest `protest_days` (6) Tage mit
+  `protest_mood` (−15) Laune, so lange keine neuen Überstunden. Schichtarbeit = jede Nacht arbeitet die
+  Hälfte durch (`Admin.night_worker`: Siedler-ID plus Nachtnummer gerade, wechselt jede Nacht;
+  `Settler._sleep_time`), alle mit dem Beruf haben `shift_mood` (−20, eine Laune-Stufe) Laune.
+  Werte in `data/admin.json`. Spielstand oben „admin“ = {orders, protest, reported}; alte Spielstände:
+  nichts angeordnet. Nur normale Version.
+- **Test** `--admintest=1` (`admin_test.gd`): nur eine Verwaltung, nur ein Verwalter, Meldung, Vertretung,
+  keine Pause bei Überstunden, Protest nach einem Jahr, Schicht nachts, Laune, Spielstand.
+
 ## Testen
 
 ```
@@ -1278,6 +1307,7 @@ godot --headless --fixed-fps 60 -- --autotest=40 --scale=10 --moodtest=1  # Unzu
 godot --headless --fixed-fps 60 -- --autotest=10 --scale=10 --seed=7 --questadapt=1  # Belohnungen passend zur Lage
 godot --headless --fixed-fps 60 -- --autotest=60 --scale=10 --seed=7 --integtest=1  # Zusammenspiel der Erweiterungen
 godot --headless --fixed-fps 60 -- --autotest=20 --scale=10 --talenttest=1  # Talente: Bonus, Sterne, Spalte (Spalte nur mit Fenster)
+godot --headless --fixed-fps 60 -- --autotest=30 --scale=10 --admintest=1  # Verwaltung, Vertretung, Überstunden, Schicht (Bild: --adminshot=office|workshop|proposal)
 godot --headless --fixed-fps 60 -- --autotest=40 --scale=10 --fixture=sea.json --oncetest=1  # Einmal-Route hin und zurück
 godot --headless --fixed-fps 60 -- --autotest=30 --scale=10 --seed=7 --basictrade=1  # Händler mit einfachen Waren
 godot --headless --fixed-fps 60 -- --autotest=820 --scale=10 --seed=11 --bot=1 --noevents=1 --winter=normal  # Spiel-Bot v2, 4 Jahre

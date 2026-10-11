@@ -128,6 +128,7 @@ func setup(p_world: World, p_camera: GameCamera) -> void:
 	_update_sea_button()
 	_refresh_top()
 	goal_card.attach_pointer(root)
+	AdminInfo.attach(self)  # Vorschläge des Verwalters (scripts/ui/admin_info.gd)
 	FestVideo.attach(self)  # Fest-Video bei jedem Fest (scripts/ui/fest_video.gd)
 	_layout()
 	_watch_updates.call_deferred()
@@ -207,12 +208,12 @@ func _build_topbar() -> void:
 	var sh := HBoxContainer.new()
 	sh.add_theme_constant_override("separation", 4)
 	sp.add_child(sh)
-	for i in 3:
-		var icon_name: String = ["pause", "play", "schnell"][i]
+	for i in 4:  # Pause, normal, schnell (3x), sehr schnell (8x, josh 2026-10-11)
+		var icon_name: String = ["pause", "play", "schnell", "sehr_schnell"][i]
 		var b := UiTheme.button("", icon_name, 34)
 		b.toggle_mode = true
-		b.tooltip_text = [tr("Pause"), tr("Normal"), tr("Schnell (3x)")][i]
-		var spd: int = [0, 1, 3][i]
+		b.tooltip_text = [tr("Pause"), tr("Normal"), tr("Schnell (3x)"), tr("Sehr schnell (8x)")][i]
+		var spd: int = [0, 1, 3, 8][i]
 		b.pressed.connect(func(): Game.set_speed(spd))
 		sh.add_child(b)
 		_speed_btns.append([b, spd])
@@ -431,8 +432,11 @@ func _fill_build_list() -> void:
 		tv.add_child(UiTheme.label(def.name, 16, UiTheme.TEXT, true))
 		var desc: String = def.desc
 		desc += NeedsInfo.build_desc(type)  # Bedürfnisstufen: Hausstufe bzw. Arbeiterstufe
+		var taken: bool = unlocked and def.get("unique", false) and Admin.exists(type)
 		if not unlocked:
 			desc = tr("Benötigt Forschung: %s") % Data.techs.get(def.requires, {}).get("name", "?")
+		elif taken:
+			desc = tr("Gibt es nur einmal und steht schon.") + " " + desc
 		elif Quests.plan_only(type):
 			desc = tr("Bauplan aus einem Auftrag.") + " " + desc
 		b.custom_minimum_size.y = _row_height(desc, 30)
@@ -451,6 +455,8 @@ func _fill_build_list() -> void:
 			var enough := Game.amount(res) >= int(def.cost[res])
 			cost.add_child(UiTheme.label(str(int(def.cost[res])), 14, UiTheme.TEXT if enough else UiTheme.BAD))
 		h.add_child(cost)
+		if taken:
+			b.disabled = true
 		if not unlocked:
 			b.disabled = true
 			ic.modulate = Color(0.2, 0.15, 0.15, 0.6)
@@ -1979,7 +1985,7 @@ func _build_help_panel() -> void:
 	var v: VBoxContainer = r[1]
 	var rt := RichTextLabel.new()
 	rt.bbcode_enabled = true
-	rt.text = tr(HELP_TEXT) + "\n\n" + tr(CHALLENGE_HELP) + TradePanel.help_text() + Extras.help_text()  # + Erweiterung, Händler, Kohle und Kälte
+	rt.text = tr(HELP_TEXT) + "\n\n" + tr(CHALLENGE_HELP) + TradePanel.help_text() + Extras.help_text() + Admin.help_text()  # + Erweiterung, Händler, Kohle und Kälte
 	rt.custom_minimum_size = Vector2(360, 300)
 	rt.scroll_active = true
 	v.add_child(rt)
@@ -2288,6 +2294,8 @@ func _info_building(b: Building) -> void:
 		_info_production(b)
 	if b.complete and b.def.has("research"):
 		_info_research(b)
+	if b.def.get("office", false):
+		AdminInfo.office_rows(self, b)  # Verwaltung: Verwalter und Anordnungen
 	if b.def.has("upgrade"):
 		_info_upgrade(b)
 	var mv := UiTheme.button(tr("Verschieben"), "hammer", 36)
@@ -2417,6 +2425,7 @@ func _info_production(b: Building) -> void:
 		b.paused = not b.paused
 		_rebuild_info())
 	_info_box.add_child(pb)
+	AdminInfo.workshop_rows(self, b)  # Verwaltung: Vertretung
 
 
 func _info_research(b: Building) -> void:
@@ -2712,6 +2721,12 @@ func _layout() -> void:
 	_place_bar.size.x = min(vs.x - 12, 620)
 	_place_bar.position = Vector2((vs.x - _place_bar.size.x) / 2.0, vs.y - _place_bar.size.y - 6)
 	var sp: Control = root.get_node(tr("SpeedPanel"))
+	# Schmal: vier Zeitknöpfe etwas kleiner, damit die Zielkarte daneben Platz hat
+	var narrow_top := portrait or vs.x < 760
+	for e in _speed_btns:
+		e[0].custom_minimum_size = Vector2(30, 30) if narrow_top else Vector2(34, 34)
+		e[0].reset_size()
+	sp.get_child(0).add_theme_constant_override("separation", 2 if narrow_top else 4)
 	sp.reset_size()
 	var top_h := 50.0
 	# Schmal: Jahreszeit nur als Symbol

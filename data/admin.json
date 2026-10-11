@@ -1,0 +1,10 @@
+{
+  "_info": "Verwaltung und Verwalter (scripts/autoload/admin.gd). Zeiten in Spieltagen.",
+  "check_every": 0.25,
+  "report_every": 2.0,
+  "overtime_years": 1.0,
+  "protest_days": 6.0,
+  "protest_mood": -15.0,
+  "shift_mood": -20.0,
+  "office_work_time": 3.0
+}

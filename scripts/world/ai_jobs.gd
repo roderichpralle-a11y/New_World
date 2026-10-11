@@ -22,7 +22,7 @@ static func tick(w) -> void:
 		pick = _best_for(free, want)
 	elif want in FOOD_JOBS and Game.total_food(w) < adults.size() * 2:
 		# Hungersnot: einen Arbeiter aus der Werkstatt oder Forschung abziehen
-		var others: Array = adults.filter(func(s): return not s.job in FOOD_JOBS and s.job != "baumeister" and s.job != "seemann")
+		var others: Array = adults.filter(func(s): return not s.job in FOOD_JOBS and s.job != "baumeister" and s.job != "seemann" and s.job != Admin.JOB)
 		if not others.is_empty():
 			pick = _best_for(others, want)
 	if pick == null:

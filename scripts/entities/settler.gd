@@ -221,6 +221,8 @@ func set_job(j: String) -> void:
 	job = j
 	busy = {}
 	abort_plan()
+	if j == Admin.JOB:
+		Admin.claim_manager(self)  # nur ein Verwalter
 
 
 func job_name() -> String:
@@ -317,7 +319,7 @@ func _think() -> void:
 	_release()
 	var prev_kind := _stat_kind
 	_stat_kind = "needs"
-	if sleeping and (Game.is_night()):
+	if sleeping and _sleep_time():
 		return
 	# Schwer krank: im Bett bleiben, nur zum Essen aufstehen
 	if mind.needs_bed() and not (hunger < float(Data.bal("eat_below")) and Game.total_food(world) > 0):
@@ -342,8 +344,8 @@ func _think() -> void:
 	if hunger < float(Data.bal("eat_below")) * 0.6 and Game.total_food(world) <= 0 and not Game.is_night():
 		if _plan_forage():
 			return
-	# 3. Schlafen
-	if Game.is_night():
+	# 3. Schlafen (Schichtarbeit: jede Nacht arbeitet die Hälfte durch)
+	if _sleep_time():
 		_plan_sleep()
 		return
 	# 4. Kinder spielen
@@ -355,7 +357,7 @@ func _think() -> void:
 			_plan_wander(5, tr("Spielt"))
 		return
 	# 5. Freizeit (erst wenn die Siedlung weiter entwickelt ist)
-	if mind.wants_break() and _plan_leisure():
+	if mind.wants_break() and not Admin.overtime(job) and _plan_leisure():  # Überstunden: keine Pausen
 		return
 	# 6. Arbeit
 	if _plan_work():
@@ -660,6 +662,11 @@ func _plan_work() -> bool:
 				return true
 			_stat_kind = "other"
 			return _plan_free_gather()
+		"verwalter":
+			if _plan_office():
+				return true
+			_stat_kind = "other"
+			return _plan_free_gather()
 		"jaeger":
 			if Data.job_unlocked("jaeger"):
 				if _plan_hunt() or _plan_gather(["beute"]):
@@ -687,6 +694,8 @@ func _plan_free_gather() -> bool:
 	if Game.total_food(world) < pop * 10:
 		if _plan_farm() or _plan_gather(["beute", "busch", "palme", "pilzkreis", "fischgrund"]):
 			return true
+	if _plan_standin():  # Verwaltung: in einer Werkstatt aushelfen, deren Fachkraft gerade fehlt
+		return true
 	# Was am knappsten ist (Holz wird doppelt gewichtet, weil es ueberall gebraucht wird)
 	var wood := Game.amount("holz", world) / 2.0
 	var stone := float(Game.amount("stein", world))
@@ -904,6 +913,44 @@ func _plan_production(kind: String) -> bool:
 	var b = world.find_workshop(kind, cell, id)
 	if b == null:
 		return false
+	return _plan_production_at(b)
+
+
+## Vertretung (Admin): einen Arbeitsgang in einer fremden Werkstatt.
+func _plan_standin() -> bool:
+	if not is_adult():
+		return false
+	var b = world.find_standin(cell, id, job)
+	if b == null or not _plan_production_at(b):
+		return false
+	_stat_kind = "other"
+	activity = tr("Vertritt: %s") % activity
+	return true
+
+
+## Verwalter: arbeitet in der Verwaltung (auf seiner Insel), sonst hilft er aus.
+func _plan_office() -> bool:
+	var b = null
+	for x in world.buildings:
+		if x.type == Admin.OFFICE and x.complete:
+			b = x
+	if b == null or Game.is_night():
+		return false
+	if not _push_move_to([b.entrance_cell()], false) and not _push_move_to(b.cells()):
+		world.mark_unreachable(b)
+		return false
+	_plan.append({"a": "work", "t": float(Admin.cfg.get("office_work_time", 3.0)), "act": tr("Verwaltet"), "tool": "book",
+		"face": b.position, "done": gain_xp.bind("wissen", 0.3)})
+	activity = tr("Verwaltet (%s)") % b.def.name
+	return true
+
+
+## Schlafenszeit? Nachts, außer bei Schichtarbeit für die Hälfte, die diese Nacht durcharbeitet.
+func _sleep_time() -> bool:
+	return Game.is_night() and not Admin.night_worker(self)
+
+
+func _plan_production_at(b) -> bool:
 	if not _push_move_to([b.entrance_cell()], false) and not _push_move_to(b.cells()):
 		world.mark_unreachable(b)
 		return false
