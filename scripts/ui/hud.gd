@@ -2237,9 +2237,10 @@ func _info_building(b: Building) -> void:
 			h.add_child(UiTheme.label("%s: %d / %d" % [Data.resource_name(res), int(b.delivered.get(res, 0)), int(b.def.cost[res])], 14))
 			_info_box.add_child(h)
 		_bar_row(tr("Fortschritt"), b.build_fraction() * 100.0, UiTheme.ACCENT)
-		var builders := world.settlers.filter(func(s): return s.is_adult() and (s.job == "baumeister" or s.job == "frei"))
+		var fj: bool = b.def.get("builder", "") == "foerster"  # Pflanzstelle: nur der Förster
+		var builders := world.settlers.filter(func(s): return s.is_adult() and (s.job == "foerster" if fj else (s.job == "baumeister" or s.job == "frei")))
 		if builders.is_empty():
-			var w := UiTheme.label(tr("Niemand baut! Mache einen Siedler zum Baumeister."), 13, UiTheme.BAD)
+			var w := UiTheme.label(tr("Es gibt noch keinen Förster. Gib einem Siedler den Beruf Förster.") if fj else tr("Niemand baut! Mache einen Siedler zum Baumeister."), 13, UiTheme.BAD)
 			w.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			_info_box.add_child(w)
 	else:
@@ -2306,10 +2307,11 @@ func _info_building(b: Building) -> void:
 		AdminInfo.office_rows(self, b)  # Verwaltung: Verwalter und Anordnungen
 	if b.def.has("upgrade"):
 		_info_upgrade(b)
-	var mv := UiTheme.button(tr("Verschieben"), "hammer", 36)
-	mv.tooltip_text = tr("Stellt das Gebäude an einen anderen Platz. Vorräte, Bewohner und Baufortschritt ziehen mit.")
-	mv.pressed.connect(func(): world.start_move(b))
-	_info_box.add_child(mv)
+	if not b.def.has("tile"):  # Straßen, Deiche, Pflanzstellen: neu bauen statt verschieben
+		var mv := UiTheme.button(tr("Verschieben"), "hammer", 36)
+		mv.tooltip_text = tr("Stellt das Gebäude an einen anderen Platz. Vorräte, Bewohner und Baufortschritt ziehen mit.")
+		mv.pressed.connect(func(): world.start_move(b))
+		_info_box.add_child(mv)
 	if b.type != "lagerfeuer":
 		var dm := UiTheme.button(tr("Abreißen") if not _demolish_armed else tr("Wirklich abreißen?"), "abriss", 36)
 		dm.pressed.connect(func():

@@ -95,11 +95,13 @@ def dike(mask):
                     d = k
                     break
             if d <= 1:
-                c = STONE[1] if (x * 3 + y) % 4 else STONE[0]
+                c = STONE[0] if (x * 3 + y) % 3 else STONE[1]
             elif d == 2:
                 c = STONE[2] if (x + 2 * y + rnd.randint(0, 2)) % 3 else STONE[3]
             elif d == 3:
-                c = SOIL[2] if (x + y) % 3 else GRASS[1]
+                c = SOIL[1] if (x + y) % 3 else SOIL[0]
+            elif d == 4:
+                c = SOIL[2] if (x * 5 + y) % 4 else GRASS[1]
             else:
                 c = GRASS[2] if (x * 7 + y * 5 + rnd.randint(0, 3)) % 6 else GRASS[3]
             put(img, x, y, c)

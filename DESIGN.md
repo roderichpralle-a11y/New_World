@@ -1291,6 +1291,16 @@ oder „neu“; danach heißen der Spielstand-Platz (`slot_<tag>`) und die Rekor
   Sound `warnung`. In Selbsttests nur mit Testschalter: `--protestvideo=1` (erzwingt einen Protest, prüft
   offen nach 10 s, Knopf und Esc schließen, Ausgabe `Protest-Video OK`), Bild `--panel=protest --protestframe=1.3`.
 
+- **Schubkarre** (josh 2026-10-11): Ist „Handkarren“ erforscht, schieben erwachsene Siedler, die mit Last
+  laufen, eine Schubkarre (`Settler.pushes_cart`, `_animate_cart`): seitlich voraus (nach links gespiegelt),
+  nach unten vor dem Körper, nach oben dahinter (`show_behind_parent`). Die Ware (`_carry_icon`) liegt dann
+  in der Wanne statt über dem Kopf, die vordere Wannenwand liegt darüber. Das Rad dreht sich nach
+  gelaufener Strecke, die Karre wippt mit den Schritten. Grafik: `tools/gen_art_cart.py` →
+  `assets/sprites/cart.png` (Zellen 24x24, 4 Rad-Bilder, Zeilen 0–2 Karre unten/oben/seitlich, 3–5
+  Vorderwand; `Data.cart_tex`, `CART_POS`, `CART_LOAD`). Test `--autotest=30 --scale=10 --cartshot=1`
+  (`scripts/world/cart_test.gd`, über `Extras.autotest_setup`): Sichtbarkeit („Karren OK/FEHLER“), vier
+  Siedler schieben nach rechts, links, unten und oben; mit `--shot` zoomt die Kamera auf sie.
+
 ## Straßen, Deiche und Förster (josh 2026-10-11, `scripts/world/land.gd`)
 
 Bau-Reiter „Land und Wege“ (Kategorie `land`, Symbol `weg`). Alle drei sind 1x1-Bodengebäude mit
