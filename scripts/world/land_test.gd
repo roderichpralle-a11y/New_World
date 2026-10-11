@@ -3,7 +3,7 @@ extends RefCounted
 ## Selbsttest --landtest=1 (aus main.gd): Straße (Maske, Tempo, Baumeister baut), Deich im Wasser,
 ## Neuland hinter Deichen, Spielstand, Deichbruch mit Überflutung und Rückkehr der Gebäude,
 ## Wiederaufbau für 70 %, Förster (pflanzen, roden). Druckt "Land OK/FEHLER".
-## --landshot=1: Straßen, Deiche, Neuland, Förster mit Pflanzstelle für ein Bildschirmfoto.
+## --landshot=road|dike: Straßen, Deiche, Neuland, Förster mit Pflanzstelle für ein Bildschirmfoto.
 
 static var fails := 0
 
@@ -219,7 +219,7 @@ static func run(main) -> void:
 
 
 ## Bildschirmfoto: Straßen, Deiche mit Neuland, Förster mit Pflanzstelle und markiertem Baum.
-static func shot(main) -> void:
+static func shot(main, kind: String) -> void:
 	var w = main.world
 	_research(["steinwerkzeuge", "steinbruch", "deichbau"])
 	var a = find_bay(w)
@@ -231,7 +231,8 @@ static func shot(main) -> void:
 		if w.can_place("deich", a + Vector2i(2, 2)):
 			w.place_building("deich", a + Vector2i(2, 2), false)
 		Land.update_polders(w, true)
-		main.camera.position = w.cell_to_pos(a)
+		if kind == "dike":
+			main.camera.focus(w.cell_to_pos(a))
 	var rc = w.center + Vector2i(0, 3)
 	for i in 7:
 		var c: Vector2i = rc + Vector2i(i - 3, 0)
@@ -250,5 +251,6 @@ static func shot(main) -> void:
 			nd.refresh()
 			break
 	w.settlers[0].set_job("foerster")
-	if a == null:
-		main.camera.position = w.cell_to_pos(rc)
+	if a == null or kind != "dike":
+		main.camera.focus(w.cell_to_pos(rc))
+	main.camera.zoom = Vector2(2.5, 2.5)

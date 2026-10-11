@@ -689,8 +689,8 @@ Ratten, Brand, Seuche, Sturmflut und ab dem Mittelalter Piraten. Wer sie gut üb
     Kokos, Fisch, Eiern und Brot (`goods`; Konserven, Tontafeln, Papier nie), mit Großem Lager die Hälfte.
     Ab 30 solcher Waren.
   - **Brand**: 1 + ⌊Stärke / 1,25⌋ Gebäude (das erste zufällig, dann die nächsten) werden **beschädigt**,
-    nicht abgerissen: wieder Baustelle, einfache Baustoffe (`basic_goods`) bleiben zu 70 % (`keep`), andere
-    ganz, Bauarbeit von vorn, Bewohner und Arbeiter ziehen aus (`Events.damage_building`). Baumeister bauen
+    nicht abgerissen: wieder Baustelle, der Neuaufbau kostet `rebuild_cost` (70 %) des ursprünglichen
+    Preises (`Events.rebuild_delivered`: geliefert gilt der Rest, je Ware aufgerundet), Bauarbeit von vorn, Bewohner und Arbeiter ziehen aus (`Events.damage_building`). Baumeister bauen
     mit der normalen Baustellen-Logik wieder auf. Kein Gebäude schützt davor (den Brunnen gibt es nicht
     mehr, siehe „Entfernte Gebäude und Forschungen“); der Rat lautet, Holz, Bretter und Stein bereitzuhalten.
     Nie: Lager, Häfen und Ufergebäude (`coast`), Gebäude mit Wirkung (`effects`), Felder, Lagerfeuer.
@@ -720,7 +720,8 @@ Ratten, Brand, Seuche, Sturmflut und ab dem Mittelalter Piraten. Wer sie gut üb
   was er tut, seine Beute.
 - **Für andere Systeme**: `Events.busy(w)` (Piraten angekündigt oder da), `growth_factor(type, w)`,
   `sickness_factor(w)`, `epidemic_illness(w)`, `event_of(w)`, `chip()`, `describe_all()`,
-  `damage_building(w, b, keep)`, `near_water(w, c, size, r)`; Signal `changed`.
+  `damage_building(w, b)`, `rebuild_share()`, `rebuild_delivered(cost)`, `near_water(w, c, size, r)`;
+  Signal `changed`. Sturmflut und gebaute Deiche: siehe „Straßen, Deiche und Förster“ (`Land.storm`).
 - **Spielstand**: oben `events` = {islands: {"<insel-id>": {next, last, ev}}, last, seq}; `ev` = {type, at,
   strike, end, power, deaths, struck, ill?, count?, left?, kills?, loot?, landing?}. Piraten selbst werden
   nie gespeichert (`World.serialize` lässt `Raider` aus); nach dem Laden landen die übrigen (`left`) neu.
@@ -1280,6 +1281,52 @@ oder „neu“; danach heißen der Spielstand-Platz (`slot_<tag>`) und die Rekor
   nichts angeordnet. Nur normale Version.
 - **Test** `--admintest=1` (`admin_test.gd`): nur eine Verwaltung, nur ein Verwalter, Meldung, Vertretung,
   keine Pause bei Überstunden, Protest nach einem Jahr, Schicht nachts, Laune, Spielstand.
+- **Protest-Video** (`ProtestVideo`, `scripts/ui/protest_video.gd`, Signal `Admin.protest_started(Beruf, Grund)`
+  direkt nach der Protest-Meldung): Pixelbühne wie beim Fest-Video (96 Pixel hoch, 100..180 breit,
+  ganzzahlig vergrößert, jedes Bild hängt nur von der Zeit ab), nahtlose Schleife von 4 s. Sechs Siedler
+  aus den Spiel-Sprites marschieren vor der Verwaltung (mit Schmiede und Sägegrube aus buildings.png) auf
+  und ab, mit Schildern (durchgestrichene Uhr, „!“) oder erhobener Faust, Sprechblasen „!!“, dunkle Wolken,
+  die Uhr am Dach rast; oben ein Banner „Protest!“, darunter der Grund und der Knopf „Schließen“. Es
+  schließt nie von selbst und nicht durch Tippen, nur über den Knopf oder Esc; das Spiel läuft weiter,
+  Sound `warnung`. In Selbsttests nur mit Testschalter: `--protestvideo=1` (erzwingt einen Protest, prüft
+  offen nach 10 s, Knopf und Esc schließen, Ausgabe `Protest-Video OK`), Bild `--panel=protest --protestframe=1.3`.
+
+## Straßen, Deiche und Förster (josh 2026-10-11, `scripts/world/land.gd`)
+
+Bau-Reiter „Land und Wege“ (Kategorie `land`, Symbol `weg`). Alle drei sind 1x1-Bodengebäude mit
+`"tile"` und `"repeat": true` (nach „Hier bauen“ bleibt die Platzierung offen, Abbrechen beendet sie).
+Bilder in `assets/sprites/objects3.png` (`tools/gen_art_land.py`, `Data.OBJECT3_REGIONS`): `road0..15`,
+`dike0..15` (Maske der Nachbarn N=1 O=2 S=4 W=8, `World.tile_mask`, `Building.refresh`), `plant_mark`,
+`clear_mark`.
+- **Straße** (`strasse`, Steinbruch, 20 Stein, baut der Baumeister): auf fertigen Straßen laufen Siedler
+  `balance.road_speed` (1,5) mal so schnell (`World.road_at`, `Settler._walk`).
+- **Deich** (`deich`, Deichbau, 6 Stein, 3 Holz, 6 Lehm, baut der Baumeister, `"water_ok"`): auf Land oder
+  im Wasser, im Wasser nur 4-benachbart zu Land oder einem Deich (`Land.dike_allowed`). Baustellen im
+  Wasser beliefert und baut der Baumeister von nebenan (`Settler._site_adjacent`); fertige Deiche im Wasser
+  sind begehbar (`World._set_solid`, `World.dike_at`). **Neuland** (`Land.update_polders` nach jedem
+  fertigen Deich): Wasser, das vom Kartenrand aus nicht mehr erreichbar ist (4er-Nachbarschaft, fertige
+  Deiche sperren) und an einen Deich und an Land grenzt, wird Sand (innen Gras), Fischgründe dort
+  verschwinden. `World.set_terrain` zeichnet die Kacheln neu. Spielstand je Insel „land“ =
+  {cells: [[x, y, Gelände]], sunk: [{type, x, y}]}; beim Laden vor `_build_terrain` eingetragen
+  (`Land.apply_saved`), alte Spielstände: kein Neuland.
+- **Sturmflut** (`Events._flood` ruft `Land.storm`): gibt es äußere Deiche (grenzen an offenes Wasser),
+  bricht mit clamp(`breach_base` 0,3 + `breach_power` 0,2 x Stärke) einer (ab Stärke 2 mit 50 % ein
+  zweiter). Der Deich wird Baustelle (70 % des Preises), `Land.flood` setzt alles Neuland unter Wasser,
+  das jetzt mit dem Meer verbunden ist: Bäume weg, Gebäude gehen unter (`World.sunk`), Siedler und Tiere
+  retten sich aufs nächste Land. Steht der Deich wieder, wird das Wasser wieder Land und die Gebäude
+  kommen als Baustelle für 70 % zurück. Ein abgerissener Deich lässt das Wasser genauso hinein. Eine
+  Sturmflut ist auch möglich, wenn es nur äußere Deiche gibt. Mit Deichbau bleiben Felder und
+  Ufergebäude wie bisher heil; die Meldung nennt dann nur den Deichbruch.
+- **Förster** (Beruf `foerster`, Steinwerkzeuge, Werkzeug Spaten): pflanzt an Pflanzstellen („Baum
+  pflanzen“, `setzling`, kostenlos, `"builder": "foerster"`: nur er baut sie, `World.construction_sites(builder)`)
+  einen jungen Baum (halbe Nachwachszeit), dann rodet er Bäume, Palmen, Sträucher und Pilzkreise, die im
+  Infofenster mit „Roden lassen (Förster)“ markiert sind (`ResNode.clear_mark`, rot-weißes Band, im
+  Spielstand als 7. Wert des Knotens). Gerodete Bäume bringen ihr restliches Holz. Ohne Aufträge hilft er
+  aus wie andere Berufe.
+- **Test** `--landtest=1` (`land_test.gd`): Masken, Tempo auf der Straße, Baumeister baut Straße und Deich
+  im Wasser, Neuland, Spielstand, Deichbruch mit Überflutung und Rückkehr der Straße als Baustelle,
+  Sturmflut bricht einen Deich, Hütte nach Ereignis für 70 %, Förster pflanzt und rodet. Ausgabe
+  `Land OK`. Bild: `--landshot=road|dike`.
 
 ## Testen
 
@@ -1308,6 +1355,8 @@ godot --headless --fixed-fps 60 -- --autotest=10 --scale=10 --seed=7 --questadap
 godot --headless --fixed-fps 60 -- --autotest=60 --scale=10 --seed=7 --integtest=1  # Zusammenspiel der Erweiterungen
 godot --headless --fixed-fps 60 -- --autotest=20 --scale=10 --talenttest=1  # Talente: Bonus, Sterne, Spalte (Spalte nur mit Fenster)
 godot --headless --fixed-fps 60 -- --autotest=30 --scale=10 --admintest=1  # Verwaltung, Vertretung, Überstunden, Schicht (Bild: --adminshot=office|workshop|proposal)
+godot --headless --fixed-fps 60 -- --autotest=200 --scale=10 --landtest=1 --noevents=1  # Straßen, Deiche, Neuland, Förster (Bild: --landshot=road|dike)
+godot --headless --fixed-fps 60 -- --autotest=60 --scale=10 --protestvideo=1  # Protest-Video
 godot --headless --fixed-fps 60 -- --autotest=40 --scale=10 --fixture=sea.json --oncetest=1  # Einmal-Route hin und zurück
 godot --headless --fixed-fps 60 -- --autotest=30 --scale=10 --seed=7 --basictrade=1  # Händler mit einfachen Waren
 godot --headless --fixed-fps 60 -- --autotest=820 --scale=10 --seed=11 --bot=1 --noevents=1 --winter=normal  # Spiel-Bot v2, 4 Jahre

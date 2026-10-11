@@ -217,7 +217,7 @@ func _maybe_autotest() -> void:
 	if args.has("landtest"):
 		await LandTest.run(self)  # Straßen, Deiche, Neuland, Förster (scripts/world/land_test.gd)
 	if args.has("landshot"):
-		LandTest.shot(self)
+		LandTest.shot(self, str(args.landshot))
 	if args.has("retiredtest"):
 		Retired.autotest(str(args.retiredtest))  # Brunnen entfernt (scripts/autoload/retired.gd)
 	# Systeme (Game.systems) richten ihre eigenen Testhilfen ein
