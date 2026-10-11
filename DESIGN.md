@@ -545,8 +545,9 @@ Spielstände würfeln die Werte reproduzierbar aus der Siedler-ID).
   gewichtet nach Gemüt und Klugheit), außer in einer Hungersnot (weniger als 3 Nahrung je Siedler).
 - **Anzeige der Talente** (`scripts/ui/talent_info.gd`, Stern im Code gezeichnet, weil die Schrift kein ★ hat):
   Infofenster je Talent eine Zeile „Talent: Bauen (+40 % schneller, lernt +160 % schneller)“ mit Stern, sonst
-  „Talent: keins“; Berufsknöpfe mit Stern, wenn die Fähigkeit des Berufs ein Talent ist (Tooltip mit Bonus).
-  Siedlerliste: Spalte „Talent“ (z. B. „Holz +25 %“, ein Talent je Zeile, höchstens zwei Zeilen, bei mehr „…“; nur breit, sortierbar), Stern im Berufsmenü, Bonus im Tooltip
+  „Talent: keins“; Berufsknöpfe mit Stern, wenn die Fähigkeit des Berufs ein Talent ist (Tooltip mit Bonus;
+  Berufe mit `"talent_star": false` in jobs.json, z. B. Seemann, nie). Siedlerliste: kleiner Stern oben rechts
+  am Namen (`TalentInfo.badge`, auch schmal), Spalte „Talent“ (z. B. „Holz +25 %“, ein Talent je Zeile, höchstens zwei Zeilen, bei mehr „…“; nur breit, sortierbar), Stern im Berufsmenü, Bonus im Tooltip
   am Namen. Meldung beim Erwachsenwerden nennt die Talente mit Bonus.
 - **Anzeige**: Infofenster (Charakter, Begabungen, Krankheit, Laune mit Arbeitskraft, wichtigste
   Gründe, Eigenschaften und Fähigkeiten mit + für Begabung als Text; seit josh 2026-10-09 ohne Balken
@@ -917,7 +918,7 @@ sucht sich einen aus. Belohnungen sind Waren, Forschungspunkte, Einwanderer, dau
   drei neue, danach erst wieder nach `reroll_days` (1 Tag). Scheitern, Aufgeben und Neu-Würfeln kosten
   nichts. Ein Angebot, das schon erfüllt ist, fällt weg. Das Brett öffnet 0,25 Tage nach der Einführung
   (alte Spielstände gleich nach dem Laden). Zufall aus `hash([seed, seq, "auftrag"])`: gleicher Spielstand,
-  gleiche Angebote.
+  gleiche Angebote. Erscheinen neue Angebote, springt die Zeit von „Schnell“ auf „Normal“ (Pause bleibt).
 - **Vorlagen** (`goals.json` `quests.templates`, Gewicht `w` 1–3 bestimmt die Belohnung, `days` die Frist
   nach dem Annehmen; A = Zeitalter, P = Siedler auch auf See, R = Forschungspunkte je Tag, gemessen über
   den letzten Tag, mindestens 4):

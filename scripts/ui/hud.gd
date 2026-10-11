@@ -1157,6 +1157,7 @@ func _refresh_settler_list() -> void:
 		nb.tooltip_text = tr("Auf der Karte zeigen")
 		if not s.mind.best_talents().is_empty():
 			nb.tooltip_text += "\n" + "\n".join(s.mind.best_talents().map(func(k): return TalentInfo.line(sref.mind, k)))
+			TalentInfo.badge(nb)  # Stern am Namen: hat ein Talent (auch schmal, wo die Spalte fehlt)
 		nb.pressed.connect(func():
 			_settler_panel.visible = false
 			if is_instance_valid(sref) and sref.world != world:
@@ -1920,7 +1921,7 @@ Lautstärke von Musik und Geräuschen stellst du im Menü ein.
 Jeder Siedler hat eigene Fähigkeiten. Gib ihnen im Infofenster einen Beruf, der zu ihren Stärken passt. Mit Übung werden sie besser. Freie Siedler helfen dort, wo es nötig ist.
 
 [b]Charakter[/b]
-Jeder Siedler ist anders: klug oder einfältig, robust oder kränklich, fleißig oder gemütlich, Frohnatur oder Griesgram. Dazu hat jeder Begabungen (im Infofenster mit + markiert): darin lernt er schneller. Kluge lernen und forschen schneller. Kinder erben einen Teil ihres Charakters von den Eltern und lernen in der Schule viel, vor allem in ihren Begabungen.
+Jeder Siedler ist anders: klug oder einfältig, robust oder kränklich, fleißig oder gemütlich, Frohnatur oder Griesgram. Dazu hat jeder Begabungen (im Infofenster mit + markiert): darin lernt er schneller. Starke Begabungen sind Talente und tragen einen Stern: darin arbeitet er auch schneller. Ein Stern am Beruf heißt, dass der Beruf zum Talent passt. Kluge lernen und forschen schneller. Kinder erben einen Teil ihres Charakters von den Eltern und lernen in der Schule viel, vor allem in ihren Begabungen.
 
 [b]Gesundheit[/b]
 Siedler werden krank: Erkältung macht langsamer, bei Fieber und Ruhr liegen sie im Bett und können sterben. Kränkliche, Alte, Kinder, Hungrige, Frierende und wer draußen schläft erkranken leichter, Kranke stecken andere an. Vitamine aus Beeren, Äpfeln und Kokosnüssen schützen; wer lange keine bekommt, bekommt Skorbut. Heilkunde lässt Kranke schneller gesund werden.
