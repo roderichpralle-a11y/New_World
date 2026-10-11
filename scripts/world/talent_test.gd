@@ -77,11 +77,13 @@ static func run(main) -> void:
 	hud._toggle(hud._settler_panel)
 	hud._refresh_settler_list()
 	var name_tip := false
+	var name_star := false
 	var col := ""
 	var menu_star := []
 	for n in _all(hud._settler_list):
 		if n is Button and not n is OptionButton and n.text.begins_with("T1"):
 			name_tip = "40" in n.tooltip_text
+			name_star = n.get_node_or_null("TalentStar") != null
 			var row: Node = n.get_parent()
 			for x in row.get_children():
 				if x is Label and x.text == TalentInfo.column_text(m):
@@ -94,6 +96,8 @@ static func run(main) -> void:
 	var col_ok: bool = (col == "") if hud._settler_narrow else (col == TalentInfo.column_text(m))
 	_okprint(col_ok and name_tip, "Siedlerliste: Spalte Talent (nur breit) und Tooltip am Namen")
 	_okprint(Data.jobs.baumeister.name in menu_star and not Data.jobs.holzfaeller.name in menu_star, "Siedlerliste: Stern im Berufsmenue")
+	_okprint(name_star, "Siedlerliste: Stern am Namen")
+	_okprint(TalentInfo.job_match(m, "fischer") and not TalentInfo.job_match(m, "seemann"), "Nahrungstalent: Fischer mit Stern, Seemann ohne")
 	hud._toggle(hud._settler_panel)
 	# Ohne Talent: kein Stern
 	var plain = w.spawn_settler({"name": "T2", "sex": "m", "age": 25.0, "max_age": 70.0, "x": c.x, "y": c.y, "skills": {},

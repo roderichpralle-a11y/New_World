@@ -67,7 +67,22 @@ static func column_text(m: SettlerMind) -> String:
 	return "\n".join(parts)
 
 
-## Passt der Beruf zu einem Talent des Siedlers?
+## Passt der Beruf zu einem Talent des Siedlers? Berufe mit "talent_star": false (Seemann:
+## Besatzung, angelt nur nebenbei) bekommen keinen Stern.
 static func job_match(m: SettlerMind, job: String) -> bool:
-	var sk: String = Data.jobs.get(job, {}).get("skill", "")
-	return sk != "" and m.is_talent(sk)
+	var jd: Dictionary = Data.jobs.get(job, {})
+	var sk: String = jd.get("skill", "")
+	return sk != "" and jd.get("talent_star", true) and m.is_talent(sk)
+
+
+## Kleiner Stern oben rechts an einem Knopf (Siedlerliste: Name), ohne das Layout zu aendern.
+static func badge(on: Control, px: float = 12.0) -> TextureRect:
+	var r := UiTheme.icon_rect(star(), px)
+	r.name = "TalentStar"
+	r.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	r.offset_left = -px - 1.0
+	r.offset_right = -1.0
+	r.offset_top = 1.0
+	r.offset_bottom = px + 1.0
+	on.add_child(r)
+	return r

@@ -102,6 +102,8 @@ func tick() -> void:
 	if now >= next:
 		if make_offers():
 			Game.notify(tr("Neue Aufträge: Wähle einen von drei aus (oben links)."), "ziel", "ziel")
+			if Game.speed > 1:  # zum Auswählen auf normale Zeit zurück (josh 2026-10-11)
+				Game.set_speed(1)
 		else:
 			next = now + 0.25
 
@@ -1245,8 +1247,12 @@ func _quest_test(n: int, main) -> void:
 ## Teil 2 im laufenden Spiel (nicht abgewartet; der Test laeuft weiter).
 func _quest_flow(n: int, main) -> void:
 	var w = main.world
+	var ts := Engine.time_scale
+	Game.speed = 3  # wie "Schnell": beim Erscheinen der Angebote muss die Zeit auf normal springen
 	await _wait(func(): return not offers.is_empty(), 20.0)
 	print("Auftragstest: Angebote erschienen: %s" % [offers.map(func(q): return "%s -> %s" % [text_of(q), reward_text(q.reward)])])
+	print("   Zeit beim Angebot: %s" % ("normal" if Game.speed == 1 else "NICHT normal (%d)" % Game.speed))
+	Engine.time_scale = ts
 	var i := clampi(n - 1, 0, offers.size() - 1)
 	if _force_reward != "":
 		offers[i].reward = make_reward(_force_reward, offers[i], context())
