@@ -364,7 +364,7 @@ func _popup_panel(title: String) -> Array:
 # ================================================================== Bau-Menue
 const BUILD_CATS := [["wohnen", "Wohnen", "haus"], ["nahrung", "Nahrung", "nahrung"],
 	["handwerk", "Handwerk", "hammer"], ["lager", "Lager", "kiste"], ["wissen", "Wissen", "wissen"],
-	["see", "Seefahrt und Schutz", "boot"]]
+	["see", "Seefahrt und Schutz", "boot"], ["land", "Land und Wege", "weg"]]
 
 
 func _build_build_panel() -> void:
@@ -893,8 +893,15 @@ func _on_placement(active: bool, type: String, valid: bool) -> void:
 				Data.buildings[type].name, tr(" Der Platz passt.") if valid else (tr("\nMuss am Ufer stehen und Platz haben.") if Data.buildings[type].get("coast", false) else tr("\nHier ist kein Platz frei."))]
 			_layout()
 			return
+		var why := tr("\nHier ist kein Platz frei.")
+		if Data.buildings[type].get("coast", false):
+			why = tr("\nMuss am Ufer stehen und Platz haben.")
+		elif Data.buildings[type].get("water_ok", false):
+			why = tr("\nIm Wasser nur neben Land oder einem anderen Deich.")
 		_place_label.text = tr("%s: Klicke auf einen freien Platz. Am Handy tippen, dann Hier bauen.%s") % [
-			Data.buildings[type].name, tr(" Der Platz passt.") if valid else (tr("\nMuss am Ufer stehen und Platz haben.") if Data.buildings[type].get("coast", false) else tr("\nHier ist kein Platz frei."))]
+			Data.buildings[type].name, tr(" Der Platz passt.") if valid else why]
+		if Data.buildings[type].get("repeat", false):
+			_place_label.text += tr("\nDu kannst mehrere nacheinander setzen. Abbrechen beendet das Bauen.")
 	_layout()
 
 
@@ -2519,6 +2526,7 @@ func _info_node(n: ResNode) -> void:
 		_info_box.add_child(UiTheme.label(tr("Wird bearbeitet von: %s") % who.get(n.type, "?"), 13))
 	if n.def.has("decay_days") and n.regrow_at >= 0.0:
 		_info_box.add_child(UiTheme.label(tr("Verdirbt in %d Std.") % max(1, int(ceil((n.regrow_at - Game.time_days) * 24.0))), 13))
+	Land.node_rows(self, n)  # Förster: Roden lassen
 
 
 func _info_animal(a: Animal) -> void:

@@ -10,6 +10,7 @@ var amount: int = 0
 var regrow_at: float = -1.0  # Spielzeit (Tage), wann wieder voll
 var variant: int = 0
 var reserved_by: int = 0
+var clear_mark := false  # Förster soll hier roden (Land)
 var world
 
 var _sprite: Sprite2D
@@ -59,7 +60,18 @@ func sprite_name() -> String:
 	return fulls[variant % fulls.size()]
 
 
+var _mark: Sprite2D
+
+
 func refresh() -> void:
+	if clear_mark and _mark == null:
+		_mark = Sprite2D.new()
+		_mark.texture = Data.object_tex("clear_mark")
+		_mark.position = Vector2(7, -10)
+		_mark.z_index = 1
+		add_child(_mark)
+	if _mark:
+		_mark.visible = clear_mark
 	var name := sprite_name()
 	_sprite.visible = name != ""
 	if name == "":
@@ -124,4 +136,7 @@ func _process(delta: float) -> void:
 
 
 func serialize() -> Array:
-	return [type, cell.x, cell.y, amount, snappedf(regrow_at, 0.001), variant]
+	var a := [type, cell.x, cell.y, amount, snappedf(regrow_at, 0.001), variant]
+	if clear_mark:
+		a.append(1)
+	return a

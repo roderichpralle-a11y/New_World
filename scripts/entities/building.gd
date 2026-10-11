@@ -312,7 +312,14 @@ func is_active() -> bool:
 
 # ---------------------------------------------------------------- Darstellung
 func refresh() -> void:
-	if is_ground():
+	if def.has("tile"):
+		# Straße und Deich: Kachel nach den Nachbarn (World.tile_mask), Setzling: Pflanzstelle
+		var kind: String = def.tile
+		var tname := "plant_mark" if kind == "plant_mark" else "%s%d" % [kind, world.tile_mask(self)]
+		for t in _tiles:
+			t.texture = Data.object_tex(tname)
+			t.modulate = Color(1, 1, 1, 1.0 if complete or kind == "plant_mark" else 0.5)
+	elif is_ground():
 		var stage := farm_stage() if complete else 0
 		var tiles: String = farm_def().get("tiles", "field")
 		for t in _tiles:

@@ -26,6 +26,7 @@ var tex_tools: Texture2D = preload("res://assets/sprites/tools.png")
 var tex_ui: Texture2D = preload("res://assets/sprites/ui.png")
 var tex_objects2: Texture2D = preload("res://assets/sprites/objects2.png")
 var tex_animals: Texture2D = preload("res://assets/sprites/animals.png")
+var tex_objects3: Texture2D = preload("res://assets/sprites/objects3.png")
 var font_regular: Font = preload("res://assets/fonts/pixelify-sans-latin-400-normal.woff2")
 var font_bold: Font = preload("res://assets/fonts/pixelify-sans-latin-700-normal.woff2")
 
@@ -71,6 +72,19 @@ const OBJECT2_REGIONS := {
 	"boat": [0, 64, 32, 32, 2],
 	"ship_kogge": [0, 96, 48, 48, 2], "ship_fast": [96, 96, 48, 48, 2], "ship_galleon": [192, 96, 48, 48, 2],
 }
+## Strassen, Deiche und Foerster in objects3.png (tools/gen_art_land.py): name -> [x, y, w, h, frames].
+## road0..15 und dike0..15: Maske der Nachbarn N=1 O=2 S=4 W=8.
+var OBJECT3_REGIONS := _object3_regions()
+
+
+static func _object3_regions() -> Dictionary:
+	var r := {"plant_mark": [0, 32, 16, 16, 1], "clear_mark": [16, 32, 16, 16, 1]}
+	for m in 16:
+		r["road%d" % m] = [m * 16, 0, 16, 16, 1]
+		r["dike%d" % m] = [m * 16, 16, 16, 16, 1]
+	return r
+
+
 ## Tiere in animals.png: Zellen 24x24, je Tier eine Zeile (Zeile aus animals.json),
 ## Spalten 0-3 Laufen, 4 Angriff.
 const ANIMAL_CELL := 24
@@ -166,6 +180,10 @@ func object_tex(name: String, frame: int = 0) -> AtlasTexture:
 		var r2: Array = OBJECT2_REGIONS[name]
 		at.atlas = tex_objects2
 		at.region = Rect2(r2[0] + r2[2] * frame, r2[1], r2[2], r2[3])
+	elif OBJECT3_REGIONS.has(name):
+		var r3: Array = OBJECT3_REGIONS[name]
+		at.atlas = tex_objects3
+		at.region = Rect2(r3[0], r3[1], r3[2], r3[3])
 	else:
 		var r: Array = OBJECT_REGIONS.get(name, [0, 0, 16, 16, 1])
 		at.atlas = tex_objects

@@ -269,16 +269,15 @@ static func _test_brand(main) -> void:
 	var ev := await _force_wait(main, w, "brand")
 	await _until(main, func(): return _gone(w), 0.2)
 	var hit: Array = w.buildings.filter(func(b): return before.get(b.id, false) and not b.complete)
-	var basic: Array = Events._c("basic_goods", [])
 	var mat_ok := true
 	for b in hit:
 		for res in b.def.cost:
-			var want: int = ceili(int(b.def.cost[res]) * 0.7) if res in basic else int(b.def.cost[res])
+			var want: int = int(b.def.cost[res]) - ceili(int(b.def.cost[res]) * 0.7)  # Neuaufbau: 70 % des Preises
 			if int(b.delivered.get(res, 0)) != want:
 				mat_ok = false
 		if b.progress != 0.0 or not b.occupants.is_empty() or w.settlers.any(func(s): return s.home_id == b.id):
 			mat_ok = false
-	print("Ereignis-Test Brand ", _okf(hit.size() == int(ev.get("burnt", -1)) and hit.size() == Events._hits(float(ev.power)) and mat_ok), " abgebrannt %s (%d, erwartet %d bei Stärke %.2f), Baustoffe: einfache 70 %%, andere ganz, Bauarbeit neu, Bewohner ausgezogen" % [
+	print("Ereignis-Test Brand ", _okf(hit.size() == int(ev.get("burnt", -1)) and hit.size() == Events._hits(float(ev.power)) and mat_ok), " abgebrannt %s (%d, erwartet %d bei Stärke %.2f), Neuaufbau kostet 70 %% des Preises, Bauarbeit neu, Bewohner ausgezogen" % [
 		hit.map(func(b): return "%s %s" % [b.type, b.delivered]), hit.size(), Events._hits(float(ev.power)), float(ev.power)])
 	# Baumeister bauen es mit der normalen Baustellen-Logik wieder auf
 	w.settlers[1].set_job("baumeister")

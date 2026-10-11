@@ -667,6 +667,11 @@ func _plan_work() -> bool:
 				return true
 			_stat_kind = "other"
 			return _plan_free_gather()
+		"foerster":
+			if Land.plan_forester(self):  # pflanzen und roden (scripts/world/land.gd)
+				return true
+			_stat_kind = "other"
+			return _plan_free_gather()
 		"jaeger":
 			if Data.job_unlocked("jaeger"):
 				if _plan_hunt() or _plan_gather(["beute"]):
@@ -838,7 +843,7 @@ func _plan_construction() -> bool:
 	# Zuerst bauen, wo alles Material da ist
 	for site in sites:
 		if site.materials_complete():
-			if _push_move_to(site.cells(), not site.is_ground()):
+			if _push_move_to(site.cells(), _site_adjacent(site)):
 				_plan.append({"a": "work", "t": 1.5, "act": tr("Baut"), "tool": "hammer",
 					"face": site.position, "done": _do_build.bind(site)})
 				activity = tr("Baut: %s") % site.def.name
@@ -857,7 +862,7 @@ func _plan_construction() -> bool:
 				continue
 			var mark := _plan.size()
 			_plan.append({"a": "work", "t": 0.5, "act": tr("Holt Material"), "done": _do_pickup.bind(site, res, n)})
-			if not _push_move_to(site.cells(), not site.is_ground()):
+			if not _push_move_to(site.cells(), _site_adjacent(site)):
 				_plan.resize(mark - 1)
 				continue
 			_plan.append({"a": "work", "t": 0.5, "act": tr("Liefert Material"), "tool": "hammer", "done": _do_site_deliver.bind(site)})
@@ -866,6 +871,11 @@ func _plan_construction() -> bool:
 			activity = tr("Bringt %s zur Baustelle") % Data.resource_name(res)
 			return true
 	return false
+
+
+## Neben der Baustelle stehen (Gebäude, Deich im Wasser) statt darauf (Feld, Straße).
+func _site_adjacent(site) -> bool:
+	return not site.is_ground() or not world.is_walkable(site.cell)
 
 
 func _do_pickup(site, res: String, n: int) -> void:
@@ -1107,6 +1117,8 @@ func _walk(delta: float, mult: float = 1.0) -> void:
 	var target: Vector2 = _path[_path_i]
 	var spd := float(Data.bal("walk_speed")) * Game.eff("walk") * (1.0 if is_adult() else 0.85) * mult
 	spd *= Seasons.walk_mult()  # Schnee
+	if world.road_at(cell):
+		spd *= float(Data.bal("road_speed", 1.5))  # Straße
 	if hunger <= 0.0:
 		spd *= 0.6
 	if mind.sick != "":

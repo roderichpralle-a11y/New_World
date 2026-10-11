@@ -302,7 +302,7 @@ func eligible(w, t: String) -> bool:
 		"brand":
 			return _damage_candidates(w).size() >= int(d.get("min_targets", 3))
 		"sturmflut":
-			return not _flood_fields(w).is_empty() or not _flood_buildings(w).is_empty()
+			return not _flood_fields(w).is_empty() or not _flood_buildings(w).is_empty() or not Land.outer_dikes(w).is_empty()
 		"piraten":
 			return Game.current_age() >= int(d.get("min_age", 2)) and Sea.harbor_level(w) >= int(d.get("min_harbor", 1)) \
 				and w.nearest_storage(w.center) != null
@@ -630,16 +630,20 @@ func _fire(w, ev: Dictionary) -> String:
 	var burnt := []
 	for b in cands.slice(0, _hits(float(ev.power))):
 		_fires.append([w, b, 7.0])
-		damage_building(w, b, float(d.get("keep", 0.7)))
+		damage_building(w, b)
 		burnt.append(str(b.def.name))
 	ev["burnt"] = burnt.size()
-	return tr("Abgebrannt: %s. Baumeister bauen es wieder auf, ein Teil des Baumaterials ist noch da.") % ", ".join(burnt)
+	return tr("Abgebrannt: %s. Baumeister bauen es wieder auf, für %d %% des Baupreises.") % [", ".join(burnt), roundi(rebuild_share() * 100.0)]
 
 
 func _flood(w, ev: Dictionary) -> String:
+	# Gebaute Deiche (Land): ein äußerer Deich kann brechen, dann läuft das Neuland dahinter voll
+	var breach: String = Land.storm(w, _rng_for(w), float(ev.power))
 	if Game.eff_add("flood") > 0.0:
 		ev["fields"] = 0
 		ev["burnt"] = 0
+		if breach != "":
+			return breach
 		return tr("Die Deiche halten! Die Sturmflut richtet keinen Schaden an.")
 	var d := type_def("sturmflut")
 	var fields := 0
@@ -659,7 +663,7 @@ func _flood(w, ev: Dictionary) -> String:
 		cands[j] = x
 	for b in cands.slice(0, _hits(float(ev.power))):
 		w.spawn_effect("chips_fischgrund", b.position + Vector2(0, -12))
-		damage_building(w, b, float(d.get("keep", 0.8)))
+		damage_building(w, b)
 		hit.append(str(b.def.name))
 	ev["fields"] = fields
 	ev["burnt"] = hit.size()
@@ -667,26 +671,39 @@ func _flood(w, ev: Dictionary) -> String:
 	if fields > 0:
 		parts.append(tr("%d Felder am Wasser haben ihre Ernte verloren.") % fields if fields > 1 else tr("Ein Feld am Wasser hat seine Ernte verloren."))
 	if not hit.is_empty():
-		parts.append(tr("Beschädigt: %s. Baumeister bauen es wieder auf.") % ", ".join(hit))
+		parts.append(tr("Beschädigt: %s. Baumeister bauen es wieder auf, für %d %% des Baupreises.") % [", ".join(hit), roundi(rebuild_share() * 100.0)])
+	if breach != "":
+		parts.append(breach)
 	if parts.is_empty():
 		parts.append(tr("Das Wasser ist zurückgegangen, ohne viel Schaden anzurichten."))
 	return " ".join(parts)
 
 
-## Beschädigt ein Gebäude an Ort und Stelle: es wird wieder zur Baustelle (gleiche ID). Fortgeschrittene
-## Baustoffe bleiben ganz, von den einfachen (basic_goods) der Anteil keep; die Bauarbeit beginnt neu.
+## Anteil des Baupreises, den der Wiederaufbau nach einem Ereignis kostet (events.json rebuild_cost, 0,7).
+func rebuild_share() -> float:
+	return clampf(float(_c("rebuild_cost", 0.7)), 0.0, 1.0)
+
+
+## Gelieferte Menge einer Baustelle, die nach einem Ereignis neu entsteht: der Rest (rebuild_share des
+## Preises, aufgerundet) muss neu geliefert werden.
+func rebuild_delivered(cost: Dictionary) -> Dictionary:
+	var dl := {}
+	for res in cost:
+		var n := int(cost[res])
+		dl[res] = maxi(0, n - ceili(n * rebuild_share()))
+	return dl
+
+
+## Beschädigt (zerstört) ein Gebäude an Ort und Stelle: es wird wieder zur Baustelle (gleiche ID), und
+## der Neuaufbau kostet rebuild_share (70 %) des ursprünglichen Preises; die Bauarbeit beginnt neu.
 ## Bewohner und Arbeiter verlassen es, Baumeister bauen es mit der normalen Baustellen-Logik wieder auf.
-func damage_building(w, b, keep: float) -> void:
+func damage_building(w, b) -> void:
 	for s in w.settlers:
 		if s._reserved == b or s._incoming.any(func(i): return i[0] == b) or s._hiding == b:
 			s.abort_plan()
 		if s.home_id == b.id and s.sleeping:
 			s._wake_up()
-	var basic: Array = _c("basic_goods", [])
-	var dl := {}
-	for res in b.def.cost:
-		var n := int(b.def.cost[res])
-		dl[res] = ceili(n * keep) if res in basic else n
+	var dl := rebuild_delivered(b.def.cost)
 	b.complete = false
 	b.progress = 0.0
 	b.delivered = dl

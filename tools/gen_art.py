@@ -1536,6 +1536,9 @@ def gen_icons():
     import gen_art_challenge
     for k, v in gen_art_challenge.ICONS_CHALLENGE.items():
         ICONS.setdefault(k, v)
+    import gen_art_land
+    for k, v in gen_art_land.ICONS_LAND.items():
+        ICONS.setdefault(k, v)
     names = list(ICONS.keys())
     atlas = new(16 * len(names), 16)
     for i, n in enumerate(names):
@@ -2487,6 +2490,8 @@ if __name__ == "__main__":
     gen_buildings2()
     import gen_art_sea
     gen_art_sea.gen_objects2()
+    import gen_art_land
+    gen_art_land.gen_objects3()
     gen_art_sea.gen_animals()
     gen_settlers()
     tools()
