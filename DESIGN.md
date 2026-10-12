@@ -90,6 +90,9 @@ Zeitalterwechsel mit Wertung und Aufträge mit Wahl. Überblick und Zusammenspie
 - **Ketten**: Holz → Bretter; Lehm (+Holz) → Ziegel; Holz → Kohle; Erz + Kohle → Eisen;
   Eisen + Bretter → Werkzeug; Getreide → Mehl (+Holz) → Brot; Fisch (+Holz) → Räucherfisch;
   Getreide → Eier; Obstgarten → Äpfel. Steinbruch und Mine liefern endlos Stein und Erz.
+- **Getreidefeld 1x1** (josh 2026-10-12): `feld` belegt nur noch eine Kachel statt 2x2. Ertrag, Säen, Ernten
+  und Kosten je Feld blieben gleich, damit ein Bauer so viel schafft wie vorher. Alte Felder behalten ihre
+  linke obere Kachel, die anderen drei werden frei.
 - **Ställe** (josh 2026-10-12, Forschung Bergbau, Werkstattart `stall`, Arbeiter: Bauer, der sie versorgt,
   wenn auf den Feldern nichts zu tun ist; `Settler` Beruf „bauer“, `Admin.KIND_JOB`, `AiJobs`):
   **Schweinestall** 3 Getreide → 3 Fleisch in 8 s, **Kuhstall** 2 Getreide → 3 Milch in 7 s. Fleisch sättigt
