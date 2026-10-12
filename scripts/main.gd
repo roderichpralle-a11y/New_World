@@ -216,6 +216,8 @@ func _maybe_autotest() -> void:
 		TalentTest.run(self)  # Talente: Bonus und Anzeige (scripts/world/talent_test.gd)
 	if args.has("landtest"):
 		await LandTest.run(self)  # Straßen, Deiche, Neuland, Förster (scripts/world/land_test.gd)
+	if args.has("stalltest"):
+		await StallTest.run(self)  # Schweinestall und Kuhstall (scripts/world/stall_test.gd)
 	if args.has("landshot"):
 		LandTest.shot(self, str(args.landshot))
 	if args.has("retiredtest"):

@@ -10,7 +10,7 @@ extends Node
 ##   solche Werkstätten leer stehen, springt ein Siedler ein, der in seinem eigenen Beruf gerade nichts
 ##   zu tun hat (World.find_standin, Settler._plan_standin). Er arbeitet einen Arbeitsgang und plant dann neu.
 ## - Personal: alle check_every Tage zählt der Verwalter je Werkstattberuf (Koch, Handwerker,
-##   Steinmetz) die Werkstätten, die arbeiten könnten, und die Erwachsenen mit dem Beruf. Gibt es mehr
+##   Steinmetz, Bauer in den Ställen) die Werkstätten, die arbeiten könnten, und die Erwachsenen mit dem Beruf. Gibt es mehr
 ##   Werkstätten als Leute, meldet er sich (höchstens alle report_every Tage je Beruf) und schlägt
 ##   Überstunden oder Schichtarbeit vor (Signal proposal, Fenster in AdminInfo).
 ## - Anordnungen je Beruf:
@@ -35,7 +35,7 @@ signal protest_started(job: String, text: String)
 const OFFICE := "verwaltung"
 const JOB := "verwalter"
 ## Werkstattart (production.job) -> Beruf
-const KIND_JOB := {"kueche": "koch", "handwerk": "handwerker", "stein": "steinmetz"}
+const KIND_JOB := {"kueche": "koch", "handwerk": "handwerker", "stein": "steinmetz", "stall": "bauer"}
 
 var cfg: Dictionary = {}
 var orders: Dictionary = {}    # Beruf -> {"ot": Überstunden, "since": seit Tag, "sh": Schichtarbeit}

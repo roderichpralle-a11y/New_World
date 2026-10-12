@@ -1599,5 +1599,15 @@
  "Wegebau": "Road Building",
  "Gepflasterte Straßen: Siedler laufen darauf 1,5-mal so schnell und nehmen den schnellsten Weg. Der Baumeister legt sie an.": "Paved roads: settlers walk 1.5 times as fast on them and take the fastest way. The master builder lays them.",
  "Schaltet die Schmiede (Werkzeuge) und die Waffenschmiede (Waffen gegen Piraten) frei.": "Unlocks the smithy (tools) and the armory (weapons against pirates).",
- "Speere und Bögen: Schaltet den Wachturm und den Beruf Jäger frei. Siedler wehren sich doppelt so gut gegen wilde Tiere und Piraten.": "Spears and bows: unlocks the watchtower and the hunter job. Settlers defend themselves twice as well against wild animals and pirates."
+ "Speere und Bögen: Schaltet den Wachturm und den Beruf Jäger frei. Siedler wehren sich doppelt so gut gegen wilde Tiere und Piraten.": "Spears and bows: unlocks the watchtower and the hunter job. Settlers defend themselves twice as well against wild animals and pirates.",
+ "Schweinestall": "Pigsty",
+ "Schweine werden mit Getreide gemästet und geben Fleisch, das gut satt macht. Ein Bauer versorgt sie.": "Pigs are fattened with grain and give meat, which is very filling. A farmer looks after them.",
+ "Füttert die Schweine": "Feeding the pigs",
+ "Kuhstall": "Cowshed",
+ "Kühe fressen Getreide und Heu und geben jeden Tag Milch, die satt macht und Vitamine hat. Ein Bauer melkt sie.": "Cows eat grain and hay and give milk every day, which is filling and has vitamins. A farmer milks them.",
+ "Melkt die Kühe": "Milking the cows",
+ "Bestellt Getreidefelder und Obstgärten und versorgt Schweine und Kühe in den Ställen.": "Tends grain fields and orchards and looks after the pigs and cows in the stables.",
+ "Milch": "Milk",
+ "Schaltet die Erzmine, den Schweinestall (Fleisch) und den Kuhstall (Milch) frei.": "Unlocks the ore mine, the pigsty (meat) and the cowshed (milk).",
+ "Ab Bergbau gibt es Schweinestall und Kuhstall. Bauern machen dort aus Getreide Fleisch und Milch, die gut satt machen, aber verderben.": "From Mining on there are pigsties and cowsheds. Farmers turn grain into meat and milk there, which are very filling but spoil."
 }

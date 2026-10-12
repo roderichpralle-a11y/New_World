@@ -578,7 +578,7 @@ func _workshops() -> Dictionary:
 				on = false
 		b.paused = not on
 		if on and w.pool_allows(b):
-			var job: String = {"kueche": "koch", "handwerk": "handwerker", "stein": "steinmetz"}.get(str(b.prod_def().get("job", "")), "")
+			var job: String = {"kueche": "koch", "handwerk": "handwerker", "stein": "steinmetz", "stall": "bauer"}.get(str(b.prod_def().get("job", "")), "")
 			if job != "":
 				jobs[job] = int(jobs.get(job, 0)) + 1
 	return jobs
