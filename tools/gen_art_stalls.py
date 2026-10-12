@@ -185,7 +185,7 @@ def cowshed():
     for y in range(52, 60):
         for x in range(2, 10):
             put(img, x, y, HAY[0] if (x + y) % 3 == 0 else HAY[2] if y < 54 else HAY[1])
-    _cow(img, 44, 48)
+    _cow(img, 44, 51)  # Hufe auf dem Boden (y 59), nicht schwebend (josh)
     # Milchkanne
     for y in range(54, 60):
         for x in range(18, 21):
