@@ -2,12 +2,12 @@
 """Schweinestall und Kuhstall (josh 2026-10-12).
 
 Wird aus gen_art.py aufgerufen:
-  pigsty()     Schweinestall, Zelle 54 in buildings.png ("pigsty", Data.BUILDING_CELLS)
+  pigsty()     Schweinestall (Bruchstein, Pultdach, Suhle), Zelle 54 in buildings.png ("pigsty", Data.BUILDING_CELLS)
   cowshed()    Kuhstall, Zelle 55 ("cowshed")
   ICONS_STALLS Symbol "milch" (Ware Milch)
 """
-from gen_art import (new, put, add_outline, blob, WOOD, SOIL, THATCH, ROOF_RED, DARK, WHEAT,
-                     plank_wall, thatch_roof, tile_roof, ground_line)
+from gen_art import (new, put, add_outline, blob, WOOD, SOIL, THATCH, ROOF_RED, DARK, WHEAT, STONE, SHINGLE,
+                     plank_wall, thatch_roof, tile_roof, stone_wall, ground_line)
 
 PIG = [(196, 120, 120), (232, 160, 156), (248, 196, 190)]
 COW_W = (246, 242, 234)
@@ -25,58 +25,110 @@ def _fence(img, x0, x1, y0, y1):
             put(img, x, y, WOOD[1])
 
 
-def _pig(img, x, y, flip=False):
-    """Schwein von der Seite, 9x6 Pixel."""
+def _pig(img, x, y, flip=False, lying=False):
+    """Grosses Schwein von der Seite, 12x7 Pixel (liegend 12x5, halb im Matsch)."""
     s = -1 if flip else 1
-    for dy in range(0, 4):
-        for dx in range(0, 7):
-            if (dx in (0, 6) and dy in (0, 3)):
+    h = 3 if lying else 5
+    for dy in range(0, h):
+        for dx in range(0, 10):
+            if dx in (0, 9) and dy in (0, h - 1):
                 continue
-            put(img, x + s * dx, y + dy, PIG[1] if dy < 2 else PIG[0])
-    # Kopf und Ruessel
+            c = PIG[2] if dy == 0 else PIG[1] if dy < h - 1 else PIG[0]
+            put(img, x + s * dx, y + dy, c)
+    # Kopf mit Ruessel und Schlappohr
     for dy in range(0, 3):
-        put(img, x + s * 7, y + dy, PIG[1])
-    put(img, x + s * 8, y + 1, PIG[2])
-    put(img, x + s * 8, y + 2, PIG[0])
-    put(img, x + s * 7, y - 1, PIG[0])  # Ohr
-    put(img, x + s * 7, y + 1, DARK)    # Auge
-    # Beine und Ringelschwanz
-    for dx in (1, 5):
-        put(img, x + s * dx, y + 4, PIG[0])
+        put(img, x + s * 10, y + dy, PIG[1])
+    put(img, x + s * 11, y + 1, PIG[2])
+    put(img, x + s * 11, y + 2, (210, 120, 120))
+    put(img, x + s * 12, y + 1, (190, 100, 104))
+    put(img, x + s * 12, y + 2, (190, 100, 104))
+    put(img, x + s * 9, y - 1, PIG[0])
+    put(img, x + s * 10, y - 1, PIG[0])
+    put(img, x + s * 10, y + 1, DARK)
+    # Ringelschwanz
     put(img, x - s, y, PIG[0])
-    put(img, x - s, y - 1, PIG[1])
+    put(img, x - s * 2, y - 1, PIG[0])
+    put(img, x - s, y - 2, PIG[0])
+    if not lying:
+        for dx in (1, 2, 7, 8):
+            put(img, x + s * dx, y + 5, PIG[0])
+            put(img, x + s * dx, y + 6, (110, 70, 64))
 
 
 def pigsty():
-    """Schweinestall (3x2): kleiner Bretterstall mit Strohdach, davor ein Matschgehege mit
-    Trog und drei Schweinen."""
+    """Schweinestall (3x2): langer, niedriger Bruchsteinstall mit Pultdach aus Holzschindeln und
+    zwei Koben mit halb offenen Stalltueren; davor ein Pferch mit Bruchsteinmauer, grosser
+    Suhle, Steintrog und vier dicken Schweinen. Bewusst anders als der Huehnerhof (kein
+    Strohdach, kein Holzlattenzaun)."""
     img = new(64, 64)
-    plank_wall(img, 4, 38, 24, 22)
-    for y in range(48, 60):
-        for x in range(12, 20):
-            put(img, x, y, DARK)
-    thatch_roof(img, 2, 24, 28, 16)
-    # Zaun hinten (die Schweine stehen davor)
-    _fence(img, 30, 62, 40, 47)
-    # Matsch im Gehege
-    blob(img, 45, 54, 15, 5, [SOIL[0], SOIL[1], SOIL[2]], noise_seed=31, jag=0.2)
-    blob(img, 50, 56, 5, 2, [(80, 54, 40), (96, 64, 46), (110, 74, 52)], noise_seed=32)
-    # Trog
-    for x in range(36, 46):
-        put(img, x, 50, WOOD[0])
-        put(img, x, 51, WOOD[1])
-    for x in range(37, 45):
-        put(img, x, 49, HAY[1] if x % 2 else HAY[0])
-    _pig(img, 34, 54)
-    _pig(img, 52, 51, flip=True)
-    _pig(img, 47, 56)
-    # Zaun vorn nur als niedrige Latte mit Pfosten
-    for x in range(30, 62):
-        put(img, x, 60, WOOD[2])
-    for x in range(30, 62, 8):
-        put(img, x, 59, WOOD[1])
-        put(img, x, 58, WOOD[1])
-    ground_line(img, 4, 60)
+    # Rueckwand: niedriger Bruchsteinstall ueber die ganze Breite
+    stone_wall(img, 3, 30, 58, 16)
+    # Pultdach: hinten hoch, vorn tief, Schindeln in Reihen
+    for y in range(20, 32):
+        for x in range(1, 63):
+            row = (y - 20) // 3
+            c = SHINGLE[1] if (x + row * 2) % 6 == 0 else SHINGLE[2] if (y - 20) % 3 else SHINGLE[0]
+            if y == 31:
+                c = SHINGLE[0]
+            if y == 20:
+                c = SHINGLE[3]
+            put(img, x, y, c)
+    # Balkenkopf-Reihe unter der Traufe
+    for x in range(4, 61, 7):
+        put(img, x, 32, WOOD[1])
+        put(img, x + 1, 32, WOOD[2])
+    # Zwei Koben mit zweiteiliger Stalltuer (obere Haelfte offen, untere zu)
+    for x0 in (10, 38):
+        for y in range(35, 46):
+            for x in range(x0, x0 + 12):
+                if y < 40:
+                    c = DARK if x not in (x0, x0 + 11) else WOOD[0]
+                else:
+                    c = WOOD[1] if (x - x0) % 3 else WOOD[0]
+                put(img, x, y, c)
+        for x in range(x0, x0 + 12):
+            put(img, x, 34, WOOD[0])
+            put(img, x, 40, WOOD[2])
+        # Schweinekopf schaut aus dem Koben
+        for dy in range(0, 3):
+            for dx in range(0, 4):
+                put(img, x0 + 4 + dx, 37 + dy, PIG[1] if dy < 2 else PIG[0])
+        put(img, x0 + 5, 38, DARK)
+        put(img, x0 + 4, 39, (190, 100, 104))
+        put(img, x0 + 4, 36, PIG[0])
+        put(img, x0 + 7, 36, PIG[0])
+    # Strohhaufen zwischen den Koben
+    blob(img, 30, 44, 4, 2, [THATCH[1], THATCH[2], THATCH[3]], noise_seed=33, jag=0.3)
+    # Pferch: Boden aus festgetretener Erde, grosse Suhle in der Mitte
+    for y in range(46, 61):
+        for x in range(3, 61):
+            put(img, x, y, SOIL[1] if (x * 7 + y * 3) % 11 else SOIL[2])
+    blob(img, 30, 55, 13, 4, [(58, 38, 30), (76, 50, 38), (92, 62, 46)], noise_seed=34, jag=0.15)
+    for (x, y) in [(21, 53), (22, 53), (33, 56), (34, 56), (29, 58)]:
+        put(img, x, y, (150, 128, 116))  # nasse Glanzlichter
+    # Steintrog links
+    for y in range(48, 52):
+        for x in range(3, 15):
+            put(img, x, y, STONE[2] if y == 49 else STONE[1])
+    for x in range(4, 14):
+        put(img, x, 49, WHEAT[1] if x % 2 else WHEAT[2])
+    # Vier dicke Schweine: am Trog, in der Suhle liegend, zwei laufend
+    _pig(img, 4, 52)
+    _pig(img, 24, 55, lying=True)
+    _pig(img, 58, 46, flip=True)
+    _pig(img, 50, 52, flip=True)
+    # Niedrige Bruchsteinmauer vorn (nur 3 Pixel hoch, damit man die Schweine sieht)
+    for x in range(2, 62):
+        for y in range(58, 62):
+            c = STONE[2] if y == 58 else STONE[1] if (x // 3 + y) % 2 else STONE[0]
+            put(img, x, y, c)
+    for x in range(3, 61, 6):
+        put(img, x, 59, STONE[3])
+    # Gattertor rechts in der Mauer
+    for x in range(53, 60):
+        for y in range(56, 61):
+            put(img, x, y, WOOD[2] if y in (56, 59) or x in (53, 59) or x - 53 == y - 56 else SOIL[1])
+    ground_line(img, 2, 62)
     add_outline(img)
     return img
 

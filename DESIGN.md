@@ -94,7 +94,8 @@ Zeitalterwechsel mit Wertung und Aufträge mit Wahl. Überblick und Zusammenspie
   wenn auf den Feldern nichts zu tun ist; `Settler` Beruf „bauer“, `Admin.KIND_JOB`, `AiJobs`):
   **Schweinestall** 3 Getreide → 3 Fleisch in 8 s, **Kuhstall** 2 Getreide → 3 Milch in 7 s. Fleisch sättigt
   44 (vorher 32), Milch 36 mit 12 Vitaminen; beide verderben (seasons.json `perishable`). Bilder `pigsty`
-  und `cowshed` (buildings.png Zellen 54 und 55, `tools/gen_art_stalls.py`), Symbol `milch`.
+  und `cowshed` (buildings.png Zellen 54 und 55, `tools/gen_art_stalls.py`), Symbol `milch`. Der Schweinestall ist ein Bruchsteinstall mit
+  Schindel-Pultdach, Koben und Suhle; er darf nicht wie der Hühnerhof aussehen (Strohdach, Lattenzaun; josh).
   Test `--stalltest=1` (`scripts/world/stall_test.gd`).
 - **Schreibstube in Stufen**: Schreibstube (x1.0, 2 Forscher) → Große Schreibstube (x1.4, 3)
   → Gelehrtenstube (x1.9, 3, Forschung Gelehrsamkeit) → Akademie (x2.6, 4, Schmiedekunst),
