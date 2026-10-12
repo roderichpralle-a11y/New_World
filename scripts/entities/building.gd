@@ -57,7 +57,8 @@ func setup(p_world, p_type: String, p_cell: Vector2i, p_complete: bool) -> void:
 		_sprite = Sprite2D.new()
 		_sprite.centered = false
 		add_child(_sprite)
-	if def.get("light", false):
+	# Werkstätten bekommen eine Arbeitslampe: sie brennt nachts, solange drinnen jemand arbeitet (Schichtarbeit)
+	if def.get("light", false) or def.has("production"):
 		_light = PointLight2D.new()
 		_light.texture = _get_light_tex()
 		_light.color = Color(1.0, 0.75, 0.45)
@@ -370,10 +371,14 @@ func _process(delta: float) -> void:
 	if complete and def.has("defense") and not world.animals.is_empty():
 		_defend(delta)
 	if _light:
-		var target: float = world.night_factor() if complete else 0.0
+		var lamp_on: bool = complete and (def.get("light", false) or not occupants.is_empty())
+		var target: float = world.night_factor() if lamp_on else 0.0
 		var flicker := 1.0 + (sin(_anim_t * 13.0) * 0.06 + sin(_anim_t * 7.3) * 0.05 if type == "lagerfeuer" else 0.0)
 		_anim_t += 0.0 if type == "lagerfeuer" else delta
-		_light.energy = target * (0.75 if type == "lagerfeuer" else 0.45) * flicker
+		if type == "lagerfeuer":
+			_light.energy = target * 0.75 * flicker
+		else:
+			_light.energy = move_toward(_light.energy, target * 0.45, delta * 2.0)
 		_light.visible = _light.energy > 0.02
 	if (is_ground() or def.has("farm")) and complete and farm_state == "growing":
 		# Jahreszeit: im Winter steht das Wachstum still, im Sommer geht es schneller

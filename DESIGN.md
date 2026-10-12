@@ -1272,15 +1272,24 @@ oder „neu“; danach heißen der Spielstand-Platz (`slot_<tag>`) und die Rekor
   Werkstätten, die arbeiten könnten, und Leute; mehr Werkstätten als Leute → Meldung (Art
   „verwaltung“, höchstens alle 2 Tage je Beruf) und Fenster mit „Überstunden“, „Schichtarbeit“, „Nichts
   anordnen“ (Zeit springt auf normal). Sind beide schon angeordnet: Meldung „mehr Siedler einteilen“.
-- **Anordnungen je Beruf** (Infofenster der Verwaltung, `Admin.orders`): Überstunden = keine
-  Freizeitpausen; nach `overtime_years` (1) Jahr am Stück aus, Protest `protest_days` (6) Tage mit
-  `protest_mood` (−15) Laune, so lange keine neuen Überstunden. Schichtarbeit = jede Nacht arbeitet die
-  Hälfte durch (`Admin.night_worker`: Siedler-ID plus Nachtnummer gerade, wechselt jede Nacht;
-  `Settler._sleep_time`), alle mit dem Beruf haben `shift_mood` (−20, eine Laune-Stufe) Laune.
+- **Anordnungen je Beruf** (Infofenster der Verwaltung, `Admin.orders`). Ziel (josh 2026-10-12): mit
+  Schichtarbeit doppelter, mit Überstunden anderthalbfacher Tagesertrag gegenüber ohne.
+  Überstunden = keine Freizeitpausen, `overtime_hours` (2) Stunden früher anfangen und später aufhören
+  (`Admin.sleep_time`), Arbeitstempo × `overtime_speed` (1,25, `Admin.work_mult` in `Settler.work_factor`);
+  nach `overtime_years` (1) Jahr am Stück aus, Protest `protest_days` (6) Tage mit `protest_mood` (−15)
+  Laune, so lange keine neuen Überstunden. Schichtarbeit = alle Erwachsenen des Berufs arbeiten auch nachts
+  (`Admin.night_worker`, `Settler._sleep_time`), Arbeitstempo × `shift_speed` (1,75); alle mit dem Beruf
+  haben `shift_mood` (−20, eine Laune-Stufe) Laune, die aber die Arbeitskraft nicht senkt
+  (`SettlerMind.mood_work_factor` rechnet sie heraus). Solange Schicht- oder Überstundenarbeiter nachts wach
+  sind, läuft die Nacht nicht `night_speedup`-mal schneller (`Admin.night_work_now`, `Game._process`), sonst
+  brächte Nachtarbeit kaum etwas. Werkstätten (Gebäude mit „production“) haben eine Arbeitslampe, die nachts
+  brennt, solange jemand drin arbeitet. Messung `--adminmeasure=normal|ot|shift[,Tage]` (zwei Handwerker,
+  zwei Sägegruben, Holz nachgefüllt): 5 Tage ergaben ohne ≈ 224, Überstunden 338 (×1,5), Schicht 434 (×1,95).
   Werte in `data/admin.json`. Spielstand oben „admin“ = {orders, protest, reported}; alte Spielstände:
   nichts angeordnet. Nur normale Version.
 - **Test** `--admintest=1` (`admin_test.gd`): nur eine Verwaltung, nur ein Verwalter, Meldung, Vertretung,
-  keine Pause bei Überstunden, Protest nach einem Jahr, Schicht nachts, Laune, Spielstand.
+  keine Pause bei Überstunden, Protest nach einem Jahr, Schicht nachts (alle, Nacht normal schnell, Lampe),
+  Laune bremst nicht, Spielstand.
 - **Protest-Video** (`ProtestVideo`, `scripts/ui/protest_video.gd`, Signal `Admin.protest_started(Beruf, Grund)`
   direkt nach der Protest-Meldung): Pixelbühne wie beim Fest-Video (96 Pixel hoch, 100..180 breit,
   ganzzahlig vergrößert, jedes Bild hängt nur von der Zeit ab), nahtlose Schleife von 4 s. Sechs Siedler

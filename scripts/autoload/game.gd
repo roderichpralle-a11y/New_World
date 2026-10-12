@@ -206,7 +206,8 @@ func _process(delta: float) -> void:
 	# delta ist bereits mit Engine.time_scale skaliert
 	if speed > 0:
 		# Naechte vergehen schneller, damit das Warten nicht langweilt
-		var mult := float(Data.bal("night_speedup", 1.0)) if is_night() else 1.0
+		# (nicht, solange Schicht- oder Überstundenarbeiter wach sind, Admin.night_work_now)
+		var mult := float(Data.bal("night_speedup", 1.0)) if is_night() and not Admin.night_work_now() else 1.0
 		time_days += delta * mult / float(Data.bal("day_length"))
 		if day() != _last_day:
 			_last_day = day()

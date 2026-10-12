@@ -423,7 +423,7 @@ func carry_capacity() -> int:
 ## Arbeitstempo fuer eine Faehigkeit inklusive Forschungsboni.
 func work_factor(sk: String, bonus: String = "") -> float:
 	var f := skill_factor(sk) * Game.eff("work") * Seasons.work_mult(world) * mind.work_power() \
-		* float(Data.bal("work_pace", 1.0))
+		* float(Data.bal("work_pace", 1.0)) * Admin.work_mult(self)
 	if bonus != "":
 		f *= Game.eff(bonus)
 	return f
@@ -789,7 +789,7 @@ func _do_harvest(node) -> void:
 	world.spawn_effect("chips_" + node.type, node.position + Vector2(0, -6))
 	# Weiterarbeiten, solange Platz und Zeit ist
 	var cap := carry_capacity()
-	if carry_n < cap and is_instance_valid(node) and node.is_available() and not Game.is_night() \
+	if carry_n < cap and is_instance_valid(node) and node.is_available() and not _sleep_time() \
 			and hunger >= float(Data.bal("eat_below")) * 0.6:
 		_plan.push_front({"a": "work", "t": float(node.def.work_time) / work_factor(node.def.skill, "gather_" + res),
 			"act": _verb(node.type), "tool": _cur_tool, "face": node.position,
@@ -925,7 +925,7 @@ func _do_build(site) -> void:
 	gain_xp("bauen", 0.5)
 	world.spawn_effect("dust", site.position + Vector2(_rng.randf_range(-12, 12), -4))
 	Sound.play_at("hammer", world, site.position)
-	if not site.complete and not Game.is_night() and hunger >= float(Data.bal("eat_below")) * 0.6:
+	if not site.complete and not _sleep_time() and hunger >= float(Data.bal("eat_below")) * 0.6:
 		_plan.push_front({"a": "work", "t": 1.5, "act": tr("Baut"), "tool": "hammer",
 			"face": site.position, "done": _do_build.bind(site)})
 
@@ -956,7 +956,7 @@ func _plan_office() -> bool:
 	for x in world.buildings:
 		if x.type == Admin.OFFICE and x.complete:
 			b = x
-	if b == null or Game.is_night():
+	if b == null or _sleep_time():
 		return false
 	if not _push_move_to([b.entrance_cell()], false) and not _push_move_to(b.cells()):
 		world.mark_unreachable(b)
@@ -969,7 +969,7 @@ func _plan_office() -> bool:
 
 ## Schlafenszeit? Nachts, außer bei Schichtarbeit für die Hälfte, die diese Nacht durcharbeitet.
 func _sleep_time() -> bool:
-	return Game.is_night() and not Admin.night_worker(self)
+	return Admin.sleep_time(self)
 
 
 func _plan_production_at(b) -> bool:
@@ -1060,7 +1060,7 @@ func _do_research(b) -> void:
 		world.float_text(position + Vector2(0, -28), tr("Idee!"), "")
 	if not world.pool_allows(b, id):
 		return  # Fachkräfte-Pool voll (Bedürfnisstufen): Platz räumen
-	if Game.has_research_goal() and not Game.is_night() and hunger >= float(Data.bal("eat_below")) * 0.6:
+	if Game.has_research_goal() and not _sleep_time() and hunger >= float(Data.bal("eat_below")) * 0.6:
 		_plan.push_front({"a": "work", "t": float(Data.bal("research_work_time", 2.5)), "act": tr("Forscht"),
 			"tool": "book", "face": b.position, "done": _do_research.bind(b)})
 

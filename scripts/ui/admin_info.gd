@@ -61,7 +61,7 @@ static func office_rows(hud, b) -> void:
 	for e in Admin.shortages():
 		short[e[0]] = e
 	hud._info_box.add_child(UiTheme.label(Loc.t("Anordnungen"), 15, UiTheme.TEXT, true))
-	var hint := UiTheme.label(Loc.t("Überstunden: keine Pausen, höchstens ein Jahr am Stück. Schichtarbeit: jede Nacht arbeitet die Hälfte durch, Laune eine Stufe schlechter."), 12, DIM)
+	var hint := UiTheme.label(Loc.t("Überstunden: 2 Stunden früher anfangen und länger arbeiten, keine Pausen, etwa anderthalbmal so viel Ertrag, höchstens ein Jahr am Stück. Schichtarbeit: Arbeit rund um die Uhr, etwa doppelt so viel Ertrag, Laune eine Stufe schlechter."), 12, DIM)
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	hud._info_box.add_child(hint)
 	for job in _jobs():
@@ -133,7 +133,7 @@ static func show_proposal(hud, job: String, text: String) -> void:
 	l.custom_minimum_size.x = 300
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(l)
-	var d := UiTheme.label(Loc.t("Überstunden: keine Pausen, höchstens ein Jahr am Stück. Schichtarbeit: jede Nacht arbeitet die Hälfte durch, Laune eine Stufe schlechter."), 12, DIM)
+	var d := UiTheme.label(Loc.t("Überstunden: 2 Stunden früher anfangen und länger arbeiten, keine Pausen, etwa anderthalbmal so viel Ertrag, höchstens ein Jahr am Stück. Schichtarbeit: Arbeit rund um die Uhr, etwa doppelt so viel Ertrag, Laune eine Stufe schlechter."), 12, DIM)
 	d.custom_minimum_size.x = 300
 	d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(d)
