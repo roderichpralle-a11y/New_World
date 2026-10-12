@@ -40,14 +40,15 @@
       "text": "Felder und Obstgärten am Wasser werden ihre Ernte verlieren, Gebäude am Ufer werden beschädigt.",
       "hint": "Häfen und Werften halten ihr stand.", "counter": {"tech": "deichbau"},
       "desc": "Sturmflut!", "coast_radius": 2, "breach_base": 0.3, "breach_power": 0.2},
-    "piraten": {"name": "Piraten", "icon": "schwert", "weights": [2, 3, 1, 0], "min_settlers": 8, "reward": true, "min_age": 2, "min_harbor": 1,
-      "text": "Piraten wollen an Land gehen und das Lager plündern. Die Siedler fliehen in die Häuser.",
-      "hint": "Jäger und Wachtürme wehren sie ab. Ihre Beute nehmen sie erst beim Ablegen mit.", "counter": {"building": "wachturm"},
+    "piraten": {"name": "Piraten", "icon": "schwert", "weights": [2, 3, 1, 0], "min_settlers": 8, "reward": true, "min_tier": 4,
+      "text": "Piraten wollen an Land gehen und das Lager plündern. Die Erwachsenen verteidigen die Insel, Kinder und Alte verstecken sich.",
+      "hint": "Waffen aus der Waffenschmiede machen die Siedler doppelt so stark, Wachtürme helfen. Ihre Beute nehmen die Piraten erst beim Ablegen mit.", "counter": {"building": "waffenschmiede"},
       "desc": "Piraten sind gelandet!",
-      "count": [2, 10, 7], "home_after": 0.5, "timeout": 0.8, "gold_per_kill": 1}
+      "count": [3, 5, 12], "home_after": 0.5, "timeout": 0.8, "gold_per_kill": 1}
   },
-  "raider": {"name": "Pirat", "plural": "Piraten", "by": "von Piraten", "hp": 45, "hp_age": 0.15, "damage": 7, "attack_time": 1.1,
-    "speed": 34, "aggro": 3, "night_aggro": 3, "chase": 9, "plunder_secs": 4.0, "loot_base": 6, "loot_power": 4,
+  "raider": {"name": "Pirat", "plural": "Piraten", "by": "von Piraten", "hp": 60, "hp_age": 0.15, "damage": 9, "attack_time": 1.0,
+    "speed": 34, "aggro": 3, "night_aggro": 3, "chase": 9,
+    "sail_secs": 4.0, "step_out_secs": 0.7, "fight_max_age": 55, "retreat_health": 35, "weapon_damage": 8, "tool_damage": 4, "plunder_secs": 4.0, "loot_base": 6, "loot_power": 4,
     "loot": ["gold", "werkzeug", "eisen", "stahl", "glas", "papier", "brot", "raeucherfisch", "konserven", "felle", "fleisch"],
     "sound": "knurren"}
 }

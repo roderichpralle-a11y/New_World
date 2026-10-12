@@ -68,11 +68,12 @@ static func _free_land(w, near: Vector2i, avoid: Array = []):
 static func run(main) -> void:
 	fails = 0
 	var w = main.world
-	_research(["steinwerkzeuge", "steinbruch", "toepferei", "zimmerei", "maurerei", "bewaesserung", "deichbau"])
+	_research(["steinwerkzeuge", "steinbruch", "wegebau", "toepferei", "zimmerei", "maurerei", "bewaesserung", "deichbau"])
 	Game.add_stock("stein", 50, w)  # Lagerfeuer fasst nur 200 Raum
 	Game.add_stock("holz", 20, w)
 	Game.add_stock("lehm", 20, w)
 	Game.add_stock("beeren", 40, w)
+	await _fastest_way(main, w)
 	# ---- Straße
 	var rc = _free_land(w, w.center + Vector2i(4, 4))
 	var r1 = w.place_building("strasse", rc, true)
@@ -218,10 +219,70 @@ static func run(main) -> void:
 	print("Land %s (%d Fehler)" % ["OK" if fails == 0 else "FEHLER", fails])
 
 
+## Freier Landstreifen (29 x 5) weit weg von allen Lagern; Bäume und Büsche darin werden entfernt.
+static func _strip(w):
+	for y0 in range(2, w.size - 7):
+		for x0 in range(14, w.size - 18):
+			var ok := true
+			for y in range(y0, y0 + 5):
+				for x in range(x0 - 12, x0 + 17):
+					var c := Vector2i(x, y)
+					if w.is_water(c) or w.building_at.has(c):
+						ok = false
+						break
+				if not ok:
+					break
+			if not ok:
+				continue
+			for b in w.buildings:
+				if b.is_storage() and Vector2(b.cell - Vector2i(x0, y0 + 3)).length() < 15.0:
+					ok = false
+			if ok:
+				return Vector2i(x0, y0)
+	return null
+
+
+## Schnellster Weg (josh 2026-10-12): Straßen zählen bei der Wegsuche und bei der Wahl des Lagers.
+static func _fastest_way(main, w) -> void:
+	var p0 = _strip(w)
+	if p0 == null:
+		print("Land: kein freier Streifen für den Wegtest, übersprungen (Insel %d)" % w.size)
+		return
+	for y in range(p0.y, p0.y + 5):
+		for x in range(p0.x - 12, p0.x + 17):
+			var n = w.node_at.get(Vector2i(x, y))
+			if n != null:
+				w.remove_node(n)
+	var o: Vector2i = p0 + Vector2i(0, 3)
+	var x: Vector2i = p0 + Vector2i(12, 3)
+	var grass := func(path: PackedVector2Array) -> int:
+		var n := 0
+		for pt in path:
+			if not w.road_at(Vector2i((pt / World.T).floor())):
+				n += 1
+		return n
+	_ok(grass.call(w.find_path(o, x)) == 13, "ohne Straße geradeaus (%d Felder)" % w.find_path(o, x).size())
+	var l1 = w.place_building("lager", p0 + Vector2i(-13, 2), true)   # 11 Felder links, nur Gras
+	var l2 = w.place_building("lager", p0 + Vector2i(13, 2), true)    # 13 Felder rechts, an der Straße
+	_ok(w.nearest_storage(o) == l1, "ohne Straße: das Lager links ist am nächsten")
+	var roads := []
+	for i in range(0, 13):
+		roads.append(w.place_building("strasse", p0 + Vector2i(i, 2), true))
+	var path: PackedVector2Array = w.find_path(o, x)
+	_ok(grass.call(path) <= 3, "mit Straße: der Weg nimmt die Straße (%d von %d Feldern Gras)" % [grass.call(path), path.size()])
+	var t_road: float = w.travel_time(o, l2)
+	var t_grass: float = w.travel_time(o, l1)
+	_ok(w.nearest_storage(o) == l2 and t_road < t_grass, "mit Straße: das weitere Lager ist schneller (%.1f statt %.1f)" % [t_road, t_grass])
+	_ok(w.delivery_storage(o) == l2, "Abliefern immer im schnellsten Lager")
+	for b in roads + [l1, l2]:
+		w.demolish(b)
+	_ok(w.astar.get_point_weight_scale(p0 + Vector2i(5, 2)) > 1.0, "abgerissene Straße kostet wieder wie Gras")
+
+
 ## Bildschirmfoto: Straßen, Deiche mit Neuland, Förster mit Pflanzstelle und markiertem Baum.
 static func shot(main, kind: String) -> void:
 	var w = main.world
-	_research(["steinwerkzeuge", "steinbruch", "deichbau"])
+	_research(["steinwerkzeuge", "steinbruch", "wegebau", "deichbau"])
 	var a = find_bay(w)
 	if a != null:
 		for c in bay_dikes(a):

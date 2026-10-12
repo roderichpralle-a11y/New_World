@@ -18,6 +18,8 @@ var gone := false  # an Bord, verschwunden oder vertrieben
 var _plunder_t := 0.0
 var _goal := Vector2i(-1, -1)
 var _wait_path := 0.0
+var _wade_from := Vector2.ZERO
+var _wade_t := -1.0  # >= 0: steigt gerade aus dem Schiff (disembark)
 
 
 func setup_raider(p_world, p_cell: Vector2i, p_landing: Vector2i, p_cap: int, p_def: Dictionary) -> void:
@@ -44,6 +46,36 @@ func setup_raider(p_world, p_cell: Vector2i, p_landing: Vector2i, p_cap: int, p_
 	add_child(_sprite)
 	_wait = _rng.randf_range(0.0, 0.8)
 	_animate(0.0)
+
+
+## Aussteigen (Events._spawn_raiders): unsichtbar an Bord, bis das Schiff da ist (delay), dann watet
+## er vom Schiff (ship_pos) an seinen Platz am Strand.
+func disembark(ship_pos: Vector2, delay: float) -> void:
+	_wade_from = ship_pos
+	_wait = delay
+	_wade_t = 0.0
+	visible = false
+
+
+func _disembark_step(delta: float) -> void:
+	if _wait > 0.0:
+		_wait -= delta
+		return
+	var target: Vector2 = world.cell_to_pos(cell)
+	if not visible:
+		visible = true
+		position = _wade_from
+		world.spawn_effect("chips_fischgrund", position)
+		Sound.play_at("platsch", world, position)
+	_wade_t += delta
+	var dur := 1.4
+	position = _wade_from.lerp(target, clampf(_wade_t / dur, 0.0, 1.0))
+	_moving = true
+	_flip_to(target.x - _wade_from.x)
+	if _wade_t >= dur:
+		_wade_t = -1.0
+		position = target
+		_wait = 0.0
 
 
 func is_hostile() -> bool:
@@ -87,6 +119,10 @@ func _process(delta: float) -> void:
 	_attack_anim -= delta
 	_think -= delta
 	_wait_path -= delta
+	if _wade_t >= 0.0:
+		_disembark_step(delta)
+		_animate(delta)
+		return
 	if _think <= 0.0:
 		_think = 0.35 + _rng.randf() * 0.2
 		_choose_target()
@@ -203,6 +239,6 @@ func fill_info(h) -> void:
 		st.text = state_text()
 	upd.call()
 	h._updaters.append(upd)
-	var l := UiTheme.label(tr("Gefährlich! Schlag: %d Schaden. Jäger und Wachtürme vertreiben Piraten. Ihre Beute nehmen sie erst beim Ablegen aus dem Lager; wer vorher vertrieben wird, bekommt nichts.") % int(def.get("damage", 7)), 13)
+	var l := UiTheme.label(tr("Gefährlich! Schlag: %d Schaden. Die Erwachsenen kämpfen gegen Piraten, mit Waffen aus dem Lager doppelt so gut wie mit Mistgabel und Werkzeug; Wachtürme helfen. Ihre Beute nehmen sie erst beim Ablegen aus dem Lager; wer vorher vertrieben wird, bekommt nichts.") % int(def.get("damage", 7)), 13)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	h._info_box.add_child(l)

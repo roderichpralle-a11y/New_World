@@ -45,10 +45,9 @@ Zeitalterwechsel mit Wertung und Aufträge mit Wahl. Überblick und Zusammenspie
   Die Funktionen nehmen schon eine Insel `w` an und lesen Vorrat und Grenzen über
   `Game._stock_of(w)` / `Game._limits_of(w)`; für getrennte Inselvorräte ändern sich nur diese
   und `storage_volume(w)`.
-- **Abliefern**: Träger wählen mit `World.delivery_storage` unter allen Lagern, die höchstens
-  `delivery_spread` Zellen weiter weg sind als das nächste, das mit den wenigsten
-  Ablieferungen je Lagerplatz. So bleibt auch das Lagerfeuer neben einem Lagerhaus in Gebrauch.
-  Abstände zählen zur nächsten Zelle des Gebäudes (`Building.dist_sq`).
+- **Abliefern**: Träger liefern immer im Lager mit der kürzesten Wegzeit ab (`World.delivery_storage`,
+  `nearest_storage`, josh 2026-10-12; siehe „Schnellster Weg“). `balance.delivery_spread` wird nicht mehr
+  benutzt. Luftlinien-Abstände zählen zur nächsten Zelle des Gebäudes (`Building.dist_sq`).
 - **Verloren**: Stirbt auf einer Insel der letzte Siedler, ist sie für immer verloren. Sind alle
   Inseln verloren und niemand mehr auf See, ist das Spiel vorbei (Spielstand wird gelöscht).
 - Speichern: automatisch alle `autosave_seconds` Sekunden, beim Verlassen und über das Menü
@@ -662,7 +661,7 @@ Häuser stellen Fachkräfte für höhere Werkstätten (z. B. Schmiede ab Holzhau
 ## Angekündigte Ereignisse (Herausforderung)
 
 Ab dem zweiten Jahr trifft jede Insel ab und zu ein Ereignis, das sich vorher ankündigt: Dürre, Ratten,
-Brand, Seuche, Sturmflut und ab dem Mittelalter Piraten. Wer vorbereitet ist (Forschung, Gebäude, Vorräte),
+Brand, Seuche, Sturmflut und ab Forschungsstufe 4 Piraten. Wer vorbereitet ist (Forschung, Gebäude, Vorräte),
 kommt gut durch; wer eine Dürre, Seuche oder einen Piratenüberfall ohne Tote übersteht, bekommt einen
 Einwanderer. Regelzeile für alte Spielstände: „Ab dem zweiten Jahr kündigen sich Ereignisse an: Dürre,
 Ratten, Brand, Seuche, Sturmflut und ab dem Mittelalter Piraten. Wer sie gut übersteht, bekommt Einwanderer.“
@@ -700,10 +699,28 @@ Ratten, Brand, Seuche, Sturmflut und ab dem Mittelalter Piraten. Wer sie gut üb
   - **Sturmflut** (Herbst, Winter): Felder und Obstgärten bis 2 Felder vom Wasser verlieren ihre Ernte
     (brach), 1 + ⌊Stärke / 1,25⌋ Gebäude am Ufer werden beschädigt (Baustoffe 80 %). Deichbau (Wirkung
     `flood`) verhindert alles. Häfen, Werften und Ufergebäude bleiben heil.
-  - **Piraten** (ab Zeitalter 2, mit Hafen oder Werft): clamp(2 + Siedler / 10 + (Zeitalter − 2), 2, 7)
-    Piraten (`Raider`, `scripts/entities/raider.gd`, Unterklasse von `Animal`, Werte in events.json
-    `raider`, Grafik Zeile 3 in animals.png) landen etwa 12 Felder vom Lager am Strand, ihr Schiff (rot
-    gefärbte Kogge) liegt davor. Sie gehen zum nächsten Lager, plündern dort 4 Sekunden und gehen zurück;
+  - **Piraten** (josh 2026-10-12: ab Forschungsstufe 4 (`min_tier`, `Game.max_tier()`), ohne Hafen-Bedingung):
+    clamp(3 + Siedler / 5 + (Stufe − 4) / 2, 3, 12) Piraten (`Raider`, `scripts/entities/raider.gd`,
+    Unterklasse von `Animal`, Werte in events.json `raider`: 60 Kraft (+15 % je Zeitalter über 2), Schlag 9
+    je Sekunde; Grafik Zeile 3 in animals.png: Kopftuch, Augenklappe, Ohrring, gestreiftes Hemd, Säbel).
+    Ihr Schiff (rot gefärbte Kogge) segelt in `sail_secs` (4 s) von See heran, dann steigen sie alle
+    `step_out_secs` (0,7 s) einer nach dem anderen aus und waten an Land (`Raider.disembark`, unsichtbar
+    und harmlos bis dahin). Landeplatz etwa 12 Felder vom Lager am Strand. **Verteidigung**: Solange
+    Piraten an Land sind (`Events.pirates_ashore`), kämpfen alle Erwachsenen unter `fight_max_age` (55),
+    gesund und mit mehr als `retreat_health` + 5 (40) Gesundheit (`Events.defender`, `Settler._defend`):
+    Last abwerfen (zurück ins Lager), mit Waffe aus dem Lager, wenn eine da ist (Aktion „arm“ am Lager,
+    `Events.arm`, `ev.armed` zählt sie, am Ende kommen alle zurück ins Lager, `_return_weapons`), dann zum
+    nächsten Piraten und zuschlagen (Hunt-Plan mit `defend`). Schaden: mit Waffe `weapon_damage` (8),
+    sonst `tool_damage` (4), mal Waffenkunde (Wirkung `weapons`, x2); Jäger mindestens ihr Jagdschaden.
+    Unter `retreat_health` (35) zieht sich ein Kämpfer zurück und versteckt sich. Bild in der Hand
+    (`Settler._fight_tool`, tools.png): Säbel oder Speer mit Waffe, sonst Werkzeug des Berufs (Axt,
+    Spitzhacke, Hammer, Mistgabel, Knüppel, Schaufel); beim Laufen hochgehalten, beim Kampf geschwungen.
+    Kinder, Alte, Kranke und Verletzte verstecken sich in Häusern und bleiben drin, bis die Piraten fort
+    sind. **Waffen**: Ware `waffen` (Größe 2) aus der **Waffenschmiede** (`waffenschmiede`, Schmiedekunst,
+    Bild `armory` in buildings.png Zelle 53, `tools/gen_art_pirates.py`): 2 Eisen + 1 Holz → 1 Waffe in 8 s.
+    Test `--eventtest=piraten`: erst ab Stufe 4, Schiff und Aussteigen, ohne Abwehr (`Events.no_defense`),
+    mit Wachturm und Jägern, mit Waffen (Waffen zurück im Lager), ohne Waffen. Bild: `--eventshot=piraten:now
+    --fightcam=<s> --fightshot=<png> --scale=1`. Die Piraten gehen zum nächsten Lager, plündern dort 4 Sekunden und gehen zurück;
     die Beute (je Pirat 6 + 4 x Stärke aus `loot`: Gold, Werkzeug, Eisen …) nehmen sie erst beim Ablegen aus
     dem Lager. Nach einem halben Tag gehen alle zurück, nach 0,8 Tagen sind sie fort. Sie greifen Siedler in
     3 Feldern an; Jäger und Wachtürme bekämpfen sie wie wilde Tiere. Vertriebene zählen `stats.pirates`,
@@ -1066,7 +1083,8 @@ Reihenfolge der Autoloads in `project.godot`: Seasons, Writing, Exams, Quests, H
 - Selbsttest `--integtest=1` (`scripts/autoload/integration_test.gd`) prüft diese Verbindungen
   („Zusammenspiel OK/FEHLER“).
 
-- **Regelstand**: `Game.RULES` (= 1). Der Spielstand bekommt die Schlüssel `rules` (int) und `rules_day`
+- **Regelstand**: `Game.RULES` (= 2; 1 = „Mehr Herausforderung“, 2 = josh 2026-10-12: Straßen nach Forschung,
+  schnellster Weg, Piratenkampf, Schicht doppelt; Zeilen bei `old_rules < 2` in Events und Admin). Der Spielstand bekommt die Schlüssel `rules` (int) und `rules_day`
   (float, `time_days`, ab dem die Regeln für diesen Spielstand gelten). `SAVE_VERSION` bleibt 3: eine alte,
   im Browser zwischengespeicherte Version lehnt unbekannte Versionen ab und würde den Spielstand löschen.
   Speichert so eine alte Version erneut, fehlen die neuen Schlüssel wieder; jede Übernahme muss also
@@ -1317,8 +1335,15 @@ Bau-Reiter „Land und Wege“ (Kategorie `land`, Symbol `weg`). Alle drei sind 
 Bilder in `assets/sprites/objects3.png` (`tools/gen_art_land.py`, `Data.OBJECT3_REGIONS`): `road0..15`,
 `dike0..15` (Maske der Nachbarn N=1 O=2 S=4 W=8, `World.tile_mask`, `Building.refresh`), `plant_mark`,
 `clear_mark`.
-- **Straße** (`strasse`, Steinbruch, 20 Stein, baut der Baumeister): auf fertigen Straßen laufen Siedler
-  `balance.road_speed` (1,5) mal so schnell (`World.road_at`, `Settler._walk`).
+- **Straße** (`strasse`, Forschung Wegebau in Stufe 3 (josh 2026-10-12; Steinbruch und Zimmerei, 40 Stein,
+  20 Holz), 20 Stein, baut der Baumeister): auf fertigen Straßen laufen Siedler `balance.road_speed` (1,5)
+  mal so schnell (`World.road_at`, `Settler._walk`). Alte Spielstände behalten gebaute Straßen.
+- **Schnellster Weg** (josh 2026-10-12): Die Wegsuche (`World.astar`) rechnet mit Wegzeit: jedes Feld
+  Gras kostet `road_speed`, jedes Feld Straße 1 (`World._update_weight` in `refresh_tiles_around`), so
+  bleibt die Luftlinien-Schätzung zulässig und A* findet den schnellsten Weg. `World.nearest_storage` nimmt
+  das Lager mit der kürzesten Wegzeit (`World.travel_time`, Felder auf Gras; Lager, die selbst ganz auf
+  Straße nicht schneller wären, werden nicht gerechnet), und `delivery_storage` liefert immer dort ab
+  (vorher wurde unter nahen Lagern verteilt). Test in `--landtest=1` („Schnellster Weg“).
 - **Deich** (`deich`, Deichbau, 6 Stein, 3 Holz, 6 Lehm, baut der Baumeister, `"water_ok"`): auf Land oder
   im Wasser, im Wasser nur 4-benachbart zu Land oder einem Deich (`Land.dike_allowed`). Baustellen im
   Wasser beliefert und baut der Baumeister von nebenan (`Settler._site_adjacent`); fertige Deiche im Wasser

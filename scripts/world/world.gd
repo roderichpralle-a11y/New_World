@@ -324,10 +324,23 @@ func _setup_astar() -> void:
 	astar.default_compute_heuristic = AStarGrid2D.HEURISTIC_OCTILE
 	astar.default_estimate_heuristic = AStarGrid2D.HEURISTIC_OCTILE
 	astar.update()
+	# Wegzeit statt Weglänge (josh 2026-10-12): ein Feld Gras kostet road_speed, ein Feld Straße 1.
+	# So bleibt die Schätzung (Luftlinie mal 1) nie zu hoch und A* findet den schnellsten Weg.
+	astar.fill_weight_scale_region(astar.region, _grass_cost())
 	for y in size:
 		for x in size:
 			if terrain[y * size + x] == WATER:
 				astar.set_point_solid(Vector2i(x, y), true)
+
+
+func _grass_cost() -> float:
+	return maxf(1.0, float(Data.bal("road_speed", 1.5)))
+
+
+## Wegkosten der Zelle neu setzen (nach Bau oder Abriss einer Straße).
+func _update_weight(c: Vector2i) -> void:
+	if is_inside(c):
+		astar.set_point_weight_scale(c, 1.0 if road_at(c) else _grass_cost())
 
 
 func _make_clouds() -> void:
@@ -405,6 +418,7 @@ func tile_mask(b) -> int:
 
 ## Straßen und Deiche ringsum neu zeichnen (nach Bau, Abriss, Neuland).
 func refresh_tiles_around(c: Vector2i) -> void:
+	_update_weight(c)
 	for d in [Vector2i(0, -1), Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 0), Vector2i.ZERO]:
 		var o = building_at.get(c + d)
 		if o != null and o.def.has("tile"):
@@ -628,37 +642,68 @@ func building_by_id(bid: int):
 	return null
 
 
+## Nächstes Lager nach Wegzeit (josh 2026-10-12): der schnellste Weg zählt, Straßen sind schneller als
+## Gras. Nur ein Lager oder keins erreichbar: das nach Luftlinie nächste.
 func nearest_storage(from: Vector2i):
-	var best = null
-	var best_d := INF
+	var cand := []
 	for b in buildings:
-		if not b.is_storage():
-			continue
-		var d: float = b.dist_sq(from)
+		if b.is_storage():
+			cand.append([b.dist_sq(from), b])
+	if cand.is_empty():
+		return null
+	cand.sort_custom(func(a, b): return a[0] < b[0])
+	if cand.size() == 1:
+		return cand[0][1]
+	var best = null
+	var best_t := INF
+	var fast := float(Data.bal("road_speed", 1.5))
+	for e in cand:
+		# Selbst ganz auf Straße wäre dieses Lager nicht schneller: alle weiteren auch nicht
+		if best != null and sqrt(float(e[0])) / fast > best_t + 1.0:
+			break
+		var t := travel_time(from, e[1])
+		if t < best_t:
+			best_t = t
+			best = e[1]
+	return best if best != null else cand[0][1]
+
+
+## Wegzeit in Feldern auf Gras (Straßenfelder zählen 1/road_speed) bis neben das Gebäude, INF ohne Weg.
+func travel_time(from: Vector2i, b) -> float:
+	var cells: Array = b.cells()
+	if from in cells:
+		return 0.0
+	var to: Vector2i = cells[0]
+	var best_d := INF
+	for c in cells:
+		var d := Vector2(c - from).length_squared()
 		if d < best_d:
 			best_d = d
-			best = b
-	return best
+			to = c
+	var to_solid := astar.is_point_solid(to)
+	if to_solid:
+		astar.set_point_solid(to, false)
+	var pts := find_path(from, to)
+	if to_solid:
+		astar.set_point_solid(to, true)
+	if pts.is_empty():
+		return INF
+	var fast := float(Data.bal("road_speed", 1.5))
+	var t := 0.0
+	var prev := from
+	for i in range(1, pts.size()):
+		var c := Vector2i((pts[i] / T).floor())
+		t += Vector2(c - prev).length() / (fast if road_at(prev) else 1.0)
+		prev = c
+	return t
 
 
-## Lager zum Abliefern: unter allen Lagern, die kaum weiter weg sind als das
-## naechste, das mit den wenigsten Ablieferungen im Verhaeltnis zu seinem Platz.
-## So bekommt auch das Lagerfeuer weiter Waren, wenn ein Lagerhaus daneben steht.
+## Lager zum Abliefern: immer das nächste nach Wegzeit (josh 2026-10-12; vorher wurde unter nahen Lagern
+## verteilt). Der Platz zählt für die ganze Insel, ein volles Lager gibt es also nicht.
 func delivery_storage(from: Vector2i):
-	var near = nearest_storage(from)
-	if near == null:
-		return null
-	var reach := sqrt(near.dist_sq(from)) + float(Data.bal("delivery_spread", 6))
-	var best = near
-	var best_score := INF
-	for b in buildings:
-		if not b.is_storage() or b.dist_sq(from) > reach * reach:
-			continue
-		var score: float = float(b.deliveries) / maxf(1.0, float(b.def.storage))
-		if score < best_score:
-			best_score = score
-			best = b
-	best.deliveries += 1
+	var best = nearest_storage(from)
+	if best != null:
+		best.deliveries += 1
 	return best
 
 

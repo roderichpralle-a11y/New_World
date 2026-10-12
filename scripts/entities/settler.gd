@@ -54,6 +54,10 @@ var _danger_t: float = 0.0
 var _attack_t: float = 0.0
 var _hurt: float = 0.0
 var _hiding = null  # Gebaeude, in dem sich der Siedler vor Tieren versteckt
+## Piratenkampf (Events): "waffen", solange er eine Waffe aus dem Lager trägt (nicht gespeichert, Events
+## legt sie am Ende des Überfalls zurück); _battle_tool ist das Bild in der Hand (Säbel, Speer, Mistgabel …).
+var weapon := ""
+var _battle_tool := ""
 # Auslastung (wie in der KI-Version gemessen): Tageszeit je Art, job = eigene Arbeit, other =
 # etwas anderes, idle = nichts zu tun; needs (Essen, Freizeit, Krankheit, Flucht) zaehlt nicht.
 # Gleitender Wert: aeltere Zeit verblasst mit BUSY_DAYS.
@@ -1089,7 +1093,11 @@ func _run_action(delta: float) -> void:
 				cell = a.cell
 				_plan.pop_front()
 				return
-			_walk(delta, 1.3 if a.get("flee", false) else 1.0)
+			_walk(delta, 1.3 if a.get("flee", false) or a.get("defend", false) else 1.0)
+		"arm":
+			Events.arm(self)  # Waffe aus dem Lager, wenn noch eine da ist
+			_battle_tool = _fight_tool()
+			_plan.pop_front()
 		"work":
 			_moving = false
 			if not a.get("started", false):
@@ -1168,7 +1176,14 @@ func _check_danger(delta: float) -> void:
 	if _danger_t > 0.0 or not visible:
 		return
 	_danger_t = 0.3
+	# Piraten an Land: Erwachsene verteidigen die Insel, alle anderen verstecken sich (josh 2026-10-12)
+	var pirates: bool = Events.pirates_ashore(world)
+	if pirates and Events.defender(self):
+		_defend()
+		return
 	var an = world.threat_for(self)
+	if an == null and pirates:
+		an = Events.nearest_raider(world, position)
 	if an == null:
 		return
 	if not _plan.is_empty():
@@ -1209,6 +1224,75 @@ func _check_danger(delta: float) -> void:
 			return
 
 
+## Zum nächsten Piraten und kämpfen; ohne Waffe vorher am Lager eine holen, wenn eine da ist.
+func _defend() -> void:
+	var r = Events.nearest_raider(world, position)
+	if r == null:
+		return
+	if not _plan.is_empty():
+		var cur: Dictionary = _plan[0]
+		if cur.get("defend", false):
+			if cur.a != "hunt":
+				return
+			var t = cur.target
+			if is_instance_valid(t) and not t.dead and not t.gone and (t.position - position).length() < (r.position - position).length() + 48.0:
+				return
+	if sleeping:
+		_wake_up()
+	abort_plan()
+	_stat_kind = "needs"
+	if carry_n > 0:
+		# Last abwerfen (zurück ins Lager) und mit freien Händen kämpfen, ohne Schubkarre
+		Game.add_stock(carry_res, carry_n, world)
+		carry_n = 0
+		carry_res = ""
+	if weapon == "" and Game.amount("waffen", world) > 0:
+		var st = world.nearest_storage(cell)
+		if st != null and Vector2(st.cell - cell).length() < 30.0:
+			_plan.append({"a": "move", "cell": st.entrance_cell(), "defend": true})
+			_plan.append({"a": "arm", "defend": true})
+	_plan.append({"a": "hunt", "target": r, "start": cell, "defend": true})
+	_battle_tool = _fight_tool()
+	activity = tr("Verteidigt die Insel: %s") % _fight_tool_name()
+
+
+## Bild in der Hand beim Kampf: Waffe aus dem Lager (Säbel oder Speer), sonst Werkzeug des Berufs.
+func _fight_tool() -> String:
+	if weapon != "":
+		return "saber" if id % 2 == 0 else "spear"
+	match job:
+		"holzfaeller", "foerster":
+			return "axe"
+		"steinmetz":
+			return "pick"
+		"bauer", "sammler":
+			return "pitchfork"
+		"jaeger":
+			return "spear"
+		"baumeister", "handwerker":
+			return "hammer"
+	return ["pitchfork", "club", "shovel"][id % 3]
+
+
+func _fight_tool_name() -> String:
+	match _fight_tool():
+		"saber":
+			return tr("mit Säbel")
+		"spear":
+			return tr("mit Speer")
+		"axe":
+			return tr("mit der Axt")
+		"pick":
+			return tr("mit der Spitzhacke")
+		"hammer":
+			return tr("mit dem Hammer")
+		"shovel":
+			return tr("mit der Schaufel")
+		"club":
+			return tr("mit einem Knüppel")
+	return tr("mit der Mistgabel")
+
+
 func _plan_hunt() -> bool:
 	if health < 55.0 or Game.is_night() or mind.sick != "":
 		return false
@@ -1223,7 +1307,18 @@ func _plan_hunt() -> bool:
 
 func _run_hunt(a: Dictionary, delta: float) -> void:
 	var an = a.target
-	if not is_instance_valid(an) or an.dead or an.is_scared() or (health < 25.0 and not a.get("flee", false)) \
+	var defend: bool = a.get("defend", false)
+	if defend:
+		# Piratenkampf: bis der Pirat fort ist; verletzt (retreat_health) zieht er sich zurück
+		if not is_instance_valid(an) or an.dead or an.gone or not an.visible \
+				or health < float(Events.raider_def().get("retreat_health", 35.0)):
+			_working = false
+			_plan.pop_front()
+			if is_instance_valid(an) and health < float(Events.raider_def().get("retreat_health", 35.0)):
+				world.float_text(position + Vector2(-8, -26), tr("Verletzt!"), "")
+				_danger_t = 0.0
+			return
+	elif not is_instance_valid(an) or an.dead or an.is_scared() or (health < 25.0 and not a.get("flee", false)) \
 			or Vector2(cell - a.start).length() > 26.0:
 		_working = false
 		_plan.pop_front()
@@ -1231,13 +1326,16 @@ func _run_hunt(a: Dictionary, delta: float) -> void:
 	var to: Vector2 = an.position - position
 	if to.length() <= 14.0:
 		_moving = false
-		_working = is_armed()
-		_cur_tool = "spear"
+		_working = is_armed() or defend
+		_cur_tool = _battle_tool if defend and _battle_tool != "" else "spear"
 		_face(to)
 		_attack_t -= delta
 		if _attack_t <= 0.0:
 			_attack_t = 1.0
-			an.take_damage(attack_damage(), self)
+			var dmg := attack_damage()
+			if defend:
+				dmg = maxf(dmg, Events.defense_damage(self))
+			an.take_damage(dmg, self)
 			gain_xp("jagd", 0.6)
 		return
 	_working = false
@@ -1270,6 +1368,8 @@ func _run_hide(a: Dictionary, delta: float) -> void:
 	if a.t < 2.0:
 		return
 	a.t = 0.0
+	if Events.pirates_ashore(world) and not Events.defender(self):
+		return  # Kinder, Alte und Verletzte bleiben drin, bis die Piraten fort sind
 	for an in world.animals:
 		if an.is_hostile() and (an.position - b.position).length() < 7.0 * 16.0:
 			return
@@ -1314,8 +1414,16 @@ func _animate(delta: float) -> void:
 		s.flip_h = _flip and _dir == DIR_SIDE
 		s.offset.x = -8 if not s.flip_h else -8
 	# Werkzeug schwingen
-	_tool.visible = _working and _cur_tool != "" and not sleeping
-	if _tool.visible:
+	var battle: bool = _battle_tool != "" and not _plan.is_empty() and _plan[0].get("defend", false) and not _working
+	_tool.visible = (_working and _cur_tool != "" or battle) and not sleeping
+	if battle and _tool.visible:
+		# Waffe oder Werkzeug kampfbereit hochhalten, während er zum Piraten rennt
+		_tool.texture = Data.tool_tex(_battle_tool)
+		_tool.rotation = -0.35 + sin(_anim_t * 10.0) * 0.12
+		_tool.position = Vector2(-5 if (_flip and _dir == DIR_SIDE) else 5, -10)
+		_tool.flip_h = _flip and _dir == DIR_SIDE
+		_tool.z_index = -1 if _dir == DIR_UP else 0
+	elif _tool.visible:
 		_tool.texture = Data.tool_tex(_cur_tool)
 		var swing := sin(_anim_t * 9.0)
 		_tool.rotation = -0.9 + swing * 0.9 if _cur_tool != "rod" else -0.3 + swing * 0.08

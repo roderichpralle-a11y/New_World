@@ -62,6 +62,7 @@ const BUILDING_CELLS := {
 	"lab": [47, 1], "ai_center": [48, 1], "fusion": [49, 1], "future_city": [50, 1],
 	# Herausforderung (tools/gen_art_challenge.py)
 	"tablets": [51, 1], "office": [52, 1],  # Zelle 52 war frueher der Brunnen
+	"armory": [53, 1],  # Waffenschmiede (tools/gen_art_pirates.py)
 }
 ## Etappe 3 in objects2.png: name -> [x, y, w, h, frames]
 const OBJECT2_REGIONS := {
@@ -100,7 +101,7 @@ const CART_POS := [Vector2(0, 0), Vector2(0, -20), Vector2(10, -8)]
 ## Ware in der Wanne: [Mitte relativ zu den Fuessen, Groesse]
 const CART_LOAD := [[Vector2(0, -4), 0.625], [Vector2(0, -24), 0.5], [Vector2(11, -14), 0.625]]
 const TOOL_INDEX := {"axe": 0, "pick": 1, "basket": 2, "rod": 3, "hammer": 4, "sickle": 5,
-	"spoon": 6, "book": 7, "shovel": 8, "spear": 9}
+	"spoon": 6, "book": 7, "shovel": 8, "spear": 9, "saber": 10, "pitchfork": 11, "club": 12}
 
 var _icon_index: Dictionary = {}
 var _cache: Dictionary = {}

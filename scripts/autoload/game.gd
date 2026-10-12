@@ -44,7 +44,8 @@ const SAVE_VERSION := 3
 ## Regelstand ("Mehr Herausforderung" = 1). SAVE_VERSION bleibt 3 (alte, noch im Browser
 ## zwischengespeicherte Versionen lehnen unbekannte Versionen ab und wuerden Spielstaende loeschen).
 ## Spielstaende ohne "rules" (= 0) bekommen die neuen Regeln ab dem Laden.
-const RULES := 1
+## 2 (josh 2026-10-12): Straßen nach Forschung, schnellster Weg, Piratenkampf, Schicht doppelt.
+const RULES := 2
 var rules: int = RULES
 var rules_day: float = 0.0  # time_days, ab dem die Regeln fuer diesen Spielstand gelten
 var rules_old: int = RULES  # Regelstand des geladenen Spielstands (vor dem Hochsetzen)
@@ -1048,6 +1049,14 @@ func add_research(points: float, apply_bonus: bool = true) -> void:
 ## erst mit der Pruefung (Exams.pass_exam meldet es).
 func current_age() -> int:
 	return Exams.current_age()
+
+
+## Höchste Forschungsstufe (techs.json "tier"), aus der schon etwas erforscht ist; 0 ohne Forschung.
+func max_tier() -> int:
+	var m := 0
+	for t in research.done:
+		m = maxi(m, int(Data.techs.get(str(t), {}).get("tier", 0)))
+	return m
 
 
 func _finish_research(t: String) -> void:

@@ -9,6 +9,7 @@
   "erz": {"name": "Erz", "icon": "erz", "category": "material", "size": 2, "order": 6, "price": 0.3},
   "eisen": {"name": "Eisen", "icon": "eisen", "category": "material", "size": 1, "order": 7, "price": 1},
   "werkzeug": {"name": "Werkzeug", "icon": "werkzeug", "category": "material", "size": 2, "order": 8, "price": 1.5},
+  "waffen": {"name": "Waffen", "icon": "waffen", "category": "material", "size": 2, "order": 8.5, "price": 2},
   "mehl": {"name": "Mehl", "icon": "mehl", "category": "material", "size": 1, "order": 9, "price": 0.2},
   "beeren": {"name": "Beeren", "icon": "beeren", "category": "food", "nutrition": 12, "vitamins": 22, "size": 1, "order": 10, "price": 0.1},
   "fisch": {"name": "Fisch", "icon": "fisch", "category": "food", "nutrition": 22, "vitamins": 6, "size": 1, "order": 11, "price": 0.15},

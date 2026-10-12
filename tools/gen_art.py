@@ -805,7 +805,8 @@ def gen_settlers():
 def tools():
     """tools.png: 16x16 Werkzeuge in der Hand: Axt, Spitzhacke, Korb, Angel, Hammer, Sichel."""
     import gen_art_sea
-    atlas = new(160, 16)
+    import gen_art_pirates
+    atlas = new(208, 16)
     axe = new(16, 16)
     for i in range(10):
         put(axe, 3 + i, 13 - i, WOOD[2])
@@ -847,7 +848,7 @@ def tools():
     for a in range(200, 360, 12):
         put(sickle, int(10 + math.cos(math.radians(a)) * 4), int(6 + math.sin(math.radians(a)) * 4), STONE[4])
     add_outline(sickle)
-    for i, im in enumerate([axe, pick, basket, rod, hammer, sickle] + tools2() + [gen_art_sea.spear()]):
+    for i, im in enumerate([axe, pick, basket, rod, hammer, sickle] + tools2() + [gen_art_sea.spear()] + gen_art_pirates.weapon_tools()):
         atlas.paste(im, (i * 16, 0))
     atlas.save(os.path.join(OUT, "tools.png"))
 
@@ -1538,6 +1539,9 @@ def gen_icons():
         ICONS.setdefault(k, v)
     import gen_art_land
     for k, v in gen_art_land.ICONS_LAND.items():
+        ICONS.setdefault(k, v)
+    import gen_art_pirates
+    for k, v in gen_art_pirates.ICONS_PIRATES.items():
         ICONS.setdefault(k, v)
     names = list(ICONS.keys())
     atlas = new(16 * len(names), 16)
@@ -2443,9 +2447,10 @@ def gen_buildings2():
     import gen_art_sea
     import gen_art_ages
     import gen_art_challenge
+    import gen_art_pirates
     order = [house_wood(), house_stone(), store_big(), mill(0), mill(1), mill(2), mill(3),
              bakery(), smokehouse(), henhouse(), sawpit(), claypit(), brickworks(), quarry(),
-             charcoal(), mine(), smelter(), smithy(), scriptorium(), library()] + gen_art_sea.extra_buildings() + [school(), scriptorium(2), scriptorium(3), scriptorium(4)] + gen_art_sea.harbor_buildings() + gen_art_ages.age_buildings() + gen_art_challenge.challenge_buildings()
+             charcoal(), mine(), smelter(), smithy(), scriptorium(), library()] + gen_art_sea.extra_buildings() + [school(), scriptorium(2), scriptorium(3), scriptorium(4)] + gen_art_sea.harbor_buildings() + gen_art_ages.age_buildings() + gen_art_challenge.challenge_buildings() + [gen_art_pirates.armory()]
     atlas = new(512, 64 * ((len(order) + 7) // 8))
     for i, im in enumerate(order):
         atlas.paste(im, ((i % 8) * 64, (i // 8) * 64))

@@ -311,8 +311,10 @@ func _on_save(d: Dictionary) -> void:
 	d["admin"] = {"orders": orders.duplicate(true), "protest": protest.duplicate(), "reported": reported.duplicate()}
 
 
-func _on_load(data: Dictionary, _old_rules: int) -> void:
+func _on_load(data: Dictionary, old_rules: int) -> void:
 	_on_reset()
+	if old_rules < 2:
+		Game.rules_lines.append(tr("Schichtarbeit in der Verwaltung bringt doppelt so viel, Überstunden anderthalbmal so viel. Nachts brennt in den Werkstätten Licht, und die Nacht vergeht dann nicht schneller."))
 	var e = data.get("admin", null)
 	if not (e is Dictionary):
 		return
