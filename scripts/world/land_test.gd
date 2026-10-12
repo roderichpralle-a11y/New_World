@@ -32,10 +32,15 @@ static func _research(ts: Array) -> void:
 ## Küstenstück: Wasserzellen a und a+(1,0), nördlich davon gerades Ufer (4 Landzellen), westlich,
 ## östlich und südlich freies Wasser für vier Deiche.
 static func find_bay(w):
+	var open: PackedByteArray = Land._open(w, false)  # mit dem offenen Meer verbundenes Wasser
 	for y in range(2, w.size - 3):
 		for x in range(2, w.size - 3):
 			var a := Vector2i(x, y)
 			var ok := true
+			# Unterhalb der Lücke offenes Meer, sonst schließt die Küste die Bucht schon vor dem letzten Deich
+			for c in [a + Vector2i(1, 2), a + Vector2i(0, 2), a + Vector2i(2, 1), a + Vector2i(-1, 1)]:
+				if not w.is_inside(c) or not w.is_water(c) or open[c.y * w.size + c.x] == 0:
+					ok = false
 			for c in [a, a + Vector2i(1, 0), a + Vector2i(-1, 0), a + Vector2i(2, 0), a + Vector2i(0, 1), a + Vector2i(1, 1)]:
 				if not w.is_water(c) or w.node_at.has(c) or w.building_at.has(c):
 					ok = false

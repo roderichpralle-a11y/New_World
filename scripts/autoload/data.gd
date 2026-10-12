@@ -63,6 +63,7 @@ const BUILDING_CELLS := {
 	# Herausforderung (tools/gen_art_challenge.py)
 	"tablets": [51, 1], "office": [52, 1],  # Zelle 52 war frueher der Brunnen
 	"armory": [53, 1],  # Waffenschmiede (tools/gen_art_pirates.py)
+	"pigsty": [54, 1], "cowshed": [55, 1],  # Ställe (tools/gen_art_stalls.py)
 }
 ## Etappe 3 in objects2.png: name -> [x, y, w, h, frames]
 const OBJECT2_REGIONS := {

@@ -45,7 +45,8 @@ const SAVE_VERSION := 3
 ## zwischengespeicherte Versionen lehnen unbekannte Versionen ab und wuerden Spielstaende loeschen).
 ## Spielstaende ohne "rules" (= 0) bekommen die neuen Regeln ab dem Laden.
 ## 2 (josh 2026-10-12): Straßen nach Forschung, schnellster Weg, Piratenkampf, Schicht doppelt.
-const RULES := 2
+## 3 (josh 2026-10-12): Schweinestall und Kuhstall.
+const RULES := 3
 var rules: int = RULES
 var rules_day: float = 0.0  # time_days, ab dem die Regeln fuer diesen Spielstand gelten
 var rules_old: int = RULES  # Regelstand des geladenen Spielstands (vor dem Hochsetzen)

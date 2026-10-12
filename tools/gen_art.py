@@ -1543,6 +1543,9 @@ def gen_icons():
     import gen_art_pirates
     for k, v in gen_art_pirates.ICONS_PIRATES.items():
         ICONS.setdefault(k, v)
+    import gen_art_stalls
+    for k, v in gen_art_stalls.ICONS_STALLS.items():
+        ICONS.setdefault(k, v)
     names = list(ICONS.keys())
     atlas = new(16 * len(names), 16)
     for i, n in enumerate(names):
@@ -2448,9 +2451,10 @@ def gen_buildings2():
     import gen_art_ages
     import gen_art_challenge
     import gen_art_pirates
+    import gen_art_stalls
     order = [house_wood(), house_stone(), store_big(), mill(0), mill(1), mill(2), mill(3),
              bakery(), smokehouse(), henhouse(), sawpit(), claypit(), brickworks(), quarry(),
-             charcoal(), mine(), smelter(), smithy(), scriptorium(), library()] + gen_art_sea.extra_buildings() + [school(), scriptorium(2), scriptorium(3), scriptorium(4)] + gen_art_sea.harbor_buildings() + gen_art_ages.age_buildings() + gen_art_challenge.challenge_buildings() + [gen_art_pirates.armory()]
+             charcoal(), mine(), smelter(), smithy(), scriptorium(), library()] + gen_art_sea.extra_buildings() + [school(), scriptorium(2), scriptorium(3), scriptorium(4)] + gen_art_sea.harbor_buildings() + gen_art_ages.age_buildings() + gen_art_challenge.challenge_buildings() + [gen_art_pirates.armory()] + [gen_art_stalls.pigsty(), gen_art_stalls.cowshed()]
     atlas = new(512, 64 * ((len(order) + 7) // 8))
     for i, im in enumerate(order):
         atlas.paste(im, ((i % 8) * 64, (i // 8) * 64))

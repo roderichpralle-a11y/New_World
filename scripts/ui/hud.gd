@@ -2323,7 +2323,7 @@ func _info_building(b: Building) -> void:
 		_info_box.add_child(dm)
 
 
-const WORKER_JOB := {"kueche": "koch", "handwerk": "handwerker", "stein": "steinmetz"}
+const WORKER_JOB := {"kueche": "koch", "handwerk": "handwerker", "stein": "steinmetz", "stall": "bauer"}
 
 
 func _recipe_row(p: Dictionary) -> HBoxContainer:

@@ -90,6 +90,12 @@ Zeitalterwechsel mit Wertung und Aufträge mit Wahl. Überblick und Zusammenspie
 - **Ketten**: Holz → Bretter; Lehm (+Holz) → Ziegel; Holz → Kohle; Erz + Kohle → Eisen;
   Eisen + Bretter → Werkzeug; Getreide → Mehl (+Holz) → Brot; Fisch (+Holz) → Räucherfisch;
   Getreide → Eier; Obstgarten → Äpfel. Steinbruch und Mine liefern endlos Stein und Erz.
+- **Ställe** (josh 2026-10-12, Forschung Bergbau, Werkstattart `stall`, Arbeiter: Bauer, der sie versorgt,
+  wenn auf den Feldern nichts zu tun ist; `Settler` Beruf „bauer“, `Admin.KIND_JOB`, `AiJobs`):
+  **Schweinestall** 3 Getreide → 3 Fleisch in 8 s, **Kuhstall** 2 Getreide → 3 Milch in 7 s. Fleisch sättigt
+  44 (vorher 32), Milch 36 mit 12 Vitaminen; beide verderben (seasons.json `perishable`). Bilder `pigsty`
+  und `cowshed` (buildings.png Zellen 54 und 55, `tools/gen_art_stalls.py`), Symbol `milch`.
+  Test `--stalltest=1` (`scripts/world/stall_test.gd`).
 - **Schreibstube in Stufen**: Schreibstube (x1.0, 2 Forscher) → Große Schreibstube (x1.4, 3)
   → Gelehrtenstube (x1.9, 3, Forschung Gelehrsamkeit) → Akademie (x2.6, 4, Schmiedekunst),
   jeweils per `upgrade` im Infofenster und mit hohen Kosten. Ausbau-Typen haben
@@ -1084,7 +1090,8 @@ Reihenfolge der Autoloads in `project.godot`: Seasons, Writing, Exams, Quests, H
   („Zusammenspiel OK/FEHLER“).
 
 - **Regelstand**: `Game.RULES` (= 2; 1 = „Mehr Herausforderung“, 2 = josh 2026-10-12: Straßen nach Forschung,
-  schnellster Weg, Piratenkampf, Schicht doppelt; Zeilen bei `old_rules < 2` in Events und Admin). Der Spielstand bekommt die Schlüssel `rules` (int) und `rules_day`
+  schnellster Weg, Piratenkampf, Schicht doppelt; Zeilen bei `old_rules < 2` in Events und Admin; 3 = Ställe,
+  Zeile in Extras). Der Spielstand bekommt die Schlüssel `rules` (int) und `rules_day`
   (float, `time_days`, ab dem die Regeln für diesen Spielstand gelten). `SAVE_VERSION` bleibt 3: eine alte,
   im Browser zwischengespeicherte Version lehnt unbekannte Versionen ab und würde den Spielstand löschen.
   Speichert so eine alte Version erneut, fehlen die neuen Schlüssel wieder; jede Übernahme muss also

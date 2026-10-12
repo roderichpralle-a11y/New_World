@@ -47,11 +47,11 @@ static func _most_needed(w, adults: Array) -> String:
 	if not w.construction_sites().is_empty() and int(count.get("baumeister", 0)) < 1 + w.construction_sites().size() / 3:
 		return "baumeister"
 	# 3. Werkstätten, die arbeiten könnten, aber niemand ist da
-	for kind in ["kueche", "handwerk", "stein"]:
+	for kind in ["kueche", "handwerk", "stein", "stall"]:
 		for b in w.buildings:
 			if b.complete and b.prod_def().get("job", "") == kind and b.free_slots() > 0 and b.prod_blocker() == "":
 				if b.occupants.is_empty() and w.pool_allows(b):  # nur, wenn eine Fachkraft dieser Stufe frei ist
-					return {"kueche": "koch", "handwerk": "handwerker", "stein": "steinmetz"}[kind]
+					return {"kueche": "koch", "handwerk": "handwerker", "stein": "steinmetz", "stall": "bauer"}[kind]
 	# 4. Rohstoffe für Bauten
 	if Game.amount("holz", w) < 30:
 		return "holzfaeller"
