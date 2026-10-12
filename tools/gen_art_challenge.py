@@ -188,7 +188,13 @@ def pirate(frame, attack=False):
         put(img, x + lean, 9 + hop, (60, 36, 26))
     put(img, 14 + lean, 8 + hop, (60, 36, 26))
     put(img, 10 + lean, 8 + hop, (60, 36, 26))
-    put(img, 13 + lean, 6 + hop, (30, 20, 24))
+    # Augenklappe mit Band und goldener Ohrring
+    put(img, 13 + lean, 6 + hop, (20, 14, 18))
+    put(img, 14 + lean, 6 + hop, (20, 14, 18))
+    put(img, 13 + lean, 7 + hop, (20, 14, 18))
+    for x in range(10, 13):
+        put(img, x + lean, 5 + hop, (20, 14, 18))
+    put(img, 10 + lean, 7 + hop, (230, 190, 70))
     # Kopftuch mit Knoten hinten
     for x in range(9, 15):
         put(img, x + lean, 3 + hop, BANDANA[1])

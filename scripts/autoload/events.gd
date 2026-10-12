@@ -41,6 +41,7 @@ var _drought: Dictionary = {}  # World -> Wachstumsfaktor während einer Dürre
 var _sick: Dictionary = {}  # World -> Krankheitsfaktor während einer Seuche
 var _ill: Dictionary = {}  # World -> Krankheit der Seuche
 var _raiders: Dictionary = {}  # Insel-ID -> [Raider]
+var no_defense := false  # Testhilfe: niemand kämpft gegen Piraten (events_test "ohne Abwehr")
 var _ships: Dictionary = {}  # Insel-ID -> Sprite2D (Piratenschiff)
 var _fires: Array = []  # [World, Building, Restzeit in Sekunden] (nur Bild)
 var _fx_t := 0.0
@@ -101,6 +102,70 @@ func event_of(w) -> Dictionary:
 ## Sind auf dieser Insel Piraten angekündigt oder da? (Der Händler meidet die Insel dann.)
 func busy(w) -> bool:
 	return str(event_of(w).get("type", "")) == "piraten"
+
+
+# ---------------------------------------------------------------- Verteidigung (josh 2026-10-12)
+## Sind Piraten an Land (sichtbar, nicht vertrieben)? Dann verteidigen die Erwachsenen die Insel.
+func pirates_ashore(w) -> bool:
+	for r in _raiders_of(w):
+		if r.visible:
+			return true
+	return false
+
+
+## Nächster Pirat an Land oder null.
+func nearest_raider(w, pos: Vector2):
+	var best = null
+	var best_d := INF
+	for r in _raiders_of(w):
+		if not r.visible:
+			continue
+		var d: float = (r.position - pos).length_squared()
+		if d < best_d:
+			best_d = d
+			best = r
+	return best
+
+
+## Kämpft dieser Siedler gegen Piraten? Erwachsene bis fight_max_age, gesund genug und nicht krank.
+## Kinder, Alte, Kranke und Verletzte verstecken sich.
+func defender(s) -> bool:
+	if no_defense:
+		return false
+	var rd := raider_def()
+	return s.is_adult() and s.age < float(rd.get("fight_max_age", 55.0)) and s.mind.sick == "" \
+		and s.health > float(rd.get("retreat_health", 35.0)) + 5.0
+
+
+## Waffe aus dem Lager nehmen (Settler: Aktion "arm" am Lager). Wird am Ende des Überfalls zurückgelegt.
+func arm(s) -> bool:
+	var w = s.world
+	var ev := event_of(w)
+	if ev.is_empty() or Game.amount("waffen", w) <= 0:
+		return false
+	if Game.take_stock("waffen", 1, w) <= 0:
+		return false
+	ev.armed = int(ev.get("armed", 0)) + 1
+	s.weapon = "waffen"
+	return true
+
+
+## Ende des Überfalls: alle Waffen zurück ins Lager (auch die von Gefallenen), die Siedler legen sie ab.
+func _return_weapons(w, ev: Dictionary) -> void:
+	var n := int(ev.get("armed", 0))
+	ev.armed = 0
+	for s in w.settlers:
+		s.weapon = ""
+	if n > 0:
+		Game.add_stock("waffen", n, w)
+
+
+## Schaden eines Siedlers gegen Piraten: mit Waffe pirate_weapon_damage, sonst mit Werkzeug
+## pirate_tool_damage; Waffenkunde (Wirkung weapons) verdoppelt beides.
+func defense_damage(s) -> float:
+	var rd := raider_def()
+	var d := float(rd.get("weapon_damage", 8.0)) if s.weapon != "" else float(rd.get("tool_damage", 4.0))
+	return d * Game.eff("weapons")
 
 
 ## Faktor auf das Wachstum einer Rohstoffquelle oder eines Felds (Seasons.growth nimmt das Kleinere
@@ -302,10 +367,10 @@ func eligible(w, t: String) -> bool:
 		"brand":
 			return _damage_candidates(w).size() >= int(d.get("min_targets", 3))
 		"sturmflut":
-			return not _flood_fields(w).is_empty() or not _flood_buildings(w).is_empty()
+			return not _flood_fields(w).is_empty() or not _flood_buildings(w).is_empty() or not Land.outer_dikes(w).is_empty()
 		"piraten":
-			return Game.current_age() >= int(d.get("min_age", 2)) and Sea.harbor_level(w) >= int(d.get("min_harbor", 1)) \
-				and w.nearest_storage(w.center) != null
+			# ab Forschungsstufe min_tier (josh 2026-10-12: Stufe 4), auch ohne Hafen
+			return Game.max_tier() >= int(d.get("min_tier", 4)) and w.nearest_storage(w.center) != null
 	return true
 
 
@@ -442,6 +507,8 @@ func _finish(w, st: Dictionary, ev: Dictionary, say: bool = true) -> void:
 				parts.append(tr("Die Seuche ist vorbei."))
 			"piraten":
 				parts.append(_pirates_result(w, ev))
+	if typ == "piraten":
+		_return_weapons(w, ev)
 	var deaths := int(ev.get("deaths", 0))
 	if deaths == 0:
 		Game.stats["events_survived"] = int(Game.stats.get("events_survived", 0)) + 1
@@ -630,16 +697,20 @@ func _fire(w, ev: Dictionary) -> String:
 	var burnt := []
 	for b in cands.slice(0, _hits(float(ev.power))):
 		_fires.append([w, b, 7.0])
-		damage_building(w, b, float(d.get("keep", 0.7)))
+		damage_building(w, b)
 		burnt.append(str(b.def.name))
 	ev["burnt"] = burnt.size()
-	return tr("Abgebrannt: %s. Baumeister bauen es wieder auf, ein Teil des Baumaterials ist noch da.") % ", ".join(burnt)
+	return tr("Abgebrannt: %s. Baumeister bauen es wieder auf, für %d %% des Baupreises.") % [", ".join(burnt), roundi(rebuild_share() * 100.0)]
 
 
 func _flood(w, ev: Dictionary) -> String:
+	# Gebaute Deiche (Land): ein äußerer Deich kann brechen, dann läuft das Neuland dahinter voll
+	var breach: String = Land.storm(w, _rng_for(w), float(ev.power))
 	if Game.eff_add("flood") > 0.0:
 		ev["fields"] = 0
 		ev["burnt"] = 0
+		if breach != "":
+			return breach
 		return tr("Die Deiche halten! Die Sturmflut richtet keinen Schaden an.")
 	var d := type_def("sturmflut")
 	var fields := 0
@@ -659,7 +730,7 @@ func _flood(w, ev: Dictionary) -> String:
 		cands[j] = x
 	for b in cands.slice(0, _hits(float(ev.power))):
 		w.spawn_effect("chips_fischgrund", b.position + Vector2(0, -12))
-		damage_building(w, b, float(d.get("keep", 0.8)))
+		damage_building(w, b)
 		hit.append(str(b.def.name))
 	ev["fields"] = fields
 	ev["burnt"] = hit.size()
@@ -667,26 +738,39 @@ func _flood(w, ev: Dictionary) -> String:
 	if fields > 0:
 		parts.append(tr("%d Felder am Wasser haben ihre Ernte verloren.") % fields if fields > 1 else tr("Ein Feld am Wasser hat seine Ernte verloren."))
 	if not hit.is_empty():
-		parts.append(tr("Beschädigt: %s. Baumeister bauen es wieder auf.") % ", ".join(hit))
+		parts.append(tr("Beschädigt: %s. Baumeister bauen es wieder auf, für %d %% des Baupreises.") % [", ".join(hit), roundi(rebuild_share() * 100.0)])
+	if breach != "":
+		parts.append(breach)
 	if parts.is_empty():
 		parts.append(tr("Das Wasser ist zurückgegangen, ohne viel Schaden anzurichten."))
 	return " ".join(parts)
 
 
-## Beschädigt ein Gebäude an Ort und Stelle: es wird wieder zur Baustelle (gleiche ID). Fortgeschrittene
-## Baustoffe bleiben ganz, von den einfachen (basic_goods) der Anteil keep; die Bauarbeit beginnt neu.
+## Anteil des Baupreises, den der Wiederaufbau nach einem Ereignis kostet (events.json rebuild_cost, 0,7).
+func rebuild_share() -> float:
+	return clampf(float(_c("rebuild_cost", 0.7)), 0.0, 1.0)
+
+
+## Gelieferte Menge einer Baustelle, die nach einem Ereignis neu entsteht: der Rest (rebuild_share des
+## Preises, aufgerundet) muss neu geliefert werden.
+func rebuild_delivered(cost: Dictionary) -> Dictionary:
+	var dl := {}
+	for res in cost:
+		var n := int(cost[res])
+		dl[res] = maxi(0, n - ceili(n * rebuild_share()))
+	return dl
+
+
+## Beschädigt (zerstört) ein Gebäude an Ort und Stelle: es wird wieder zur Baustelle (gleiche ID), und
+## der Neuaufbau kostet rebuild_share (70 %) des ursprünglichen Preises; die Bauarbeit beginnt neu.
 ## Bewohner und Arbeiter verlassen es, Baumeister bauen es mit der normalen Baustellen-Logik wieder auf.
-func damage_building(w, b, keep: float) -> void:
+func damage_building(w, b) -> void:
 	for s in w.settlers:
 		if s._reserved == b or s._incoming.any(func(i): return i[0] == b) or s._hiding == b:
 			s.abort_plan()
 		if s.home_id == b.id and s.sleeping:
 			s._wake_up()
-	var basic: Array = _c("basic_goods", [])
-	var dl := {}
-	for res in b.def.cost:
-		var n := int(b.def.cost[res])
-		dl[res] = ceili(n * keep) if res in basic else n
+	var dl := rebuild_delivered(b.def.cost)
 	b.complete = false
 	b.progress = 0.0
 	b.delivered = dl
@@ -769,8 +853,8 @@ func _pirates_land(w, st: Dictionary, ev: Dictionary) -> void:
 	var d := type_def("piraten")
 	var rng := _rng_for(w)
 	var c: Array = d.get("count", [2, 10, 7])
-	var age := Game.current_age()
-	var n := clampi(int(c[0]) + w.settlers.size() / maxi(1, int(c[1])) + (age - 2), int(c[0]), int(c[2]))
+	var n := clampi(int(c[0]) + w.settlers.size() / maxi(1, int(c[1])) + maxi(0, Game.max_tier() - int(d.get("min_tier", 4))) / 2,
+		int(c[0]), int(c[2]))
 	ev.end = Game.time_days + float(d.get("timeout", 0.8))
 	ev.count = n
 	ev.kills = 0
@@ -782,8 +866,9 @@ func _pirates_land(w, st: Dictionary, ev: Dictionary) -> void:
 		_finish(w, st, ev, false)
 		return
 	ev.landing = [land.x, land.y]
+	ev.armed = 0
 	_spawn_raiders(w, ev, n)
-	Game.notify_at(w, "%s %s" % [type_def("piraten").get("desc", ""), tr("%d Piraten ziehen zum Lager. Siedler fliehen in die Häuser, Jäger und Wachtürme wehren sie ab.") % n],
+	Game.notify_at(w, "%s %s" % [type_def("piraten").get("desc", ""), tr("Ein Schiff mit %d Piraten legt an. Die Erwachsenen greifen zu den Waffen (im Lager: %d), Kinder und Alte verstecken sich in den Häusern.") % [n, Game.amount("waffen", w)]],
 		"schwert", "ereignis")
 
 
@@ -800,15 +885,18 @@ func _spawn_raiders(w, ev: Dictionary, n: int) -> void:
 			var q := land + Vector2i(dx, dy)
 			if q != land and w.is_walkable(q) and not w.building_at.has(q):
 				spots.append(q)
+	var ship_at = _ship_in(w, land)
 	for i in n:
 		var r := Raider.new()
 		r.setup_raider(w, spots[i % spots.size()], land, cap, rd)
+		if ship_at != null:
+			# Erst segelt das Schiff heran, dann steigen die Piraten nacheinander aus und waten an Land
+			r.disembark(ship_at, float(raider_def().get("sail_secs", 4.0)) + float(i) * float(raider_def().get("step_out_secs", 0.7)))
 		w.entities.add_child(r)
 		w.animals.append(r)
 		list.append(r)
 	_raiders[int(w.island_id)] = list
 	ev.left = list.size()
-	_ship_in(w, land)
 
 
 func _pirates_tick(w, st: Dictionary, ev: Dictionary, t: float) -> void:
@@ -915,24 +1003,28 @@ func _pirates_result(w, ev: Dictionary) -> String:
 	return " ".join(parts)
 
 
-func _ship_in(w, land: Vector2i) -> void:
+## Das Piratenschiff segelt von See heran (sail_secs). Gibt die Stelle zurück, an der es liegen wird
+## (dort steigen die Piraten aus), oder null ohne Wasser in der Nähe.
+func _ship_in(w, land: Vector2i):
 	var id := int(w.island_id)
 	if _ships.has(id) and is_instance_valid(_ships[id]):
-		return
+		return _ships[id].get_meta("at", null)
 	var spot = w._water_near(land, 5)
 	if spot == null:
-		return
+		return null
 	var sp: Sprite2D = w._ship_node("ship_kogge")
 	sp.modulate = Color("#8a6a6a")
 	var to: Vector2 = w.cell_to_pos(spot)
 	var dir: Vector2 = (to - w.cell_to_pos(w.center)).normalized()
 	if dir == Vector2.ZERO:
 		dir = Vector2.DOWN
-	sp.position = to + dir * 160.0
+	sp.position = to + dir * 260.0
+	sp.set_meta("at", to)
 	w.entities.add_child(sp)
 	var tw := sp.create_tween()
-	tw.tween_property(sp, "position", to, 4.0).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+	tw.tween_property(sp, "position", to, float(raider_def().get("sail_secs", 4.0))).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
 	_ships[id] = sp
+	return to
 
 
 ## Alle Piraten der Insel weg (Ende oder Insel verloren); das Schiff segelt davon.
@@ -994,7 +1086,7 @@ func _ev_from(e, t: float):
 	for k in ["ill"]:
 		if e.has(k):
 			ev[k] = str(e[k])
-	for k in ["count", "left", "kills", "lost", "burnt", "fields"]:
+	for k in ["count", "left", "kills", "lost", "burnt", "fields", "armed"]:
 		if e.has(k):
 			ev[k] = maxi(0, int(e[k]))
 	if e.get("landing") is Array and e.landing.size() == 2:
@@ -1031,6 +1123,9 @@ func _on_load(data: Dictionary, old_rules: int) -> void:
 					"last": last if not type_def(last).is_empty() else "", "ev": _ev_from(s.get("ev"), t)}
 	if old_rules < 1:
 		Game.rules_lines.append(tr("Ab dem zweiten Jahr kündigen sich Ereignisse an: Dürre, Ratten, Brand, Seuche, Sturmflut und ab dem Mittelalter Piraten. Wer sie gut übersteht, bekommt Einwanderer."))
+	if old_rules < 2:
+		Game.rules_lines.append(tr("Ab Forschungsstufe 4 überfallen Piraten die Inseln. Die Erwachsenen kämpfen, mit Waffen aus der Waffenschmiede doppelt so gut wie mit Mistgabel und Werkzeug. Kinder und Alte verstecken sich."))
+		Game.rules_lines.append(tr("Straßen gibt es erst nach der Forschung Wegebau. Siedler nehmen immer den schnellsten Weg und bringen Waren ins nächste Lager."))
 	# Laufender Piratenüberfall: die Piraten, die noch an Land waren, landen neu
 	for k in islands:
 		var ev = islands[k].ev

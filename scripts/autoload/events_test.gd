@@ -269,16 +269,15 @@ static func _test_brand(main) -> void:
 	var ev := await _force_wait(main, w, "brand")
 	await _until(main, func(): return _gone(w), 0.2)
 	var hit: Array = w.buildings.filter(func(b): return before.get(b.id, false) and not b.complete)
-	var basic: Array = Events._c("basic_goods", [])
 	var mat_ok := true
 	for b in hit:
 		for res in b.def.cost:
-			var want: int = ceili(int(b.def.cost[res]) * 0.7) if res in basic else int(b.def.cost[res])
+			var want: int = int(b.def.cost[res]) - ceili(int(b.def.cost[res]) * 0.7)  # Neuaufbau: 70 % des Preises
 			if int(b.delivered.get(res, 0)) != want:
 				mat_ok = false
 		if b.progress != 0.0 or not b.occupants.is_empty() or w.settlers.any(func(s): return s.home_id == b.id):
 			mat_ok = false
-	print("Ereignis-Test Brand ", _okf(hit.size() == int(ev.get("burnt", -1)) and hit.size() == Events._hits(float(ev.power)) and mat_ok), " abgebrannt %s (%d, erwartet %d bei Stärke %.2f), Baustoffe: einfache 70 %%, andere ganz, Bauarbeit neu, Bewohner ausgezogen" % [
+	print("Ereignis-Test Brand ", _okf(hit.size() == int(ev.get("burnt", -1)) and hit.size() == Events._hits(float(ev.power)) and mat_ok), " abgebrannt %s (%d, erwartet %d bei Stärke %.2f), Neuaufbau kostet 70 %% des Preises, Bauarbeit neu, Bewohner ausgezogen" % [
 		hit.map(func(b): return "%s %s" % [b.type, b.delivered]), hit.size(), Events._hits(float(ev.power)), float(ev.power)])
 	# Baumeister bauen es mit der normalen Baustellen-Logik wieder auf
 	w.settlers[1].set_job("baumeister")
@@ -402,10 +401,20 @@ static func _test_pirates(main) -> void:
 	for s in w.settlers:
 		if s.job == "jaeger":
 			s.set_job("frei")
+	w.stock["gold"] = 200  # genug Gold, damit die Beute nur aus Gold besteht (die Schmiede macht nebenher Werkzeug)
 	var stock0 := {}
 	for id in ["gold", "werkzeug", "eisen", "brot"]:
 		stock0[id] = Game.amount(id, w)
+	# Erst ab Forschungsstufe 4 (josh 2026-10-12)
+	var done_keep: Array = Game.research.done.duplicate()
+	Game.research.done = done_keep.filter(func(t): return int(Data.techs.get(str(t), {}).get("tier", 0)) <= 3)
+	var low_ok: bool = not Events.eligible(w, "piraten")
+	Game.research.done = done_keep
+	print("Ereignis-Test Piraten ", _okf(low_ok and Events.eligible(w, "piraten")), " erst ab Stufe 4 (bis Stufe 3 geeignet: %s, jetzt Stufe %d)" % [not low_ok, Game.max_tier()])
+	Events.no_defense = true  # 1. ohne Abwehr: niemand kämpft
 	var ev := await _force_wait(main, w, "piraten")
+	var all_in: bool = await _until(main, func(): return Events._raiders_of(w).all(func(r): return r.visible), 0.5)
+	print("Ereignis-Test Piraten ", _okf(all_in and Events._ships.has(int(w.island_id))), " Schiff legt an, Piraten steigen nacheinander aus")
 	var rs: Array = Events._raiders_of(w)
 	var r_ok: bool = rs.size() == int(ev.get("count", -1)) and rs.all(func(r): return r in w.animals and r.is_hostile() and w.is_huntable(r) and not w.is_protected(r))
 	print("Ereignis-Test Piraten ", _okf(r_ok and rs.size() >= 2 and Events.busy(w) and not Merchant.eligible(w)), " gelandet %d (erwartet %d), feindlich, jagdbar, Händler meidet die Insel" % [rs.size(), int(ev.get("count", -1))])
@@ -452,6 +461,7 @@ static func _test_pirates(main) -> void:
 		if int(lost.get(id, 0)) < int(loot[id]):
 			match_ok = false
 	print("Ereignis-Test Piraten ", _okf(_gone(w) and not loot.is_empty() and match_ok and planned_taken), " ohne Abwehr: Beute %s, Lager weniger %s, nach %.2f Tagen fort" % [loot, lost, Game.time_days - t0])
+	Events.no_defense = false
 	# 2. Mit Abwehr: Wachturm am Lager und zwei Jäger
 	var tower = _place_near(w, "wachturm", lager.entrance_cell() if lager else w.center, 10, 2)
 	var hunters := 0
@@ -471,6 +481,38 @@ static func _test_pirates(main) -> void:
 	var loot2: Dictionary = ev2.get("loot", {})
 	print("Ereignis-Test Piraten ", _okf(_gone(w) and kills >= 1 and int(Game.stats.get("pirates", 0)) == pir0 + kills), " mit Wachturm %s und %d Jägern: vertrieben %d von %d, Beute %s, Gold %d -> %d, Tote %d, nach %.2f Tagen fort" % [tower != null, hunters, kills,
 		int(ev2.get("count", 0)), loot2, gold0, Game.amount("gold", w), int(ev2.get("deaths", 0)), Game.time_days - t1])
+	# 3. Die Erwachsenen verteidigen die Insel mit Waffen aus dem Lager (josh 2026-10-12)
+	if tower != null:
+		w.demolish(tower)
+	for s in w.settlers:
+		if s.job == "jaeger":
+			s.set_job("frei")
+		s.health = 100.0
+	w.stock["waffen"] = 12
+	var ev3 := await _force_wait(main, w, "piraten")
+	var max_armed := 0
+	var tools := {}
+	var t3 := Game.time_days
+	while not _gone(w) and Game.time_days < t3 + 1.0 and not Game.is_over:
+		max_armed = maxi(max_armed, int(ev3.get("armed", 0)))
+		for s in w.settlers:
+			if s.weapon != "" or (not s._plan.is_empty() and s._plan[0].get("defend", false)):
+				tools[s._battle_tool] = true
+		await main.get_tree().process_frame
+	print("   Verletzte nach dem Kampf mit Waffen: %d" % w.settlers.filter(func(s): return s.health < 60.0).size())
+	print("Ereignis-Test Piraten ", _okf(_gone(w) and max_armed >= 2 and Game.amount("waffen", w) == 12 and int(ev3.get("kills", 0)) == int(ev3.get("count", -1)) and w.settlers.all(func(s): return s.weapon == "")),
+		" Verteidigung mit Waffen: %d bewaffnet, vertrieben %d von %d, Tote %d, Bilder %s, Waffen zurück im Lager: %d, nach %.2f Tagen" % [max_armed, int(ev3.get("kills", 0)), int(ev3.get("count", 0)),
+		int(ev3.get("deaths", 0)), tools.keys(), Game.amount("waffen", w), Game.time_days - t3])
+	# 4. Dasselbe ohne Waffen (Mistgabel und Werkzeug): zum Vergleich der Kampfstärke
+	w.stock["waffen"] = 0
+	for s in w.settlers:
+		s.health = 100.0
+	var ev4 := await _force_wait(main, w, "piraten")
+	var t4 := Game.time_days
+	await _until(main, func(): return _gone(w), 1.0)
+	var hurt: int = w.settlers.filter(func(s): return s.health < 60.0).size()
+	print("Ereignis-Test Piraten ", _okf(_gone(w)), " ohne Waffen: vertrieben %d von %d, Beute %s, Tote %d, Verletzte %d, nach %.2f Tagen" % [int(ev4.get("kills", 0)), int(ev4.get("count", 0)),
+		ev4.get("loot", {}), int(ev4.get("deaths", 0)), hurt, Game.time_days - t4])
 	var beute1: int = w.nodes.filter(func(n): return n.type == "beute").size()
 	print("Ereignis-Test Piraten ", _okf(int(Game.stats.get("kills", 0)) == kills0 and Game.amount("felle", w) == felle0 and beute1 == beute0 and Merchant.eligible(w) and not Events.busy(w)), " keine Jagdbeute: kills %d -> %d, Felle %d -> %d, Fleischstellen %d -> %d; Händler darf wieder" % [kills0, int(Game.stats.get("kills", 0)), felle0, Game.amount("felle", w), beute0, beute1])
 
@@ -495,8 +537,8 @@ static func _old_save_check() -> void:
 	var w = Game.world
 	var lines_before: int = Game.rules_lines.size()
 	Events._on_load({}, 0)
-	var line_ok: bool = Game.rules_lines.size() == lines_before + 1
-	print("   Regelzeile: ", Game.rules_lines[-1] if line_ok else "-")
+	var line_ok: bool = Game.rules_lines.size() == lines_before + 3  # Ereignisse, Piratenkampf, Straßen
+	print("   Regelzeilen: ", Game.rules_lines.slice(lines_before) if line_ok else "-")
 	Game.rules_lines.resize(lines_before)
 	Events.tick()
 	var st: Dictionary = Events.islands.get(str(w.island_id), {})
@@ -592,6 +634,8 @@ static func shot(main, spec: String) -> void:
 		_place_near(w, "lager", w.center, 12, 3)
 		for id in ["gold", "werkzeug"]:
 			w.stock[id] = 30
+		if main._user_args().has("fightcam"):
+			w.stock["waffen"] = 5  # ein paar Waffen: die einen mit Säbel und Speer, die anderen mit Werkzeug
 	if typ == "duerre":
 		_place_near(w, "feld", w.center + Vector2i(-6, 3), 12)
 	var ev := Events.force(w, typ, 0.02 if now else 1.5)
@@ -612,6 +656,21 @@ static func shot(main, spec: String) -> void:
 		if not rs.is_empty():
 			Game.select(rs[0])
 			main.camera.focus(rs[0].position)
+	# --fightcam=<Sekunden>: so lange nach der Landung die Kamera nah auf den Kampf (Schiff, Piraten, Siedler)
+	if args.has("fightcam") and typ == "piraten":
+		await _wait(main, float(args.fightcam))
+		var lst = w.nearest_storage(w.center)
+		var r = Events.nearest_raider(w, lst.position if lst else w.cell_to_pos(w.center))
+		if r != null:
+			main.camera.focus(r.position)
+			main.camera._zoom_at(2.6, main.get_viewport().get_visible_rect().size / 2.0)
+			main.camera.focus(r.position)
+		print("Kampfbild: %s" % [w.settlers.map(func(s): return "%s %s %s" % [s.display_name, s._battle_tool, s.weapon])])
+		if args.has("fightshot"):
+			await main.get_tree().create_timer(0.3).timeout
+			await RenderingServer.frame_post_draw
+			main.get_viewport().get_texture().get_image().save_png(str(args.fightshot))
+			print("Kampfbild gespeichert: ", args.fightshot)
 	if args.has("eventtap") and chip != null:
 		var secs := float(args.get("autotest", "20"))
 		main.get_tree().create_timer(maxf(0.3, secs - 1.5), true, false, true).timeout.connect(func():

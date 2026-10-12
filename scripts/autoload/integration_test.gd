@@ -110,17 +110,17 @@ static func _score_quests() -> void:
 	_okprint(s1 - s0 == 80 and row != "", "Wertung zählt Aufträge (40 Punkte je Auftrag)")
 
 
-## J -> C: Piraten erst ab dem Mittelalter (Game.current_age = bestandene Prüfungen).
+## Forschung -> C: Piraten erst ab Forschungsstufe 4 (josh 2026-10-12; vorher ab dem Mittelalter).
 static func _pirates_age(main, w) -> void:
-	main._place_on(w, "werft")
-	var keep := Exams.passed
-	Exams.passed = 1
-	var at1 := Events.eligible(w, "piraten")
-	Exams.passed = 2
-	var at2 := Events.eligible(w, "piraten")
-	Exams.passed = keep
-	print("Zusammenspiel: Piraten möglich bei Zeitalter 1: %s, 2: %s (Hafenstufe %d, Siedler %d)" % [at1, at2, Sea.harbor_level(w), w.settlers.size()])
-	_okprint(not at1 and at2, "Piraten folgen Game.current_age (Prüfungen)")
+	main._place_on(w, "werft")  # für den Händler-Test danach (Piraten brauchen keinen Hafen mehr)
+	var keep: Array = Game.research.done.duplicate()
+	Game.research.done = keep.filter(func(t): return int(Data.techs.get(str(t), {}).get("tier", 0)) <= 3)
+	var at3 := Events.eligible(w, "piraten")
+	Game.research.done.append("handkarren")  # eine Forschung der Stufe 4
+	var at4 := Events.eligible(w, "piraten")
+	Game.research.done = keep
+	print("Zusammenspiel: Piraten möglich bis Stufe 3: %s, ab Stufe 4: %s (Siedler %d)" % [at3, at4, w.settlers.size()])
+	_okprint(not at3 and (at4 or w.settlers.size() < 8), "Piraten folgen der Forschungsstufe")
 
 
 ## C -> G: der Händler meidet Inseln mit angekündigten Piraten (Events.busy).

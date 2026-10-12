@@ -44,7 +44,8 @@ const SAVE_VERSION := 3
 ## Regelstand ("Mehr Herausforderung" = 1). SAVE_VERSION bleibt 3 (alte, noch im Browser
 ## zwischengespeicherte Versionen lehnen unbekannte Versionen ab und wuerden Spielstaende loeschen).
 ## Spielstaende ohne "rules" (= 0) bekommen die neuen Regeln ab dem Laden.
-const RULES := 1
+## 2 (josh 2026-10-12): Straßen nach Forschung, schnellster Weg, Piratenkampf, Schicht doppelt.
+const RULES := 2
 var rules: int = RULES
 var rules_day: float = 0.0  # time_days, ab dem die Regeln fuer diesen Spielstand gelten
 var rules_old: int = RULES  # Regelstand des geladenen Spielstands (vor dem Hochsetzen)
@@ -206,7 +207,8 @@ func _process(delta: float) -> void:
 	# delta ist bereits mit Engine.time_scale skaliert
 	if speed > 0:
 		# Naechte vergehen schneller, damit das Warten nicht langweilt
-		var mult := float(Data.bal("night_speedup", 1.0)) if is_night() else 1.0
+		# (nicht, solange Schicht- oder Überstundenarbeiter wach sind, Admin.night_work_now)
+		var mult := float(Data.bal("night_speedup", 1.0)) if is_night() and not Admin.night_work_now() else 1.0
 		time_days += delta * mult / float(Data.bal("day_length"))
 		if day() != _last_day:
 			_last_day = day()
@@ -1047,6 +1049,14 @@ func add_research(points: float, apply_bonus: bool = true) -> void:
 ## erst mit der Pruefung (Exams.pass_exam meldet es).
 func current_age() -> int:
 	return Exams.current_age()
+
+
+## Höchste Forschungsstufe (techs.json "tier"), aus der schon etwas erforscht ist; 0 ohne Forschung.
+func max_tier() -> int:
+	var m := 0
+	for t in research.done:
+		m = maxi(m, int(Data.techs.get(str(t), {}).get("tier", 0)))
+	return m
 
 
 func _finish_research(t: String) -> void:

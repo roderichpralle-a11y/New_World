@@ -2,7 +2,7 @@ class_name AdminTest
 extends RefCounted
 ## Selbsttest --admintest=1 (Admin.autotest_setup): Verwaltung nur einmal, nur ein Verwalter,
 ## Meldung bei fehlendem Personal, Vertretung in einer Werkstatt, Überstunden mit Protest nach einem
-## Jahr, Schichtarbeit (Hälfte arbeitet nachts, Laune) und Spielstand. Druckt "Verwaltung OK/FEHLER".
+## Jahr, Schichtarbeit (alle arbeiten nachts, Nacht läuft normal schnell, Lampe, Laune) und Spielstand. Druckt "Verwaltung OK/FEHLER".
 
 static var fails := 0
 
@@ -95,11 +95,20 @@ static func run(main) -> void:
 	var rs: Array = Admin.mood_reasons(h1)
 	_ok(rs.size() == 1 and float(rs[0][1]) < 0.0, "Protest senkt die Laune %s" % [rs])
 	Admin.protest.clear()
-	# Schichtarbeit: Hälfte arbeitet nachts, Laune eine Stufe schlechter
+	# Schichtarbeit: alle des Berufs arbeiten nachts, Laune eine Stufe schlechter (bremst die Arbeit aber nicht)
 	Admin.set_shift("handwerker", true)
 	var nw := [Admin.night_worker(h1), Admin.night_worker(h2)]
-	var parity_ok: bool = (int(h1.id) + int(h2.id)) % 2 == 0 or nw[0] != nw[1]
-	_ok(parity_ok, "Schicht: je Nacht arbeitet eine Hälfte %s" % [nw])
+	_ok(nw[0] and nw[1], "Schicht: alle Handwerker arbeiten nachts %s" % [nw])
+	_ok(Admin.work_mult(h1) > 1.0, "Schicht: schnellere Arbeit %.2f" % Admin.work_mult(h1))
+	var m0: float = h1.mind.mood
+	h1.mind.mood = 30.0  # Schicht: 30 Laune wiegt bei der Arbeit wie 50 ohne Schicht
+	var wf_shift: float = h1.mind.mood_work_factor()
+	Admin.set_shift("handwerker", false)
+	h1.mind.mood = 50.0
+	var wf_plain: float = h1.mind.mood_work_factor()
+	h1.mind.mood = m0
+	Admin.set_shift("handwerker", true)
+	_ok(is_equal_approx(wf_shift, wf_plain), "Schicht-Laune bremst die Arbeit nicht %.2f %.2f" % [wf_shift, wf_plain])
 	rs = Admin.mood_reasons(h1)
 	_ok(rs.size() == 1 and float(rs[0][1]) <= -20.0, "Schichtarbeit: Laune eine Stufe schlechter %s" % [rs])
 	var at_night: bool = await _wait(main, func(): return Game.is_night(), 60.0)
@@ -108,8 +117,15 @@ static func run(main) -> void:
 	for s in [h1, h2]:
 		night.append("%s Nachtschicht=%s schläft=%s %s" % [s.display_name, Admin.night_worker(s), s.sleeping, s.activity])
 	print("Verwaltung: Nacht ", night)
-	var worker = h1 if Admin.night_worker(h1) else (h2 if Admin.night_worker(h2) else null)
-	_ok(at_night and worker != null and not worker.sleeping, "Schicht: ein Handwerker arbeitet nachts")
+	_ok(at_night and not h1.sleeping and not h2.sleeping, "Schicht: die Handwerker arbeiten nachts")
+	Admin._night_check_at = 0
+	_ok(Admin.night_work_now(), "Schicht: die Nacht läuft nicht schneller")
+	var lit: bool = await _wait(main, func():
+		for b in w.buildings:
+			if b.type == "saegegrube" and b._light != null and b._light.energy > 0.1:
+				return true
+		return false, 30.0)
+	_ok(lit, "Schicht: die Sägegrube hat nachts eine Arbeitslampe")
 	# Spielstand
 	var d := {}
 	Admin._on_save(d)
@@ -151,3 +167,62 @@ static func shot(main, kind: String) -> void:
 	if kind == "proposal":
 		Admin.reported.clear()
 		Admin._tick()
+
+
+## Messung --adminmeasure=normal|ot|shift[,tage]: zwei Handwerker, zwei Sägegruben, Holz und Essen
+## werden nachgefüllt, Bretter abgeräumt. Druckt "Verwaltung Messung <art>: <Bretter> Bretter in <Tage> Tagen".
+static func measure(main, arg: String) -> void:
+	var parts := arg.split(",")
+	var mode := parts[0]
+	var days := float(parts[1]) if parts.size() > 1 else 3.0
+	var w = main.world
+	for t in ["gelehrsamkeit", "holzbearbeitung", "steinwerkzeuge", "maurerei", "toepferei", "zimmerei", "schrift"]:
+		if not t in Game.research.done:
+			Game.research.done.append(t)
+	Game.refresh_effects()
+	main._place_on(w, "verwaltung")
+	main._place_on(w, "lager")
+	main._place_on(w, "saegegrube")
+	main._place_on(w, "saegegrube")
+	for s in w.settlers:
+		s.set_job("sammler")
+	var c: Vector2i = w.settlers[0].cell
+	var mk := func(n: String, job: String):
+		var s = w.spawn_settler({"name": n, "sex": "m", "age": 30.0, "max_age": 70.0, "x": c.x, "y": c.y,
+			"skills": {"handwerk": 3}, "mind": {"traits": {"iq": 5.0, "konst": 7.0, "fleiss": 5.0, "gemuet": 6.0}, "talents": {}}})
+		s.hunger = 100.0
+		s.set_job(job)
+		return s
+	mk.call("V", "verwalter")
+	mk.call("H1", "handwerker")
+	mk.call("H2", "handwerker")
+	if mode == "ot":
+		Admin.set_overtime("handwerker", true)
+	elif mode == "shift":
+		Admin.set_shift("handwerker", true)
+	Admin.reported["handwerker"] = 999.0
+	var t0 := Game.time_days + 0.5
+	var made := 0
+	var night := 0
+	var bins := [0, 0, 0, 0, 0, 0, 0, 0]
+	while Game.time_days < t0 + days:
+		await main.get_tree().create_timer(0.25, true, false, true).timeout
+		if Game.amount("holz", w) < 40:
+			Game.add_stock("holz", 40, w)
+		if Game.amount("beeren", w) < 40:
+			Game.add_stock("beeren", 40, w)
+		var n := Game.amount("bretter", w)
+		if n > 0:
+			Game.take_stock("bretter", n, w)
+			if Game.time_days >= t0:
+				made += n
+				bins[int(Game.time_of_day() * 8.0) % 8] += n
+				if Game.is_night():
+					night += n
+		Admin.orders.get("handwerker", {})["since"] = Game.time_days  # kein Protest während der Messung
+		if OS.get_cmdline_user_args().has("--measuredebug") and int(Game.time_days * 8.0) != int((Game.time_days - 0.02) * 8.0):
+			for s in w.settlers:
+				if s.job == "handwerker":
+					print("  %s %s %s Laune %.0f Kraft %.2f schläft=%s rest=%.0f: %s" % [Game.clock_text(), s.display_name, "Nacht" if Game.is_night() else "Tag",
+						s.mind.mood, s.mind.work_power(), s.sleeping, s.mind.rest, s.activity])
+	print("Verwaltung Messung %s: %d Bretter in %.1f Tagen (nachts %d) je 3 Stunden %s" % [mode, made, days, night, str(bins)])

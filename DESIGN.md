@@ -45,10 +45,9 @@ Zeitalterwechsel mit Wertung und Aufträge mit Wahl. Überblick und Zusammenspie
   Die Funktionen nehmen schon eine Insel `w` an und lesen Vorrat und Grenzen über
   `Game._stock_of(w)` / `Game._limits_of(w)`; für getrennte Inselvorräte ändern sich nur diese
   und `storage_volume(w)`.
-- **Abliefern**: Träger wählen mit `World.delivery_storage` unter allen Lagern, die höchstens
-  `delivery_spread` Zellen weiter weg sind als das nächste, das mit den wenigsten
-  Ablieferungen je Lagerplatz. So bleibt auch das Lagerfeuer neben einem Lagerhaus in Gebrauch.
-  Abstände zählen zur nächsten Zelle des Gebäudes (`Building.dist_sq`).
+- **Abliefern**: Träger liefern immer im Lager mit der kürzesten Wegzeit ab (`World.delivery_storage`,
+  `nearest_storage`, josh 2026-10-12; siehe „Schnellster Weg“). `balance.delivery_spread` wird nicht mehr
+  benutzt. Luftlinien-Abstände zählen zur nächsten Zelle des Gebäudes (`Building.dist_sq`).
 - **Verloren**: Stirbt auf einer Insel der letzte Siedler, ist sie für immer verloren. Sind alle
   Inseln verloren und niemand mehr auf See, ist das Spiel vorbei (Spielstand wird gelöscht).
 - Speichern: automatisch alle `autosave_seconds` Sekunden, beim Verlassen und über das Menü
@@ -662,7 +661,7 @@ Häuser stellen Fachkräfte für höhere Werkstätten (z. B. Schmiede ab Holzhau
 ## Angekündigte Ereignisse (Herausforderung)
 
 Ab dem zweiten Jahr trifft jede Insel ab und zu ein Ereignis, das sich vorher ankündigt: Dürre, Ratten,
-Brand, Seuche, Sturmflut und ab dem Mittelalter Piraten. Wer vorbereitet ist (Forschung, Gebäude, Vorräte),
+Brand, Seuche, Sturmflut und ab Forschungsstufe 4 Piraten. Wer vorbereitet ist (Forschung, Gebäude, Vorräte),
 kommt gut durch; wer eine Dürre, Seuche oder einen Piratenüberfall ohne Tote übersteht, bekommt einen
 Einwanderer. Regelzeile für alte Spielstände: „Ab dem zweiten Jahr kündigen sich Ereignisse an: Dürre,
 Ratten, Brand, Seuche, Sturmflut und ab dem Mittelalter Piraten. Wer sie gut übersteht, bekommt Einwanderer.“
@@ -689,8 +688,8 @@ Ratten, Brand, Seuche, Sturmflut und ab dem Mittelalter Piraten. Wer sie gut üb
     Kokos, Fisch, Eiern und Brot (`goods`; Konserven, Tontafeln, Papier nie), mit Großem Lager die Hälfte.
     Ab 30 solcher Waren.
   - **Brand**: 1 + ⌊Stärke / 1,25⌋ Gebäude (das erste zufällig, dann die nächsten) werden **beschädigt**,
-    nicht abgerissen: wieder Baustelle, einfache Baustoffe (`basic_goods`) bleiben zu 70 % (`keep`), andere
-    ganz, Bauarbeit von vorn, Bewohner und Arbeiter ziehen aus (`Events.damage_building`). Baumeister bauen
+    nicht abgerissen: wieder Baustelle, der Neuaufbau kostet `rebuild_cost` (70 %) des ursprünglichen
+    Preises (`Events.rebuild_delivered`: geliefert gilt der Rest, je Ware aufgerundet), Bauarbeit von vorn, Bewohner und Arbeiter ziehen aus (`Events.damage_building`). Baumeister bauen
     mit der normalen Baustellen-Logik wieder auf. Kein Gebäude schützt davor (den Brunnen gibt es nicht
     mehr, siehe „Entfernte Gebäude und Forschungen“); der Rat lautet, Holz, Bretter und Stein bereitzuhalten.
     Nie: Lager, Häfen und Ufergebäude (`coast`), Gebäude mit Wirkung (`effects`), Felder, Lagerfeuer.
@@ -700,10 +699,28 @@ Ratten, Brand, Seuche, Sturmflut und ab dem Mittelalter Piraten. Wer sie gut üb
   - **Sturmflut** (Herbst, Winter): Felder und Obstgärten bis 2 Felder vom Wasser verlieren ihre Ernte
     (brach), 1 + ⌊Stärke / 1,25⌋ Gebäude am Ufer werden beschädigt (Baustoffe 80 %). Deichbau (Wirkung
     `flood`) verhindert alles. Häfen, Werften und Ufergebäude bleiben heil.
-  - **Piraten** (ab Zeitalter 2, mit Hafen oder Werft): clamp(2 + Siedler / 10 + (Zeitalter − 2), 2, 7)
-    Piraten (`Raider`, `scripts/entities/raider.gd`, Unterklasse von `Animal`, Werte in events.json
-    `raider`, Grafik Zeile 3 in animals.png) landen etwa 12 Felder vom Lager am Strand, ihr Schiff (rot
-    gefärbte Kogge) liegt davor. Sie gehen zum nächsten Lager, plündern dort 4 Sekunden und gehen zurück;
+  - **Piraten** (josh 2026-10-12: ab Forschungsstufe 4 (`min_tier`, `Game.max_tier()`), ohne Hafen-Bedingung):
+    clamp(3 + Siedler / 5 + (Stufe − 4) / 2, 3, 12) Piraten (`Raider`, `scripts/entities/raider.gd`,
+    Unterklasse von `Animal`, Werte in events.json `raider`: 60 Kraft (+15 % je Zeitalter über 2), Schlag 9
+    je Sekunde; Grafik Zeile 3 in animals.png: Kopftuch, Augenklappe, Ohrring, gestreiftes Hemd, Säbel).
+    Ihr Schiff (rot gefärbte Kogge) segelt in `sail_secs` (4 s) von See heran, dann steigen sie alle
+    `step_out_secs` (0,7 s) einer nach dem anderen aus und waten an Land (`Raider.disembark`, unsichtbar
+    und harmlos bis dahin). Landeplatz etwa 12 Felder vom Lager am Strand. **Verteidigung**: Solange
+    Piraten an Land sind (`Events.pirates_ashore`), kämpfen alle Erwachsenen unter `fight_max_age` (55),
+    gesund und mit mehr als `retreat_health` + 5 (40) Gesundheit (`Events.defender`, `Settler._defend`):
+    Last abwerfen (zurück ins Lager), mit Waffe aus dem Lager, wenn eine da ist (Aktion „arm“ am Lager,
+    `Events.arm`, `ev.armed` zählt sie, am Ende kommen alle zurück ins Lager, `_return_weapons`), dann zum
+    nächsten Piraten und zuschlagen (Hunt-Plan mit `defend`). Schaden: mit Waffe `weapon_damage` (8),
+    sonst `tool_damage` (4), mal Waffenkunde (Wirkung `weapons`, x2); Jäger mindestens ihr Jagdschaden.
+    Unter `retreat_health` (35) zieht sich ein Kämpfer zurück und versteckt sich. Bild in der Hand
+    (`Settler._fight_tool`, tools.png): Säbel oder Speer mit Waffe, sonst Werkzeug des Berufs (Axt,
+    Spitzhacke, Hammer, Mistgabel, Knüppel, Schaufel); beim Laufen hochgehalten, beim Kampf geschwungen.
+    Kinder, Alte, Kranke und Verletzte verstecken sich in Häusern und bleiben drin, bis die Piraten fort
+    sind. **Waffen**: Ware `waffen` (Größe 2) aus der **Waffenschmiede** (`waffenschmiede`, Schmiedekunst,
+    Bild `armory` in buildings.png Zelle 53, `tools/gen_art_pirates.py`): 2 Eisen + 1 Holz → 1 Waffe in 8 s.
+    Test `--eventtest=piraten`: erst ab Stufe 4, Schiff und Aussteigen, ohne Abwehr (`Events.no_defense`),
+    mit Wachturm und Jägern, mit Waffen (Waffen zurück im Lager), ohne Waffen. Bild: `--eventshot=piraten:now
+    --fightcam=<s> --fightshot=<png> --scale=1`. Die Piraten gehen zum nächsten Lager, plündern dort 4 Sekunden und gehen zurück;
     die Beute (je Pirat 6 + 4 x Stärke aus `loot`: Gold, Werkzeug, Eisen …) nehmen sie erst beim Ablegen aus
     dem Lager. Nach einem halben Tag gehen alle zurück, nach 0,8 Tagen sind sie fort. Sie greifen Siedler in
     3 Feldern an; Jäger und Wachtürme bekämpfen sie wie wilde Tiere. Vertriebene zählen `stats.pirates`,
@@ -720,7 +737,8 @@ Ratten, Brand, Seuche, Sturmflut und ab dem Mittelalter Piraten. Wer sie gut üb
   was er tut, seine Beute.
 - **Für andere Systeme**: `Events.busy(w)` (Piraten angekündigt oder da), `growth_factor(type, w)`,
   `sickness_factor(w)`, `epidemic_illness(w)`, `event_of(w)`, `chip()`, `describe_all()`,
-  `damage_building(w, b, keep)`, `near_water(w, c, size, r)`; Signal `changed`.
+  `damage_building(w, b)`, `rebuild_share()`, `rebuild_delivered(cost)`, `near_water(w, c, size, r)`;
+  Signal `changed`. Sturmflut und gebaute Deiche: siehe „Straßen, Deiche und Förster“ (`Land.storm`).
 - **Spielstand**: oben `events` = {islands: {"<insel-id>": {next, last, ev}}, last, seq}; `ev` = {type, at,
   strike, end, power, deaths, struck, ill?, count?, left?, kills?, loot?, landing?}. Piraten selbst werden
   nie gespeichert (`World.serialize` lässt `Raider` aus); nach dem Laden landen die übrigen (`left`) neu.
@@ -1065,7 +1083,8 @@ Reihenfolge der Autoloads in `project.godot`: Seasons, Writing, Exams, Quests, H
 - Selbsttest `--integtest=1` (`scripts/autoload/integration_test.gd`) prüft diese Verbindungen
   („Zusammenspiel OK/FEHLER“).
 
-- **Regelstand**: `Game.RULES` (= 1). Der Spielstand bekommt die Schlüssel `rules` (int) und `rules_day`
+- **Regelstand**: `Game.RULES` (= 2; 1 = „Mehr Herausforderung“, 2 = josh 2026-10-12: Straßen nach Forschung,
+  schnellster Weg, Piratenkampf, Schicht doppelt; Zeilen bei `old_rules < 2` in Events und Admin). Der Spielstand bekommt die Schlüssel `rules` (int) und `rules_day`
   (float, `time_days`, ab dem die Regeln für diesen Spielstand gelten). `SAVE_VERSION` bleibt 3: eine alte,
   im Browser zwischengespeicherte Version lehnt unbekannte Versionen ab und würde den Spielstand löschen.
   Speichert so eine alte Version erneut, fehlen die neuen Schlüssel wieder; jede Übernahme muss also
@@ -1271,15 +1290,87 @@ oder „neu“; danach heißen der Spielstand-Platz (`slot_<tag>`) und die Rekor
   Werkstätten, die arbeiten könnten, und Leute; mehr Werkstätten als Leute → Meldung (Art
   „verwaltung“, höchstens alle 2 Tage je Beruf) und Fenster mit „Überstunden“, „Schichtarbeit“, „Nichts
   anordnen“ (Zeit springt auf normal). Sind beide schon angeordnet: Meldung „mehr Siedler einteilen“.
-- **Anordnungen je Beruf** (Infofenster der Verwaltung, `Admin.orders`): Überstunden = keine
-  Freizeitpausen; nach `overtime_years` (1) Jahr am Stück aus, Protest `protest_days` (6) Tage mit
-  `protest_mood` (−15) Laune, so lange keine neuen Überstunden. Schichtarbeit = jede Nacht arbeitet die
-  Hälfte durch (`Admin.night_worker`: Siedler-ID plus Nachtnummer gerade, wechselt jede Nacht;
-  `Settler._sleep_time`), alle mit dem Beruf haben `shift_mood` (−20, eine Laune-Stufe) Laune.
+- **Anordnungen je Beruf** (Infofenster der Verwaltung, `Admin.orders`). Ziel (josh 2026-10-12): mit
+  Schichtarbeit doppelter, mit Überstunden anderthalbfacher Tagesertrag gegenüber ohne.
+  Überstunden = keine Freizeitpausen, `overtime_hours` (2) Stunden früher anfangen und später aufhören
+  (`Admin.sleep_time`), Arbeitstempo × `overtime_speed` (1,25, `Admin.work_mult` in `Settler.work_factor`);
+  nach `overtime_years` (1) Jahr am Stück aus, Protest `protest_days` (6) Tage mit `protest_mood` (−15)
+  Laune, so lange keine neuen Überstunden. Schichtarbeit = alle Erwachsenen des Berufs arbeiten auch nachts
+  (`Admin.night_worker`, `Settler._sleep_time`), Arbeitstempo × `shift_speed` (1,75); alle mit dem Beruf
+  haben `shift_mood` (−20, eine Laune-Stufe) Laune, die aber die Arbeitskraft nicht senkt
+  (`SettlerMind.mood_work_factor` rechnet sie heraus). Solange Schicht- oder Überstundenarbeiter nachts wach
+  sind, läuft die Nacht nicht `night_speedup`-mal schneller (`Admin.night_work_now`, `Game._process`), sonst
+  brächte Nachtarbeit kaum etwas. Werkstätten (Gebäude mit „production“) haben eine Arbeitslampe, die nachts
+  brennt, solange jemand drin arbeitet. Messung `--adminmeasure=normal|ot|shift[,Tage]` (zwei Handwerker,
+  zwei Sägegruben, Holz nachgefüllt): 5 Tage ergaben ohne ≈ 224, Überstunden 338 (×1,5), Schicht 434 (×1,95).
   Werte in `data/admin.json`. Spielstand oben „admin“ = {orders, protest, reported}; alte Spielstände:
   nichts angeordnet. Nur normale Version.
 - **Test** `--admintest=1` (`admin_test.gd`): nur eine Verwaltung, nur ein Verwalter, Meldung, Vertretung,
-  keine Pause bei Überstunden, Protest nach einem Jahr, Schicht nachts, Laune, Spielstand.
+  keine Pause bei Überstunden, Protest nach einem Jahr, Schicht nachts (alle, Nacht normal schnell, Lampe),
+  Laune bremst nicht, Spielstand.
+- **Protest-Video** (`ProtestVideo`, `scripts/ui/protest_video.gd`, Signal `Admin.protest_started(Beruf, Grund)`
+  direkt nach der Protest-Meldung): Pixelbühne wie beim Fest-Video (96 Pixel hoch, 100..180 breit,
+  ganzzahlig vergrößert, jedes Bild hängt nur von der Zeit ab), nahtlose Schleife von 4 s. Sechs Siedler
+  aus den Spiel-Sprites marschieren vor der Verwaltung (mit Schmiede und Sägegrube aus buildings.png) auf
+  und ab, mit Schildern (durchgestrichene Uhr, „!“) oder erhobener Faust, Sprechblasen „!!“, dunkle Wolken,
+  die Uhr am Dach rast; oben ein Banner „Protest!“, darunter der Grund und der Knopf „Schließen“. Es
+  schließt nie von selbst und nicht durch Tippen, nur über den Knopf oder Esc; das Spiel läuft weiter,
+  Sound `warnung`. In Selbsttests nur mit Testschalter: `--protestvideo=1` (erzwingt einen Protest, prüft
+  offen nach 10 s, Knopf und Esc schließen, Ausgabe `Protest-Video OK`), Bild `--panel=protest --protestframe=1.3`.
+
+- **Schubkarre** (josh 2026-10-11): Ist „Handkarren“ erforscht, schieben erwachsene Siedler, die mit Last
+  laufen, eine Schubkarre (`Settler.pushes_cart`, `_animate_cart`): seitlich voraus (nach links gespiegelt),
+  nach unten vor dem Körper, nach oben dahinter (`show_behind_parent`). Die Ware (`_carry_icon`) liegt dann
+  in der Wanne statt über dem Kopf, die vordere Wannenwand liegt darüber. Das Rad dreht sich nach
+  gelaufener Strecke, die Karre wippt mit den Schritten. Grafik: `tools/gen_art_cart.py` →
+  `assets/sprites/cart.png` (Zellen 24x24, 4 Rad-Bilder, Zeilen 0–2 Karre unten/oben/seitlich, 3–5
+  Vorderwand; `Data.cart_tex`, `CART_POS`, `CART_LOAD`). Test `--autotest=30 --scale=10 --cartshot=1`
+  (`scripts/world/cart_test.gd`, über `Extras.autotest_setup`): Sichtbarkeit („Karren OK/FEHLER“), vier
+  Siedler schieben nach rechts, links, unten und oben; mit `--shot` zoomt die Kamera auf sie.
+
+## Straßen, Deiche und Förster (josh 2026-10-11, `scripts/world/land.gd`)
+
+Bau-Reiter „Land und Wege“ (Kategorie `land`, Symbol `weg`). Alle drei sind 1x1-Bodengebäude mit
+`"tile"` und `"repeat": true` (nach „Hier bauen“ bleibt die Platzierung offen, Abbrechen beendet sie).
+Bilder in `assets/sprites/objects3.png` (`tools/gen_art_land.py`, `Data.OBJECT3_REGIONS`): `road0..15`,
+`dike0..15` (Maske der Nachbarn N=1 O=2 S=4 W=8, `World.tile_mask`, `Building.refresh`), `plant_mark`,
+`clear_mark`.
+- **Straße** (`strasse`, Forschung Wegebau in Stufe 3 (josh 2026-10-12; Steinbruch und Zimmerei, 40 Stein,
+  20 Holz), 20 Stein, baut der Baumeister): auf fertigen Straßen laufen Siedler `balance.road_speed` (1,5)
+  mal so schnell (`World.road_at`, `Settler._walk`). Alte Spielstände behalten gebaute Straßen.
+- **Schnellster Weg** (josh 2026-10-12): Die Wegsuche (`World.astar`) rechnet mit Wegzeit: jedes Feld
+  Gras kostet `road_speed`, jedes Feld Straße 1 (`World._update_weight` in `refresh_tiles_around`), so
+  bleibt die Luftlinien-Schätzung zulässig und A* findet den schnellsten Weg. `World.nearest_storage` nimmt
+  das Lager mit der kürzesten Wegzeit (`World.travel_time`, Felder auf Gras; Lager, die selbst ganz auf
+  Straße nicht schneller wären, werden nicht gerechnet), und `delivery_storage` liefert immer dort ab
+  (vorher wurde unter nahen Lagern verteilt). Test in `--landtest=1` („Schnellster Weg“).
+- **Deich** (`deich`, Deichbau, 6 Stein, 3 Holz, 6 Lehm, baut der Baumeister, `"water_ok"`): auf Land oder
+  im Wasser, im Wasser nur 4-benachbart zu Land oder einem Deich (`Land.dike_allowed`). Baustellen im
+  Wasser beliefert und baut der Baumeister von nebenan (`Settler._site_adjacent`); fertige Deiche im Wasser
+  sind begehbar (`World._set_solid`, `World.dike_at`). **Neuland** (`Land.update_polders` nach jedem
+  fertigen Deich): Wasser, das vom Kartenrand aus nicht mehr erreichbar ist (4er-Nachbarschaft, fertige
+  Deiche sperren) und an einen Deich und an Land grenzt, wird Sand (innen Gras), Fischgründe dort
+  verschwinden. `World.set_terrain` zeichnet die Kacheln neu. Spielstand je Insel „land“ =
+  {cells: [[x, y, Gelände]], sunk: [{type, x, y}]}; beim Laden vor `_build_terrain` eingetragen
+  (`Land.apply_saved`), alte Spielstände: kein Neuland.
+- **Sturmflut** (`Events._flood` ruft `Land.storm`): gibt es äußere Deiche (grenzen an offenes Wasser),
+  bricht mit clamp(`breach_base` 0,3 + `breach_power` 0,2 x Stärke) einer (ab Stärke 2 mit 50 % ein
+  zweiter). Der Deich wird Baustelle (70 % des Preises), `Land.flood` setzt alles Neuland unter Wasser,
+  das jetzt mit dem Meer verbunden ist: Bäume weg, Gebäude gehen unter (`World.sunk`), Siedler und Tiere
+  retten sich aufs nächste Land. Steht der Deich wieder, wird das Wasser wieder Land und die Gebäude
+  kommen als Baustelle für 70 % zurück. Ein abgerissener Deich lässt das Wasser genauso hinein. Eine
+  Sturmflut ist auch möglich, wenn es nur äußere Deiche gibt. Mit Deichbau bleiben Felder und
+  Ufergebäude wie bisher heil; die Meldung nennt dann nur den Deichbruch.
+- **Förster** (Beruf `foerster`, Steinwerkzeuge, Werkzeug Spaten): pflanzt an Pflanzstellen („Baum
+  pflanzen“, `setzling`, kostenlos, `"builder": "foerster"`: nur er baut sie, `World.construction_sites(builder)`)
+  einen jungen Baum (halbe Nachwachszeit), dann rodet er Bäume, Palmen, Sträucher und Pilzkreise, die im
+  Infofenster mit „Roden lassen (Förster)“ markiert sind (`ResNode.clear_mark`, rot-weißes Band, im
+  Spielstand als 7. Wert des Knotens). Gerodete Bäume bringen ihr restliches Holz. Ohne Aufträge hilft er
+  aus wie andere Berufe.
+- **Test** `--landtest=1` (`land_test.gd`): Masken, Tempo auf der Straße, Baumeister baut Straße und Deich
+  im Wasser, Neuland, Spielstand, Deichbruch mit Überflutung und Rückkehr der Straße als Baustelle,
+  Sturmflut bricht einen Deich, Hütte nach Ereignis für 70 %, Förster pflanzt und rodet. Ausgabe
+  `Land OK`. Bild: `--landshot=road|dike`.
 
 ## Testen
 
@@ -1308,6 +1399,8 @@ godot --headless --fixed-fps 60 -- --autotest=10 --scale=10 --seed=7 --questadap
 godot --headless --fixed-fps 60 -- --autotest=60 --scale=10 --seed=7 --integtest=1  # Zusammenspiel der Erweiterungen
 godot --headless --fixed-fps 60 -- --autotest=20 --scale=10 --talenttest=1  # Talente: Bonus, Sterne, Spalte (Spalte nur mit Fenster)
 godot --headless --fixed-fps 60 -- --autotest=30 --scale=10 --admintest=1  # Verwaltung, Vertretung, Überstunden, Schicht (Bild: --adminshot=office|workshop|proposal)
+godot --headless --fixed-fps 60 -- --autotest=200 --scale=10 --landtest=1 --noevents=1  # Straßen, Deiche, Neuland, Förster (Bild: --landshot=road|dike)
+godot --headless --fixed-fps 60 -- --autotest=60 --scale=10 --protestvideo=1  # Protest-Video
 godot --headless --fixed-fps 60 -- --autotest=40 --scale=10 --fixture=sea.json --oncetest=1  # Einmal-Route hin und zurück
 godot --headless --fixed-fps 60 -- --autotest=30 --scale=10 --seed=7 --basictrade=1  # Händler mit einfachen Waren
 godot --headless --fixed-fps 60 -- --autotest=820 --scale=10 --seed=11 --bot=1 --noevents=1 --winter=normal  # Spiel-Bot v2, 4 Jahre

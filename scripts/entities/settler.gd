@@ -54,6 +54,10 @@ var _danger_t: float = 0.0
 var _attack_t: float = 0.0
 var _hurt: float = 0.0
 var _hiding = null  # Gebaeude, in dem sich der Siedler vor Tieren versteckt
+## Piratenkampf (Events): "waffen", solange er eine Waffe aus dem Lager trägt (nicht gespeichert, Events
+## legt sie am Ende des Überfalls zurück); _battle_tool ist das Bild in der Hand (Säbel, Speer, Mistgabel …).
+var weapon := ""
+var _battle_tool := ""
 # Auslastung (wie in der KI-Version gemessen): Tageszeit je Art, job = eigene Arbeit, other =
 # etwas anderes, idle = nichts zu tun; needs (Essen, Freizeit, Krankheit, Flucht) zaehlt nicht.
 # Gleitender Wert: aeltere Zeit verblasst mit BUSY_DAYS.
@@ -65,6 +69,12 @@ var _body: Node2D
 var _layers: Dictionary = {}
 var _tool: Sprite2D
 var _carry_icon: Sprite2D
+## Schubkarre (mit Handkarren beim Transportieren): _cart ganze Karre hinter der Ware,
+## _cart_front vordere Wannenwand davor; _cart_roll zaehlt Rad-Bilder nach gelaufener Strecke.
+var _cart: Sprite2D
+var _cart_front: Sprite2D
+var _cart_roll: float = 0.0
+var _cart_last: Vector2
 var _bubble: Sprite2D
 var _zzz: Label
 var _shadow: Sprite2D
@@ -143,11 +153,17 @@ func _build_visual() -> void:
 	_tool.position = Vector2(5, -8)
 	_tool.offset = Vector2(4, -4)
 	_body.add_child(_tool)
+	_cart = Sprite2D.new()
+	_cart.visible = false
+	_body.add_child(_cart)
 	_carry_icon = Sprite2D.new()
 	_carry_icon.position = Vector2(0, -27)
 	_carry_icon.scale = Vector2(0.75, 0.75)
 	_carry_icon.visible = false
 	_body.add_child(_carry_icon)
+	_cart_front = Sprite2D.new()
+	_cart_front.visible = false
+	_body.add_child(_cart_front)
 	_bubble = Sprite2D.new()
 	_bubble.position = Vector2(8, -28)
 	_bubble.visible = false
@@ -411,7 +427,7 @@ func carry_capacity() -> int:
 ## Arbeitstempo fuer eine Faehigkeit inklusive Forschungsboni.
 func work_factor(sk: String, bonus: String = "") -> float:
 	var f := skill_factor(sk) * Game.eff("work") * Seasons.work_mult(world) * mind.work_power() \
-		* float(Data.bal("work_pace", 1.0))
+		* float(Data.bal("work_pace", 1.0)) * Admin.work_mult(self)
 	if bonus != "":
 		f *= Game.eff(bonus)
 	return f
@@ -667,6 +683,11 @@ func _plan_work() -> bool:
 				return true
 			_stat_kind = "other"
 			return _plan_free_gather()
+		"foerster":
+			if Land.plan_forester(self):  # pflanzen und roden (scripts/world/land.gd)
+				return true
+			_stat_kind = "other"
+			return _plan_free_gather()
 		"jaeger":
 			if Data.job_unlocked("jaeger"):
 				if _plan_hunt() or _plan_gather(["beute"]):
@@ -772,7 +793,7 @@ func _do_harvest(node) -> void:
 	world.spawn_effect("chips_" + node.type, node.position + Vector2(0, -6))
 	# Weiterarbeiten, solange Platz und Zeit ist
 	var cap := carry_capacity()
-	if carry_n < cap and is_instance_valid(node) and node.is_available() and not Game.is_night() \
+	if carry_n < cap and is_instance_valid(node) and node.is_available() and not _sleep_time() \
 			and hunger >= float(Data.bal("eat_below")) * 0.6:
 		_plan.push_front({"a": "work", "t": float(node.def.work_time) / work_factor(node.def.skill, "gather_" + res),
 			"act": _verb(node.type), "tool": _cur_tool, "face": node.position,
@@ -838,7 +859,7 @@ func _plan_construction() -> bool:
 	# Zuerst bauen, wo alles Material da ist
 	for site in sites:
 		if site.materials_complete():
-			if _push_move_to(site.cells(), not site.is_ground()):
+			if _push_move_to(site.cells(), _site_adjacent(site)):
 				_plan.append({"a": "work", "t": 1.5, "act": tr("Baut"), "tool": "hammer",
 					"face": site.position, "done": _do_build.bind(site)})
 				activity = tr("Baut: %s") % site.def.name
@@ -857,7 +878,7 @@ func _plan_construction() -> bool:
 				continue
 			var mark := _plan.size()
 			_plan.append({"a": "work", "t": 0.5, "act": tr("Holt Material"), "done": _do_pickup.bind(site, res, n)})
-			if not _push_move_to(site.cells(), not site.is_ground()):
+			if not _push_move_to(site.cells(), _site_adjacent(site)):
 				_plan.resize(mark - 1)
 				continue
 			_plan.append({"a": "work", "t": 0.5, "act": tr("Liefert Material"), "tool": "hammer", "done": _do_site_deliver.bind(site)})
@@ -866,6 +887,11 @@ func _plan_construction() -> bool:
 			activity = tr("Bringt %s zur Baustelle") % Data.resource_name(res)
 			return true
 	return false
+
+
+## Neben der Baustelle stehen (Gebäude, Deich im Wasser) statt darauf (Feld, Straße).
+func _site_adjacent(site) -> bool:
+	return not site.is_ground() or not world.is_walkable(site.cell)
 
 
 func _do_pickup(site, res: String, n: int) -> void:
@@ -903,7 +929,7 @@ func _do_build(site) -> void:
 	gain_xp("bauen", 0.5)
 	world.spawn_effect("dust", site.position + Vector2(_rng.randf_range(-12, 12), -4))
 	Sound.play_at("hammer", world, site.position)
-	if not site.complete and not Game.is_night() and hunger >= float(Data.bal("eat_below")) * 0.6:
+	if not site.complete and not _sleep_time() and hunger >= float(Data.bal("eat_below")) * 0.6:
 		_plan.push_front({"a": "work", "t": 1.5, "act": tr("Baut"), "tool": "hammer",
 			"face": site.position, "done": _do_build.bind(site)})
 
@@ -934,7 +960,7 @@ func _plan_office() -> bool:
 	for x in world.buildings:
 		if x.type == Admin.OFFICE and x.complete:
 			b = x
-	if b == null or Game.is_night():
+	if b == null or _sleep_time():
 		return false
 	if not _push_move_to([b.entrance_cell()], false) and not _push_move_to(b.cells()):
 		world.mark_unreachable(b)
@@ -947,7 +973,7 @@ func _plan_office() -> bool:
 
 ## Schlafenszeit? Nachts, außer bei Schichtarbeit für die Hälfte, die diese Nacht durcharbeitet.
 func _sleep_time() -> bool:
-	return Game.is_night() and not Admin.night_worker(self)
+	return Admin.sleep_time(self)
 
 
 func _plan_production_at(b) -> bool:
@@ -1038,7 +1064,7 @@ func _do_research(b) -> void:
 		world.float_text(position + Vector2(0, -28), tr("Idee!"), "")
 	if not world.pool_allows(b, id):
 		return  # Fachkräfte-Pool voll (Bedürfnisstufen): Platz räumen
-	if Game.has_research_goal() and not Game.is_night() and hunger >= float(Data.bal("eat_below")) * 0.6:
+	if Game.has_research_goal() and not _sleep_time() and hunger >= float(Data.bal("eat_below")) * 0.6:
 		_plan.push_front({"a": "work", "t": float(Data.bal("research_work_time", 2.5)), "act": tr("Forscht"),
 			"tool": "book", "face": b.position, "done": _do_research.bind(b)})
 
@@ -1067,7 +1093,11 @@ func _run_action(delta: float) -> void:
 				cell = a.cell
 				_plan.pop_front()
 				return
-			_walk(delta, 1.3 if a.get("flee", false) else 1.0)
+			_walk(delta, 1.3 if a.get("flee", false) or a.get("defend", false) else 1.0)
+		"arm":
+			Events.arm(self)  # Waffe aus dem Lager, wenn noch eine da ist
+			_battle_tool = _fight_tool()
+			_plan.pop_front()
 		"work":
 			_moving = false
 			if not a.get("started", false):
@@ -1107,6 +1137,8 @@ func _walk(delta: float, mult: float = 1.0) -> void:
 	var target: Vector2 = _path[_path_i]
 	var spd := float(Data.bal("walk_speed")) * Game.eff("walk") * (1.0 if is_adult() else 0.85) * mult
 	spd *= Seasons.walk_mult()  # Schnee
+	if world.road_at(cell):
+		spd *= float(Data.bal("road_speed", 1.5))  # Straße
 	if hunger <= 0.0:
 		spd *= 0.6
 	if mind.sick != "":
@@ -1144,7 +1176,14 @@ func _check_danger(delta: float) -> void:
 	if _danger_t > 0.0 or not visible:
 		return
 	_danger_t = 0.3
+	# Piraten an Land: Erwachsene verteidigen die Insel, alle anderen verstecken sich (josh 2026-10-12)
+	var pirates: bool = Events.pirates_ashore(world)
+	if pirates and Events.defender(self):
+		_defend()
+		return
 	var an = world.threat_for(self)
+	if an == null and pirates:
+		an = Events.nearest_raider(world, position)
 	if an == null:
 		return
 	if not _plan.is_empty():
@@ -1185,6 +1224,75 @@ func _check_danger(delta: float) -> void:
 			return
 
 
+## Zum nächsten Piraten und kämpfen; ohne Waffe vorher am Lager eine holen, wenn eine da ist.
+func _defend() -> void:
+	var r = Events.nearest_raider(world, position)
+	if r == null:
+		return
+	if not _plan.is_empty():
+		var cur: Dictionary = _plan[0]
+		if cur.get("defend", false):
+			if cur.a != "hunt":
+				return
+			var t = cur.target
+			if is_instance_valid(t) and not t.dead and not t.gone and (t.position - position).length() < (r.position - position).length() + 48.0:
+				return
+	if sleeping:
+		_wake_up()
+	abort_plan()
+	_stat_kind = "needs"
+	if carry_n > 0:
+		# Last abwerfen (zurück ins Lager) und mit freien Händen kämpfen, ohne Schubkarre
+		Game.add_stock(carry_res, carry_n, world)
+		carry_n = 0
+		carry_res = ""
+	if weapon == "" and Game.amount("waffen", world) > 0:
+		var st = world.nearest_storage(cell)
+		if st != null and Vector2(st.cell - cell).length() < 30.0:
+			_plan.append({"a": "move", "cell": st.entrance_cell(), "defend": true})
+			_plan.append({"a": "arm", "defend": true})
+	_plan.append({"a": "hunt", "target": r, "start": cell, "defend": true})
+	_battle_tool = _fight_tool()
+	activity = tr("Verteidigt die Insel: %s") % _fight_tool_name()
+
+
+## Bild in der Hand beim Kampf: Waffe aus dem Lager (Säbel oder Speer), sonst Werkzeug des Berufs.
+func _fight_tool() -> String:
+	if weapon != "":
+		return "saber" if id % 2 == 0 else "spear"
+	match job:
+		"holzfaeller", "foerster":
+			return "axe"
+		"steinmetz":
+			return "pick"
+		"bauer", "sammler":
+			return "pitchfork"
+		"jaeger":
+			return "spear"
+		"baumeister", "handwerker":
+			return "hammer"
+	return ["pitchfork", "club", "shovel"][id % 3]
+
+
+func _fight_tool_name() -> String:
+	match _fight_tool():
+		"saber":
+			return tr("mit Säbel")
+		"spear":
+			return tr("mit Speer")
+		"axe":
+			return tr("mit der Axt")
+		"pick":
+			return tr("mit der Spitzhacke")
+		"hammer":
+			return tr("mit dem Hammer")
+		"shovel":
+			return tr("mit der Schaufel")
+		"club":
+			return tr("mit einem Knüppel")
+	return tr("mit der Mistgabel")
+
+
 func _plan_hunt() -> bool:
 	if health < 55.0 or Game.is_night() or mind.sick != "":
 		return false
@@ -1199,7 +1307,18 @@ func _plan_hunt() -> bool:
 
 func _run_hunt(a: Dictionary, delta: float) -> void:
 	var an = a.target
-	if not is_instance_valid(an) or an.dead or an.is_scared() or (health < 25.0 and not a.get("flee", false)) \
+	var defend: bool = a.get("defend", false)
+	if defend:
+		# Piratenkampf: bis der Pirat fort ist; verletzt (retreat_health) zieht er sich zurück
+		if not is_instance_valid(an) or an.dead or an.gone or not an.visible \
+				or health < float(Events.raider_def().get("retreat_health", 35.0)):
+			_working = false
+			_plan.pop_front()
+			if is_instance_valid(an) and health < float(Events.raider_def().get("retreat_health", 35.0)):
+				world.float_text(position + Vector2(-8, -26), tr("Verletzt!"), "")
+				_danger_t = 0.0
+			return
+	elif not is_instance_valid(an) or an.dead or an.is_scared() or (health < 25.0 and not a.get("flee", false)) \
 			or Vector2(cell - a.start).length() > 26.0:
 		_working = false
 		_plan.pop_front()
@@ -1207,13 +1326,16 @@ func _run_hunt(a: Dictionary, delta: float) -> void:
 	var to: Vector2 = an.position - position
 	if to.length() <= 14.0:
 		_moving = false
-		_working = is_armed()
-		_cur_tool = "spear"
+		_working = is_armed() or defend
+		_cur_tool = _battle_tool if defend and _battle_tool != "" else "spear"
 		_face(to)
 		_attack_t -= delta
 		if _attack_t <= 0.0:
 			_attack_t = 1.0
-			an.take_damage(attack_damage(), self)
+			var dmg := attack_damage()
+			if defend:
+				dmg = maxf(dmg, Events.defense_damage(self))
+			an.take_damage(dmg, self)
 			gain_xp("jagd", 0.6)
 		return
 	_working = false
@@ -1246,6 +1368,8 @@ func _run_hide(a: Dictionary, delta: float) -> void:
 	if a.t < 2.0:
 		return
 	a.t = 0.0
+	if Events.pirates_ashore(world) and not Events.defender(self):
+		return  # Kinder, Alte und Verletzte bleiben drin, bis die Piraten fort sind
 	for an in world.animals:
 		if an.is_hostile() and (an.position - b.position).length() < 7.0 * 16.0:
 			return
@@ -1290,8 +1414,16 @@ func _animate(delta: float) -> void:
 		s.flip_h = _flip and _dir == DIR_SIDE
 		s.offset.x = -8 if not s.flip_h else -8
 	# Werkzeug schwingen
-	_tool.visible = _working and _cur_tool != "" and not sleeping
-	if _tool.visible:
+	var battle: bool = _battle_tool != "" and not _plan.is_empty() and _plan[0].get("defend", false) and not _working
+	_tool.visible = (_working and _cur_tool != "" or battle) and not sleeping
+	if battle and _tool.visible:
+		# Waffe oder Werkzeug kampfbereit hochhalten, während er zum Piraten rennt
+		_tool.texture = Data.tool_tex(_battle_tool)
+		_tool.rotation = -0.35 + sin(_anim_t * 10.0) * 0.12
+		_tool.position = Vector2(-5 if (_flip and _dir == DIR_SIDE) else 5, -10)
+		_tool.flip_h = _flip and _dir == DIR_SIDE
+		_tool.z_index = -1 if _dir == DIR_UP else 0
+	elif _tool.visible:
 		_tool.texture = Data.tool_tex(_cur_tool)
 		var swing := sin(_anim_t * 9.0)
 		_tool.rotation = -0.9 + swing * 0.9 if _cur_tool != "rod" else -0.3 + swing * 0.08
@@ -1304,14 +1436,52 @@ func _animate(delta: float) -> void:
 	_hurt -= delta
 	_body.modulate = Color(1, 0.5, 0.5) if _hurt > 0.0 else Color.WHITE
 	_carry_icon.visible = carry_n > 0 and not sleeping
+	var pushing := _animate_cart(frame)
 	if _carry_icon.visible:
 		_carry_icon.texture = Data.icon(Data.resources.get(carry_res, {}).get("icon", carry_res))
-		_carry_icon.position.y = -27 + sin(_anim_t * 4.0) * 0.6
+		if not pushing:
+			_carry_icon.position = Vector2(0, -27 + sin(_anim_t * 4.0) * 0.6)
+			_carry_icon.scale = Vector2(0.75, 0.75)
+			_carry_icon.show_behind_parent = false
 	_bubble.visible = hunger < 20.0 and not sleeping and int(_anim_t * 2.0) % 3 != 0
 	_zzz.visible = sleeping and visible and _body.rotation != 0
 	if _zzz.visible:
 		_zzz.position.y = -30 + sin(_anim_t * 2.0) * 2.0
 	queue_redraw()
+
+
+## Mit Handkarren schieben Erwachsene ihre Last in einer Schubkarre vor sich her: seitlich voraus,
+## nach unten vor dem Koerper, nach oben dahinter. Die Ware liegt dann in der Wanne. Das Rad dreht
+## sich nach der gelaufenen Strecke, die Karre wippt mit den Schritten (frame 1 und 3).
+func _animate_cart(frame: int) -> bool:
+	var pushing := pushes_cart()
+	_cart.visible = pushing
+	_cart_front.visible = pushing
+	if pushing:
+		_cart_roll += minf(position.distance_to(_cart_last) / 1.5, 1.0)
+		var fl := _flip and _dir == DIR_SIDE
+		var sx := -1.0 if fl else 1.0
+		var bob := Vector2(0, -1 if frame % 2 == 1 else 0)
+		var p: Vector2 = Data.CART_POS[_dir]
+		var wheel := int(_cart_roll) % 4
+		_cart.texture = Data.cart_tex(_dir, wheel)
+		_cart_front.texture = Data.cart_tex(_dir, wheel, true)
+		# Nach oben hinter dem Koerper: vor den Siedler-Bildern zeichnen (z_index -1 laege unter dem Boden)
+		for c in [_cart, _carry_icon, _cart_front]:
+			c.show_behind_parent = _dir == DIR_UP
+		for c in [_cart, _cart_front]:
+			c.position = Vector2(p.x * sx, p.y) + bob
+			c.flip_h = fl
+		var ld: Array = Data.CART_LOAD[_dir]
+		_carry_icon.position = Vector2(ld[0].x * sx, ld[0].y) + bob
+		_carry_icon.scale = Vector2(ld[1], ld[1])
+	_cart_last = position
+	return pushing
+
+
+## Schiebt gerade eine Schubkarre (Handkarren erforscht, erwachsen, laeuft mit Last).
+func pushes_cart() -> bool:
+	return carry_n > 0 and _moving and not sleeping and is_adult() and Game.is_researched("handkarren")
 
 
 func _draw() -> void:

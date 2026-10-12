@@ -6,5 +6,8 @@
   "protest_days": 6.0,
   "protest_mood": -15.0,
   "shift_mood": -20.0,
-  "office_work_time": 3.0
+  "office_work_time": 3.0,
+  "overtime_hours": 2.0,
+  "shift_speed": 1.75,
+  "overtime_speed": 1.25
 }

@@ -473,9 +473,11 @@ func work_power() -> float:
 
 ## Laune auf die Arbeit. Ab "unzufrieden" (josh 2026-10-10) nur noch halb so schnell
 ## (`mood_unhappy_work`), nie besser als die alte Laune-Kurve.
+## Die schlechtere Laune durch Schichtarbeit bremst die Arbeit nicht (sonst brächte sie keinen Mehrertrag).
 func mood_work_factor() -> float:
-	var f := lerpf(float(Data.ppl("mood_work_min", 0.75)), float(Data.ppl("mood_work_max", 1.12)), mood / 100.0)
-	if is_unhappy():
+	var m := mood - Admin.shift_mood(s)
+	var f := lerpf(float(Data.ppl("mood_work_min", 0.75)), float(Data.ppl("mood_work_max", 1.12)), clampf(m, 0.0, 100.0) / 100.0)
+	if m < float(Data.ppl("mood_unhappy_below", 40.0)):
 		f = minf(f, float(Data.ppl("mood_unhappy_work", 0.5)))
 	return f
 

@@ -214,6 +214,10 @@ func _maybe_autotest() -> void:
 		_autotest_reward()
 	if args.has("talenttest"):
 		TalentTest.run(self)  # Talente: Bonus und Anzeige (scripts/world/talent_test.gd)
+	if args.has("landtest"):
+		await LandTest.run(self)  # Straßen, Deiche, Neuland, Förster (scripts/world/land_test.gd)
+	if args.has("landshot"):
+		LandTest.shot(self, str(args.landshot))
 	if args.has("retiredtest"):
 		Retired.autotest(str(args.retiredtest))  # Brunnen entfernt (scripts/autoload/retired.gd)
 	# Systeme (Game.systems) richten ihre eigenen Testhilfen ein

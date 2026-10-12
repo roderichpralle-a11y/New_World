@@ -15,16 +15,22 @@ extends Node
 ##   Überstunden oder Schichtarbeit vor (Signal proposal, Fenster in AdminInfo).
 ## - Anordnungen je Beruf:
 ##   (orders[job] = {ot: bool, since: Tag, sh: bool})
-##   Überstunden: keine Freizeitpausen mehr (Settler._think). Dauern sie overtime_years Jahre am Stück,
+##   (josh 2026-10-12: Schicht doppelter, Überstunden anderthalbfacher Tagesertrag; admin_test --adminmeasure misst es)
+##   Überstunden: keine Freizeitpausen mehr (Settler._think), overtime_hours früher anfangen und später
+##   aufhören (sleep_time), Arbeitstempo overtime_speed (work_mult). Dauern sie overtime_years Jahre am Stück,
 ##   hören die Arbeiter unter Protest auf: Überstunden aus, protest_days lang protest_mood Laune und
 ##   so lange keine neuen Überstunden für diesen Beruf.
-##   Schichtarbeit: jede Nacht arbeitet die Hälfte der Leute des Berufs durch (wechselt jede Nacht,
-##   night_worker), und alle mit dem Beruf haben shift_mood Laune (eine Laune-Stufe sind 20 Punkte).
+##   Schichtarbeit: alle Leute des Berufs arbeiten auch nachts (night_worker, sleep_time), Arbeitstempo
+##   shift_speed, und alle mit dem Beruf haben shift_mood Laune (eine Laune-Stufe sind 20 Punkte), die ihre
+##   Arbeitskraft aber nicht senkt (SettlerMind.mood_work_factor). Solange jemand nachts arbeitet, läuft die
+##   Nacht nicht schneller (night_work_now); Werkstätten mit Arbeitern haben nachts Licht (Building).
 ## Spielstand: oben "admin" = {orders, protest, reported} (Game.state_save/state_load); Building.adm
 ## steht im Gebäude ("adm"). Alte Spielstände: keine Anordnungen.
 
 signal changed
 signal proposal(job: String, text: String)
+## Die Leute eines Berufs hören unter Protest mit den Überstunden auf (text: übersetzter Grund, ProtestVideo).
+signal protest_started(job: String, text: String)
 
 const OFFICE := "verwaltung"
 const JOB := "verwalter"
@@ -36,6 +42,8 @@ var orders: Dictionary = {}    # Beruf -> {"ot": Überstunden, "since": seit Tag
 var protest: Dictionary = {}   # Beruf -> Protest bis Tag
 var reported: Dictionary = {}  # Beruf -> letzte Meldung (Tag)
 var _next_tick := 0.0
+var _night_check_at := 0
+var _night_cached := false
 
 
 func _ready() -> void:
@@ -103,12 +111,62 @@ func protesting(job: String) -> bool:
 	return Game.time_days < float(protest.get(job, 0.0))
 
 
-## Arbeitet der Siedler heute Nacht durch (Schichtarbeit, jede Nacht die andere Hälfte)?
+## Arbeitet der Siedler heute Nacht durch (Schichtarbeit: die Werkstätten laufen rund um die Uhr)?
 func night_worker(s) -> bool:
-	if not s.is_adult() or not shift(s.job):
+	return s.is_adult() and shift(s.job)
+
+
+## Schlafenszeit eines Siedlers (Settler._sleep_time): nachts, außer bei Schichtarbeit; bei Überstunden
+## fängt er overtime_hours früher an und hört so viel später auf.
+func sleep_time(s) -> bool:
+	if not Game.is_night():
 		return false
-	var night := int(floor(Game.time_days - Seasons.night_start()))
-	return (int(s.id) + night) % 2 == 0
+	if not s.is_adult():
+		return true
+	if shift(s.job):
+		return false
+	if overtime(s.job):
+		var x := _c("overtime_hours", 2.0) / 24.0
+		var t := Game.time_of_day()
+		return t >= Seasons.night_start() + x or t < Seasons.night_end() - x
+	return true
+
+
+## Arbeitet gerade nachts jemand (Schicht, oder Überstunden in den Randstunden)? Dann läuft die Nacht
+## nicht schneller (Game._process, night_speedup), sonst brächte Nachtarbeit fast nichts und man sähe sie kaum.
+## Wird höchstens alle 0,5 Sekunden neu gezählt.
+func night_work_now() -> bool:
+	var now := Time.get_ticks_msec()
+	if now < _night_check_at:
+		return _night_cached
+	_night_check_at = now + 500
+	_night_cached = false
+	if not active():
+		return false
+	for w in Sea.all_worlds():
+		for s in w.settlers:
+			if s.is_adult() and (shift(s.job) or overtime(s.job)) and not sleep_time(s):
+				_night_cached = true
+				return true
+	return false
+
+
+## Arbeitstempo-Faktor aus den Anordnungen (Settler.work_factor): so abgestimmt, dass ein Beruf mit
+## Schichtarbeit am Tag shift_output (2) mal so viel schafft wie ohne, mit Überstunden overtime_output (1,5)
+## mal so viel. Die längere Arbeitszeit bringt schon einen Teil, der Faktor den Rest (admin_test misst es).
+func work_mult(s) -> float:
+	if not s.is_adult():
+		return 1.0
+	if shift(s.job):
+		return _c("shift_speed", 1.0)
+	if overtime(s.job):
+		return _c("overtime_speed", 1.0)
+	return 1.0
+
+
+## Laune-Abzug durch Schichtarbeit (negativ, 0 ohne).
+func shift_mood(s) -> float:
+	return _c("shift_mood", -20.0) if s.is_adult() and shift(s.job) else 0.0
 
 
 ## Laune-Gründe aus der Verwaltung (SettlerMind._update_mood).
@@ -221,6 +279,7 @@ func _tick() -> void:
 			orders[job].ot = false
 			protest[job] = Game.time_days + _c("protest_days", 6.0)
 			Game.notify(tr("Die Leute im Beruf %s hören unter Protest mit den Überstunden auf. Ihre Laune sinkt.") % _name(job), "wissen", "verwaltung")
+			protest_started.emit(job, tr("Die Leute im Beruf %s protestieren gegen zu lange Überstunden.") % _name(job))
 			changed.emit()
 	if not active():
 		return
@@ -252,8 +311,10 @@ func _on_save(d: Dictionary) -> void:
 	d["admin"] = {"orders": orders.duplicate(true), "protest": protest.duplicate(), "reported": reported.duplicate()}
 
 
-func _on_load(data: Dictionary, _old_rules: int) -> void:
+func _on_load(data: Dictionary, old_rules: int) -> void:
 	_on_reset()
+	if old_rules < 2:
+		Game.rules_lines.append(tr("Schichtarbeit in der Verwaltung bringt doppelt so viel, Überstunden anderthalbmal so viel. Nachts brennt in den Werkstätten Licht, und die Nacht vergeht dann nicht schneller."))
 	var e = data.get("admin", null)
 	if not (e is Dictionary):
 		return
@@ -276,10 +337,12 @@ func _on_load(data: Dictionary, _old_rules: int) -> void:
 func autotest_setup(args: Dictionary, main) -> void:
 	if args.has("admintest"):
 		await AdminTest.run(main)
+	if args.has("adminmeasure"):  # Ertrag: normal | ot | shift[,Tage]
+		await AdminTest.measure(main, str(args.adminmeasure))
 	if args.has("adminshot"):  # Bildschirmfoto: office | workshop | proposal (mit --shot)
 		AdminTest.shot(main, str(args.adminshot))
 
 
 ## Hilfetext (Menü > Hilfe), wie Extras.help_text.
 func help_text() -> String:
-	return "\n\n" + tr("[b]Verwaltung[/b]\nMit Gelehrsamkeit baust du eine Verwaltung (nur eine) und machst einen Siedler zum Verwalter (nur einer). Dann lässt sich in jeder Werkstatt die Vertretung einschalten: Fehlt die Fachkraft gerade (Pause, Schlaf, Essen), springt ein Siedler ein, der sonst nichts zu tun hat. Fehlen für einen Beruf Leute, meldet sich der Verwalter und schlägt Überstunden oder Schichtarbeit vor (in der Verwaltung an- und abzuschalten). Überstunden: keine Pausen mehr; nach einem Jahr am Stück hören die Arbeiter unter Protest auf und ihre Laune sinkt. Schichtarbeit: jede Nacht arbeitet die Hälfte durch; Schichtarbeiter sind eine Laune-Stufe schlechter gelaunt.")
+	return "\n\n" + tr("[b]Verwaltung[/b]\nMit Gelehrsamkeit baust du eine Verwaltung (nur eine) und machst einen Siedler zum Verwalter (nur einer). Dann lässt sich in jeder Werkstatt die Vertretung einschalten: Fehlt die Fachkraft gerade (Pause, Schlaf, Essen), springt ein Siedler ein, der sonst nichts zu tun hat. Fehlen für einen Beruf Leute, meldet sich der Verwalter und schlägt Überstunden oder Schichtarbeit vor (in der Verwaltung an- und abzuschalten). Überstunden: die Arbeiter fangen 2 Stunden früher an, hören 2 Stunden später auf und machen keine Pausen; das bringt etwa anderthalbmal so viel. Nach einem Jahr am Stück hören sie unter Protest auf und ihre Laune sinkt. Schichtarbeit: die Werkstätten laufen rund um die Uhr (nachts brennt dort Licht), das bringt etwa doppelt so viel; Schichtarbeiter sind eine Laune-Stufe schlechter gelaunt. Solange nachts gearbeitet wird, vergeht die Nacht nicht schneller.")

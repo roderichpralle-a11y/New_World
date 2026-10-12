@@ -130,6 +130,7 @@ func setup(p_world: World, p_camera: GameCamera) -> void:
 	goal_card.attach_pointer(root)
 	AdminInfo.attach(self)  # Vorschläge des Verwalters (scripts/ui/admin_info.gd)
 	FestVideo.attach(self)  # Fest-Video bei jedem Fest (scripts/ui/fest_video.gd)
+	ProtestVideo.attach(self)  # Protest-Video bei Protest gegen Überstunden (scripts/ui/protest_video.gd)
 	_layout()
 	_watch_updates.call_deferred()
 
@@ -364,7 +365,7 @@ func _popup_panel(title: String) -> Array:
 # ================================================================== Bau-Menue
 const BUILD_CATS := [["wohnen", "Wohnen", "haus"], ["nahrung", "Nahrung", "nahrung"],
 	["handwerk", "Handwerk", "hammer"], ["lager", "Lager", "kiste"], ["wissen", "Wissen", "wissen"],
-	["see", "Seefahrt und Schutz", "boot"]]
+	["see", "Seefahrt und Schutz", "boot"], ["land", "Land und Wege", "weg"]]
 
 
 func _build_build_panel() -> void:
@@ -893,8 +894,15 @@ func _on_placement(active: bool, type: String, valid: bool) -> void:
 				Data.buildings[type].name, tr(" Der Platz passt.") if valid else (tr("\nMuss am Ufer stehen und Platz haben.") if Data.buildings[type].get("coast", false) else tr("\nHier ist kein Platz frei."))]
 			_layout()
 			return
+		var why := tr("\nHier ist kein Platz frei.")
+		if Data.buildings[type].get("coast", false):
+			why = tr("\nMuss am Ufer stehen und Platz haben.")
+		elif Data.buildings[type].get("water_ok", false):
+			why = tr("\nIm Wasser nur neben Land oder einem anderen Deich.")
 		_place_label.text = tr("%s: Klicke auf einen freien Platz. Am Handy tippen, dann Hier bauen.%s") % [
-			Data.buildings[type].name, tr(" Der Platz passt.") if valid else (tr("\nMuss am Ufer stehen und Platz haben.") if Data.buildings[type].get("coast", false) else tr("\nHier ist kein Platz frei."))]
+			Data.buildings[type].name, tr(" Der Platz passt.") if valid else why]
+		if Data.buildings[type].get("repeat", false):
+			_place_label.text += tr("\nDu kannst mehrere nacheinander setzen. Abbrechen beendet das Bauen.")
 	_layout()
 
 
@@ -2229,9 +2237,10 @@ func _info_building(b: Building) -> void:
 			h.add_child(UiTheme.label("%s: %d / %d" % [Data.resource_name(res), int(b.delivered.get(res, 0)), int(b.def.cost[res])], 14))
 			_info_box.add_child(h)
 		_bar_row(tr("Fortschritt"), b.build_fraction() * 100.0, UiTheme.ACCENT)
-		var builders := world.settlers.filter(func(s): return s.is_adult() and (s.job == "baumeister" or s.job == "frei"))
+		var fj: bool = b.def.get("builder", "") == "foerster"  # Pflanzstelle: nur der Förster
+		var builders := world.settlers.filter(func(s): return s.is_adult() and (s.job == "foerster" if fj else (s.job == "baumeister" or s.job == "frei")))
 		if builders.is_empty():
-			var w := UiTheme.label(tr("Niemand baut! Mache einen Siedler zum Baumeister."), 13, UiTheme.BAD)
+			var w := UiTheme.label(tr("Es gibt noch keinen Förster. Gib einem Siedler den Beruf Förster.") if fj else tr("Niemand baut! Mache einen Siedler zum Baumeister."), 13, UiTheme.BAD)
 			w.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			_info_box.add_child(w)
 	else:
@@ -2298,10 +2307,11 @@ func _info_building(b: Building) -> void:
 		AdminInfo.office_rows(self, b)  # Verwaltung: Verwalter und Anordnungen
 	if b.def.has("upgrade"):
 		_info_upgrade(b)
-	var mv := UiTheme.button(tr("Verschieben"), "hammer", 36)
-	mv.tooltip_text = tr("Stellt das Gebäude an einen anderen Platz. Vorräte, Bewohner und Baufortschritt ziehen mit.")
-	mv.pressed.connect(func(): world.start_move(b))
-	_info_box.add_child(mv)
+	if not b.def.has("tile"):  # Straßen, Deiche, Pflanzstellen: neu bauen statt verschieben
+		var mv := UiTheme.button(tr("Verschieben"), "hammer", 36)
+		mv.tooltip_text = tr("Stellt das Gebäude an einen anderen Platz. Vorräte, Bewohner und Baufortschritt ziehen mit.")
+		mv.pressed.connect(func(): world.start_move(b))
+		_info_box.add_child(mv)
 	if b.type != "lagerfeuer":
 		var dm := UiTheme.button(tr("Abreißen") if not _demolish_armed else tr("Wirklich abreißen?"), "abriss", 36)
 		dm.pressed.connect(func():
@@ -2519,6 +2529,7 @@ func _info_node(n: ResNode) -> void:
 		_info_box.add_child(UiTheme.label(tr("Wird bearbeitet von: %s") % who.get(n.type, "?"), 13))
 	if n.def.has("decay_days") and n.regrow_at >= 0.0:
 		_info_box.add_child(UiTheme.label(tr("Verdirbt in %d Std.") % max(1, int(ceil((n.regrow_at - Game.time_days) * 24.0))), 13))
+	Land.node_rows(self, n)  # Förster: Roden lassen
 
 
 func _info_animal(a: Animal) -> void:

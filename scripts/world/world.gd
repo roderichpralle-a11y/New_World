@@ -58,6 +58,11 @@ var _grazed: Dictionary = {}  # Zelle -> Tag, bis wann Tiere dort nichts mehr fi
 var _species_seen: Dictionary = {}  # Tierarten, die es auf der Insel gab
 var _school_frame: int = -1
 var _school_of: Dictionary = {}  # Kind-ID -> Schule
+## Neuland hinter Deichen: Zellenindex (y * size + x) -> Gelände (SAND/GRASS). Siehe Land.
+var land_mod: Dictionary = {}
+## Vom Wasser zerstörte Gebäude auf Neuland: [{type, x, y}], kommen als Baustelle (70 %) zurück,
+## sobald dort wieder Land ist (Land.update_polders).
+var sunk: Array = []
 
 
 func _ready() -> void:
@@ -125,6 +130,7 @@ func build_from_save(w: Dictionary, m: Dictionary) -> void:
 	biome = m.get("biome", "heimat")
 	size = int(m.get("size", Data.bal("map_size", 64)))
 	var island := IslandGen.generate(int(m.seed), size, _gen_opts(m) if biome != "heimat" else {})
+	Land.apply_saved(self, island, w)  # Neuland hinter Deichen (ab dieser Version)
 	_build_terrain(island)
 	stock = {}
 	had_stock = w.has("stock")
@@ -139,6 +145,7 @@ func build_from_save(w: Dictionary, m: Dictionary) -> void:
 		var node := spawn_node(n[0], Vector2i(int(n[1]), int(n[2])), int(n[5]))
 		node.amount = int(n[3])
 		node.regrow_at = float(n[4])
+		node.clear_mark = n.size() > 6 and int(n[6]) == 1  # Förster soll roden
 		node.refresh()
 	for b in w.buildings:
 		if not Data.buildings.has(b.type):
@@ -262,28 +269,52 @@ func _paint_terrain() -> void:
 			water.set_cell(Vector2i(x, y), 0, Vector2i(0, 0))
 	for y in range(-1, size):
 		for x in range(-1, size):
-			var c := [_vertex(x, y), _vertex(x + 1, y), _vertex(x, y + 1), _vertex(x + 1, y + 1)]
-			var ms := 0
-			var mg := 0
-			for i in 4:
-				if c[i] >= SAND:
-					ms |= 1 << i
-				if c[i] >= GRASS:
-					mg |= 1 << i
-			var h := (hash(Vector2i(x, y)) & 0xffff) % 100
-			if ms == 15:
-				var v := Vector2i(15, 1) if h < 82 else Vector2i(h % 4, 3)
-				sand.set_cell(Vector2i(x, y), 0, v)
-			elif ms > 0:
-				sand.set_cell(Vector2i(x, y), 0, Vector2i(ms, 1))
-			if mg == 15:
-				var v := Vector2i(15, 2) if h < 45 else Vector2i(4 + h % 4, 3)
-				grass.set_cell(Vector2i(x, y), 0, v)
-			elif mg > 0:
-				grass.set_cell(Vector2i(x, y), 0, Vector2i(mg, 2))
+			_paint_tile(x, y, sand, grass)
 	# Dual-Grid: Kachel (x,y) liegt zwischen den Eckpunkten (x..x+1, y..y+1)
 	for l in _layers:
 		l.position = Vector2.ZERO
+
+
+func _paint_tile(x: int, y: int, sand: TileMapLayer, grass: TileMapLayer) -> void:
+	var c := [_vertex(x, y), _vertex(x + 1, y), _vertex(x, y + 1), _vertex(x + 1, y + 1)]
+	var ms := 0
+	var mg := 0
+	for i in 4:
+		if c[i] >= SAND:
+			ms |= 1 << i
+		if c[i] >= GRASS:
+			mg |= 1 << i
+	var h := (hash(Vector2i(x, y)) & 0xffff) % 100
+	if ms == 15:
+		var v := Vector2i(15, 1) if h < 82 else Vector2i(h % 4, 3)
+		sand.set_cell(Vector2i(x, y), 0, v)
+	elif ms > 0:
+		sand.set_cell(Vector2i(x, y), 0, Vector2i(ms, 1))
+	else:
+		sand.erase_cell(Vector2i(x, y))
+	if mg == 15:
+		var v := Vector2i(15, 2) if h < 45 else Vector2i(4 + h % 4, 3)
+		grass.set_cell(Vector2i(x, y), 0, v)
+	elif mg > 0:
+		grass.set_cell(Vector2i(x, y), 0, Vector2i(mg, 2))
+	else:
+		grass.erase_cell(Vector2i(x, y))
+
+
+## Gelände einer Zelle ändern (Neuland hinter Deichen, Überflutung): Wegfindung und Kacheln.
+func set_terrain(c: Vector2i, t: int) -> void:
+	if not is_inside(c):
+		return
+	terrain[c.y * size + c.x] = t
+	var solid := false
+	if node_at.has(c) and node_at[c].is_solid():
+		solid = true
+	if building_at.has(c) and not building_at[c].is_ground():
+		solid = true
+	_set_solid(c, solid)
+	for y in range(c.y - 1, c.y + 1):
+		for x in range(c.x - 1, c.x + 1):
+			_paint_tile(x, y, _layers[1], _layers[2])
 
 
 func _setup_astar() -> void:
@@ -293,10 +324,23 @@ func _setup_astar() -> void:
 	astar.default_compute_heuristic = AStarGrid2D.HEURISTIC_OCTILE
 	astar.default_estimate_heuristic = AStarGrid2D.HEURISTIC_OCTILE
 	astar.update()
+	# Wegzeit statt Weglänge (josh 2026-10-12): ein Feld Gras kostet road_speed, ein Feld Straße 1.
+	# So bleibt die Schätzung (Luftlinie mal 1) nie zu hoch und A* findet den schnellsten Weg.
+	astar.fill_weight_scale_region(astar.region, _grass_cost())
 	for y in size:
 		for x in size:
 			if terrain[y * size + x] == WATER:
 				astar.set_point_solid(Vector2i(x, y), true)
+
+
+func _grass_cost() -> float:
+	return maxf(1.0, float(Data.bal("road_speed", 1.5)))
+
+
+## Wegkosten der Zelle neu setzen (nach Bau oder Abriss einer Straße).
+func _update_weight(c: Vector2i) -> void:
+	if is_inside(c):
+		astar.set_point_weight_scale(c, 1.0 if road_at(c) else _grass_cost())
 
 
 func _make_clouds() -> void:
@@ -343,6 +387,42 @@ func is_water(c: Vector2i) -> bool:
 
 func is_walkable(c: Vector2i) -> bool:
 	return is_inside(c) and not astar.is_point_solid(c)
+
+
+## Fertiger Deich auf der Zelle?
+func dike_at(c: Vector2i) -> bool:
+	var b = building_at.get(c)
+	return b != null and b.complete and b.def.get("tile", "") == "dike"
+
+
+## Fertige Straße auf der Zelle (Siedler laufen dort schneller)?
+func road_at(c: Vector2i) -> bool:
+	var b = building_at.get(c)
+	return b != null and b.complete and b.def.get("tile", "") == "road"
+
+
+## Nachbarmaske für Straßen- und Deichkacheln (N=1, O=2, S=4, W=8). Deiche verbinden sich auch mit Land.
+func tile_mask(b) -> int:
+	var m := 0
+	var kind: String = b.def.get("tile", "")
+	var dirs := [Vector2i(0, -1), Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 0)]
+	for i in 4:
+		var c: Vector2i = b.cell + dirs[i]
+		var o = building_at.get(c)
+		if o != null and o.def.get("tile", "") == kind:
+			m |= 1 << i
+		elif kind == "dike" and is_inside(c) and not is_water(c):
+			m |= 1 << i
+	return m
+
+
+## Straßen und Deiche ringsum neu zeichnen (nach Bau, Abriss, Neuland).
+func refresh_tiles_around(c: Vector2i) -> void:
+	_update_weight(c)
+	for d in [Vector2i(0, -1), Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 0), Vector2i.ZERO]:
+		var o = building_at.get(c + d)
+		if o != null and o.def.has("tile"):
+			o.refresh()
 
 
 func world_size_px() -> Vector2:
@@ -397,7 +477,7 @@ func mark_unreachable(obj) -> void:
 func _set_solid(c: Vector2i, solid: bool) -> void:
 	if not is_inside(c):
 		return
-	if is_water(c):
+	if is_water(c) and not dike_at(c):  # fertige Deiche im Wasser sind begehbar
 		solid = true
 	astar.set_point_solid(c, solid)
 
@@ -454,6 +534,10 @@ func place_building(type: String, c: Vector2i, complete: bool, bid: int = 0) -> 
 			_set_solid(cc, true)
 	if complete and b.housing() > 0:
 		assign_homes()
+	if b.def.has("tile"):
+		if b.def.get("water_ok", false):
+			_set_solid(b.cell, false)  # fertiger Deich im Wasser: begehbar
+		refresh_tiles_around(b.cell)
 	return b
 
 
@@ -465,10 +549,12 @@ func can_place(type: String, c: Vector2i, ignore = null) -> bool:
 	for y in int(def.size[1]):
 		for x in int(def.size[0]):
 			var cc := c + Vector2i(x, y)
-			if not is_inside(cc) or terrain_at(cc) == WATER:
+			if not is_inside(cc) or (terrain_at(cc) == WATER and not def.get("water_ok", false)):
 				return false
 			if node_at.has(cc) or (building_at.has(cc) and building_at[cc] != ignore):
 				return false
+	if def.get("water_ok", false) and not Land.dike_allowed(self, c):  # Deich: an Land oder an einem Deich
+		return false
 	# Eingang muss frei sein
 	if not def.get("ground", false):
 		var e := c + Vector2i(int(def.size[0]) / 2, int(def.size[1]))
@@ -492,6 +578,9 @@ func can_place(type: String, c: Vector2i, ignore = null) -> bool:
 
 
 func on_building_completed(b: Building) -> void:
+	if b.def.has("tile"):
+		Land.on_completed(self, b)  # Straße, Deich, Setzling: eigene Folgen, keine Meldung
+		return
 	Game.notify_at(self, tr("%s ist fertig!") % b.def.name, "hammer")
 	Sound.play_on("fertig", self)
 	spawn_effect("dust", b.position)
@@ -530,6 +619,10 @@ func demolish(b: Building) -> void:
 		Game.select(null)
 	spawn_effect("dust", b.position)
 	b.queue_free()
+	if b.def.has("tile"):
+		refresh_tiles_around(b.cell)
+		if b.complete and b.def.get("tile", "") == "dike":
+			Land.flood(self, [])  # abgerissener Deich: Wasser läuft ins Neuland dahinter
 	if b.def.has("harbor"):
 		sync_ships.call_deferred()
 	for res in refund:
@@ -549,42 +642,75 @@ func building_by_id(bid: int):
 	return null
 
 
+## Nächstes Lager nach Wegzeit (josh 2026-10-12): der schnellste Weg zählt, Straßen sind schneller als
+## Gras. Nur ein Lager oder keins erreichbar: das nach Luftlinie nächste.
 func nearest_storage(from: Vector2i):
-	var best = null
-	var best_d := INF
+	var cand := []
 	for b in buildings:
-		if not b.is_storage():
-			continue
-		var d: float = b.dist_sq(from)
+		if b.is_storage():
+			cand.append([b.dist_sq(from), b])
+	if cand.is_empty():
+		return null
+	cand.sort_custom(func(a, b): return a[0] < b[0])
+	if cand.size() == 1:
+		return cand[0][1]
+	var best = null
+	var best_t := INF
+	var fast := float(Data.bal("road_speed", 1.5))
+	for e in cand:
+		# Selbst ganz auf Straße wäre dieses Lager nicht schneller: alle weiteren auch nicht
+		if best != null and sqrt(float(e[0])) / fast > best_t + 1.0:
+			break
+		var t := travel_time(from, e[1])
+		if t < best_t:
+			best_t = t
+			best = e[1]
+	return best if best != null else cand[0][1]
+
+
+## Wegzeit in Feldern auf Gras (Straßenfelder zählen 1/road_speed) bis neben das Gebäude, INF ohne Weg.
+func travel_time(from: Vector2i, b) -> float:
+	var cells: Array = b.cells()
+	if from in cells:
+		return 0.0
+	var to: Vector2i = cells[0]
+	var best_d := INF
+	for c in cells:
+		var d := Vector2(c - from).length_squared()
 		if d < best_d:
 			best_d = d
-			best = b
-	return best
+			to = c
+	var to_solid := astar.is_point_solid(to)
+	if to_solid:
+		astar.set_point_solid(to, false)
+	var pts := find_path(from, to)
+	if to_solid:
+		astar.set_point_solid(to, true)
+	if pts.is_empty():
+		return INF
+	var fast := float(Data.bal("road_speed", 1.5))
+	var t := 0.0
+	var prev := from
+	for i in range(1, pts.size()):
+		var c := Vector2i((pts[i] / T).floor())
+		t += Vector2(c - prev).length() / (fast if road_at(prev) else 1.0)
+		prev = c
+	return t
 
 
-## Lager zum Abliefern: unter allen Lagern, die kaum weiter weg sind als das
-## naechste, das mit den wenigsten Ablieferungen im Verhaeltnis zu seinem Platz.
-## So bekommt auch das Lagerfeuer weiter Waren, wenn ein Lagerhaus daneben steht.
+## Lager zum Abliefern: immer das nächste nach Wegzeit (josh 2026-10-12; vorher wurde unter nahen Lagern
+## verteilt). Der Platz zählt für die ganze Insel, ein volles Lager gibt es also nicht.
 func delivery_storage(from: Vector2i):
-	var near = nearest_storage(from)
-	if near == null:
-		return null
-	var reach := sqrt(near.dist_sq(from)) + float(Data.bal("delivery_spread", 6))
-	var best = near
-	var best_score := INF
-	for b in buildings:
-		if not b.is_storage() or b.dist_sq(from) > reach * reach:
-			continue
-		var score: float = float(b.deliveries) / maxf(1.0, float(b.def.storage))
-		if score < best_score:
-			best_score = score
-			best = b
-	best.deliveries += 1
+	var best = nearest_storage(from)
+	if best != null:
+		best.deliveries += 1
 	return best
 
 
-func construction_sites() -> Array:
-	return buildings.filter(func(b): return not b.complete)
+## Baustellen für einen Beruf: Baumeister (und Helfer) bauen alles ohne "builder", der Förster
+## nur seine Pflanzstellen (buildings.json "builder": "foerster").
+func construction_sites(builder: String = "") -> Array:
+	return buildings.filter(func(b): return not b.complete and str(b.def.get("builder", "")) == builder)
 
 
 ## Werkstatt einer Art ("kueche", "handwerk", "stein"), die gerade arbeiten kann.
@@ -1229,11 +1355,16 @@ func confirm_placement() -> bool:
 	Sound.play("platzieren")
 	Game.player_action.emit("place", b.type)
 	spawn_effect("dust", b.position)
-	if not Game.can_afford(b.def.cost, self):
+	if not Game.can_afford(b.def.cost, self) and not b.def.get("repeat", false):
 		Game.notify(tr("Baustelle angelegt. Es fehlt noch Material."), "hammer")
-	var has_builder := settlers.any(func(s): return s.is_adult() and (s.job == "baumeister" or s.job == "frei"))
-	if not has_builder:
+	if b.def.get("builder", "") == "foerster":
+		if not settlers.any(func(s): return s.is_adult() and s.job == "foerster"):
+			Game.notify(tr("Tipp: Mache einen Siedler zum Förster, damit gepflanzt wird."), "axt")
+	elif not settlers.any(func(s): return s.is_adult() and (s.job == "baumeister" or s.job == "frei")):
 		Game.notify(tr("Tipp: Mache einen Siedler zum Baumeister, damit gebaut wird."), "hammer")
+	if b.def.get("repeat", false):
+		_update_ghost()  # Straßen, Deiche, Setzlinge: gleich den nächsten setzen
+		return true
 	cancel_placement()
 	return true
 
@@ -1299,6 +1430,7 @@ func serialize() -> Dictionary:
 		"graves": graves.map(func(g): return [pos_to_cell(g[0].position).x, pos_to_cell(g[0].position).y, g[1]]),
 		"animals": animals.filter(func(a): return not a is Raider).map(func(a): return a.serialize()),  # Piraten: Events
 		"den_breed": _den_breed,
+		"land": Land.serialize(self),
 	}
 
 

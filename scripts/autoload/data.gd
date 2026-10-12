@@ -26,6 +26,8 @@ var tex_tools: Texture2D = preload("res://assets/sprites/tools.png")
 var tex_ui: Texture2D = preload("res://assets/sprites/ui.png")
 var tex_objects2: Texture2D = preload("res://assets/sprites/objects2.png")
 var tex_animals: Texture2D = preload("res://assets/sprites/animals.png")
+var tex_objects3: Texture2D = preload("res://assets/sprites/objects3.png")
+var tex_cart: Texture2D = preload("res://assets/sprites/cart.png")
 var font_regular: Font = preload("res://assets/fonts/pixelify-sans-latin-400-normal.woff2")
 var font_bold: Font = preload("res://assets/fonts/pixelify-sans-latin-700-normal.woff2")
 
@@ -60,6 +62,7 @@ const BUILDING_CELLS := {
 	"lab": [47, 1], "ai_center": [48, 1], "fusion": [49, 1], "future_city": [50, 1],
 	# Herausforderung (tools/gen_art_challenge.py)
 	"tablets": [51, 1], "office": [52, 1],  # Zelle 52 war frueher der Brunnen
+	"armory": [53, 1],  # Waffenschmiede (tools/gen_art_pirates.py)
 }
 ## Etappe 3 in objects2.png: name -> [x, y, w, h, frames]
 const OBJECT2_REGIONS := {
@@ -71,13 +74,34 @@ const OBJECT2_REGIONS := {
 	"boat": [0, 64, 32, 32, 2],
 	"ship_kogge": [0, 96, 48, 48, 2], "ship_fast": [96, 96, 48, 48, 2], "ship_galleon": [192, 96, 48, 48, 2],
 }
+## Strassen, Deiche und Foerster in objects3.png (tools/gen_art_land.py): name -> [x, y, w, h, frames].
+## road0..15 und dike0..15: Maske der Nachbarn N=1 O=2 S=4 W=8.
+var OBJECT3_REGIONS := _object3_regions()
+
+
+static func _object3_regions() -> Dictionary:
+	var r := {"plant_mark": [0, 32, 16, 16, 1], "clear_mark": [16, 32, 16, 16, 1]}
+	for m in 16:
+		r["road%d" % m] = [m * 16, 0, 16, 16, 1]
+		r["dike%d" % m] = [m * 16, 16, 16, 16, 1]
+	return r
+
+
 ## Tiere in animals.png: Zellen 24x24, je Tier eine Zeile (Zeile aus animals.json),
 ## Spalten 0-3 Laufen, 4 Angriff.
 const ANIMAL_CELL := 24
 ## Zeilen in animals.png fuer Figuren, die nicht in animals.json stehen (Piraten: events.json).
 const ANIMAL_ROWS := {"pirat": 3}
+## Schubkarre in cart.png (tools/gen_art_cart.py): Zellen 24x24, Spalten = 4 Rad-Bilder, Zeilen
+## 0-2 ganze Karre je Siedler-Richtung (unten, oben, seitlich nach rechts), 3-5 nur die vordere
+## Wannenwand, die ueber die Ware gelegt wird.
+const CART_CELL := 24
+## Bildmitte der Karre relativ zu den Fuessen des Siedlers je Richtung (seitlich: x gespiegelt nach links)
+const CART_POS := [Vector2(0, 0), Vector2(0, -20), Vector2(10, -8)]
+## Ware in der Wanne: [Mitte relativ zu den Fuessen, Groesse]
+const CART_LOAD := [[Vector2(0, -4), 0.625], [Vector2(0, -24), 0.5], [Vector2(11, -14), 0.625]]
 const TOOL_INDEX := {"axe": 0, "pick": 1, "basket": 2, "rod": 3, "hammer": 4, "sickle": 5,
-	"spoon": 6, "book": 7, "shovel": 8, "spear": 9}
+	"spoon": 6, "book": 7, "shovel": 8, "spear": 9, "saber": 10, "pitchfork": 11, "club": 12}
 
 var _icon_index: Dictionary = {}
 var _cache: Dictionary = {}
@@ -166,6 +190,10 @@ func object_tex(name: String, frame: int = 0) -> AtlasTexture:
 		var r2: Array = OBJECT2_REGIONS[name]
 		at.atlas = tex_objects2
 		at.region = Rect2(r2[0] + r2[2] * frame, r2[1], r2[2], r2[3])
+	elif OBJECT3_REGIONS.has(name):
+		var r3: Array = OBJECT3_REGIONS[name]
+		at.atlas = tex_objects3
+		at.region = Rect2(r3[0], r3[1], r3[2], r3[3])
 	else:
 		var r: Array = OBJECT_REGIONS.get(name, [0, 0, 16, 16, 1])
 		at.atlas = tex_objects
@@ -200,6 +228,18 @@ func tool_tex(name: String) -> AtlasTexture:
 	var at := AtlasTexture.new()
 	at.atlas = tex_tools
 	at.region = Rect2(16 * int(TOOL_INDEX.get(name, 0)), 0, 16, 16)
+	_cache[key] = at
+	return at
+
+
+## Schubkarre: Richtung (Settler.DIR_*), Rad-Bild 0-3, front = nur die vordere Wannenwand.
+func cart_tex(dir: int, frame: int, front: bool = false) -> AtlasTexture:
+	var key := "c:%d:%d:%s" % [dir, frame, front]
+	if _cache.has(key):
+		return _cache[key]
+	var at := AtlasTexture.new()
+	at.atlas = tex_cart
+	at.region = Rect2((frame % 4) * CART_CELL, (dir + (3 if front else 0)) * CART_CELL, CART_CELL, CART_CELL)
 	_cache[key] = at
 	return at
 
