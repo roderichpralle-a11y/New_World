@@ -49,7 +49,6 @@ var _slots_scroll: ScrollContainer
 var _import_cb  # JavaScriptObject: Rueckruf fuer die Dateiauswahl im Browser (muss leben bleiben)
 var _import_slot_n := 0
 var _update_btn: Button
-var _update_ready := false
 var _notify_grid: GridContainer
 var _info_panel: PanelContainer
 var _info_box: VBoxContainer
@@ -1351,11 +1350,9 @@ func _build_menu_panel() -> void:
 	sc.pressed.connect(func(): _toggle(_score_panel))
 	row.add_child(sc)
 	if OS.has_feature("web"):
-		_update_btn = UiTheme.button(tr("Neueste Version laden"), "schnell", 44)
-		_update_btn.tooltip_text = tr("Speichert und lädt die neueste Version des Spiels.")
-		_update_btn.pressed.connect(func():
-			toast(tr("Lade die neueste Version ..."), "haus")
-			Game.load_newest_version())
+		_update_btn = UiTheme.button(tr("Nach neuer Version suchen"), "schnell", 44)
+		_update_btn.tooltip_text = tr("Fragt den Server, ob es eine neue Version gibt. Laden erst nach deiner Bestätigung.")
+		_update_btn.pressed.connect(check_for_update)
 		v.add_child(_update_btn)
 	var hrow := HBoxContainer.new()  # Anleitung und Meldungen nebeneinander, damit das Menü auf 540 Pixel Höhe passt
 	hrow.add_theme_constant_override("separation", 6)
@@ -1368,18 +1365,7 @@ func _build_menu_panel() -> void:
 	nt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	nt.pressed.connect(func(): _toggle(_notify_panel))
 	hrow.add_child(nt)
-	var ng := UiTheme.button(tr("Neues Spiel"), "abriss", 44)
-	var armed := [false]
-	ng.pressed.connect(func():
-		if not armed[0]:
-			armed[0] = true
-			ng.text = tr("Wirklich? Alles geht verloren!")
-			return
-		new_game_requested.emit())
-	_menu_panel.visibility_changed.connect(func():
-		armed[0] = false
-		ng.text = tr("Neues Spiel"))
-	v.add_child(ng)
+	# Kein Knopf "Neues Spiel" im Menü (josh 2026-10-13): ein neues Spiel beginnt über Spielstände oder das Titelbild.
 	v.add_child(_volume_row(tr("Musik"), "musik", Sound.music_volume, func(x): Sound.set_volumes(x, Sound.sfx_volume)))
 	v.add_child(_volume_row(tr("Geräusche"), "glocke", Sound.sfx_volume, func(x):
 		Sound.set_volumes(Sound.music_volume, x)
@@ -1636,12 +1622,12 @@ func _file_dialog(mode: int) -> FileDialog:
 	return fd
 
 
-## Neue Version: Die Web-App liefert aus ihrem Offline-Speicher oft noch die alte Version. Darum
-## fragt das Spiel beim Start und alle 10 Minuten version.txt vom Server ab (schreibt der Web-Build).
-## Ist sie neuer, fragt ein Fenster, ob sie jetzt geladen werden soll. Geladen wird nur von Hand
-## ("Jetzt laden" oder Menue > "Neue Version laden!"), nie von selbst.
+## Neue Version (josh 2026-10-13): gesucht wird nur, wenn der Spieler Menü > "Nach neuer Version suchen"
+## tippt, nie von selbst und ohne Vorschlag. Das Spiel fragt dann version.txt vom Server ab (schreibt der
+## Web-Build). Ist sie neuer (oder hat die Web-App eine neue Version im Offline-Speicher), fragt ein Fenster,
+## ob sie jetzt geladen werden soll; sonst sagt eine Meldung, dass dies schon die neueste ist.
 var _version_cb  # JavaScriptObject, muss leben bleiben
-var _version_timer := 0.0
+var _pwa_update := false  # die Web-App meldet still eine neue Version, gezeigt wird sie erst auf Nachfrage
 var _server_version := ""
 var _update_dialog: Control
 
@@ -1649,34 +1635,37 @@ var _update_dialog: Control
 func _watch_updates() -> void:
 	if not OS.has_feature("web"):
 		return
-	JavaScriptBridge.pwa_update_available.connect(_on_update_available)
-	if JavaScriptBridge.pwa_needs_update():
-		_on_update_available()
+	JavaScriptBridge.pwa_update_available.connect(func(): _pwa_update = true)
 	_version_cb = JavaScriptBridge.create_callback(func(args): _on_server_version(str(args[0]) if args.size() > 0 else ""))
 	JavaScriptBridge.get_interface("window").inselVersion = _version_cb
-	_ask_server_version()
 
 
-func _ask_server_version() -> void:
-	_version_timer = 600.0
-	JavaScriptBridge.eval("fetch('version.txt', { cache: 'no-store' }).then((r) => r.ok ? r.text() : '').then((t) => window.inselVersion(t.trim())).catch(() => {});", true)
+## Menü > "Nach neuer Version suchen"
+func check_for_update() -> void:
+	if _pwa_update or (OS.has_feature("web") and JavaScriptBridge.pwa_needs_update()):
+		_on_update_available()
+		return
+	if _version_cb == null:
+		toast(tr("Die Suche nach einer neuen Version geht nur im Browser."), "sonne")
+		return
+	toast(tr("Suche nach einer neuen Version ..."), "sonne")
+	JavaScriptBridge.eval("fetch('version.txt', { cache: 'no-store' }).then((r) => r.ok ? r.text() : '').then((t) => window.inselVersion(t.trim())).catch(() => window.inselVersion(''));", true)
 
 
 func _on_server_version(v: String) -> void:
 	var mine := str(ProjectSettings.get_setting("application/config/version", ""))
 	# Nur eine Versionsnummer wie 1.0.43 zaehlt (keine Fehlerseite)
-	if v == mine or v.length() > 20 or not v.replace(".", "").is_valid_int():
+	if v.length() > 20 or not v.replace(".", "").is_valid_int():
+		toast(tr("Der Server antwortet gerade nicht. Versuche es später noch einmal."), "sonne")
+		return
+	if v == mine:
+		toast(tr("Du spielst schon die neueste Version (%s).") % mine, "sonne")
 		return
 	_server_version = v
 	_on_update_available()
 
 
 func _on_update_available() -> void:
-	if _update_ready:
-		return
-	_update_ready = true
-	if _update_btn:
-		_update_btn.text = tr("Neue Version laden!")
 	_show_update_dialog()
 
 
@@ -1724,7 +1713,7 @@ func _show_update_dialog() -> void:
 	later.pressed.connect(func():
 		bg.queue_free()
 		_update_dialog = null
-		toast(tr("Die neue Version lädst du jederzeit über Menü > Neue Version laden!"), "sonne"))
+		toast(tr("Die neue Version lädst du jederzeit über Menü > Nach neuer Version suchen."), "sonne"))
 	row.add_child(later)
 
 
@@ -2786,10 +2775,6 @@ func _process(delta: float) -> void:
 	if root == null:
 		return
 	_tick_settler_list(delta)
-	if _version_cb != null and not _update_ready:
-		_version_timer -= delta / max(Engine.time_scale, 0.001)
-		if _version_timer <= 0.0:
-			_ask_server_version()
 	_day_label.text = (tr("Tag %d") % Game.day()) if _food_short else (tr("Tag %d  %s") % [Game.day(), Game.clock_text()])
 	_day_icon.texture = Data.icon("mond" if Game.is_night() else "sonne")
 	_season_icon.texture = Seasons.icon()

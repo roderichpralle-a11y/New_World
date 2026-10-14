@@ -1609,5 +1609,12 @@
  "Bestellt Getreidefelder und Obstgärten und versorgt Schweine und Kühe in den Ställen.": "Tends grain fields and orchards and looks after the pigs and cows in the stables.",
  "Milch": "Milk",
  "Schaltet die Erzmine, den Schweinestall (Fleisch) und den Kuhstall (Milch) frei.": "Unlocks the ore mine, the pigsty (meat) and the cowshed (milk).",
- "Ab Bergbau gibt es Schweinestall und Kuhstall. Bauern machen dort aus Getreide Fleisch und Milch, die gut satt machen, aber verderben.": "From Mining on there are pigsties and cowsheds. Farmers turn grain into meat and milk there, which are very filling but spoil."
+ "Ab Bergbau gibt es Schweinestall und Kuhstall. Bauern machen dort aus Getreide Fleisch und Milch, die gut satt machen, aber verderben.": "From Mining on there are pigsties and cowsheds. Farmers turn grain into meat and milk there, which are very filling but spoil.",
+ "Nach neuer Version suchen": "Check for a new version",
+ "Fragt den Server, ob es eine neue Version gibt. Laden erst nach deiner Bestätigung.": "Asks the server whether there is a new version. Loads only after you confirm.",
+ "Die Suche nach einer neuen Version geht nur im Browser.": "Checking for a new version only works in the browser.",
+ "Suche nach einer neuen Version ...": "Checking for a new version ...",
+ "Der Server antwortet gerade nicht. Versuche es später noch einmal.": "The server is not answering right now. Try again later.",
+ "Du spielst schon die neueste Version (%s).": "You are already playing the newest version (%s).",
+ "Die neue Version lädst du jederzeit über Menü > Nach neuer Version suchen.": "You can load the new version any time via Menu > Check for a new version."
 }
