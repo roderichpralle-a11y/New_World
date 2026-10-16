@@ -45,10 +45,34 @@ static func _count(job: String, w) -> int:
 	return w.settlers.filter(func(s): return s.job == job and s.is_adult()).size()
 
 
-## Infofenster der Verwaltung: Verwalter, fehlendes Personal und Anordnungen je Beruf.
+static var _tab := 0  # Reiter im Infofenster der Verwaltung: 0 Verwalter, 1 Schichten, 2 Überstunden
+
+
+## Infofenster der Verwaltung mit den Reitern Verwalter, Schichten und Überstunden (josh 2026-10-16).
 static func office_rows(hud, b) -> void:
 	if not b.complete:
 		return
+	var tabs := HBoxContainer.new()
+	tabs.add_theme_constant_override("separation", 4)
+	hud._info_box.add_child(tabs)
+	for i in 3:
+		var tb := UiTheme.button([Loc.t("Verwalter"), Loc.t("Schichten"), Loc.t("Überstunden")][i], "", 36)
+		tb.toggle_mode = true
+		tb.button_pressed = i == _tab
+		tb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		tb.add_theme_font_size_override("font_size", 13)
+		var idx: int = i
+		tb.pressed.connect(func():
+			_tab = idx
+			hud._rebuild_info())
+		tabs.add_child(tb)
+	if _tab == 0:
+		_manager_tab(hud, b)
+	else:
+		_orders_tab(hud, b, "sh" if _tab == 1 else "ot")
+
+
+static func _manager_tab(hud, b) -> void:
 	var m = Admin.local_manager()
 	var away = Admin.manager()
 	var head_text := Loc.t("Verwalter: %s") % m.display_name if m else Loc.t("Kein Verwalter! Gib einem Siedler den Beruf Verwalter.")
@@ -57,54 +81,64 @@ static func office_rows(hud, b) -> void:
 	var head := UiTheme.label(head_text, 14, UiTheme.TEXT if m else UiTheme.BAD, true)
 	head.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	hud._info_box.add_child(head)
-	var scope := UiTheme.label(Loc.t("Alles hier gilt nur für %s, die Insel der Verwaltung.") % Sea.island_name(b.world), 12, DIM)
-	scope.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	hud._info_box.add_child(scope)
+	var cb := CheckBox.new()
+	cb.text = Loc.t("Automatische Neuzuweisung freier Berufe")
+	cb.focus_mode = Control.FOCUS_NONE
+	cb.custom_minimum_size.y = 40
+	cb.add_theme_font_size_override("font_size", 14)
+	cb.tooltip_text = Loc.t("Stirbt ein Siedler mit Beruf, bekommt automatisch ein freier Siedler diesen Beruf.")
+	cb.button_pressed = Admin.auto_reassign
+	cb.toggled.connect(func(on):
+		Admin.auto_reassign = on
+		Admin.changed.emit())
+	hud._info_box.add_child(cb)
+
+
+## Eine Zeile je Beruf mit einem Schalter: kind "sh" Schichtarbeit, "ot" Überstunden.
+static func _orders_tab(hud, b, kind: String) -> void:
 	var short := {}
 	for e in Admin.shortages():
 		short[e[0]] = e
-	hud._info_box.add_child(UiTheme.label(Loc.t("Anordnungen"), 15, UiTheme.TEXT, true))
-	var hint := UiTheme.label(Loc.t("Überstunden: 2 Stunden früher anfangen und länger arbeiten, keine Pausen, etwa anderthalbmal so viel Ertrag, höchstens ein Jahr am Stück. Schichtarbeit: Arbeit rund um die Uhr, etwa doppelt so viel Ertrag, Laune eine Stufe schlechter."), 12, DIM)
-	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	hud._info_box.add_child(hint)
 	for job in _jobs(b.world):
 		var t := "%s (%d)" % [Data.jobs[job].name, _count(job, b.world)]
 		var col := UiTheme.TEXT
 		if short.has(job):
 			t += "  " + Loc.t("fehlen: %d") % (int(short[job][1]) - int(short[job][2]))
 			col = UiTheme.BAD
-		hud._info_box.add_child(UiTheme.label(t, 14, col, true))
 		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 4)
+		row.add_theme_constant_override("separation", 6)
 		hud._info_box.add_child(row)
-		var ot: bool = Admin.ordered(job, "ot")
-		var ob := UiTheme.button(Loc.t("Überstunden: an") if ot else Loc.t("Überstunden: aus"), "", 32)
-		ob.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		ob.add_theme_font_size_override("font_size", 13)
-		if Admin.protesting(job):
-			ob.disabled = true
-			ob.tooltip_text = Loc.t("Protest gegen zu lange Überstunden")
+		var nl := UiTheme.label(t, 14, col, true)
+		nl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		nl.custom_minimum_size.x = 120
+		row.add_child(nl)
+		var on: bool = Admin.ordered(job, kind)
+		var bt := UiTheme.button(Loc.t("an") if on else Loc.t("aus"), "", 32)
+		bt.custom_minimum_size.x = 70
+		bt.add_theme_font_size_override("font_size", 13)
 		var jid: String = job
-		ob.pressed.connect(func():
-			var err := Admin.set_overtime(jid, not Admin.ordered(jid, "ot"))
-			if err != "":
-				hud.toast(err, "wissen")
-			hud._rebuild_info())
-		row.add_child(ob)
-		var sh: bool = Admin.ordered(job, "sh")
-		var sb := UiTheme.button(Loc.t("Schicht: an") if sh else Loc.t("Schicht: aus"), "", 32)
-		sb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		sb.add_theme_font_size_override("font_size", 13)
-		sb.pressed.connect(func():
-			Admin.set_shift(jid, not Admin.ordered(jid, "sh"))
-			hud._rebuild_info())
-		row.add_child(sb)
+		if kind == "ot":
+			if Admin.protesting(job):
+				bt.disabled = true
+				bt.tooltip_text = Loc.t("Protest gegen zu lange Überstunden")
+			bt.pressed.connect(func():
+				var err := Admin.set_overtime(jid, not Admin.ordered(jid, "ot"))
+				if err != "":
+					hud.toast(err, "wissen")
+				hud._rebuild_info())
+		else:
+			bt.pressed.connect(func():
+				Admin.set_shift(jid, not Admin.ordered(jid, "sh"))
+				hud._rebuild_info())
+		row.add_child(bt)
 		var note := ""
-		if ot:
-			var left := Seasons.year_days() * float(Admin.cfg.get("overtime_years", 1.0)) - (Game.time_days - float(Admin.orders[job].since))
-			note = Loc.t("Überstunden noch höchstens %d Tage.") % maxi(0, ceili(left))
-		if Admin.protesting(job):
-			note = Loc.t("Protest gegen zu lange Überstunden: noch %d Tage.") % maxi(1, ceili(float(Admin.protest[job]) - Game.time_days))
+		if kind == "ot":
+			if on:
+				var left := Seasons.year_days() * float(Admin.cfg.get("overtime_years", 1.0)) - (Game.time_days - float(Admin.orders[job].since))
+				note = Loc.t("Überstunden noch höchstens %d Tage.") % maxi(0, ceili(left))
+			if Admin.protesting(job):
+				note = Loc.t("Protest gegen zu lange Überstunden: noch %d Tage.") % maxi(1, ceili(float(Admin.protest[job]) - Game.time_days))
 		if note != "":
 			hud._info_box.add_child(UiTheme.label(note, 12, DIM))
 

@@ -41,6 +41,7 @@ var cfg: Dictionary = {}
 var orders: Dictionary = {}    # Beruf -> {"ot": Überstunden, "since": seit Tag, "sh": Schichtarbeit}
 var protest: Dictionary = {}   # Beruf -> Protest bis Tag
 var reported: Dictionary = {}  # Beruf -> letzte Meldung (Tag)
+var auto_reassign := false     # Stirbt jemand mit Beruf, bekommt ein freier Siedler diesen Beruf (josh 2026-10-16)
 var _next_tick := 0.0
 var _night_check_at := 0
 var _night_cached := false
@@ -52,6 +53,7 @@ func _ready() -> void:
 	Game.state_reset.connect(_on_reset)
 	Game.state_save.connect(_on_save)
 	Game.state_load.connect(_on_load)
+	Game.settler_died.connect(_on_settler_died)
 
 
 func _c(key: String, default) -> float:
@@ -284,6 +286,26 @@ func set_shift(job: String, on: bool) -> void:
 	changed.emit()
 
 
+## Automatische Neuzuweisung: Stirbt ein Siedler mit Beruf, übernimmt ein freier Erwachsener auf
+## derselben Insel den Beruf (einer mit passendem Talent zuerst). Nur auf der Insel der Verwaltung.
+func _on_settler_died(s, _cause: String) -> void:
+	if not auto_reassign or s == null or not s.is_adult() or s.job in ["frei", JOB]:
+		return
+	if not active_on(s.world) or not Data.jobs.has(s.job):
+		return
+	var pick = null
+	for o in s.world.settlers:
+		if o == s or not o.is_adult() or o.job != "frei":
+			continue
+		if pick == null or (TalentInfo.job_match(o.mind, s.job) and not TalentInfo.job_match(pick.mind, s.job)):
+			pick = o
+	if pick == null:
+		return
+	pick.set_job(s.job)
+	Game.notify_at(s.world, tr("%s übernimmt den Beruf %s von %s.") % [pick.display_name, _name(s.job), s.display_name], "wissen", "verwaltung")
+	changed.emit()
+
+
 func _name(job: String) -> String:
 	return Data.jobs.get(job, {}).get("name", job)
 
@@ -329,12 +351,13 @@ func _on_reset() -> void:
 	orders = {}
 	protest = {}
 	reported = {}
+	auto_reassign = false
 	_next_tick = 0.0
 	changed.emit()
 
 
 func _on_save(d: Dictionary) -> void:
-	d["admin"] = {"orders": orders.duplicate(true), "protest": protest.duplicate(), "reported": reported.duplicate()}
+	d["admin"] = {"orders": orders.duplicate(true), "protest": protest.duplicate(), "reported": reported.duplicate(), "auto": auto_reassign}
 
 
 func _on_load(data: Dictionary, old_rules: int) -> void:
@@ -344,6 +367,7 @@ func _on_load(data: Dictionary, old_rules: int) -> void:
 	var e = data.get("admin", null)
 	if not (e is Dictionary):
 		return
+	auto_reassign = bool(e.get("auto", false))
 	var o = e.get("orders", {})
 	if o is Dictionary:
 		for job in o:
