@@ -497,7 +497,7 @@ func _plan_forage() -> bool:
 	var best = null
 	var best_d := INF
 	for t in FORAGE_NODES:
-		var n = world.find_node_for(t, cell, id)
+		var n = world.find_node_for(t, cell, id, not is_armed())
 		if n and Vector2(n.cell - cell).length_squared() < best_d:
 			best = n
 			best_d = Vector2(n.cell - cell).length_squared()
@@ -692,7 +692,7 @@ func _plan_work() -> bool:
 			return _plan_free_gather()
 		"jaeger":
 			if Data.job_unlocked("jaeger"):
-				if _plan_hunt() or _plan_gather(["beute"]):
+				if _plan_destroy_den() or _plan_hunt() or _plan_gather(["beute"]):
 					return true
 			_stat_kind = "other"
 			return _plan_free_gather()
@@ -746,7 +746,7 @@ func _plan_gather(types: Array) -> bool:
 		var res: String = Data.nodes.get(t, {}).get("yield", "")
 		if res != "" and Game.space_for(res, world) <= 0:
 			continue
-		var node = world.find_node_for(t, cell, id)
+		var node = world.find_node_for(t, cell, id, not is_armed())
 		if node == null:
 			continue
 		var adjacent: bool = node.is_solid() or world.is_water(node.cell)
@@ -1305,6 +1305,58 @@ func _plan_hunt() -> bool:
 	_plan.append({"a": "hunt", "target": an, "start": cell})
 	activity = tr("Jagt: %s") % an.def.name
 	return true
+
+
+## Jaeger zerstoeren Tierbaue, die im Infofenster dafuer markiert sind (ResNode.destroy_mark).
+## Die Tiere am Bau verteidigen ihn; jeder Arbeitsschritt bringt ein Fell.
+func _plan_destroy_den() -> bool:
+	if health < 55.0 or Game.is_night() or mind.sick != "":
+		return false
+	var best = null
+	var bd := INF
+	for n in world.nodes:
+		if not n.destroy_mark or (n.reserved_by != 0 and n.reserved_by != id):
+			continue
+		if world._unreachable.has(n) and world._unreachable[n] > Game.time_days:
+			continue
+		var d := Vector2(n.cell - cell).length_squared()
+		if d < bd:
+			bd = d
+			best = n
+	if best == null:
+		return false
+	if not _push_move_to([best.cell], true):
+		world.mark_unreachable(best)
+		return false
+	_reserve(best)
+	_plan.append({"a": "work", "t": _den_work_time(best), "act": tr("Zerstört den Bau"), "tool": "shovel",
+		"face": best.position, "done": _do_destroy_den.bind(best)})
+	activity = tr("Zerstört: %s") % best.def.name
+	return true
+
+
+func _den_work_time(n) -> float:
+	return float(n.def.work_time) / work_factor("jagd")
+
+
+func _do_destroy_den(n) -> void:
+	if not is_instance_valid(n) or not n.destroy_mark:
+		return
+	world.den_alarm(n, self)
+	n.amount -= 1
+	gain_xp("jagd", 0.5)
+	world.spawn_effect("chips_" + n.type, n.position + Vector2(0, -6))
+	Sound.play_at("axt", world, n.position)
+	var f := Game.add_stock("felle", 1, world)
+	if f > 0:
+		world.float_text(n.position + Vector2(0, -20), "+%d" % f, "felle")
+	if n.amount <= 0:
+		world.destroy_den(n, self)
+		return
+	n.refresh()
+	if health >= 40.0 and not Game.is_night():
+		_plan.push_front({"a": "work", "t": _den_work_time(n), "act": tr("Zerstört den Bau"), "tool": "shovel",
+			"face": n.position, "done": _do_destroy_den.bind(n)})
 
 
 func _run_hunt(a: Dictionary, delta: float) -> void:

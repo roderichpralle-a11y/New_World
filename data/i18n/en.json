@@ -1624,5 +1624,18 @@
  "Alles hier gilt nur für %s, die Insel der Verwaltung.": "Everything here applies only to %s, the island with the administration.",
  "Es fehlt noch im Lager von %s: ": "Still missing in the storage of %s: ",
  "Geforscht wird nur auf %s, die Kosten kommen aus ihrem Lager.": "Research only happens on %s; its costs come from that island's storage.",
- "Hier wird nicht geforscht: Forschung gibt es nur auf %s.": "No research here: research only happens on %s."
+ "Hier wird nicht geforscht: Forschung gibt es nur auf %s.": "No research here: research only happens on %s.",
+ "Hat keinen Bau mehr und irrt umher.": "Has no den anymore and wanders around.",
+ "Zerstört den Bau": "Destroying the den",
+ "Zerstört: %s": "Destroying: %s",
+ "Nicht zerstören": "Don't destroy",
+ "Bau zerstören lassen (Jäger)": "Destroy den (hunter)",
+ "Es gibt hier noch keinen Jäger. Gib einem Siedler den Beruf Jäger.": "There is no hunter here yet. Give a settler the hunter job.",
+ "Ein Jäger zerstört den Bau bald. Die Tiere verteidigen ihn!": "A hunter will destroy the den soon. The animals will defend it!",
+ "Die %s ziehen dann zu einem anderen Bau auf der Insel.": "The %s will then move to another den on the island.",
+ "Das ist der letzte Bau der %s hier. Ohne Bau sterben sie auf dieser Insel aus.": "This is the last den of the %s here. Without a den they die out on this island.",
+ "Ein Jäger": "A hunter",
+ "%s hat einen Bau zerstört (%s). Die %s ziehen zu einem anderen Bau.": "%s destroyed a den (%s). The %s move to another den.",
+ "%s hat den letzten Bau der %s zerstört. Ohne Bau sterben sie hier aus.": "%s destroyed the last den of the %s. Without a den they will die out here.",
+ "%s hat einen Bau zerstört (%s).": "%s destroyed a den (%s)."
 }

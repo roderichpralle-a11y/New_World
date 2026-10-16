@@ -139,6 +139,13 @@ func make_island(index: int) -> Dictionary:
 ## Gefahren einer Insel als Tierarten, z. B. ["wolf", "baer"].
 func dangers(m: Dictionary) -> Array:
 	var out := []
+	var w = worlds.get(int(m.get("id", -1)))
+	if w != null and is_instance_valid(w):
+		# Besiedelt: was dort heute lebt (zerstoerte Baue, ausgestorbene Arten zaehlen nicht)
+		for a in w.animals:
+			if not a is Raider and not a.dead and not a.type in out:
+				out.append(a.type)
+		return out
 	for e in m.get("dens", []):
 		var a: String = Data.nodes.get(e[0], {}).get("spawns", "")
 		if a != "" and not a in out:

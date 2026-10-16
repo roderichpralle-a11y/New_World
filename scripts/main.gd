@@ -246,6 +246,14 @@ func _maybe_autotest() -> void:
 				world.stock[id] = max(Game.amount(id), 40)
 		if args.has("seatest"):
 			_autotest_sea_tick(elapsed)
+		if args.has("dentest") and elapsed == float(args.dentest):
+			# Testhilfe: alle Tierbaue der anderen Inseln von Jaegern zerstoeren lassen
+			for w in Sea.worlds.values():
+				for n in w.nodes:
+					if n.def.has("spawns"):
+						n.destroy_mark = true
+						n.refresh()
+				print("   Baue zum Zerstören markiert: ", Sea.island_name(w), " ", w.nodes.filter(func(n): return n.destroy_mark).size())
 		if _bot:
 			_bot.tick(elapsed)
 		if args.has("tuttest"):
