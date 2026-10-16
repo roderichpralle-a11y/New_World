@@ -77,8 +77,32 @@ func manager():
 	return null
 
 
+## Insel der Verwaltung (josh 2026-10-16): Die Entscheidungen des Verwalters (Vertretung, Überstunden,
+## Schichtarbeit, Meldungen über fehlende Leute) gelten nur dort. null ohne fertige Verwaltung.
+func admin_world():
+	var o = office()
+	return o.world if o != null else null
+
+
+## Der Verwalter (erwachsen) auf der Insel der Verwaltung, oder null.
+func local_manager():
+	var w = admin_world()
+	if w == null:
+		return null
+	for s in w.settlers:
+		if s.job == JOB and s.is_adult():
+			return s
+	return null
+
+
+## Die Verwaltung arbeitet: fertig gebaut und ein Verwalter auf derselben Insel.
 func active() -> bool:
-	return office() != null and manager() != null
+	return local_manager() != null
+
+
+## Arbeitet die Verwaltung für diese Insel?
+func active_on(w) -> bool:
+	return w != null and active() and w == admin_world()
 
 
 ## Gibt es dieses Gebäude schon (fertig oder als Baustelle), ohne ignore (beim Verschieben)?
@@ -94,12 +118,13 @@ func _order(job: String) -> Dictionary:
 	return orders.get(job, {"ot": false, "since": 0.0, "sh": false})
 
 
-func overtime(job: String) -> bool:
-	return bool(_order(job).ot) and active()
+## Gelten Überstunden / Schichtarbeit für diesen Beruf auf Insel w? (nur auf der Insel der Verwaltung)
+func overtime(job: String, w) -> bool:
+	return bool(_order(job).ot) and active_on(w)
 
 
-func shift(job: String) -> bool:
-	return bool(_order(job).sh) and active()
+func shift(job: String, w) -> bool:
+	return bool(_order(job).sh) and active_on(w)
 
 
 ## Angeordnet (auch wenn die Verwaltung gerade nicht arbeitet)?
@@ -113,7 +138,7 @@ func protesting(job: String) -> bool:
 
 ## Arbeitet der Siedler heute Nacht durch (Schichtarbeit: die Werkstätten laufen rund um die Uhr)?
 func night_worker(s) -> bool:
-	return s.is_adult() and shift(s.job)
+	return s.is_adult() and shift(s.job, s.world)
 
 
 ## Schlafenszeit eines Siedlers (Settler._sleep_time): nachts, außer bei Schichtarbeit; bei Überstunden
@@ -123,9 +148,9 @@ func sleep_time(s) -> bool:
 		return false
 	if not s.is_adult():
 		return true
-	if shift(s.job):
+	if shift(s.job, s.world):
 		return false
-	if overtime(s.job):
+	if overtime(s.job, s.world):
 		var x := _c("overtime_hours", 2.0) / 24.0
 		var t := Game.time_of_day()
 		return t >= Seasons.night_start() + x or t < Seasons.night_end() - x
@@ -143,11 +168,10 @@ func night_work_now() -> bool:
 	_night_cached = false
 	if not active():
 		return false
-	for w in Sea.all_worlds():
-		for s in w.settlers:
-			if s.is_adult() and (shift(s.job) or overtime(s.job)) and not sleep_time(s):
-				_night_cached = true
-				return true
+	for s in admin_world().settlers:
+		if s.is_adult() and (shift(s.job, s.world) or overtime(s.job, s.world)) and not sleep_time(s):
+			_night_cached = true
+			return true
 	return false
 
 
@@ -157,16 +181,16 @@ func night_work_now() -> bool:
 func work_mult(s) -> float:
 	if not s.is_adult():
 		return 1.0
-	if shift(s.job):
+	if shift(s.job, s.world):
 		return _c("shift_speed", 1.0)
-	if overtime(s.job):
+	if overtime(s.job, s.world):
 		return _c("overtime_speed", 1.0)
 	return 1.0
 
 
 ## Laune-Abzug durch Schichtarbeit (negativ, 0 ohne).
 func shift_mood(s) -> float:
-	return _c("shift_mood", -20.0) if s.is_adult() and shift(s.job) else 0.0
+	return _c("shift_mood", -20.0) if s.is_adult() and shift(s.job, s.world) else 0.0
 
 
 ## Laune-Gründe aus der Verwaltung (SettlerMind._update_mood).
@@ -174,9 +198,9 @@ func mood_reasons(s) -> Array:
 	var r := []
 	if not s.is_adult():
 		return r
-	if shift(s.job):
+	if shift(s.job, s.world):
 		r.append([tr("Schichtarbeit"), _c("shift_mood", -20.0)])
-	if protesting(s.job):
+	if protesting(s.job) and active_on(s.world):
 		r.append([tr("Protestiert gegen zu lange Überstunden"), _c("protest_mood", -15.0)])
 	return r
 
@@ -189,6 +213,8 @@ func _workable(w, kind: String) -> Array:
 ## Soll ein Siedler aus einem anderen Beruf in einer leeren Werkstatt dieser Art einspringen?
 ## Ja, wenn mehr Werkstätten mit Vertretung leer stehen, als Fachkräfte gerade da sind.
 func needs_standin(w, kind: String) -> bool:
+	if not active_on(w):
+		return false
 	var job: String = KIND_JOB.get(kind, "")
 	var busy := {}
 	var idle := 0
@@ -207,16 +233,16 @@ func needs_standin(w, kind: String) -> bool:
 	return idle > avail
 
 
-## Fehlendes Personal je Werkstattberuf über alle Inseln: [[Beruf, Werkstätten, Leute], ...].
+## Fehlendes Personal je Werkstattberuf auf der Insel der Verwaltung: [[Beruf, Werkstätten, Leute], ...].
 func shortages() -> Array:
 	var out := []
+	var w = admin_world()
+	if w == null:
+		return out
 	for kind in KIND_JOB:
 		var job: String = KIND_JOB[kind]
-		var n_b := 0
-		var n_p := 0
-		for w in Sea.all_worlds():
-			n_b += _workable(w, kind).size()
-			n_p += w.settlers.filter(func(s): return s.job == job and s.is_adult()).size()
+		var n_b: int = _workable(w, kind).size()
+		var n_p: int = w.settlers.filter(func(s): return s.job == job and s.is_adult()).size()
 		if n_b > n_p:
 			out.append([job, n_b, n_p])
 	return out
@@ -283,7 +309,7 @@ func _tick() -> void:
 			changed.emit()
 	if not active():
 		return
-	var m = manager()
+	var m = local_manager()
 	for e in shortages():
 		var job: String = e[0]
 		if Game.time_days - float(reported.get(job, -99.0)) < _c("report_every", 2.0):
@@ -345,4 +371,4 @@ func autotest_setup(args: Dictionary, main) -> void:
 
 ## Hilfetext (Menü > Hilfe), wie Extras.help_text.
 func help_text() -> String:
-	return "\n\n" + tr("[b]Verwaltung[/b]\nMit Gelehrsamkeit baust du eine Verwaltung (nur eine) und machst einen Siedler zum Verwalter (nur einer). Dann lässt sich in jeder Werkstatt die Vertretung einschalten: Fehlt die Fachkraft gerade (Pause, Schlaf, Essen), springt ein Siedler ein, der sonst nichts zu tun hat. Fehlen für einen Beruf Leute, meldet sich der Verwalter und schlägt Überstunden oder Schichtarbeit vor (in der Verwaltung an- und abzuschalten). Überstunden: die Arbeiter fangen 2 Stunden früher an, hören 2 Stunden später auf und machen keine Pausen; das bringt etwa anderthalbmal so viel. Nach einem Jahr am Stück hören sie unter Protest auf und ihre Laune sinkt. Schichtarbeit: die Werkstätten laufen rund um die Uhr (nachts brennt dort Licht), das bringt etwa doppelt so viel; Schichtarbeiter sind eine Laune-Stufe schlechter gelaunt. Solange nachts gearbeitet wird, vergeht die Nacht nicht schneller.")
+	return "\n\n" + tr("[b]Verwaltung[/b]\nMit Gelehrsamkeit baust du eine Verwaltung (nur eine) und machst einen Siedler zum Verwalter (nur einer). Er arbeitet nur, wenn er auf der Insel der Verwaltung lebt, und alles gilt nur für diese Insel. Dann lässt sich in jeder Werkstatt die Vertretung einschalten: Fehlt die Fachkraft gerade (Pause, Schlaf, Essen), springt ein Siedler ein, der sonst nichts zu tun hat. Fehlen für einen Beruf Leute, meldet sich der Verwalter und schlägt Überstunden oder Schichtarbeit vor (in der Verwaltung an- und abzuschalten). Überstunden: die Arbeiter fangen 2 Stunden früher an, hören 2 Stunden später auf und machen keine Pausen; das bringt etwa anderthalbmal so viel. Nach einem Jahr am Stück hören sie unter Protest auf und ihre Laune sinkt. Schichtarbeit: die Werkstätten laufen rund um die Uhr (nachts brennt dort Licht), das bringt etwa doppelt so viel; Schichtarbeiter sind eine Laune-Stufe schlechter gelaunt. Solange nachts gearbeitet wird, vergeht die Nacht nicht schneller.")

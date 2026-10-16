@@ -46,7 +46,8 @@ const SAVE_VERSION := 3
 ## Spielstaende ohne "rules" (= 0) bekommen die neuen Regeln ab dem Laden.
 ## 2 (josh 2026-10-12): Straßen nach Forschung, schnellster Weg, Piratenkampf, Schicht doppelt.
 ## 3 (josh 2026-10-12): Schweinestall und Kuhstall.
-const RULES := 3
+## 4 (josh 2026-10-16): Verwalter nur für seine Insel, Forschung nur auf der Hauptinsel.
+const RULES := 4
 var rules: int = RULES
 var rules_day: float = 0.0  # time_days, ab dem die Regeln fuer diesen Spielstand gelten
 var rules_old: int = RULES  # Regelstand des geladenen Spielstands (vor dem Hochsetzen)
@@ -1012,18 +1013,20 @@ func start_research(t: String) -> String:
 	if st != "available":
 		return tr("Diese Forschung ist noch nicht möglich.")
 	if not t in research.paid:
+		# Forschung nur auf der Hauptinsel (josh 2026-10-16): die Kosten kommen aus ihrem Lager
+		var mw = Sea.main_world()
 		var cost: Dictionary = Data.techs[t].get("cost", {})
-		if not can_afford(cost):
+		if not can_afford(cost, mw):
 			var miss := []
 			for id in cost:
-				if amount(id) < int(cost[id]):
-					miss.append("%d %s" % [int(cost[id]) - amount(id), Data.resource_name(id)])
-			var why := tr("Es fehlt noch: ") + ", ".join(miss)
-			if amount("felle") < int(cost.get("felle", 0)):
+				if amount(id, mw) < int(cost[id]):
+					miss.append("%d %s" % [int(cost[id]) - amount(id, mw), Data.resource_name(id)])
+			var why := tr("Es fehlt noch im Lager von %s: ") % Sea.island_name(mw) + ", ".join(miss)
+			if amount("felle", mw) < int(cost.get("felle", 0)):
 				why += tr(". Felle bringen Jäger, wenn sie wilde Tiere erlegen.")
 			return why
 		for id in cost:
-			take_stock(id, int(cost[id]))
+			take_stock(id, int(cost[id]), mw)
 		research.paid.append(t)
 	research.current = t
 	research_changed.emit()

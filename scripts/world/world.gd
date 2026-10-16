@@ -742,7 +742,7 @@ func find_workshop(kind: String, from: Vector2i, sid: int):
 ## Vertretung (Admin): nächste leere Werkstatt mit eingeschalteter Vertretung, in der gerade die
 ## Fachkraft fehlt; nicht für Werkstätten des eigenen Berufs (die nimmt der Siedler sowieso).
 func find_standin(from: Vector2i, sid: int, my_job: String):
-	if not Admin.active():
+	if not Admin.active_on(self):  # nur auf der Insel der Verwaltung (josh 2026-10-16)
 		return null
 	var best = null
 	var best_d := INF

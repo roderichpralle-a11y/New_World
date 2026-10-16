@@ -524,8 +524,10 @@ func _fit_research(top_h: float = -1.0) -> void:
 const RESEARCH_LIST_H := 270.0
 
 
+## Forscher auf der Hauptinsel (nur dort wird geforscht, josh 2026-10-16).
 func _forscher_count() -> int:
-	return world.settlers.filter(func(s): return s.is_adult() and s.job == "forscher").size()
+	var mw = Sea.main_world()
+	return mw.settlers.filter(func(s): return s.is_adult() and s.job == "forscher").size() if mw else 0
 
 
 func _update_research_head() -> void:
@@ -535,6 +537,8 @@ func _update_research_head() -> void:
 	var n := _forscher_count()
 	var who := tr("Keine Forscher! Gib einem Siedler den Beruf Forscher.") if n == 0 else tr("Forscher: %d") % n
 	who = tr("Zeitalter: %s. %s") % [Data.age_name(Game.current_age()), who]
+	if Sea.all_worlds().size() > 1:
+		who += " " + tr("Geforscht wird nur auf %s, die Kosten kommen aus ihrem Lager.") % Sea.island_name(Sea.main_world())
 	if cur == "":
 		_research_label.text = tr("Wähle eine Forschung aus. %s") % who
 		if Exams.only_exam_left():
@@ -545,7 +549,7 @@ func _update_research_head() -> void:
 		_research_label.text = tr("Forschung: %s  (%d / %d)\n%s") % [Data.techs[cur].name, int(Game.tech_progress(cur)), int(pts), who]
 		_research_bar.value = Game.tech_progress(cur) / pts * 100.0
 	_research_label.add_theme_color_override("font_color", UiTheme.BAD if n == 0 else UiTheme.TEXT)
-	var wt: Array = Writing.head_lines(world, n)
+	var wt: Array = Writing.head_lines(Sea.main_world(), n)
 	var wchanged := false
 	for i in _research_writing.size():
 		wchanged = wchanged or _research_writing[i].text != wt[i]
@@ -692,7 +696,7 @@ func _tech_row(t: String) -> Button:
 			else:
 				for res in def.get("cost", {}):
 					cost.add_child(UiTheme.icon_rect(Data.res_icon(res), 14))
-					var enough := Game.amount(res) >= int(def.cost[res])
+					var enough := Game.amount(res, Sea.main_world()) >= int(def.cost[res])
 					cost.add_child(UiTheme.label(str(int(def.cost[res])), 13, col if enough else UiTheme.BAD))
 				right.add_child(cost)
 			var pct := Game.tech_progress(t) / Game.tech_points(t) * 100.0
@@ -1946,7 +1950,7 @@ Kinder kommen nur zur Welt, wenn es freie Wohnplätze in Hütten gibt und genug 
 Wähle ein Gebäude und einen Bauplatz. Baumeister und freie Siedler bringen das Material und bauen es auf. Hütten und Holzhäuser lassen sich später im Infofenster ausbauen.
 
 [b]Forschung[/b]
-Im Entwicklungsbaum wählst du, was deine Siedler als Nächstes lernen. Forscher denken am Lagerfeuer nach, in Schreibstube und Bibliothek viel schneller. Jede Forschung schaltet neue Gebäude frei oder macht die Arbeit leichter. Acht Zeitalter mit sechzehn Stufen führen durch die Geschichte der Menschheit: Steinzeit, Antike, Mittelalter, Renaissance, Industrialisierung, Moderne, Informationszeitalter und Zukunft. Universität, Forschungslabor und KI-Zentrum forschen immer schneller. Spätere Zeitalter siehst du erst, wenn das vorige erreicht ist.
+Im Entwicklungsbaum wählst du, was deine Siedler als Nächstes lernen. Forscher denken am Lagerfeuer nach, in Schreibstube und Bibliothek viel schneller. Geforscht wird nur auf der Hauptinsel (der Heimatinsel), die Kosten kommen aus ihrem Lager. Jede Forschung schaltet neue Gebäude frei oder macht die Arbeit leichter. Acht Zeitalter mit sechzehn Stufen führen durch die Geschichte der Menschheit: Steinzeit, Antike, Mittelalter, Renaissance, Industrialisierung, Moderne, Informationszeitalter und Zukunft. Universität, Forschungslabor und KI-Zentrum forschen immer schneller. Spätere Zeitalter siehst du erst, wenn das vorige erreicht ist.
 
 [b]Neue Zeitalter[/b]
 Glas, Papier, Stahl, Maschinen, Strom und Elektronik entstehen in neuen Werkstätten. Kraftwerk, Solarpark und Fusionsreaktor liefern Strom, den Elektronikwerk und KI-Zentrum brauchen. Mietshäuser und Wohnblöcke bieten viel Wohnraum, Gewächshäuser tragen auch im Winter. Steht ein KI-Zentrum, verteilt die künstliche Intelligenz freie Siedler auf die Berufe, die gerade fehlen. Die Zukunftsstadt ist das Ziel aller Zeitalter.
@@ -2429,6 +2433,11 @@ func _info_production(b: Building) -> void:
 
 func _info_research(b: Building) -> void:
 	_info_box.add_child(UiTheme.label(tr("Forschung"), 15, UiTheme.TEXT, true))
+	if not Sea.is_main(b.world):
+		var nm := UiTheme.label(tr("Hier wird nicht geforscht: Forschung gibt es nur auf %s.") % Sea.island_name(Sea.main_world()), 13, UiTheme.BAD)
+		nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_info_box.add_child(nm)
+		return
 	_info_box.add_child(UiTheme.label(tr("Tempo: x%.1f   Plätze: %d") % [float(b.research_def().get("factor", 1.0)), b.slots()], 13))
 	NeedsInfo.worker_rows(self, b)  # Arbeiterstufe und Fachkräfte
 	var names := _names_of(b.occupants)

@@ -16,7 +16,7 @@ static func attach(hud) -> void:
 
 ## Werkstatt: Schalter Vertretung (nur, wenn die Verwaltung arbeitet).
 static func workshop_rows(hud, b) -> void:
-	if not Admin.active():
+	if not Admin.active_on(b.world):  # nur auf der Insel der Verwaltung (josh 2026-10-16)
 		return
 	var on: bool = b.adm
 	var bt := UiTheme.button(Loc.t("Vertretung: an") if on else Loc.t("Vertretung: aus"), "wissen", 34)
@@ -31,32 +31,35 @@ static func workshop_rows(hud, b) -> void:
 	hud._info_box.add_child(l)
 
 
-## Berufe, für die die Verwaltung Anordnungen zeigt: die Werkstattberufe und jeder Beruf mit Leuten.
-static func _jobs() -> Array:
+## Berufe, für die die Verwaltung Anordnungen zeigt: die Werkstattberufe und jeder Beruf mit Leuten
+## auf der Insel der Verwaltung.
+static func _jobs(w) -> Array:
 	var out: Array = Admin.KIND_JOB.values()
-	for w in Sea.all_worlds():
-		for s in w.settlers:
-			if s.is_adult() and not s.job in out and not s.job in ["frei", Admin.JOB]:
-				out.append(s.job)
+	for s in w.settlers:
+		if s.is_adult() and not s.job in out and not s.job in ["frei", Admin.JOB]:
+			out.append(s.job)
 	return out.filter(func(j): return Data.jobs.has(j) and (Data.job_unlocked(j) or Admin.ordered(j, "ot") or Admin.ordered(j, "sh")))
 
 
-static func _count(job: String) -> int:
-	var n := 0
-	for w in Sea.all_worlds():
-		n += w.settlers.filter(func(s): return s.job == job and s.is_adult()).size()
-	return n
+static func _count(job: String, w) -> int:
+	return w.settlers.filter(func(s): return s.job == job and s.is_adult()).size()
 
 
 ## Infofenster der Verwaltung: Verwalter, fehlendes Personal und Anordnungen je Beruf.
 static func office_rows(hud, b) -> void:
 	if not b.complete:
 		return
-	var m = Admin.manager()
-	var head := UiTheme.label(Loc.t("Verwalter: %s") % m.display_name if m else Loc.t("Kein Verwalter! Gib einem Siedler den Beruf Verwalter."),
-		14, UiTheme.TEXT if m else UiTheme.BAD, true)
+	var m = Admin.local_manager()
+	var away = Admin.manager()
+	var head_text := Loc.t("Verwalter: %s") % m.display_name if m else Loc.t("Kein Verwalter! Gib einem Siedler den Beruf Verwalter.")
+	if m == null and away != null:
+		head_text = Loc.t("Der Verwalter %s lebt auf einer anderen Insel (%s). Er arbeitet nur hier, auf der Insel der Verwaltung.") % [away.display_name, Sea.island_name(away.world)]
+	var head := UiTheme.label(head_text, 14, UiTheme.TEXT if m else UiTheme.BAD, true)
 	head.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	hud._info_box.add_child(head)
+	var scope := UiTheme.label(Loc.t("Alles hier gilt nur für %s, die Insel der Verwaltung.") % Sea.island_name(b.world), 12, DIM)
+	scope.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hud._info_box.add_child(scope)
 	var short := {}
 	for e in Admin.shortages():
 		short[e[0]] = e
@@ -64,8 +67,8 @@ static func office_rows(hud, b) -> void:
 	var hint := UiTheme.label(Loc.t("Überstunden: 2 Stunden früher anfangen und länger arbeiten, keine Pausen, etwa anderthalbmal so viel Ertrag, höchstens ein Jahr am Stück. Schichtarbeit: Arbeit rund um die Uhr, etwa doppelt so viel Ertrag, Laune eine Stufe schlechter."), 12, DIM)
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	hud._info_box.add_child(hint)
-	for job in _jobs():
-		var t := "%s (%d)" % [Data.jobs[job].name, _count(job)]
+	for job in _jobs(b.world):
+		var t := "%s (%d)" % [Data.jobs[job].name, _count(job, b.world)]
 		var col := UiTheme.TEXT
 		if short.has(job):
 			t += "  " + Loc.t("fehlen: %d") % (int(short[job][1]) - int(short[job][2]))
