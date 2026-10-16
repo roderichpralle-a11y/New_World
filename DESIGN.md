@@ -1377,6 +1377,8 @@ Bilder in `assets/sprites/objects3.png` (`tools/gen_art_land.py`, `Data.OBJECT3_
 - **Straße** (`strasse`, Forschung Wegebau in Stufe 3 (josh 2026-10-12; Steinbruch und Zimmerei, 40 Stein,
   20 Holz), 20 Stein, baut der Baumeister): auf fertigen Straßen laufen Siedler `balance.road_speed` (1,5)
   mal so schnell (`World.road_at`, `Settler._walk`). Alte Spielstände behalten gebaute Straßen.
+  Straßen dürfen auf dem Feld vor einer Tür liegen, auch wenn das Haus danach gebaut oder verschoben wird
+  (josh 2026-10-16, `World.can_place`); andere Gebäude halten den Eingang weiter frei.
 - **Schnellster Weg** (josh 2026-10-12): Die Wegsuche (`World.astar`) rechnet mit Wegzeit: jedes Feld
   Gras kostet `road_speed`, jedes Feld Straße 1 (`World._update_weight` in `refresh_tiles_around`), so
   bleibt die Luftlinien-Schätzung zulässig und A* findet den schnellsten Weg. `World.nearest_storage` nimmt
