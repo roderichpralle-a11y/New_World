@@ -50,6 +50,7 @@ func setup(p_hud) -> void:
 	_tab_ships.toggle_mode = true
 	_tab_ships.pressed.connect(func(): _go("ships"))
 	head.add_child(_tab_ships)
+	head.add_child(hud.help_button("inseln", tr("Inseln")))
 	var x := UiTheme.button("", "abriss", 32)
 	x.tooltip_text = tr("Schließen")
 	x.pressed.connect(func(): visible = false)

@@ -319,6 +319,23 @@ func _maybe_autotest() -> void:
 		await _lang_check()
 	if args.has("fitcheck"):
 		await _fit_check()
+	if args.has("jitter"):  # Testhilfe: Größe und Platz jedes Fensters (alle gleich wie Siedler?)
+		for nm in ["_settler_panel", "_build_panel", "_research_panel", "_stock_panel", "_menu_panel", "_help_panel", "_notify_panel", "_slots_panel", "_quest_panel"]:
+			for pn in hud._panels():
+				pn.visible = false
+			var pn2: Control = hud.get(nm)
+			if nm == "_slots_panel":
+				hud._open_slots()
+			elif nm == "_settler_panel":
+				hud._toggle(pn2)
+				hud._refresh_settler_list()
+			else:
+				if nm == "_research_panel":
+					hud._fill_research_list()
+				hud._toggle(pn2)
+			for i in 25:
+				await get_tree().process_frame
+			print("Fenstergroesse %s: %d,%d %dx%d" % [nm, pn2.position.x, pn2.position.y, pn2.size.x, pn2.size.y])
 	if args.has("shot"):
 		Engine.time_scale = 1.0
 		if args.has("night"):
@@ -341,6 +358,9 @@ func _maybe_autotest() -> void:
 					hud._toggle(hud._research_panel)
 				"menu":
 					hud._toggle(hud._menu_panel)
+				"help":
+					hud._toggle(hud._build_panel)
+					hud.show_menu_help("bauen", Loc.t("Bauen"))
 				"score":
 					hud._toggle(hud._score_panel)
 				"quests":
@@ -867,7 +887,7 @@ func _autotest_prod() -> void:
 	Data.balance["base_storage"] = 4000  # Testlauf: genug Stauraum fuer die Testvorraete
 	for id in Data.resources:
 		world.stock[id] = 40
-	for i in 8:
+	for i in 25:
 		world.spawn_newcomer("f" if i % 2 else "m")
 	var jobs := ["koch", "koch", "handwerker", "handwerker", "steinmetz", "forscher", "forscher", "holzfaeller", "bauer", "fischer"]
 	if _args.has("ages"):

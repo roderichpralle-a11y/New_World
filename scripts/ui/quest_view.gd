@@ -34,7 +34,7 @@ static func _wrap(text: String, size: int, min_w: float, color: Color = UiTheme.
 ## Fenster "Auftraege" (hud._quest_panel). Wird bei Quests.changed neu gebaut, Zeiten und Fortschritt
 ## alle 0,5 s aufgefrischt.
 static func build_panel(hud) -> PanelContainer:
-	var r: Array = hud._popup_panel(Loc.t("Aufträge"), "haken")
+	var r: Array = hud._popup_panel(Loc.t("Aufträge"), "haken", "auftraege")
 	var p: PanelContainer = r[0]
 	var v: VBoxContainer = r[1]
 	var scroll := ScrollContainer.new()
