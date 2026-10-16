@@ -297,6 +297,14 @@ func _update_pointer() -> void:
 	_pointer.get_parent().move_child(_pointer, -1)
 
 
+## Aktionsknopf einer Listenzeile (Win.row: der letzte Knopf rechts), sonst die Zeile selbst.
+func _row_button(row: Control) -> Control:
+	var h = row.get_child(0) if row.get_child_count() > 0 else null
+	if h != null and h.get_child_count() > 0 and h.get_child(-1) is Button:
+		return h.get_child(-1)
+	return row
+
+
 ## Wohin der Zeiger zeigt: ein Control, eine Bildschirmposition oder nichts.
 func _pointer_target(g: Dictionary):
 	var w = Game.world
@@ -315,7 +323,7 @@ func _pointer_target(g: Dictionary):
 			if hud._build_panel.visible:
 				for row in hud._build_list.get_children():
 					if row.get_meta("btype", "") == what:
-						return row.get_child(0).get_child(0)
+						return _row_button(row)
 				var cat: String = Data.buildings.get(what, {}).get("category", "")
 				for tab in hud._build_tabs:
 					if tab[1] == cat:
@@ -328,7 +336,7 @@ func _pointer_target(g: Dictionary):
 			if hud._research_panel.visible:
 				for row in hud._research_list.get_children():
 					if row.get_meta("tid", "") == "steinwerkzeuge" and Game.tech_state("steinwerkzeuge") == "available":
-						return row.get_child(0).get_child(0)
+						return _row_button(row)
 				return null
 			if _panel_open() or Game.selected != null:
 				return null

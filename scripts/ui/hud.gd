@@ -404,28 +404,36 @@ func _build_build_panel() -> void:
 	_build_panel = r[0]
 	var v: VBoxContainer = r[1]
 	_build_title = v.get_child(0).get_child(1)
-	var tabs := HBoxContainer.new()
-	tabs.add_theme_constant_override("separation", 4)
-	v.add_child(tabs)
+	# Reiter mit Text (josh 2026-10-16: einheitliche Fenster)
+	var names := []
 	for c in BUILD_CATS:
-		var b := UiTheme.button("", c[2], 40)
-		b.toggle_mode = true
-		b.tooltip_text = tr(c[1])
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var cat: String = c[0]
-		b.pressed.connect(func():
-			_build_cat = cat
-			_fill_build_list())
-		tabs.add_child(b)
-		_build_tabs.append([b, cat])
+		names.append(tr(BUILD_TAB_NAMES.get(c[0], c[1])))
+	var tabs := Win.tabs(names, 0, func(i):
+		_build_cat = BUILD_CATS[i][0]
+		_fill_build_list())
+	v.add_child(tabs)
+	for k in BUILD_CATS.size():
+		_build_tabs.append([tabs.get_child(k), BUILD_CATS[k][0]])
+	var chips := Win.chip_row()
+	chips.add_child(Win.chip(tr("Nur bezahlbare"), false, func(on):
+		_build_only_afford = on
+		_fill_build_list()))
+	v.add_child(chips)
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.custom_minimum_size = Vector2(355, 250)
 	v.add_child(scroll)
 	_build_list = VBoxContainer.new()
 	_build_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_build_list.add_theme_constant_override("separation", 4)
 	scroll.add_child(_build_list)
+	_build_footer = Win.footer(v)
 	_fill_build_list()
+
+
+const BUILD_TAB_NAMES := {"see": "Seefahrt", "land": "Wege"}
+var _build_only_afford := false
+var _build_footer: Dictionary = {}
 
 
 func _fill_build_list() -> void:
@@ -434,83 +442,81 @@ func _fill_build_list() -> void:
 		c.queue_free()
 	for t in _build_tabs:
 		t[0].set_pressed_no_signal(t[1] == _build_cat)
-	for c in BUILD_CATS:
-		if c[0] == _build_cat:
-			_build_title.text = tr("Bauen: ") + tr(c[1])
 	var locked_rows := []
+	var used_res := []
 	for type in Data.buildings:
 		var def: Dictionary = Data.buildings[type]
 		if not def.get("buildable", false) or def.get("category", "") != _build_cat:
 			continue
 		var unlocked := Game.is_unlocked(type)
-		var b := Button.new()
-		b.focus_mode = Control.FOCUS_NONE
-		b.custom_minimum_size = Vector2(335, 64)
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var h := HBoxContainer.new()
-		h.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		h.set_anchors_preset(Control.PRESET_FULL_RECT)
-		h.offset_left = 8
-		h.offset_right = -8
-		b.add_child(h)
-		var ic := UiTheme.icon_rect(Data.building_tex(type), 48)
-		h.add_child(ic)
-		var tv := VBoxContainer.new()
-		tv.add_theme_constant_override("separation", 0)
-		tv.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		tv.alignment = BoxContainer.ALIGNMENT_CENTER
-		h.add_child(tv)
-		tv.add_child(UiTheme.label(def.name, 16, UiTheme.TEXT, true))
+		var affordable := true
+		for res in def.cost:
+			if not res in used_res:
+				used_res.append(res)
+			if Game.amount(res) < int(def.cost[res]):
+				affordable = false
+		if _build_only_afford and (not unlocked or not affordable):
+			continue
 		var desc: String = def.desc
 		desc += NeedsInfo.build_desc(type)  # Bedürfnisstufen: Hausstufe bzw. Arbeiterstufe
 		var taken: bool = unlocked and def.get("unique", false) and Admin.exists(type)
+		var sub_col := Win.DIM
 		if not unlocked:
 			desc = tr("Benötigt Forschung: %s") % Data.techs.get(def.requires, {}).get("name", "?")
+			sub_col = UiTheme.BAD
 		elif taken:
 			desc = tr("Gibt es nur einmal und steht schon.") + " " + desc
 		elif Quests.plan_only(type):
 			desc = tr("Bauplan aus einem Auftrag.") + " " + desc
-		b.custom_minimum_size.y = _row_height(desc, 30)
-		var d := UiTheme.label(desc, 12, UiTheme.TEXT if unlocked else Color("#8a5a3a"))
-		d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		d.custom_minimum_size.x = 170
-		tv.add_child(d)
-		IslandTraits.build_row(b, tv, type, world)  # Inselstärke: hier schneller bzw. wo
+		var rw := Win.row(Data.building_tex(type), def.name, desc, {"sub_color": sub_col,
+			"button": tr("Bauen") if unlocked else tr("Forsch."), "button_off": not unlocked or taken or not affordable})
+		var box: PanelContainer = rw.box
+		box.set_meta("btype", type)
+		if unlocked:
+			IslandTraits.build_row(box, rw.text, type, world)  # Inselstärke: hier schneller bzw. wo
 		var cost := GridContainer.new()
 		cost.columns = 2
 		cost.add_theme_constant_override("h_separation", 2)
 		cost.add_theme_constant_override("v_separation", 0)
-		cost.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		cost.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		for res in def.cost:
 			cost.add_child(UiTheme.icon_rect(Data.res_icon(res), 16))
 			var enough := Game.amount(res) >= int(def.cost[res])
 			cost.add_child(UiTheme.label(str(int(def.cost[res])), 14, UiTheme.TEXT if enough else UiTheme.BAD))
-		h.add_child(cost)
-		if taken:
-			b.disabled = true
+		rw.h.add_child(cost)
+		rw.h.move_child(cost, rw.h.get_child_count() - 2)
+		cost.visible = unlocked
+		var bt: Button = rw.button
 		if not unlocked:
-			b.disabled = true
-			cost.visible = false
-			var fb := UiTheme.button(tr("Forsch."), "", 36)  # kleiner Knopf: öffnet die Forschung (josh 2026-10-16)
-			fb.add_theme_font_size_override("font_size", 13)
-			fb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-			fb.pressed.connect(func():
+			rw.icon.modulate = Color(0.2, 0.15, 0.15, 0.6)
+			bt.tooltip_text = tr("Forschung öffnen")
+			bt.pressed.connect(func():
 				_fill_research_list()
 				_toggle(_research_panel))
-			h.add_child(fb)
-			ic.modulate = Color(0.2, 0.15, 0.15, 0.6)
-			locked_rows.append(b)
+			locked_rows.append(box)
 			continue
-		var bt: String = type
-		b.set_meta("btype", type)
-		b.pressed.connect(func():
+		var tp: String = type
+		bt.pressed.connect(func():
+			if Admin.exists(tp) and Data.buildings[tp].get("unique", false):
+				toast(tr("Gibt es nur einmal und steht schon."), "hammer")
+				return
+			for res in Data.buildings[tp].cost:
+				if Game.amount(res) < int(Data.buildings[tp].cost[res]):
+					toast(tr("Dafür fehlt noch: %s") % Data.resource_name(res), "hammer")
+					return
 			_build_panel.visible = false
 			Game.select(null)
-			world.start_placement(bt, camera.position))
-		_build_list.add_child(b)
+			world.start_placement(tp, camera.position))
+		_build_list.add_child(box)
 	for b in locked_rows:
 		_build_list.add_child(b)
+	if _build_list.get_child_count() == 0:
+		_build_list.add_child(UiTheme.label(tr("Gerade ist hier nichts bezahlbar.") if _build_only_afford else tr("Hier gibt es noch nichts zu bauen."), 14, Win.DIM))
+	var have := []
+	for res in used_res.slice(0, 5):
+		have.append("%s %d" % [Data.resource_name(res), Game.amount(res)])
+	_build_footer.left.text = tr("Du hast: %s") % ", ".join(have) if not have.is_empty() else ""
+	Win.set_left2(_build_footer, tr("Bauen abbrechen: im Plan auf X tippen"))
 
 
 # ================================================================== Forschung
@@ -518,9 +524,30 @@ func _build_research_panel() -> void:
 	var r := _popup_panel(tr("Forschung"), "wissen")
 	_research_panel = r[0]
 	var v: VBoxContainer = r[1]
+	_research_tabs = Win.chip_row()  # Reiter je Zeitalter, in _fill_research_list gefüllt
+	_research_tabs.remove_meta("fit_hide")
+	_research_tabs.add_theme_constant_override("h_separation", 4)
+	v.add_child(_research_tabs)
+	var chips := Win.chip_row()
+	chips.add_child(Win.chip(tr("Nur erforschbare"), false, func(on):
+		_research_only_open = on
+		_fill_research_list()))
+	v.add_child(chips)
+	_research_scroll = ScrollContainer.new()
+	_research_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_research_scroll.custom_minimum_size = Vector2(355, RESEARCH_LIST_H)
+	v.add_child(_research_scroll)
+	_research_list = VBoxContainer.new()
+	_research_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_research_list.add_theme_constant_override("separation", 4)
+	_research_scroll.add_child(_research_list)
+	# Fuß: Stand der Forschung, Forscher und Schriften
+	var ft := Win.footer(v)
+	ft.box.visible = false
 	_research_head = VBoxContainer.new()
+	_research_head.add_theme_constant_override("separation", 2)
 	v.add_child(_research_head)
-	_research_label = UiTheme.label("", 14)
+	_research_label = UiTheme.label("", 14, UiTheme.TEXT, true)
 	_research_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_research_label.custom_minimum_size.x = 330
 	_research_head.add_child(_research_label)
@@ -528,18 +555,16 @@ func _build_research_panel() -> void:
 	_research_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_research_head.add_child(_research_bar)
 	for i in 2:  # Forschung braucht Schriften: Verbrauch und Lager, rote Zeile wenn etwas fehlt
-		var wl := UiTheme.label("", 13, UiTheme.TEXT if i == 0 else UiTheme.BAD, i == 1)
+		var wl := UiTheme.label("", 12, Win.DIM if i == 0 else UiTheme.BAD, i == 1)
 		wl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		wl.custom_minimum_size.x = 330
 		_research_head.add_child(wl)
 		_research_writing.append(wl)
-	_research_scroll = ScrollContainer.new()
-	_research_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	_research_scroll.custom_minimum_size = Vector2(355, RESEARCH_LIST_H)
-	v.add_child(_research_scroll)
-	_research_list = VBoxContainer.new()
-	_research_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_research_scroll.add_child(_research_list)
+
+
+var _research_tabs: HFlowContainer
+var _research_age := -1  # gewählter Reiter (Zeitalter); -1 = das aktuelle
+var _research_only_open := false
 
 
 ## Forschungsfenster: Die Liste wird kürzer, wenn die Kopfzeilen (Schreibwaren, Prüfung) wachsen,
@@ -614,24 +639,44 @@ func _fill_research_list() -> void:
 		_research_list.remove_child(c)
 		c.queue_free()
 	_update_research_head()
+	var cur_age := Game.current_age()
+	var max_age := mini(cur_age + 1, Data.ages.size() - 1)
+	if _research_age < 0 or _research_age > max_age:
+		_research_age = cur_age
+	# Reiter: erreichte Zeitalter und das nächste
+	for c in _research_tabs.get_children():
+		_research_tabs.remove_child(c)
+		c.queue_free()
+	for a in range(0, max_age + 1):
+		var tb := UiTheme.button(Data.age_name(a), "", 36)
+		tb.toggle_mode = true
+		tb.button_pressed = a == _research_age
+		tb.add_theme_font_size_override("font_size", 14)
+		var aa: int = a
+		tb.pressed.connect(func():
+			_research_age = aa
+			_research_scroll.scroll_vertical = 0
+			_fill_research_list())
+		_research_tabs.add_child(tb)
 	var tier := 0
 	var age := -1
-	var cur_age := Game.current_age()
 	for t in Data.sorted_tech_ids():
 		var def: Dictionary = Data.techs[t]
 		var a := Data.age_of_tier(int(def.tier))
+		if a != _research_age:
+			continue
 		if a != age:
 			age = a
 			_research_list.add_child(_age_header(a, cur_age))
 			if a == cur_age + 1 and not Exams.exam_def(cur_age).is_empty():
 				_exam_box = ExamView.exam_box(cur_age)  # Pruefung, die dieses Zeitalter oeffnet
 				_research_list.add_child(_exam_box)
-		if a > cur_age + 1:
-			continue  # spaetere Zeitalter bleiben ein Geheimnis
+		if _research_only_open and not Game.tech_state(t) in ["available", "current"]:
+			continue
 		if int(def.tier) != tier:
 			tier = int(def.tier)
 			var name: String = Data.tiers[tier - 1] if tier - 1 < Data.tiers.size() else ""
-			var hl := UiTheme.label(tr("Stufe %s: %s") % [ROMAN[min(tier - 1, ROMAN.size() - 1)], name], 16, Color("#7a4a28"), true)
+			var hl := UiTheme.label(tr("Stufe %s: %s") % [ROMAN[min(tier - 1, ROMAN.size() - 1)], name], 15, Color("#7a4a28"), true)
 			_research_list.add_child(hl)
 		_research_list.add_child(_tech_row(t))
 	await get_tree().process_frame
@@ -670,91 +715,63 @@ func _row_height(text: String, chars_per_line: int) -> float:
 	return max(62.0, 34.0 + 15.0 * lines)
 
 
-func _tech_row(t: String) -> Button:
+func _tech_row(t: String) -> Control:
 	var def: Dictionary = Data.techs[t]
 	var st := Game.tech_state(t)
-	var b := Button.new()
-	b.focus_mode = Control.FOCUS_NONE
-	b.custom_minimum_size = Vector2(335, 62)
-	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	b.toggle_mode = true
-	b.button_pressed = st == "current"
-	b.set_meta("tid", t)
-	var h := HBoxContainer.new()
-	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	h.set_anchors_preset(Control.PRESET_FULL_RECT)
-	h.offset_left = 8
-	h.offset_right = -8
-	b.add_child(h)
-	var ic := UiTheme.icon_rect(Data.tech_tex(t), 40)
+	var desc: String = def.desc
+	var sub_col := Win.DIM
+	if st == "locked":
+		var need := []
+		for rq in def.get("requires", []):
+			if not Game.is_researched(rq):
+				need.append(Data.techs[rq].name)
+		desc = tr("Benötigt: ") + ", ".join(need)
+		sub_col = UiTheme.BAD
+	var btn: String = {"available": tr("Starten"), "current": tr("Läuft"), "done": tr("Fertig"),
+		"locked": tr("Wie?"), "exam": tr("Prüfung"), "soon": tr("Bald")}.get(st, tr("Starten"))
+	var rw := Win.row(Data.tech_tex(t), def.name, desc, {"sub_color": sub_col, "button": btn,
+		"button_off": st != "available", "hi": st == "current"})
+	var box: PanelContainer = rw.box
+	box.set_meta("tid", t)
 	if st in ["locked", "soon", "exam"]:
-		ic.modulate = Color(0.25, 0.2, 0.2, 0.6)
-	h.add_child(ic)
-	var tv := VBoxContainer.new()
-	tv.add_theme_constant_override("separation", 0)
-	tv.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	tv.alignment = BoxContainer.ALIGNMENT_CENTER
-	h.add_child(tv)
-	var col := UiTheme.TEXT_LIGHT if st == "current" else UiTheme.TEXT
-	tv.add_child(UiTheme.label(def.name, 15, col, true))
-	b.custom_minimum_size.y = _row_height(def.desc, 33)
-	var d := UiTheme.label(def.desc, 12, col)
-	d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	d.custom_minimum_size.x = 180
-	tv.add_child(d)
+		rw.icon.modulate = Color(0.25, 0.2, 0.2, 0.6)
+	if st == "done":
+		box.modulate = Color(0.85, 1.0, 0.85)
 	var right := VBoxContainer.new()
-	right.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	right.alignment = BoxContainer.ALIGNMENT_CENTER
-	right.custom_minimum_size.x = 70
-	h.add_child(right)
-	match st:
-		"done":
-			right.add_child(UiTheme.label(tr("Erforscht"), 13, UiTheme.GOOD, true))
-			b.modulate = Color(0.85, 1.0, 0.85)
-		"soon":
-			right.add_child(UiTheme.label(tr("Bald"), 13, Color("#8a5a3a"), true))
-		"locked":
-			var need := []
-			for rq in def.get("requires", []):
-				if not Game.is_researched(rq):
-					need.append(Data.techs[rq].name)
-			var l := UiTheme.label(tr("Gesperrt"), 13, Color("#8a5a3a"), true)
-			right.add_child(l)
-			d.text = tr("Benötigt: ") + ", ".join(need)
-		"exam":  # wartet auf die Pruefung fuer dieses Zeitalter
-			right.add_child(UiTheme.label(tr("Prüfung"), 13, Color("#8a5a3a"), true))
-			right.add_child(UiTheme.label(tr("%d Pkt.") % int(Game.tech_points(t)), 12, col))
-		_:
+	right.add_theme_constant_override("separation", 0)
+	right.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	rw.h.add_child(right)
+	rw.h.move_child(right, rw.h.get_child_count() - 2)
+	if st in ["available", "current"]:
+		if t in Game.research.paid:
+			right.add_child(UiTheme.label(tr("bezahlt"), 12, Win.DIM))
+		elif not def.get("cost", {}).is_empty():
 			var cost := GridContainer.new()
 			cost.columns = 2
 			cost.add_theme_constant_override("h_separation", 2)
 			cost.add_theme_constant_override("v_separation", 0)
-			cost.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			if t in Game.research.paid:
-				right.add_child(UiTheme.label(tr("bezahlt"), 12, col))
-			else:
-				for res in def.get("cost", {}):
-					cost.add_child(UiTheme.icon_rect(Data.res_icon(res), 14))
-					var enough := Game.amount(res, Sea.main_world()) >= int(def.cost[res])
-					cost.add_child(UiTheme.label(str(int(def.cost[res])), 13, col if enough else UiTheme.BAD))
-				right.add_child(cost)
-			var pct := Game.tech_progress(t) / Game.tech_points(t) * 100.0
-			right.add_child(UiTheme.label(tr("%d Pkt.") % int(Game.tech_points(t)) if pct <= 0 else "%d%%" % int(pct), 12, col))
+			for res in def.get("cost", {}):
+				cost.add_child(UiTheme.icon_rect(Data.res_icon(res), 14))
+				var enough := Game.amount(res, Sea.main_world()) >= int(def.cost[res])
+				cost.add_child(UiTheme.label(str(int(def.cost[res])), 13, UiTheme.TEXT if enough else UiTheme.BAD))
+			right.add_child(cost)
+	if st != "done":
+		var pct := Game.tech_progress(t) / Game.tech_points(t) * 100.0
+		right.add_child(UiTheme.label(tr("%d Pkt.") % int(Game.tech_points(t)) if pct <= 0 else "%d%%" % int(pct), 13, UiTheme.TEXT, true))
 	var wr := Writing.row_text(t) if st != "done" else ""
 	if wr != "":  # Forschung braucht Schriften: Beim Forschen: 24 Tontafeln
-		var wl := UiTheme.label(wr, 12, col if st == "current" else Color("#2f5a8a"))
+		var wl := UiTheme.label(wr, 12, Color("#2f5a8a"))
 		wl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		wl.custom_minimum_size.x = 180
-		tv.add_child(wl)
-		b.custom_minimum_size.y = _row_height(def.desc, 33) + 15.0 * ceili(float(wr.length()) / 33)
-	b.pressed.connect(_on_tech_pressed.bind(t, b, d))
-	return b
+		wl.custom_minimum_size.x = 110
+		rw.text.add_child(wl)
+	var d: Label = rw.sub if rw.sub != null else rw.name
+	rw.button.pressed.connect(_on_tech_pressed.bind(t, rw.button, d))
+	return box
 
 
-func _on_tech_pressed(tid: String, b: Button, d: Label) -> void:
+func _on_tech_pressed(tid: String, _b: Button, d: Label) -> void:
 	var def: Dictionary = Data.techs[tid]
-	b.set_pressed_no_signal(Game.tech_state(tid) == "current")
 	match Game.tech_state(tid):
 		"available":
 			var err := Game.start_research(tid)
@@ -772,6 +789,8 @@ func _on_tech_pressed(tid: String, b: Button, d: Label) -> void:
 			toast(tr("Dieses Wissen kommt mit einem späteren Update."), "wissen")
 		"done":
 			toast(tr("%s ist schon erforscht.") % def.name, "wissen")
+		"current":
+			toast(tr("Wird gerade erforscht: %s") % def.name, "wissen")
 
 
 func _on_research_changed() -> void:
@@ -788,15 +807,36 @@ func _build_stock_panel() -> void:
 	var r := _popup_panel(tr("Vorräte"), "kiste")
 	_stock_panel = r[0]
 	var v: VBoxContainer = r[1]
+	v.add_child(Win.tabs([tr("Alles"), tr("Nahrung"), tr("Material")], 0, func(i):
+		_stock_cat = ["", "food", "material"][i]
+		_refresh_stock(true)))
+	var chips := Win.chip_row()
+	chips.add_child(Win.chip(tr("Nur vorhandene"), false, func(on):
+		_stock_only_have = on
+		_refresh_stock(true)))
+	v.add_child(chips)
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.custom_minimum_size = Vector2(min(440.0, get_viewport().get_visible_rect().size.x - 40.0), 300)
 	v.add_child(scroll)
 	_stock_grid = GridContainer.new()
 	_stock_grid.columns = 1
-	_stock_grid.add_theme_constant_override("v_separation", 2)
+	_stock_grid.add_theme_constant_override("v_separation", 3)
 	_stock_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(_stock_grid)
+	_stock_ft = Win.footer(v)
+	_stock_ft.left.mouse_filter = Control.MOUSE_FILTER_PASS
+	_stock_ft.left.tooltip_text = tr("Lege mit − und + fest, wie viel von einer Ware gelagert wird. „×2“ ist der Raum, den ein Stück braucht. „frei“ heißt: die Ware nimmt sich freien Platz, solange welcher da ist. Ist kein Platz mehr, sammeln die Siedler diese Ware nicht mehr.")
+	_stock_bar = UiTheme.bar(UiTheme.GOOD)
+	_stock_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_stock_ft.left.get_parent().add_child(_stock_bar)
+	_stock_ft.left.get_parent().move_child(_stock_bar, 1)
+
+
+var _stock_cat := ""
+var _stock_only_have := false
+var _stock_ft: Dictionary = {}
+var _stock_bar: ProgressBar
 
 
 func _refresh_stock(force: bool = false) -> void:
@@ -807,30 +847,32 @@ func _refresh_stock(force: bool = false) -> void:
 		c.queue_free()
 	var vol := Game.storage_volume()
 	var used := Game.used_volume()
-	var head := UiTheme.label(tr("Stauraum: %d von %d belegt, %d für feste Mengen reserviert") % [used, vol, Game.reserved_volume()], 13)
-	head.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_stock_grid.add_child(head)
-	var bar := UiTheme.bar(UiTheme.BAD if used >= vol else UiTheme.GOOD)
-	bar.value = 100.0 * used / max(1, vol)
-	_stock_grid.add_child(bar)
-	head.tooltip_text = tr("Lege mit − und + fest, wie viel von einer Ware gelagert wird. „×2“ ist der Raum, den ein Stück braucht. „frei“ heißt: die Ware nimmt sich freien Platz, solange welcher da ist. Ist kein Platz mehr, sammeln die Siedler diese Ware nicht mehr.")
-	head.mouse_filter = Control.MOUSE_FILTER_PASS
+	_stock_ft.left.text = tr("Lager: %d von %d belegt") % [used, vol]
+	_stock_bar.value = 100.0 * used / max(1, vol)
+	(_stock_bar.get_theme_stylebox("fill") as StyleBoxFlat).bg_color = UiTheme.BAD if used >= vol else UiTheme.GOOD
+	Win.set_left2(_stock_ft, tr("Frei: %d, für feste Mengen reserviert: %d. Nahrungssorten: %d") % [maxi(0, vol - used), Game.reserved_volume(), Game.food_variety()])
 	for id in Data.sorted_resource_ids():
-		if Data.resources[id].get("category", "") == "ship":
+		var cat: String = Data.resources[id].get("category", "")
+		if cat == "ship":
 			continue  # Schiffe liegen im Hafen, nicht im Lager
-		_stock_grid.add_child(_stock_row(id))
-	var food := UiTheme.label(tr("Nahrungssorten: %d") % Game.food_variety(), 13)
-	food.tooltip_text = tr("Ab %d Sorten im Lager kommen öfter Kinder zur Welt.") % int(Data.bal("variety_min", 3))
-	food.mouse_filter = Control.MOUSE_FILTER_PASS
-	_stock_grid.add_child(food)
+		if _stock_cat != "" and cat != _stock_cat:
+			continue
+		if _stock_only_have and Game.amount(id) <= 0 and Game.limit_of(id) < 0:
+			continue
+		var box := PanelContainer.new()
+		box.add_theme_stylebox_override("panel", Win.row_box())
+		box.add_child(_stock_row(id))
+		_stock_grid.add_child(box)
+	if _stock_grid.get_child_count() == 0:
+		_stock_grid.add_child(UiTheme.label(tr("Davon ist nichts im Lager."), 14, Win.DIM))
 
 
 func _stock_row(id: String) -> Control:
 	var h := HBoxContainer.new()
 	h.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	h.add_child(UiTheme.icon_rect(Data.res_icon(id), 18))
+	h.add_child(UiTheme.icon_rect(Data.res_icon(id), 24))
 	var size := Data.good_size(id)
-	var n := UiTheme.label(Data.resource_name(id), 14)
+	var n := UiTheme.label(Data.resource_name(id), 15, UiTheme.TEXT, true)
 	n.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	n.tooltip_text = tr("Größe: %d Raum je Stück") % size if size > 0 else tr("Braucht keinen Lagerraum.")
 	n.mouse_filter = Control.MOUSE_FILTER_PASS
@@ -960,10 +1002,11 @@ var _settler_sort: String = "age"
 var _settler_desc: bool = true
 var _settler_f_job: OptionButton
 var _settler_f_group: OptionButton
-var _settler_f_hungry: CheckBox
-var _settler_f_sick: CheckBox
+var _settler_f_hungry: Button
+var _settler_f_sick: Button
 var _settler_f_island: OptionButton
 var _settler_count: Label
+var _settler_count_ft: Dictionary = {}
 var _settler_narrow: bool = false
 
 
@@ -971,37 +1014,25 @@ func _build_settler_panel() -> void:
 	var r := _popup_panel(tr("Siedler"), "person")
 	_settler_panel = r[0]
 	var v: VBoxContainer = r[1]
-	# Filter
-	var fr := HFlowContainer.new()
-	fr.add_theme_constant_override("h_separation", 8)
-	fr.add_theme_constant_override("v_separation", 4)
-	_settler_f_job = _settler_filter_button(tr("Welche Berufe anzeigen"))
-	fr.add_child(_settler_f_job)
+	# Reiter Alle / Erwachsene / Kinder, darunter die Filter als Chips (josh 2026-10-16)
 	_settler_f_group = _settler_filter_button(tr("Erwachsene oder Kinder anzeigen"))
 	for t in [tr("Alle Alter"), tr("Erwachsene"), tr("Kinder")]:
 		_settler_f_group.add_item(t)
-	fr.add_child(_settler_f_group)
+	_settler_f_group.visible = false
+	v.add_child(_settler_f_group)
+	v.add_child(Win.tabs([tr("Alle"), tr("Erwachsene"), tr("Kinder")], 0, func(i):
+		_settler_f_group.select(i)
+		_refresh_settler_list()))
+	var fr := Win.chip_row()
+	_settler_f_job = _settler_filter_button(tr("Welche Berufe anzeigen"))
+	fr.add_child(_settler_f_job)
 	_settler_f_island = _settler_filter_button(tr("Welche Insel anzeigen"))
 	fr.add_child(_settler_f_island)
-	_settler_f_hungry = CheckBox.new()
-	_settler_f_hungry.text = tr("Nur Hungrige")
-	_settler_f_hungry.focus_mode = Control.FOCUS_NONE
-	_settler_f_hungry.custom_minimum_size.y = 40
-	_settler_f_hungry.add_theme_font_size_override("font_size", 15)
-	_settler_f_hungry.toggled.connect(func(_on): _refresh_settler_list())
+	_settler_f_hungry = Win.chip(tr("Nur Hungrige"), false, func(_on): _refresh_settler_list())
 	fr.add_child(_settler_f_hungry)
-	_settler_f_sick = CheckBox.new()
-	_settler_f_sick.text = tr("Nur Kranke")
-	_settler_f_sick.focus_mode = Control.FOCUS_NONE
-	_settler_f_sick.custom_minimum_size.y = 40
-	_settler_f_sick.add_theme_font_size_override("font_size", 15)
-	_settler_f_sick.toggled.connect(func(_on): _refresh_settler_list())
+	_settler_f_sick = Win.chip(tr("Nur Kranke"), false, func(_on): _refresh_settler_list())
 	fr.add_child(_settler_f_sick)
 	v.add_child(fr)
-	_settler_count = UiTheme.label("", 13, DIM)
-	_settler_count.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_settler_count.custom_minimum_size.x = 280
-	v.add_child(_settler_count)
 	# Spaltenkoepfe: antippen sortiert, nochmal antippen dreht die Reihenfolge um
 	var head := HBoxContainer.new()
 	head.add_theme_constant_override("separation", 6)
@@ -1033,7 +1064,7 @@ func _build_settler_panel() -> void:
 	v.add_child(head)
 	_settler_head_row = head
 	# Zwei Listen: oben die Siedler mit Beruf, unten die freien (und die Kinder)
-	_settler_head_job = UiTheme.label("", 15, UiTheme.TEXT, true)
+	_settler_head_job = UiTheme.label("", 15, Color("#7a4a28"), true)
 	v.add_child(_settler_head_job)
 	_settler_scroll = ScrollContainer.new()
 	_settler_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -1043,7 +1074,7 @@ func _build_settler_panel() -> void:
 	_settler_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_settler_list.add_theme_constant_override("separation", 3)
 	_settler_scroll.add_child(_settler_list)
-	_settler_head_free = UiTheme.label("", 15, UiTheme.TEXT, true)
+	_settler_head_free = UiTheme.label("", 15, Color("#7a4a28"), true)
 	v.add_child(_settler_head_free)
 	_settler_scroll_free = ScrollContainer.new()
 	_settler_scroll_free.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -1053,6 +1084,10 @@ func _build_settler_panel() -> void:
 	_settler_list_free.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_settler_list_free.add_theme_constant_override("separation", 3)
 	_settler_scroll_free.add_child(_settler_list_free)
+	var ft := Win.footer(v)
+	_settler_count = ft.left
+	_settler_count.custom_minimum_size.x = 200
+	_settler_count_ft = ft
 
 
 func _settler_filter_button(tip: String) -> OptionButton:
@@ -1076,9 +1111,10 @@ func _size_settler_panel(avail_h: float = -1.0) -> void:
 	var w := clampf(vs.x - 36.0, 290.0, 980.0)
 	_settler_narrow = w < 620.0
 	# Platz fuer Titel, Filter, Zaehler und Spaltenkoepfe abziehen
-	var extra := 150.0 + (46.0 if _settler_narrow else 0.0)
+	var extra := 200.0 + (46.0 if _settler_narrow else 0.0)
 	var tight := avail_h < 360.0  # Handy quer: der Zähler entfällt, die Listen werden knapp
-	_settler_count.visible = not tight
+	_settler_count_ft.box.visible = not tight
+	_settler_count_ft.sep.visible = not tight
 	_settler_head_row.visible = not tight
 	var room := clampf(avail_h - extra - 56.0, 90.0 if tight else 140.0, 2000.0)  # 56: die zwei Überschriften
 	var top_h := roundf(room * 0.6)
@@ -1209,8 +1245,9 @@ func _refresh_settler_list() -> void:
 		b.text = tr(col[1]) + ((" ▼" if _settler_desc else " ▲") if col[0] == _settler_sort else "")
 	var stage := SettlerMind.comfort_stage()
 	var sick_n := pool.filter(func(x): return x.mind.sick != "").size()
-	_settler_count.text = tr("%d von %d Siedlern%s. Lebensstil: %s.") % [
-		list.size(), pool.size(), (tr(", %d krank") % sick_n) if sick_n > 0 else "", stage[0]]
+	var hungry_n := pool.filter(func(x): return x.hunger < 30.0).size()
+	_settler_count.text = tr("%d Siedler, %d hungrig") % [pool.size(), hungry_n] + ((tr(", %d krank") % sick_n) if sick_n > 0 else "")
+	Win.set_left2(_settler_count_ft, tr("Zu sehen: %d. Lebensstil: %s.") % [list.size(), stage[0]])
 	var n_job := list.filter(func(x): return x.is_adult() and x.job != "frei").size()
 	_settler_head_job.text = tr("Mit Beruf (%d)") % n_job
 	_settler_head_free.text = tr("Frei (%d)") % (list.size() - n_job)
@@ -1372,8 +1409,24 @@ func _refresh_settler_list() -> void:
 				ml.remove_theme_color_override("font_color")
 		upd.call()
 		_settler_updaters.append(upd)
-		(_settler_list if (s.is_adult() and s.job != "frei") else _settler_list_free).add_child(h)
+		var rb := PanelContainer.new()  # Zeile im einheitlichen Rahmen (Win.row_box), etwas flacher
+		rb.add_theme_stylebox_override("panel", _settler_row_box())
+		rb.add_child(h)
+		(_settler_list if (s.is_adult() and s.job != "frei") else _settler_list_free).add_child(rb)
 	call_deferred("_layout")
+
+
+var _settler_rb: StyleBoxFlat
+
+
+func _settler_row_box() -> StyleBoxFlat:
+	if _settler_rb == null:
+		_settler_rb = Win.row_box().duplicate()
+		_settler_rb.content_margin_top = 1
+		_settler_rb.content_margin_bottom = 1
+		_settler_rb.content_margin_left = 3
+		_settler_rb.content_margin_right = 3
+	return _settler_rb
 
 
 func _tick_settler_list(delta: float) -> void:
@@ -1392,55 +1445,52 @@ func _build_menu_panel() -> void:
 	var r := _popup_panel(tr("Menü"), "menu")
 	_menu_panel = r[0]
 	var v: VBoxContainer = r[1]
-	var save := UiTheme.button(tr("Spiel speichern"), "haus", 44)
-	save.pressed.connect(func():
-		Game.save_game()
-		toast(tr("Spiel gespeichert."), "haus")
-		_menu_panel.visible = false)
-	var srow := HBoxContainer.new()  # Speichern und Auftraege nebeneinander (Auftraege auch ohne Zielkarte)
-	srow.add_theme_constant_override("separation", 6)
-	v.add_child(srow)
-	save.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	srow.add_child(save)
-	var qb := UiTheme.button(tr("Aufträge"), "haken", 44)
-	qb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	qb.pressed.connect(func(): _toggle(_quest_panel))
-	srow.add_child(qb)
-	var sl := UiTheme.button(tr("Spielstände"), "kiste", 44)  # Menü > Wertung entfällt (josh 2026-10-16)
-	sl.pressed.connect(func(): _open_slots())
-	v.add_child(sl)
+	# Reiter Spiel / Einstellungen, jede Zeile gleich aufgebaut (josh 2026-10-16)
+	var game_box := VBoxContainer.new()
+	game_box.add_theme_constant_override("separation", 4)
+	var set_box := VBoxContainer.new()
+	set_box.add_theme_constant_override("separation", 6)
+	set_box.visible = false
+	v.add_child(Win.tabs([tr("Spiel"), tr("Einstellungen")], 0, func(i):
+		game_box.visible = i == 0
+		set_box.visible = i == 1
+		_layout.call_deferred()))
+	v.add_child(game_box)
+	v.add_child(set_box)
+	var rows := [
+		["haus", tr("Spiel speichern"), tr("Speichert in den aktiven Spielstand."), tr("Speichern"), func():
+			Game.save_game()
+			toast(tr("Spiel gespeichert."), "haus")
+			_menu_panel.visible = false],
+		["kiste", tr("Spielstände"), tr("5 Plätze, Export und Import"), tr("Öffnen"), func(): _open_slots()],
+		["haken", tr("Aufträge"), tr("Offene Aufträge und Belohnungen"), tr("Öffnen"), func(): _toggle(_quest_panel)],
+		["sonne", tr("Spielanleitung"), tr("So spielt man"), tr("Öffnen"), func(): _toggle(_help_panel)],
+		["glocke", tr("Meldungen"), tr("Welche Meldungen du siehst"), tr("Öffnen"), func(): _toggle(_notify_panel)],
+	]
+	# Kein Knopf "Neues Spiel" im Menü (josh 2026-10-13); Menü > Wertung entfällt (josh 2026-10-16).
+	for rr in rows:
+		var rw := Win.row(Data.icon(rr[0]), rr[1], rr[2], {"button": rr[3], "on_press": rr[4], "icon_px": 28})
+		game_box.add_child(rw.box)
 	if OS.has_feature("web"):
-		_update_btn = UiTheme.button(tr("Nach neuer Version suchen"), "schnell", 44)
+		var rw := Win.row(Data.icon("schnell"), tr("Nach neuer Version suchen"), tr("Laden erst nach deiner Bestätigung."),
+			{"button": tr("Prüfen"), "on_press": check_for_update, "icon_px": 28})
+		_update_btn = rw.button
 		_update_btn.tooltip_text = tr("Fragt den Server, ob es eine neue Version gibt. Laden erst nach deiner Bestätigung.")
-		_update_btn.pressed.connect(check_for_update)
-		v.add_child(_update_btn)
-	var hrow := HBoxContainer.new()  # Anleitung und Meldungen nebeneinander, damit das Menü auf 540 Pixel Höhe passt
-	hrow.add_theme_constant_override("separation", 6)
-	v.add_child(hrow)
-	var help := UiTheme.button(tr("Spielanleitung"), "sonne", 44)
-	help.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	help.pressed.connect(func(): _toggle(_help_panel))
-	hrow.add_child(help)
-	var nt := UiTheme.button(tr("Meldungen"), "glocke", 44)
-	nt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	nt.pressed.connect(func(): _toggle(_notify_panel))
-	hrow.add_child(nt)
-	# Kein Knopf "Neues Spiel" im Menü (josh 2026-10-13): ein neues Spiel beginnt über Spielstände oder das Titelbild.
-	v.add_child(_volume_row(tr("Musik"), "musik", Sound.music_volume, func(x): Sound.set_volumes(x, Sound.sfx_volume)))
-	v.add_child(_volume_row(tr("Geräusche"), "glocke", Sound.sfx_volume, func(x):
+		game_box.add_child(rw.box)
+	set_box.add_child(_volume_row(tr("Musik"), "musik", Sound.music_volume, func(x): Sound.set_volumes(x, Sound.sfx_volume)))
+	set_box.add_child(_volume_row(tr("Geräusche"), "glocke", Sound.sfx_volume, func(x):
 		Sound.set_volumes(Sound.music_volume, x)
 		Sound.play("klick")))
 	if OS.has_feature("web") or OS.has_feature("mobile") or OS.has_feature("pc"):
-		var fs := UiTheme.button(tr("Vollbild"), "vollbild", 44)
-		fs.pressed.connect(func():
+		var rw := Win.row(Data.icon("vollbild"), tr("Vollbild"), "", {"button": tr("An / aus"), "icon_px": 28, "on_press": func():
 			var full := DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN
 			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED if full else DisplayServer.WINDOW_MODE_FULLSCREEN)
-			_menu_panel.visible = false)
-		v.add_child(fs)
-	v.add_child(_language_row())
-	var info := UiTheme.label(tr("Das Spiel speichert automatisch."), 12)
-	v.add_child(info)
-	v.add_child(_version_label())
+			_menu_panel.visible = false})
+		set_box.add_child(rw.box)
+	set_box.add_child(_language_row())
+	var ft := Win.footer(v)
+	ft.left.text = version_text()
+	Win.set_left2(ft, tr("Das Spiel speichert automatisch."))
 
 
 ## Sprachwahl (Menue und Titelbild). Nach dem Wechsel startet das Spiel neu,
@@ -1489,6 +1539,11 @@ func _build_slots_panel() -> void:
 	_slots_box.add_theme_constant_override("separation", 6)
 	_slots_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_slots_scroll.add_child(_slots_box)
+	_slots_ft = Win.footer(r[1])
+	Win.set_left2(_slots_ft, tr("Das Spiel speichert automatisch in den aktiven Spielstand."))
+
+
+var _slots_ft: Dictionary = {}
 
 
 func _open_slots() -> void:
@@ -1505,8 +1560,9 @@ func _fill_slots() -> void:
 	var in_title := has_overlay()
 	var vs := get_viewport().get_visible_rect().size
 	_slots_box.custom_minimum_size.x = min(640.0, vs.x - 40.0)
-	_slots_scroll.custom_minimum_size = Vector2(_slots_box.custom_minimum_size.x, clampf(vs.y - 230.0, 200.0, 620.0))
+	_slots_scroll.custom_minimum_size = Vector2(_slots_box.custom_minimum_size.x, clampf(vs.y - 280.0, 200.0, 620.0))
 	_slots_panel.size = Vector2.ZERO
+	_slots_ft.left.text = tr("Aktiver Spielstand: %d") % Game.slot
 	for n in range(1, Game.SLOTS + 1):
 		var row := PanelContainer.new()
 		# Breit: Text links, Knoepfe rechts; schmal: Knoepfe darunter
@@ -1903,7 +1959,12 @@ func _build_notify_panel() -> void:
 	_notify_grid = GridContainer.new()
 	_notify_grid.add_theme_constant_override("h_separation", 8)
 	_notify_grid.add_theme_constant_override("v_separation", 4)
-	v.add_child(_notify_grid)
+	_notify_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var nsc := ScrollContainer.new()  # Liste scrollt, der Fuß bleibt stehen
+	nsc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	nsc.custom_minimum_size = Vector2(300, 560)
+	v.add_child(nsc)
+	nsc.add_child(_notify_grid)
 	for row in rows:
 		var cb := CheckBox.new()
 		cb.text = row[1]
@@ -1916,7 +1977,37 @@ func _build_notify_panel() -> void:
 		cb.toggled.connect(func(on):
 			Game.set_notify(cat, on)
 			Sound.play("klick"))
-		_notify_grid.add_child(cb)
+		var nb := PanelContainer.new()
+		nb.add_theme_stylebox_override("panel", Win.row_box())
+		nb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		nb.add_child(cb)
+		_notify_grid.add_child(nb)
+		cb.toggled.connect(func(_on): _update_notify_footer())
+	_notify_ft = Win.footer(v)
+	var all_on := UiTheme.button(tr("Alle an"), "", 40)
+	all_on.add_theme_font_size_override("font_size", 14)
+	all_on.pressed.connect(func():
+		for nb in _notify_grid.get_children():
+			var c: CheckBox = nb.get_child(0)
+			if not c.button_pressed:
+				c.button_pressed = true)
+	_notify_ft.right.add_child(all_on)
+	_update_notify_footer()
+
+
+var _notify_ft: Dictionary = {}
+
+
+func _update_notify_footer() -> void:
+	if _notify_ft.is_empty():
+		return
+	var n := 0
+	var on := 0
+	for nb in _notify_grid.get_children():
+		n += 1
+		if nb.get_child(0).button_pressed:
+			on += 1
+	_notify_ft.left.text = tr("%d von %d an") % [on, n]
 
 
 ## Versionsnummer steht nur in project.godot (application/config/version).
@@ -2777,6 +2868,7 @@ func has_overlay() -> bool:
 
 # ================================================================== Layout
 var _top_h := 50.0  # Oberkante der Fenster, von _layout gesetzt
+var _fit_hidden: Array = []  # vom Einpassen versteckte Teile (Win: Meta "fit_hide"), zurück bei neuem Layout
 var _fit_orig: Dictionary = {}  # gekürzte Liste -> ihre ursprüngliche Mindesthöhe (zurück bei neuem Layout, z. B. Drehen)
 
 
@@ -2787,6 +2879,10 @@ func _layout() -> void:
 		if is_instance_valid(sc):
 			sc.custom_minimum_size.y = _fit_orig[sc]
 	_fit_orig.clear()
+	for c in _fit_hidden:  # versteckte Filter und Fußzeilen wieder zeigen
+		if is_instance_valid(c):
+			c.visible = true
+	_fit_hidden.clear()
 	var vs := get_viewport().get_visible_rect().size
 	var portrait := vs.y > vs.x
 	var bp: Control = _bottom.get_parent()
@@ -2894,19 +2990,39 @@ func _fit_visible_panels() -> void:
 				_refit_panel(pnl, vs, bp)
 			continue
 		if pnl.size.y <= avail + 0.5:
+			# Passt, ist aber nach dem Layout noch gewachsen (umbrechende Reiter, Texte): neu ausrichten
+			if pnl.position.y + pnl.size.y > vs.y - bp.size.y - 18.0 + 0.5:
+				_refit_panel(pnl, vs, bp)
 			continue
 		var sc: Control = _biggest_scroller(pnl)
 		if sc == null:
 			_wrap_in_scroll(pnl)  # ab dem nächsten Bild von oben passt es mit
 			continue
 		var cur := maxf(sc.custom_minimum_size.y, sc.size.y)
-		var target := maxf(cur - (pnl.size.y - avail), 90.0)
+		var floor_h := 90.0 if vs.y >= 500.0 else 64.0
+		var target := maxf(cur - (pnl.size.y - avail), floor_h)
 		if target >= cur - 0.5:
+			# Liste schon am kleinsten (Handy quer): Filter-Chips und Fuß ausblenden
+			var hid := _hide_fit_parts(pnl)
+			if hid:
+				_refit_panel(pnl, vs, bp)
 			continue
 		if not _fit_orig.has(sc):
 			_fit_orig[sc] = sc.custom_minimum_size.y
 		sc.custom_minimum_size.y = target
 		_refit_panel(pnl, vs, bp)
+
+
+func _hide_fit_parts(n: Node) -> bool:
+	var any := false
+	for c in n.get_children():
+		if c is Control and c.visible and c.has_meta("fit_hide"):
+			c.visible = false
+			_fit_hidden.append(c)
+			any = true
+		elif c is Container:
+			any = _hide_fit_parts(c) or any
+	return any
 
 
 func _refit_panel(pnl: Control, vs: Vector2, bp: Control) -> void:
