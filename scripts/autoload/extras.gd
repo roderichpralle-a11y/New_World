@@ -209,6 +209,8 @@ func _on_load(d: Dictionary, old_rules: int) -> void:
 		Game.rules_lines.append(tr("Die Siedler essen zuerst haltbares Essen wie Brot und Räucherfisch, frisches erst danach (außer wenn ihnen Vitamine fehlen)."))
 	if old_rules < 3:
 		Game.rules_lines.append(tr("Ab Bergbau gibt es Schweinestall und Kuhstall. Bauern machen dort aus Getreide Fleisch und Milch, die gut satt machen, aber verderben."))
+	if old_rules < 4:
+		Game.rules_lines.append(tr("Der Verwalter entscheidet nur für die Insel, auf der die Verwaltung steht. Geforscht wird nur auf der Hauptinsel, die Kosten kommen aus ihrem Lager."))
 
 
 # ---------------------------------------------------------------- Belohnung der Einführung

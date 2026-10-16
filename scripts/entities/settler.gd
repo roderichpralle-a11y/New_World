@@ -373,7 +373,7 @@ func _think() -> void:
 			_plan_wander(5, tr("Spielt"))
 		return
 	# 5. Freizeit (erst wenn die Siedlung weiter entwickelt ist)
-	if mind.wants_break() and not Admin.overtime(job) and _plan_leisure():  # Überstunden: keine Pausen
+	if mind.wants_break() and not Admin.overtime(job, world) and _plan_leisure():  # Überstunden: keine Pausen
 		return
 	# 6. Arbeit
 	if _plan_work():
@@ -1032,7 +1032,7 @@ func _do_produce(b) -> void:
 
 # ------------------------------------------------------------------ Forschung
 func _plan_research() -> bool:
-	if not Game.has_research_goal():
+	if not Game.has_research_goal() or not Sea.is_main(world):  # Forschung nur auf der Hauptinsel (josh 2026-10-16)
 		return false
 	var b = world.find_research_place(cell, id)
 	if b == null:

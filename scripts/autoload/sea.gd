@@ -57,6 +57,23 @@ func all_worlds() -> Array:
 	return worlds.values().filter(func(w): return is_instance_valid(w))
 
 
+## Hauptinsel (josh 2026-10-16: nur dort wird geforscht): die Heimatinsel, solange sie lebt, sonst die
+## Insel mit den meisten Siedlern.
+func main_world():
+	var w = worlds.get(0)
+	if w != null and is_instance_valid(w):
+		return w
+	var best = null
+	for o in all_worlds():
+		if best == null or o.settlers.size() > best.settlers.size():
+			best = o
+	return best
+
+
+func is_main(w) -> bool:
+	return w != null and w == main_world()
+
+
 func settled_islands() -> Array:
 	return islands.filter(func(m): return m.state == "settled")
 

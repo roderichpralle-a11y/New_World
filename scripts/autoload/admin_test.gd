@@ -83,7 +83,7 @@ static func run(main) -> void:
 	h2.sleeping = false
 	_ok(not Admin.needs_standin(w, "handwerk"), "Fachkraft da: keine Vertretung")
 	# Überstunden und Protest nach einem Jahr
-	_ok(Admin.set_overtime("handwerker", true) == "" and Admin.overtime("handwerker"), "Überstunden angeordnet")
+	_ok(Admin.set_overtime("handwerker", true) == "" and Admin.overtime("handwerker", w), "Überstunden angeordnet")
 	h1.mind.rest = 10.0
 	var wants: bool = h1.mind.wants_break()
 	h1._think()
@@ -126,6 +126,45 @@ static func run(main) -> void:
 				return true
 		return false, 30.0)
 	_ok(lit, "Schicht: die Sägegrube hat nachts eine Arbeitslampe")
+	# Nur die Insel der Verwaltung (josh 2026-10-16): auf einer zweiten Insel gilt nichts davon
+	var m2: Dictionary = Sea.make_island(Sea.islands.size())
+	Sea.islands.append(m2)
+	var w2 = Sea.create_world_node(int(m2.id))
+	w2.build_colony(m2)
+	m2.state = "settled"
+	var o2 = w2.spawn_settler({"name": "H3", "sex": "m", "age": 30.0, "max_age": 70.0, "x": w2.center.x, "y": w2.center.y,
+		"mind": {"traits": {}, "talents": {}}})
+	o2.set_job("handwerker")
+	_ok(Admin.shift("handwerker", w) and not Admin.shift("handwerker", w2) and not Admin.night_worker(o2) and Admin.work_mult(o2) == 1.0,
+		"Schicht gilt nur auf der Insel der Verwaltung")
+	_ok(not Admin.needs_standin(w2, "handwerk") and w2.find_standin(w2.center, o2.id, "frei") == null, "keine Vertretung auf der anderen Insel")
+	Game.add_stock("holz", 60, w2)
+	main._place_on(w2, "saegegrube")
+	_ok(Admin.shortages().all(func(e): return int(e[1]) <= 1), "Meldungen zählen nur die Insel der Verwaltung %s" % [Admin.shortages()])
+	# Forschung nur auf der Hauptinsel
+	_ok(Sea.is_main(w) and not Sea.is_main(w2), "Heimatinsel ist die Hauptinsel")
+	var r2 = w2.spawn_settler({"name": "F2", "sex": "f", "age": 30.0, "max_age": 70.0, "x": w2.center.x, "y": w2.center.y,
+		"mind": {"traits": {}, "talents": {}}})
+	r2.set_job("forscher")
+	var keep_cur: String = Game.research.current
+	if Game.research.current == "":
+		for t in Data.sorted_tech_ids():
+			if Game.tech_state(t) == "available":
+				Game.research.current = t
+				break
+	var ai2: String = AiJobs._most_needed(w2, w2.settlers.filter(func(x): return x.is_adult()))
+	_ok(not r2._plan_research() and ai2 != "forscher", "Forscher auf der anderen Insel forscht nicht (KI wählt %s)" % ai2)
+	Game.research.current = keep_cur
+	# Verwalter auf der anderen Insel: die Verwaltung arbeitet nicht
+	var v3 = w2.spawn_settler({"name": "V3", "sex": "m", "age": 30.0, "max_age": 70.0, "x": w2.center.x, "y": w2.center.y,
+		"mind": {"traits": {}, "talents": {}}})
+	v3.set_job("verwalter")
+	_ok(not Admin.active() and Admin.manager() == v3, "Verwalter auf einer anderen Insel: Verwaltung ruht")
+	v2.set_job("verwalter")
+	_ok(Admin.active(), "Verwalter zurück auf der Insel der Verwaltung")
+	w2.remove_settler(o2)
+	w2.remove_settler(r2)
+	w2.remove_settler(v3)
 	# Spielstand
 	var d := {}
 	Admin._on_save(d)
