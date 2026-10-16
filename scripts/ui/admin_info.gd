@@ -103,12 +103,19 @@ static func _manager_tab(hud, b) -> void:
 	cb.focus_mode = Control.FOCUS_NONE
 	cb.custom_minimum_size.y = 40
 	cb.add_theme_font_size_override("font_size", 14)
-	cb.tooltip_text = Loc.t("Stirbt ein Siedler mit Beruf, bekommt automatisch ein freier Siedler diesen Beruf.")
+	cb.tooltip_text = Loc.t("Stirbt ein Siedler mit Beruf, bekommt automatisch ein freier Siedler diesen Beruf. Gibt es keinen, lernt ihn das nächste Kind, das erwachsen wird.")
 	cb.button_pressed = Admin.auto_reassign
 	cb.toggled.connect(func(on):
 		Admin.auto_reassign = on
 		Admin.changed.emit())
+	if not Admin.auto_unlocked():
+		cb.disabled = true
+		cb.text += " " + Loc.t("(ab dem Mittelalter)")
 	hud._info_box.add_child(cb)
+	if Admin.auto_on() and not Admin.pending_jobs.is_empty():
+		var wait := UiTheme.label(Loc.t("Wartet auf das nächste erwachsene Kind: %s") % ", ".join(Admin.pending_jobs.map(func(j): return Admin._name(j))), 13, UiTheme.TEXT, true)
+		wait.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		hud._info_box.add_child(wait)
 
 
 ## Eine Zeile je Beruf mit einem Schalter: kind "sh" Schichtarbeit, "ot" Überstunden.
