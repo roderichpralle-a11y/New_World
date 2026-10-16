@@ -343,7 +343,7 @@ func _input(ev: InputEvent) -> void:
 	var pos: Vector2 = ev.position
 	if pos.y < _top_h:
 		return
-	var keep: Array = _panels() + [_bottom.get_parent(), _info_panel, goal_card]
+	var keep: Array = _panels() + [_bottom.get_parent(), _info_panel, goal_card, _menu_help]
 	for c in keep:
 		if c != null and c.visible and c.get_global_rect().has_point(pos):
 			return
@@ -369,7 +369,7 @@ func _panels() -> Array:
 
 ## Gemeinsamer Kopf aller Fenster (josh 2026-10-16): Symbol, Titel = Name des Knopfes, rechts das X.
 ## Ein Tipp neben das Fenster schließt es (_input).
-func _popup_panel(title: String, icon: String = "") -> Array:
+func _popup_panel(title: String, icon: String = "", help_key: String = "") -> Array:
 	var p := PanelContainer.new()
 	p.visible = false
 	root.add_child(p)
@@ -385,12 +385,73 @@ func _popup_panel(title: String, icon: String = "") -> Array:
 	var t := UiTheme.label(title, 20, UiTheme.TEXT, true)
 	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(t)
+	if help_key != "":
+		head.add_child(help_button(help_key, title))
 	var x := UiTheme.button("", "abriss", 36)
 	x.tooltip_text = tr("Schließen")
 	x.pressed.connect(func(): p.visible = false)
 	head.add_child(x)
 	v.add_child(head)
 	return [p, v]
+
+
+## Fragezeichen oben im Fenster: öffnet die Hilfe zu genau diesem Fenster (josh 2026-10-16).
+func help_button(key: String, title: String) -> Button:
+	var b := UiTheme.button("?", "", 36)
+	b.custom_minimum_size.x = 36
+	b.tooltip_text = tr("Hilfe")
+	b.pressed.connect(func(): show_menu_help(key, title))
+	return b
+
+
+const MENU_HELP := {
+	"bauen": "Hier wählst du ein Gebäude. Oben stehen die Reiter nach Art der Gebäude. „Nur bezahlbare“ zeigt nur, was du dir jetzt leisten kannst.\n\nTippe bei einem Gebäude auf „Bauen“, dann auf einen freien Platz in der Landschaft und bestätige mit „Hier bauen“. Gesperrte Gebäude haben den Knopf „Forsch.“: Er öffnet die Forschung, in der du sie freischaltest.\n\nUnten steht, was du im Lager hast.",
+	"forschung": "Hier wählst du, was erforscht wird. Die Reiter sind die Zeitalter. „Starten“ beginnt eine Forschung; dafür brauchst du einen Siedler mit dem Beruf Forscher und die angezeigten Kosten.\n\n„Nur erforschbare“ blendet aus, was noch gesperrt ist. Jede Forschung bringt Punkte und schaltet Gebäude oder Berufe frei. Unten steht, woran gerade geforscht wird.",
+	"vorraete": "Hier siehst du alle Waren im Lager. Die Reiter zeigen alles, nur Nahrung oder nur Material; „Nur vorhandene“ blendet leere Waren aus.\n\nMit − und + stellst du für eine Ware eine feste Menge ein, die im Lager reserviert bleibt. Unten steht, wie voll das Lager ist.",
+	"siedler": "Hier siehst du alle Siedler: oben die mit Beruf, unten die freien. Die Reiter trennen Erwachsene und Kinder, die Filter zeigen einen Beruf, eine Insel, nur Hungrige oder nur Kranke.\n\nTippe auf einen Siedler, um ihn anzusehen und ihm einen Beruf zu geben. Unten steht, wie viele Siedler hungrig oder krank sind.",
+	"menue": "Unter „Spiel“ speicherst du, öffnest die Spielstände, die Aufträge, die Spielanleitung und die Meldungen. Unter „Einstellungen“ stellst du Musik, Geräusche, Vollbild und Sprache ein.\n\nDas Spiel speichert auch von selbst.",
+	"spielstaende": "Es gibt fünf Plätze. Im aktiven Spielstand speichert das Spiel von selbst. Hier kannst du einen Spielstand laden, hierhin speichern, ein neues Spiel beginnen sowie als Datei ausgeben und einlesen.",
+	"meldungen": "Hier schaltest du ein, welche Arten von Meldungen im Spiel erscheinen. „Alle an“ schaltet alle Arten wieder ein.",
+	"auftraege": "Hier stehen die offenen Aufträge mit Fortschritt und Belohnung.",
+	"inseln": "Unter „Karte“ siehst du die Inseln, die du kennst; unter „Schiffe“ deine Schiffe, Besatzungen und Routen. Waren kommen nur mit dem Schiff von Insel zu Insel. Mit der Entdeckungsreise suchst du neue Inseln.",
+}
+var _menu_help: PanelContainer
+var _menu_help_title: Label
+var _menu_help_text: Label
+
+
+func show_menu_help(key: String, title: String) -> void:
+	if _menu_help == null:
+		_menu_help = PanelContainer.new()
+		_menu_help.visible = false
+		root.add_child(_menu_help)
+		var v := VBoxContainer.new()
+		v.add_theme_constant_override("separation", 8)
+		_menu_help.add_child(v)
+		var head := HBoxContainer.new()
+		_menu_help_title = UiTheme.label("", 20, UiTheme.TEXT, true)
+		_menu_help_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		head.add_child(_menu_help_title)
+		var x := UiTheme.button("", "abriss", 36)
+		x.tooltip_text = tr("Schließen")
+		x.pressed.connect(func(): _menu_help.visible = false)
+		head.add_child(x)
+		v.add_child(head)
+		_menu_help_text = UiTheme.label("", 15)
+		_menu_help_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_menu_help_text.custom_minimum_size.x = 300
+		v.add_child(_menu_help_text)
+	_menu_help_title.text = tr("Hilfe: %s") % title
+	_menu_help_text.text = tr(MENU_HELP.get(key, ""))
+	_menu_help.visible = true
+	root.move_child(_menu_help, -1)
+	var vs := get_viewport().get_visible_rect().size
+	_menu_help.custom_minimum_size = Vector2(minf(vs.x - 24.0, 440.0), 0)
+	_menu_help_text.custom_minimum_size.x = _menu_help.custom_minimum_size.x - 24.0
+	_menu_help.size = Vector2.ZERO
+	await get_tree().process_frame  # erst nach dem Umbruch des Textes die Höhe nehmen
+	_menu_help.reset_size()
+	_menu_help.position = Vector2((vs.x - _menu_help.size.x) / 2.0, maxf(_top_h + 10.0, (vs.y - _menu_help.size.y) / 2.0))
 
 
 # ================================================================== Bau-Menue
@@ -400,7 +461,7 @@ const BUILD_CATS := [["wohnen", "Wohnen", "haus"], ["nahrung", "Nahrung", "nahru
 
 
 func _build_build_panel() -> void:
-	var r := _popup_panel(tr("Bauen"), "hammer")
+	var r := _popup_panel(tr("Bauen"), "hammer", "bauen")
 	_build_panel = r[0]
 	var v: VBoxContainer = r[1]
 	_build_title = v.get_child(0).get_child(1)
@@ -521,7 +582,7 @@ func _fill_build_list() -> void:
 
 # ================================================================== Forschung
 func _build_research_panel() -> void:
-	var r := _popup_panel(tr("Forschung"), "wissen")
+	var r := _popup_panel(tr("Forschung"), "wissen", "forschung")
 	_research_panel = r[0]
 	var v: VBoxContainer = r[1]
 	_research_tabs = Win.chip_row()  # Reiter je Zeitalter, in _fill_research_list gefüllt
@@ -804,7 +865,7 @@ func _on_research_changed() -> void:
 
 # ================================================================== Vorraete
 func _build_stock_panel() -> void:
-	var r := _popup_panel(tr("Vorräte"), "kiste")
+	var r := _popup_panel(tr("Vorräte"), "kiste", "vorraete")
 	_stock_panel = r[0]
 	var v: VBoxContainer = r[1]
 	v.add_child(Win.tabs([tr("Alles"), tr("Nahrung"), tr("Material")], 0, func(i):
@@ -1011,7 +1072,7 @@ var _settler_narrow: bool = false
 
 
 func _build_settler_panel() -> void:
-	var r := _popup_panel(tr("Siedler"), "person")
+	var r := _popup_panel(tr("Siedler"), "person", "siedler")
 	_settler_panel = r[0]
 	var v: VBoxContainer = r[1]
 	# Reiter Alle / Erwachsene / Kinder, darunter die Filter als Chips (josh 2026-10-16)
@@ -1118,6 +1179,10 @@ func _size_settler_panel(avail_h: float = -1.0) -> void:
 	_settler_head_row.visible = not tight
 	var room := clampf(avail_h - extra - 56.0, 90.0 if tight else 140.0, 2000.0)  # 56: die zwei Überschriften
 	var top_h := roundf(room * 0.6)
+	_settler_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_settler_scroll_free.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_settler_scroll.size_flags_stretch_ratio = 0.6
+	_settler_scroll_free.size_flags_stretch_ratio = 0.4
 	_settler_scroll.custom_minimum_size = Vector2(w, maxf(top_h, 54.0 if tight else 80.0))
 	_settler_scroll_free.custom_minimum_size = Vector2(w, maxf(room - top_h, 40.0 if tight else 56.0))
 	for col in SETTLER_COLS:
@@ -1442,7 +1507,7 @@ func _tick_settler_list(delta: float) -> void:
 
 # ================================================================== Menue / Hilfe
 func _build_menu_panel() -> void:
-	var r := _popup_panel(tr("Menü"), "menu")
+	var r := _popup_panel(tr("Menü"), "menu", "menue")
 	_menu_panel = r[0]
 	var v: VBoxContainer = r[1]
 	# Reiter Spiel / Einstellungen, jede Zeile gleich aufgebaut (josh 2026-10-16)
@@ -1530,7 +1595,7 @@ func _language_row() -> HBoxContainer:
 
 ## Fuenf Spielstaende: laden, hierhin speichern, neu beginnen, loeschen
 func _build_slots_panel() -> void:
-	var r := _popup_panel(tr("Spielstände"), "kiste")
+	var r := _popup_panel(tr("Spielstände"), "kiste", "spielstaende")
 	_slots_panel = r[0]
 	_slots_scroll = ScrollContainer.new()
 	_slots_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -1559,8 +1624,8 @@ func _fill_slots() -> void:
 		c.queue_free()
 	var in_title := has_overlay()
 	var vs := get_viewport().get_visible_rect().size
-	_slots_box.custom_minimum_size.x = min(640.0, vs.x - 40.0)
-	_slots_scroll.custom_minimum_size = Vector2(_slots_box.custom_minimum_size.x, clampf(vs.y - 280.0, 200.0, 620.0))
+	_slots_box.custom_minimum_size.x = min(640.0, vs.x - 52.0)
+	_slots_scroll.custom_minimum_size = Vector2(_slots_box.custom_minimum_size.x, 120.0)  # Höhe füllt das Fenster (_layout)
 	_slots_panel.size = Vector2.ZERO
 	_slots_ft.left.text = tr("Aktiver Spielstand: %d") % Game.slot
 	for n in range(1, Game.SLOTS + 1):
@@ -1950,7 +2015,7 @@ func _slot_confirm_button(text: String, ask: bool, action: Callable) -> Button:
 
 ## Meldungen nach Art ein- und ausschalten (gespeichert in user://settings.cfg)
 func _build_notify_panel() -> void:
-	var r := _popup_panel(tr("Meldungen"), "glocke")
+	var r := _popup_panel(tr("Meldungen"), "glocke", "meldungen")
 	_notify_panel = r[0]
 	var v: VBoxContainer = r[1]
 	var rows := [["goal_card", tr("Zielkarte mit Aufträgen (oben links)"), Game.goal_card_on]]
@@ -2869,6 +2934,7 @@ func has_overlay() -> bool:
 # ================================================================== Layout
 var _top_h := 50.0  # Oberkante der Fenster, von _layout gesetzt
 var _fit_hidden: Array = []  # vom Einpassen versteckte Teile (Win: Meta "fit_hide"), zurück bei neuem Layout
+var _win_size := Vector2.ZERO  # Einheitsgröße aller Fenster = Größe des Siedler-Fensters (josh 2026-10-16), von _layout gesetzt
 var _fit_orig: Dictionary = {}  # gekürzte Liste -> ihre ursprüngliche Mindesthöhe (zurück bei neuem Layout, z. B. Drehen)
 
 
@@ -2954,7 +3020,13 @@ func _layout() -> void:
 	_notify_grid.columns = 2 if vs.x >= 640 else 1
 	_size_settler_panel(vs.y - top_h - bp.size.y - 18.0)
 	_fit_research(top_h)
+	# Alle Fenster gleich groß (josh 2026-10-16): so breit wie das Siedler-Fenster, so hoch wie der freie Platz
+	_win_size = Vector2(minf(vs.x - 12.0, clampf(vs.x - 36.0, 290.0, 980.0) + 24.0), vs.y - top_h - bp.size.y - 18.0)
 	for pnl in _panels():
+		pnl.custom_minimum_size = _win_size
+		var big := _biggest_scroller(pnl)
+		if big != null and pnl != _settler_panel:
+			big.size_flags_vertical = Control.SIZE_EXPAND_FILL  # Liste füllt den Platz, Fuß bleibt unten
 		pnl.reset_size()
 		pnl.size.x = min(pnl.size.x, vs.x - 12)
 		pnl.position = Vector2((vs.x - pnl.size.x) / 2.0, max(top_h, vs.y - pnl.size.y - bp.size.y - 18))
@@ -2977,19 +3049,22 @@ func _fit_visible_panels() -> void:
 	var vs := get_viewport().get_visible_rect().size
 	var bp: Control = _bottom.get_parent()
 	var avail := vs.y - _top_h - bp.size.y - 18.0
+	if _menu_help != null and _menu_help.visible and _panels().all(func(pn): return pn == null or not pn.visible):
+		_menu_help.visible = false  # Fenster zu: Hilfe dazu auch zu
 	for pnl in _panels():
 		if not pnl.visible:
 			continue
+		var cap := minf(avail, _win_size.y)  # alle Fenster gleich hoch
 		var ws = pnl.get_meta("wrap_sc", null)  # Fenster mit nachträglich eingebauter Liste: wächst und schrumpft mit
 		if ws != null and is_instance_valid(ws):
 			var inner: Control = ws.get_child(0)
 			var head: float = pnl.size.y - ws.size.y
-			var want := minf(inner.get_combined_minimum_size().y, maxf(avail - head, 90.0))
-			if absf(want - ws.custom_minimum_size.y) > 0.5:
+			var want := minf(inner.get_combined_minimum_size().y, maxf(cap - head, 90.0))
+			if absf(want - ws.custom_minimum_size.y) > 0.5 or pnl.size.y > cap + 0.5:
 				ws.custom_minimum_size.y = want
 				_refit_panel(pnl, vs, bp)
 			continue
-		if pnl.size.y <= avail + 0.5:
+		if pnl.size.y <= cap + 0.5:
 			# Passt, ist aber nach dem Layout noch gewachsen (umbrechende Reiter, Texte): neu ausrichten
 			if pnl.position.y + pnl.size.y > vs.y - bp.size.y - 18.0 + 0.5:
 				_refit_panel(pnl, vs, bp)
@@ -3000,7 +3075,7 @@ func _fit_visible_panels() -> void:
 			continue
 		var cur := maxf(sc.custom_minimum_size.y, sc.size.y)
 		var floor_h := 90.0 if vs.y >= 500.0 else 64.0
-		var target := maxf(cur - (pnl.size.y - avail), floor_h)
+		var target := maxf(cur - (pnl.size.y - cap), floor_h)
 		if target >= cur - 0.5:
 			# Liste schon am kleinsten (Handy quer): Filter-Chips und Fuß ausblenden
 			var hid := _hide_fit_parts(pnl)
@@ -3061,6 +3136,7 @@ func _wrap_in_scroll(pnl: Control) -> ScrollContainer:
 	sc.add_child(inner)
 	v.add_child(sc)
 	sc.custom_minimum_size.y = inner.get_combined_minimum_size().y
+	sc.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	pnl.set_meta("wrap_sc", sc)
 	return sc
 
