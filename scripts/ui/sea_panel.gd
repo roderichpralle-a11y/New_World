@@ -39,10 +39,10 @@ func setup(p_hud) -> void:
 	v.add_theme_constant_override("separation", 6)
 	add_child(v)
 	var head := HBoxContainer.new()
-	var t := UiTheme.label(tr("Seekarte"), 20, UiTheme.TEXT, true)
+	var t := UiTheme.label(tr("Inseln"), 20, UiTheme.TEXT, true)
 	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(t)
-	_tab_islands = UiTheme.button(tr("Inseln"), "kompass", 32)
+	_tab_islands = UiTheme.button(tr("Karte"), "kompass", 32)
 	_tab_islands.toggle_mode = true
 	_tab_islands.pressed.connect(func(): _go("island"))
 	head.add_child(_tab_islands)
@@ -490,7 +490,7 @@ func _fill_island() -> void:
 			_send_ship = -1
 			_go("send"))
 		acts.add_child(send)
-	var ex := UiTheme.button(tr("Neue Insel suchen"), "kompass", 38)
+	var ex := UiTheme.button(tr("Entdeckungsreise"), "kompass", 38)
 	ex.tooltip_text = tr("Das schnellste freie Schiff fährt hinaus und kommt mit einer neuen Insel auf der Karte zurück.")
 	ex.pressed.connect(func():
 		var err := Sea.start_explore(Game.world)

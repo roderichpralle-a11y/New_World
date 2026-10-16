@@ -40,6 +40,11 @@ var _stock_panel: PanelContainer
 var _stock_grid: GridContainer
 var _settler_panel: PanelContainer
 var _settler_list: VBoxContainer
+var _settler_list_free: VBoxContainer
+var _settler_scroll_free: ScrollContainer
+var _settler_head_job: Label
+var _settler_head_row: HBoxContainer
+var _settler_head_free: Label
 var _menu_panel: PanelContainer
 var _help_panel: PanelContainer
 var _notify_panel: PanelContainer
@@ -328,6 +333,26 @@ func on_island_switched() -> void:
 		_sea_panel.refresh()
 
 
+## Ein Tipp außerhalb der Fenster (nicht auf die Leisten oben und unten, nicht aufs Infofenster)
+## schließt alle offenen Fenster. Der Tipp zählt nur dafür und löst nichts auf der Karte aus.
+func _input(ev: InputEvent) -> void:
+	if not (ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT):
+		return
+	if has_overlay() or _panels().all(func(pn): return pn == null or not pn.visible):
+		return
+	var pos: Vector2 = ev.position
+	if pos.y < _top_h:
+		return
+	var keep: Array = _panels() + [_bottom.get_parent(), _info_panel, goal_card]
+	for c in keep:
+		if c != null and c.visible and c.get_global_rect().has_point(pos):
+			return
+	for pnl in _panels():
+		if pnl != null:
+			pnl.visible = false
+	get_viewport().set_input_as_handled()
+
+
 func _toggle(panel: Control) -> void:
 	var show := not panel.visible
 	for pnl in _panels():
@@ -342,7 +367,9 @@ func _panels() -> Array:
 	return [_build_panel, _research_panel, _stock_panel, _settler_panel, _menu_panel, _help_panel, _notify_panel, _slots_panel, _sea_panel, _score_panel, _quest_panel, _trade_panel]
 
 
-func _popup_panel(title: String) -> Array:
+## Gemeinsamer Kopf aller Fenster (josh 2026-10-16): Symbol, Titel = Name des Knopfes, rechts das X.
+## Ein Tipp neben das Fenster schließt es (_input).
+func _popup_panel(title: String, icon: String = "") -> Array:
 	var p := PanelContainer.new()
 	p.visible = false
 	root.add_child(p)
@@ -350,6 +377,11 @@ func _popup_panel(title: String) -> Array:
 	v.add_theme_constant_override("separation", 6)
 	p.add_child(v)
 	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 6)
+	if icon != "":
+		var ic := UiTheme.icon_rect(Data.icon(icon), 28)
+		ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		head.add_child(ic)
 	var t := UiTheme.label(title, 20, UiTheme.TEXT, true)
 	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(t)
@@ -368,10 +400,10 @@ const BUILD_CATS := [["wohnen", "Wohnen", "haus"], ["nahrung", "Nahrung", "nahru
 
 
 func _build_build_panel() -> void:
-	var r := _popup_panel(tr("Bauen"))
+	var r := _popup_panel(tr("Bauen"), "hammer")
 	_build_panel = r[0]
 	var v: VBoxContainer = r[1]
-	_build_title = v.get_child(0).get_child(0)
+	_build_title = v.get_child(0).get_child(1)
 	var tabs := HBoxContainer.new()
 	tabs.add_theme_constant_override("separation", 4)
 	v.add_child(tabs)
@@ -459,6 +491,14 @@ func _fill_build_list() -> void:
 			b.disabled = true
 		if not unlocked:
 			b.disabled = true
+			cost.visible = false
+			var fb := UiTheme.button(tr("Forsch."), "", 36)  # kleiner Knopf: öffnet die Forschung (josh 2026-10-16)
+			fb.add_theme_font_size_override("font_size", 13)
+			fb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			fb.pressed.connect(func():
+				_fill_research_list()
+				_toggle(_research_panel))
+			h.add_child(fb)
 			ic.modulate = Color(0.2, 0.15, 0.15, 0.6)
 			locked_rows.append(b)
 			continue
@@ -475,7 +515,7 @@ func _fill_build_list() -> void:
 
 # ================================================================== Forschung
 func _build_research_panel() -> void:
-	var r := _popup_panel(tr("Forschung"))
+	var r := _popup_panel(tr("Forschung"), "wissen")
 	_research_panel = r[0]
 	var v: VBoxContainer = r[1]
 	_research_head = VBoxContainer.new()
@@ -745,7 +785,7 @@ func _on_research_changed() -> void:
 
 # ================================================================== Vorraete
 func _build_stock_panel() -> void:
-	var r := _popup_panel(tr("Lager"))
+	var r := _popup_panel(tr("Vorräte"), "kiste")
 	_stock_panel = r[0]
 	var v: VBoxContainer = r[1]
 	var scroll := ScrollContainer.new()
@@ -773,10 +813,8 @@ func _refresh_stock(force: bool = false) -> void:
 	var bar := UiTheme.bar(UiTheme.BAD if used >= vol else UiTheme.GOOD)
 	bar.value = 100.0 * used / max(1, vol)
 	_stock_grid.add_child(bar)
-	var hint := UiTheme.label(tr("Lege mit − und + fest, wie viel von einer Ware gelagert wird. „×2“ ist der Raum, den ein Stück braucht. „frei“ heißt: die Ware nimmt sich freien Platz, solange welcher da ist. Ist kein Platz mehr, sammeln die Siedler diese Ware nicht mehr."), 12, UiTheme.TEXT)
-	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	hint.modulate.a = 0.8
-	_stock_grid.add_child(hint)
+	head.tooltip_text = tr("Lege mit − und + fest, wie viel von einer Ware gelagert wird. „×2“ ist der Raum, den ein Stück braucht. „frei“ heißt: die Ware nimmt sich freien Platz, solange welcher da ist. Ist kein Platz mehr, sammeln die Siedler diese Ware nicht mehr.")
+	head.mouse_filter = Control.MOUSE_FILTER_PASS
 	for id in Data.sorted_resource_ids():
 		if Data.resources[id].get("category", "") == "ship":
 			continue  # Schiffe liegen im Hafen, nicht im Lager
@@ -930,7 +968,7 @@ var _settler_narrow: bool = false
 
 
 func _build_settler_panel() -> void:
-	var r := _popup_panel(tr("Siedler"))
+	var r := _popup_panel(tr("Siedler"), "person")
 	_settler_panel = r[0]
 	var v: VBoxContainer = r[1]
 	# Filter
@@ -993,14 +1031,28 @@ func _build_settler_panel() -> void:
 		head.add_child(b)
 		_settler_head[key] = b
 	v.add_child(head)
+	_settler_head_row = head
+	# Zwei Listen: oben die Siedler mit Beruf, unten die freien (und die Kinder)
+	_settler_head_job = UiTheme.label("", 15, UiTheme.TEXT, true)
+	v.add_child(_settler_head_job)
 	_settler_scroll = ScrollContainer.new()
 	_settler_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	_settler_scroll.custom_minimum_size = Vector2(560, 420)
+	_settler_scroll.custom_minimum_size = Vector2(560, 250)
 	v.add_child(_settler_scroll)
 	_settler_list = VBoxContainer.new()
 	_settler_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_settler_list.add_theme_constant_override("separation", 3)
 	_settler_scroll.add_child(_settler_list)
+	_settler_head_free = UiTheme.label("", 15, UiTheme.TEXT, true)
+	v.add_child(_settler_head_free)
+	_settler_scroll_free = ScrollContainer.new()
+	_settler_scroll_free.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_settler_scroll_free.custom_minimum_size = Vector2(560, 150)
+	v.add_child(_settler_scroll_free)
+	_settler_list_free = VBoxContainer.new()
+	_settler_list_free.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_settler_list_free.add_theme_constant_override("separation", 3)
+	_settler_scroll_free.add_child(_settler_list_free)
 
 
 func _settler_filter_button(tip: String) -> OptionButton:
@@ -1025,7 +1077,13 @@ func _size_settler_panel(avail_h: float = -1.0) -> void:
 	_settler_narrow = w < 620.0
 	# Platz fuer Titel, Filter, Zaehler und Spaltenkoepfe abziehen
 	var extra := 150.0 + (46.0 if _settler_narrow else 0.0)
-	_settler_scroll.custom_minimum_size = Vector2(w, clampf(avail_h - extra, 140.0, 2000.0))
+	var tight := avail_h < 360.0  # Handy quer: der Zähler entfällt, die Listen werden knapp
+	_settler_count.visible = not tight
+	_settler_head_row.visible = not tight
+	var room := clampf(avail_h - extra - 56.0, 90.0 if tight else 140.0, 2000.0)  # 56: die zwei Überschriften
+	var top_h := roundf(room * 0.6)
+	_settler_scroll.custom_minimum_size = Vector2(w, maxf(top_h, 54.0 if tight else 80.0))
+	_settler_scroll_free.custom_minimum_size = Vector2(w, maxf(room - top_h, 40.0 if tight else 56.0))
 	for col in SETTLER_COLS:
 		var b: Button = _settler_head[col[0]]
 		var cw: int = col[3] if _settler_narrow else col[2]
@@ -1090,9 +1148,10 @@ func _refresh_settler_list() -> void:
 	_size_settler_panel()
 	_update_settler_filters()
 	_settler_updaters.clear()
-	for c in _settler_list.get_children():
-		_settler_list.remove_child(c)
-		c.queue_free()
+	for lst in [_settler_list, _settler_list_free]:
+		for c in lst.get_children():
+			lst.remove_child(c)
+			c.queue_free()
 	var all_isl: bool = _settler_f_island.visible and _settler_f_island.selected == 1
 	var pool := []
 	if all_isl:
@@ -1150,10 +1209,15 @@ func _refresh_settler_list() -> void:
 		b.text = tr(col[1]) + ((" ▼" if _settler_desc else " ▲") if col[0] == _settler_sort else "")
 	var stage := SettlerMind.comfort_stage()
 	var sick_n := pool.filter(func(x): return x.mind.sick != "").size()
-	_settler_count.text = tr("%d von %d Siedlern%s. Lebensstil: %s. Spaltenkopf antippen sortiert. Auslastung: Anteil der eigenen Arbeit am Tag, hoch heißt, mehr Leute für diese Arbeit lohnen sich. Satt zeigt, wie voll der Magen ist; rot heißt Hunger oder krank.") % [
+	_settler_count.text = tr("%d von %d Siedlern%s. Lebensstil: %s.") % [
 		list.size(), pool.size(), (tr(", %d krank") % sick_n) if sick_n > 0 else "", stage[0]]
-	if list.is_empty():
+	var n_job := list.filter(func(x): return x.is_adult() and x.job != "frei").size()
+	_settler_head_job.text = tr("Mit Beruf (%d)") % n_job
+	_settler_head_free.text = tr("Frei (%d)") % (list.size() - n_job)
+	if n_job == 0:
 		_settler_list.add_child(UiTheme.label(tr("Niemand passt zu dieser Auswahl.") if not pool.is_empty() else tr("Auf dieser Insel lebt niemand."), 14))
+	if list.size() - n_job == 0:
+		_settler_list_free.add_child(UiTheme.label(tr("Alle haben einen Beruf."), 14, DIM))
 	var narrow := _settler_narrow
 	var row_h := 30
 	for s in list:
@@ -1308,7 +1372,7 @@ func _refresh_settler_list() -> void:
 				ml.remove_theme_color_override("font_color")
 		upd.call()
 		_settler_updaters.append(upd)
-		_settler_list.add_child(h)
+		(_settler_list if (s.is_adult() and s.job != "frei") else _settler_list_free).add_child(h)
 	call_deferred("_layout")
 
 
@@ -1325,7 +1389,7 @@ func _tick_settler_list(delta: float) -> void:
 
 # ================================================================== Menue / Hilfe
 func _build_menu_panel() -> void:
-	var r := _popup_panel(tr("Menü"))
+	var r := _popup_panel(tr("Menü"), "menu")
 	_menu_panel = r[0]
 	var v: VBoxContainer = r[1]
 	var save := UiTheme.button(tr("Spiel speichern"), "haus", 44)
@@ -1342,17 +1406,9 @@ func _build_menu_panel() -> void:
 	qb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	qb.pressed.connect(func(): _toggle(_quest_panel))
 	srow.add_child(qb)
-	var sl := UiTheme.button(tr("Spielstände"), "kiste", 44)
+	var sl := UiTheme.button(tr("Spielstände"), "kiste", 44)  # Menü > Wertung entfällt (josh 2026-10-16)
 	sl.pressed.connect(func(): _open_slots())
-	var row := HBoxContainer.new()  # Spielstaende und Wertung nebeneinander (das Menue ist schon hoch)
-	row.add_theme_constant_override("separation", 6)
-	v.add_child(row)
-	sl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(sl)
-	var sc := UiTheme.button(tr("Wertung"), "ziel", 44)
-	sc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	sc.pressed.connect(func(): _toggle(_score_panel))
-	row.add_child(sc)
+	v.add_child(sl)
 	if OS.has_feature("web"):
 		_update_btn = UiTheme.button(tr("Nach neuer Version suchen"), "schnell", 44)
 		_update_btn.tooltip_text = tr("Fragt den Server, ob es eine neue Version gibt. Laden erst nach deiner Bestätigung.")
@@ -1424,7 +1480,7 @@ func _language_row() -> HBoxContainer:
 
 ## Fuenf Spielstaende: laden, hierhin speichern, neu beginnen, loeschen
 func _build_slots_panel() -> void:
-	var r := _popup_panel(tr("Spielstände"))
+	var r := _popup_panel(tr("Spielstände"), "kiste")
 	_slots_panel = r[0]
 	_slots_scroll = ScrollContainer.new()
 	_slots_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -1451,9 +1507,6 @@ func _fill_slots() -> void:
 	_slots_box.custom_minimum_size.x = min(640.0, vs.x - 40.0)
 	_slots_scroll.custom_minimum_size = Vector2(_slots_box.custom_minimum_size.x, clampf(vs.y - 230.0, 200.0, 620.0))
 	_slots_panel.size = Vector2.ZERO
-	var hint := UiTheme.label(tr("Das Spiel speichert automatisch in den aktiven Spielstand."), 13, DIM)
-	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_slots_box.add_child(hint)
 	for n in range(1, Game.SLOTS + 1):
 		var row := PanelContainer.new()
 		# Breit: Text links, Knoepfe rechts; schmal: Knoepfe darunter
@@ -1841,13 +1894,9 @@ func _slot_confirm_button(text: String, ask: bool, action: Callable) -> Button:
 
 ## Meldungen nach Art ein- und ausschalten (gespeichert in user://settings.cfg)
 func _build_notify_panel() -> void:
-	var r := _popup_panel(tr("Meldungen"))
+	var r := _popup_panel(tr("Meldungen"), "glocke")
 	_notify_panel = r[0]
 	var v: VBoxContainer = r[1]
-	var l := UiTheme.label(tr("Welche Meldungen sollen eingeblendet werden?"), 13)
-	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	l.custom_minimum_size.x = 260
-	v.add_child(l)
 	var rows := [["goal_card", tr("Zielkarte mit Aufträgen (oben links)"), Game.goal_card_on]]
 	for c in Game.NOTIFY_CATS:
 		rows.append([c, Game.NOTIFY_CATS[c], not Game.notify_off.get(c, false)])
@@ -1908,7 +1957,7 @@ Jedes Jahr ist anders: Es gibt milde, normale, harte und eisige Winter und manch
 Häuser haben Bedürfnisse: Dorfbewohner im Holzhaus wollen Abwechslung beim Essen und Möbel (Bretter), Bürger im Steinhaus zubereitetes Essen, Hausrat (Werkzeug) und eine Schule, später kommen Glas, Papier, Gewürze, Strom und Elektronik dazu. Nur zufriedene Häuser stellen Fachkräfte für höhere Werkstätten wie Schmiede, Bibliothek oder Fabrik. Ein Haus zählt nur dann als Steinhaus oder höher, wenn auch die Bedürfnisse der Stufen darunter erfüllt sind. Tippe auf ein Haus, um zu sehen, was fehlt.
 Ab dem zweiten Jahr kündigen sich Ereignisse an: Dürre, Ratten, Brand, Seuche, Sturmflut und ab dem Mittelalter Piraten. Das Ereignis-Symbol oben rechts zeigt, was kommt und was hilft (zum Beispiel ein Großes Lager gegen Ratten).
 Ab der Antike brauchen Forscher Tontafeln aus der Tafelmacherei, später Papier, Strom und Elektronik. Fehlen sie, geht die Forschung nur langsam.
-Ein neues Zeitalter beginnt erst nach einer Prüfung. Im Entwicklungsbaum steht unter dem nächsten Zeitalter, was dafür fehlt. Jede bestandene Prüfung bringt ein Fest, Einwanderer und Waren. Menü > Wertung zeigt deine Punkte und Rekorde.
+Ein neues Zeitalter beginnt erst nach einer Prüfung. Im Entwicklungsbaum steht unter dem nächsten Zeitalter, was dafür fehlt. Jede bestandene Prüfung bringt ein Fest, Einwanderer und Waren.
 Oben links bietet das Auftragsbrett drei Aufträge an; du suchst dir einen aus. Belohnungen sind Waren, Forschung, Einwanderer, dauerhafte Segen oder Baupläne."""
 
 
@@ -1967,8 +2016,8 @@ Gibt es mindestens drei Sorten Nahrung im Lager, kommen öfter Kinder zur Welt.
 [b]Seefahrt[/b]
 Jede Insel hat ihr eigenes Lager. Waren kommen nur mit Schiffen auf eine andere Insel. Mit der Forschung Schiffsbau baust du am Ufer eine Werft; im Fenster der Werft wählst du das nächste Schiff. Ruderboote sind klein und landen an jedem Strand, Koggen tragen viel, Schnellsegler sind schnell, Galeonen riesig. Jedes Schiff braucht Seeleute (Beruf Seemann) und einen Liegeplatz in seinem Heimathafen: Werft 1, Anlegesteg 2, Hafen 2, Großer Hafen 3, Kais 1. Koggen und Schnellsegler laufen nur Inseln mit Hafen an, Galeonen nur Große Häfen. Holz-, Erz- und Proviantkai laden ihre Waren dreimal so schnell.
 
-[b]Seekarte und Routen[/b]
-Über den Knopf Inseln öffnest du die Seekarte. "Schiff hierher schicken" bringt Siedler und Waren zu einer Insel, "Neue Insel suchen" schickt ein Schiff auf Erkundung. Unter "Schiffe" legst du Routen fest: An jedem Halt lädt das Schiff die eingestellten Waren und lädt alles andere ab, dann fährt es weiter, immer wieder. Mit „Einmal hin und zurück“ fährt es die Route nur einmal und ist danach wieder frei.
+[b]Inseln und Routen[/b]
+Über den Knopf Inseln öffnest du das Inselfenster. "Schiff hierher schicken" bringt Siedler und Waren zu einer Insel, "Entdeckungsreise" schickt ein Schiff auf Erkundung. Unter "Schiffe" legst du Routen fest: An jedem Halt lädt das Schiff die eingestellten Waren und lädt alles andere ab, dann fährt es weiter, immer wieder. Mit „Einmal hin und zurück“ fährt es die Route nur einmal und ist danach wieder frei.
 
 [b]Neue Inseln[/b]
 Palmeninseln haben Kokosnüsse und viel Fisch, Waldinseln Pilze und Holz, Felseninseln Erz und Gold. Gold brauchst du für die höchsten Forschungen. Je weiter draußen, desto mehr wilde Tiere.
@@ -1981,7 +2030,7 @@ Stirbt auf einer Insel der letzte Siedler, ist diese Insel für immer verloren. 
 
 
 func _build_help_panel() -> void:
-	var r := _popup_panel(tr("Spielanleitung"))
+	var r := _popup_panel(tr("Spielanleitung"), "sonne")
 	_help_panel = r[0]
 	var v: VBoxContainer = r[1]
 	var rt := RichTextLabel.new()
@@ -2383,7 +2432,7 @@ func _info_harbor(b: Building) -> void:
 		_info_box.add_child(gl)
 	_info_box.add_child(UiTheme.label(tr("Insel: %s, %s") % [Sea.harbor_level_name(Sea.harbor_level(world)), Sea.berth_text(world)], 12))
 	TradePanel.harbor_rows(self, b)  # fremder Händler: da, angekündigt, Knopf zum Handeln
-	var sb := UiTheme.button(tr("Schiffe und Seekarte"), "anker", 36)
+	var sb := UiTheme.button(tr("Schiffe und Inseln"), "anker", 36)
 	sb.pressed.connect(func():
 		Game.select(null)
 		_sea_panel.open_ships()
