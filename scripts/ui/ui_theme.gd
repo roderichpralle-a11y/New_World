@@ -78,13 +78,13 @@ static func make() -> Theme:
 	# Scrollleiste
 	var sbg := StyleBoxFlat.new()
 	sbg.bg_color = Color(0.35, 0.25, 0.2, 0.3)
-	sbg.content_margin_left = 5
-	sbg.content_margin_right = 5
+	sbg.content_margin_left = 10
+	sbg.content_margin_right = 10
 	var sg := StyleBoxFlat.new()
 	sg.bg_color = Color("#a8743e")
 	sg.set_corner_radius_all(2)
-	sg.content_margin_left = 5
-	sg.content_margin_right = 5
+	sg.content_margin_left = 10
+	sg.content_margin_right = 10
 	t.set_stylebox("scroll", "VScrollBar", sbg)
 	t.set_stylebox("grabber", "VScrollBar", sg)
 	t.set_stylebox("grabber_highlight", "VScrollBar", sg)
