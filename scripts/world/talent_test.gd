@@ -80,7 +80,7 @@ static func run(main) -> void:
 	var name_star := false
 	var col := ""
 	var menu_star := []
-	for n in _all(hud._settler_list):
+	for n in _all(hud._settler_list) + _all(hud._settler_list_free):  # beide Listen (mit Beruf, frei)
 		if n is Button and not n is OptionButton and n.text.begins_with("T1"):
 			name_tip = "40" in n.tooltip_text
 			name_star = n.get_node_or_null("TalentStar") != null
