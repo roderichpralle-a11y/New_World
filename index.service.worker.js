@@ -4,7 +4,7 @@
 // Incrementing CACHE_VERSION will kick off the install event and force
 // previously cached resources to be updated from the network.
 /** @type {string} */
-const CACHE_VERSION = '1791961375|3916614';
+const CACHE_VERSION = '1792133168|3457683';
 /** @type {string} */
 const CACHE_PREFIX = 'Insel-Siedler-sw-cache-';
 const CACHE_NAME = CACHE_PREFIX + CACHE_VERSION;
