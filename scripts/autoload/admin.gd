@@ -389,7 +389,7 @@ func autotest_setup(args: Dictionary, main) -> void:
 		await AdminTest.run(main)
 	if args.has("adminmeasure"):  # Ertrag: normal | ot | shift[,Tage]
 		await AdminTest.measure(main, str(args.adminmeasure))
-	if args.has("adminshot"):  # Bildschirmfoto: office | workshop | proposal (mit --shot)
+	if args.has("adminshot"):  # Bildschirmfoto: office | night | workshop | proposal (mit --shot)
 		AdminTest.shot(main, str(args.adminshot))
 
 
