@@ -94,7 +94,7 @@ static func build_score_panel(hud) -> PanelContainer:
 	scroll.custom_minimum_size = Vector2(330, 290)
 	v.add_child(scroll)
 	var m := MarginContainer.new()  # Abstand rechts fuer die Bildlaufleiste
-	m.add_theme_constant_override("margin_right", 14)
+	m.add_theme_constant_override("margin_right", 24)
 	m.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(m)
 	var box := VBoxContainer.new()
