@@ -2685,9 +2685,17 @@ func has_overlay() -> bool:
 
 
 # ================================================================== Layout
+var _top_h := 50.0  # Oberkante der Fenster, von _layout gesetzt
+var _fit_orig: Dictionary = {}  # gekürzte Liste -> ihre ursprüngliche Mindesthöhe (zurück bei neuem Layout, z. B. Drehen)
+
+
 func _layout() -> void:
 	if root == null:
 		return
+	for sc in _fit_orig:  # nach Drehen oder Größenwechsel wieder mit der vollen Höhe rechnen
+		if is_instance_valid(sc):
+			sc.custom_minimum_size.y = _fit_orig[sc]
+	_fit_orig.clear()
 	var vs := get_viewport().get_visible_rect().size
 	var portrait := vs.y > vs.x
 	var bp: Control = _bottom.get_parent()
@@ -2755,6 +2763,7 @@ func _layout() -> void:
 	top_alerts.place(sp, _season_icon.get_parent().get_parent().get_parent(), portrait or vs.x < 760)
 	if top_alerts.visible and top_alerts.position.y > sp.position.y:  # Knöpfe unter der Geschwindigkeit: Meldungen darunter
 		_toasts.position.y = maxf(_toasts.position.y, top_alerts.position.y + top_alerts.size.y + 4.0)
+	_top_h = top_h
 	_notify_grid.columns = 2 if vs.x >= 640 else 1
 	_size_settler_panel(vs.y - top_h - bp.size.y - 18.0)
 	_fit_research(top_h)
@@ -2771,10 +2780,89 @@ func _layout() -> void:
 		_info_panel.position = Vector2(vs.x - 316, top_h + 6)
 
 
+## Prüft nach dem Layout die echte Höhe jedes offenen Fensters. Die Rechnung in _layout und den
+## Einzelfenstern schätzt Kopfzeilen, Filter und Zähler nur grob (umbrechende Filter und Texte sind
+## auf dem Handy höher). Ragt ein Fenster unter die untere Leiste oder aus dem Bild, wird die größte
+## Liste darin so weit gekürzt, bis alles sichtbar ist. Dann weiß die Liste wirklich, dass sie
+## scrollen muss, und zeigt den Griff. Fenster ganz ohne Liste (Menü, Meldungen im Querformat)
+## bekommen dafür einmal eine. Gekürzt wird nur, nie verlängert.
+func _fit_visible_panels() -> void:
+	var vs := get_viewport().get_visible_rect().size
+	var bp: Control = _bottom.get_parent()
+	var avail := vs.y - _top_h - bp.size.y - 18.0
+	for pnl in _panels():
+		if not pnl.visible:
+			continue
+		var ws = pnl.get_meta("wrap_sc", null)  # Fenster mit nachträglich eingebauter Liste: wächst und schrumpft mit
+		if ws != null and is_instance_valid(ws):
+			var inner: Control = ws.get_child(0)
+			var head: float = pnl.size.y - ws.size.y
+			var want := minf(inner.get_combined_minimum_size().y, maxf(avail - head, 90.0))
+			if absf(want - ws.custom_minimum_size.y) > 0.5:
+				ws.custom_minimum_size.y = want
+				_refit_panel(pnl, vs, bp)
+			continue
+		if pnl.size.y <= avail + 0.5:
+			continue
+		var sc: Control = _biggest_scroller(pnl)
+		if sc == null:
+			_wrap_in_scroll(pnl)  # ab dem nächsten Bild von oben passt es mit
+			continue
+		var cur := maxf(sc.custom_minimum_size.y, sc.size.y)
+		var target := maxf(cur - (pnl.size.y - avail), 90.0)
+		if target >= cur - 0.5:
+			continue
+		if not _fit_orig.has(sc):
+			_fit_orig[sc] = sc.custom_minimum_size.y
+		sc.custom_minimum_size.y = target
+		_refit_panel(pnl, vs, bp)
+
+
+func _refit_panel(pnl: Control, vs: Vector2, bp: Control) -> void:
+	pnl.reset_size()
+	pnl.size.x = minf(pnl.size.x, vs.x - 12)
+	pnl.position = Vector2((vs.x - pnl.size.x) / 2.0, maxf(_top_h, vs.y - pnl.size.y - bp.size.y - 18))
+
+
+## Die höchste scrollende Liste in einem Fenster (ScrollContainer oder Text mit eigenem Scroll), oder null.
+func _biggest_scroller(n: Node) -> Control:
+	var best: Control = null
+	for c in n.get_children():
+		var cand: Control = null
+		if c is ScrollContainer or (c is RichTextLabel and c.scroll_active):
+			cand = c
+		else:
+			cand = _biggest_scroller(c)
+		if cand != null and (best == null or cand.size.y > best.size.y):
+			best = cand
+	return best
+
+
+## Packt alles unter der Titelzeile eines Fensters (aus _popup_panel) in eine Scroll-Liste.
+func _wrap_in_scroll(pnl: Control) -> ScrollContainer:
+	var v := pnl.get_child(0) if pnl.get_child_count() > 0 else null
+	if not (v is VBoxContainer) or v.get_child_count() < 2:
+		return null
+	var inner := VBoxContainer.new()
+	inner.add_theme_constant_override("separation", 6)
+	inner.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for c in v.get_children().slice(1):
+		v.remove_child(c)
+		inner.add_child(c)
+	var sc := ScrollContainer.new()
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	sc.add_child(inner)
+	v.add_child(sc)
+	sc.custom_minimum_size.y = inner.get_combined_minimum_size().y
+	pnl.set_meta("wrap_sc", sc)
+	return sc
+
+
 func _process(delta: float) -> void:
 	if root == null:
 		return
 	_tick_settler_list(delta)
+	_fit_visible_panels()
 	_day_label.text = (tr("Tag %d") % Game.day()) if _food_short else (tr("Tag %d  %s") % [Game.day(), Game.clock_text()])
 	_day_icon.texture = Data.icon("mond" if Game.is_night() else "sonne")
 	_season_icon.texture = Seasons.icon()
