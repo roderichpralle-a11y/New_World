@@ -101,7 +101,7 @@ func tick() -> void:
 			return
 	if now >= next:
 		if make_offers():
-			Game.notify(tr("Neue Aufträge: Wähle einen von drei aus (oben links)."), "ziel", "ziel")
+			Game.notify(tr("Neue Aufträge: Wähle einen von drei aus, aufrufen unter „Menü - Aufträge“."), "ziel", "ziel")
 			if Game.speed > 1:  # zum Auswählen auf normale Zeit zurück (josh 2026-10-11)
 				Game.set_speed(1)
 		else:

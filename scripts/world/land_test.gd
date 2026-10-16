@@ -105,6 +105,29 @@ static func run(main) -> void:
 	# Baumeister baut eine Straße
 	var rc3 = _free_land(w, w.center + Vector2i(-3, 5), [rc, rc + Vector2i(1, 0)])
 	_ok(w.can_place("strasse", rc3), "Straße lässt sich setzen")
+	# Straße direkt vor der Haustür und vor dem ganzen Haus (josh 2026-10-16)
+	var hc = _free_land(w, w.center + Vector2i(6, -6), [rc, rc + Vector2i(1, 0), rc3])
+	var dh = w.place_building("huette", hc, true)
+	var front := []
+	for x in range(-1, dh.size.x + 1):
+		front.append(dh.cell + Vector2i(x, dh.size.y))
+	var blocked := front.filter(func(c): return w.is_walkable(c) and not w.can_place("strasse", c))
+	print("   Straße vor der Hütte: Tür %s, Reihe %s, gesperrt %s" % [dh.entrance_cell(), front, blocked])
+	_ok(blocked.is_empty(), "Straße vor dem ganzen Haus, auch auf dem Feld vor der Tür")
+	# Erst die Straße, dann das Haus mit der Tür auf der Straße
+	var hc2 = null
+	for r in range(2, 25):
+		for dy in range(-r, r + 1):
+			for dx in range(-r, r + 1):
+				var q: Vector2i = w.center + Vector2i(dx, dy)
+				if hc2 == null and w.can_place("huette", q) and range(-1, 4).all(func(x): return w.can_place("strasse", q + Vector2i(x, 2))):
+					hc2 = q
+	for x in range(-1, 4):
+		w.place_building("strasse", hc2 + Vector2i(x, 2), true)
+	_ok(w.can_place("huette", hc2), "Haus lässt sich mit der Tür auf eine Straße setzen")
+	_ok(not w.can_place("huette", hc2 + Vector2i(0, 1)), "Haus nicht auf die Straße selbst")
+	for x in range(-1, 4):
+		w.demolish(w.building_at[hc2 + Vector2i(x, 2)])
 	var site = w.place_building("strasse", rc3, false)
 	for o in w.settlers:
 		if o.is_adult():

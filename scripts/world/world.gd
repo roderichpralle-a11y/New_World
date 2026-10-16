@@ -567,11 +567,12 @@ func can_place(type: String, c: Vector2i, ignore = null) -> bool:
 				return false
 	if def.get("water_ok", false) and not Land.dike_allowed(self, c):  # Deich: an Land oder an einem Deich
 		return false
-	# Eingang muss frei sein
+	# Eingang muss frei sein; eine Straße vor der Tür ist erlaubt (josh 2026-10-16)
 	if not def.get("ground", false):
 		var e := c + Vector2i(int(def.size[0]) / 2, int(def.size[1]))
 		var own: bool = ignore != null and building_at.get(e) == ignore
-		if building_at.has(e) and not own:
+		var road: bool = building_at.has(e) and building_at[e].def.get("tile", "") == "road"
+		if building_at.has(e) and not own and not road:
 			return false
 		if not own and not is_walkable(e):
 			return false
