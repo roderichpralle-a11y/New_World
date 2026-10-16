@@ -45,31 +45,48 @@ static func _count(job: String, w) -> int:
 	return w.settlers.filter(func(s): return s.job == job and s.is_adult()).size()
 
 
-static var _tab := 0  # Reiter im Infofenster der Verwaltung: 0 Verwalter, 1 Schichten, 2 Überstunden
+static var _tab := 0  # Reiter im Infofenster der Verwaltung: 0 Verwalter, 1 Schichten, 2 Nachtschicht, 3 Überstunden
 
 
-## Infofenster der Verwaltung mit den Reitern Verwalter, Schichten und Überstunden (josh 2026-10-16).
+## Infofenster der Verwaltung mit den Reitern Verwalter, Schichten, Nachtschicht und Überstunden
+## (josh 2026-10-16).
 static func office_rows(hud, b) -> void:
 	if not b.complete:
 		return
-	var tabs := HBoxContainer.new()
-	tabs.add_theme_constant_override("separation", 4)
-	hud._info_box.add_child(tabs)
-	for i in 3:
-		var tb := UiTheme.button([Loc.t("Verwalter"), Loc.t("Schichten"), Loc.t("Überstunden")][i], "", 36)
-		tb.toggle_mode = true
-		tb.button_pressed = i == _tab
-		tb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		tb.add_theme_font_size_override("font_size", 13)
-		var idx: int = i
-		tb.pressed.connect(func():
-			_tab = idx
-			hud._rebuild_info())
-		tabs.add_child(tb)
-	if _tab == 0:
-		_manager_tab(hud, b)
-	else:
-		_orders_tab(hud, b, "sh" if _tab == 1 else "ot")
+	var names := [Loc.t("Verwalter"), Loc.t("Schichten"), Loc.t("Nachtschicht"), Loc.t("Überstunden")]
+	hud._info_box.add_child(Win.tabs(names, _tab, func(i):
+		_tab = i
+		hud._rebuild_info()))
+	match _tab:
+		0: _manager_tab(hud, b)
+		1: _orders_tab(hud, b, "sh")
+		2: _night_tab(hud, b)
+		_: _orders_tab(hud, b, "ot")
+
+
+## Nachtschicht: welche Berufe nachts arbeiten (Schichtarbeit), wie viele Leute und was es kostet.
+static func _night_tab(hud, b) -> void:
+	var any := false
+	for job in _jobs(b.world):
+		if not Admin.ordered(job, "sh"):
+			continue
+		any = true
+		var n := 0
+		for s in b.world.settlers:
+			if s.job == job and Admin.night_worker(s):
+				n += 1
+		var sub := Loc.t("%d arbeiten auch nachts, Laune eine Stufe schlechter.") % n
+		if not Admin.active_on(b.world):
+			sub = Loc.t("Ruht, solange kein Verwalter hier arbeitet.")
+		var jid: String = job
+		var r := Win.row(null, Data.jobs[job].name, sub, {"button": Loc.t("Beenden"), "on_press": func():
+			Admin.set_shift(jid, false)
+			hud._rebuild_info()})
+		hud._info_box.add_child(r.box)
+	var l := UiTheme.label(Loc.t("In der Nacht brennt in diesen Werkstätten Licht, und die Nacht vergeht nicht schneller.") if any
+		else Loc.t("Niemand arbeitet nachts. Unter „Schichten“ lässt sich für einen Beruf Schichtarbeit rund um die Uhr anordnen."), 12, DIM)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hud._info_box.add_child(l)
 
 
 static func _manager_tab(hud, b) -> void:

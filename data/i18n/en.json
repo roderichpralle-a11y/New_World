@@ -1683,5 +1683,11 @@
  "Aktiver Spielstand: %d": "Active slot: %d",
  "Alle an": "All on",
  "%d von %d an": "%d of %d on",
- "Wege": "Roads"
+ "Wege": "Roads",
+ "Nachtschicht": "Night shift",
+ "Beenden": "Stop",
+ "%d arbeiten auch nachts, Laune eine Stufe schlechter.": "%d also work at night, mood one level lower.",
+ "Ruht, solange kein Verwalter hier arbeitet.": "Paused while no administrator works here.",
+ "In der Nacht brennt in diesen Werkstätten Licht, und die Nacht vergeht nicht schneller.": "These workshops keep their lights on at night, and the night does not pass faster.",
+ "Niemand arbeitet nachts. Unter „Schichten“ lässt sich für einen Beruf Schichtarbeit rund um die Uhr anordnen.": "Nobody works at night. Under \"Shifts\" you can order round-the-clock shift work for a job."
 }

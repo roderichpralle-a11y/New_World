@@ -181,7 +181,7 @@ static func run(main) -> void:
 	print("Verwaltung %s (%d Fehler)" % ["OK" if fails == 0 else "FEHLER", fails])
 
 
-## Bildschirmfoto-Hilfe --adminshot=office|workshop|proposal: Verwaltung, Verwalter und Sägegrube
+## Bildschirmfoto-Hilfe --adminshot=office|night|workshop|proposal (night: Reiter Nachtschicht): Verwaltung, Verwalter und Sägegrube
 ## mit Vertretung; danach Infofenster bzw. das Vorschlagsfenster.
 static func shot(main, kind: String) -> void:
 	var w = main.world
@@ -201,7 +201,10 @@ static func shot(main, kind: String) -> void:
 			b.adm = true
 			if kind == "workshop":
 				Game.select(b)
-		if b.type == "verwaltung" and kind == "office":
+		if b.type == "verwaltung" and kind in ["office", "night"]:
+			AdminInfo._tab = 2 if kind == "night" else 0
+			for j in Data.jobs:
+				Admin.reported[j] = 1e9  # kein Vorschlagsfenster über dem Infofenster
 			Game.select(b)
 	if kind == "proposal":
 		Admin.reported.clear()
