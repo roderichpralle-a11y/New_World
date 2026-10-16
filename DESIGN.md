@@ -1108,9 +1108,9 @@ Reihenfolge der Autoloads in `project.godot`: Seasons, Writing, Exams, Quests, H
 - Selbsttest `--integtest=1` (`scripts/autoload/integration_test.gd`) prüft diese Verbindungen
   („Zusammenspiel OK/FEHLER“).
 
-- **Regelstand**: `Game.RULES` (= 2; 1 = „Mehr Herausforderung“, 2 = josh 2026-10-12: Straßen nach Forschung,
+- **Regelstand**: `Game.RULES` (= 4; 1 = „Mehr Herausforderung“, 2 = josh 2026-10-12: Straßen nach Forschung,
   schnellster Weg, Piratenkampf, Schicht doppelt; Zeilen bei `old_rules < 2` in Events und Admin; 3 = Ställe,
-  Zeile in Extras). Der Spielstand bekommt die Schlüssel `rules` (int) und `rules_day`
+  Zeile in Extras; 4 = Verwalter nur seine Insel, Forschung nur auf der Hauptinsel, Zeile in Extras). Der Spielstand bekommt die Schlüssel `rules` (int) und `rules_day`
   (float, `time_days`, ab dem die Regeln für diesen Spielstand gelten). `SAVE_VERSION` bleibt 3: eine alte,
   im Browser zwischengespeicherte Version lehnt unbekannte Versionen ab und würde den Spielstand löschen.
   Speichert so eine alte Version erneut, fehlen die neuen Schlüssel wieder; jede Übernahme muss also
@@ -1300,6 +1300,17 @@ oder „neu“; danach heißen der Spielstand-Platz (`slot_<tag>`) und die Rekor
   mit `spawns`.
 
 ## Verwaltung (josh 2026-10-11, `scripts/autoload/admin.gd`, `scripts/ui/admin_info.gd`)
+
+- **Nur die eigene Insel** (josh 2026-10-16): Alle Entscheidungen des Verwalters gelten nur auf der Insel,
+  auf der die Verwaltung steht (`Admin.admin_world()`, `Admin.active_on(w)`): Vertretung, Überstunden,
+  Schichtarbeit (`overtime(job, w)`, `shift(job, w)`), Protest-Laune und die Meldungen über fehlende Leute
+  (`shortages()`). Die Verwaltung arbeitet nur, wenn der Verwalter auf dieser Insel lebt (`local_manager()`);
+  sonst sagt ihr Infofenster, wo er lebt.
+- **Forschung nur auf der Hauptinsel** (josh 2026-10-16): `Sea.main_world()` = Heimatinsel, solange sie lebt,
+  sonst die Insel mit den meisten Siedlern. Forscher woanders forschen nicht (`Settler._plan_research`,
+  KI-Zentrum vergibt dort keine Forscher), Forschungsgebäude dort zeigen „Hier wird nicht geforscht“.
+  Forschungskosten und Schriften kommen aus dem Lager der Hauptinsel (`Game.start_research`, Kopf des
+  Forschungsfensters). Regelstand 4 mit Zeile in Extras.
 
 - **Gebäude „Verwaltung“** (`verwaltung`, Gelehrsamkeit, 2x2, Bild `office` in Zelle 52 von buildings.png,
   `tools/gen_art_challenge.py`): `"unique": true` heißt nur eins im ganzen Spiel (`World.can_place` über

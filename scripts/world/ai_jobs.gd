@@ -58,7 +58,7 @@ static func _most_needed(w, adults: Array) -> String:
 	if Game.amount("stein", w) < 20:
 		return "steinmetz"
 	# 5. Freie Forschungsplätze
-	if Game.research.current != "":
+	if Game.research.current != "" and Sea.is_main(w):  # Forschung nur auf der Hauptinsel
 		for b in w.buildings:
 			if b.complete and b.def.has("research") and b.free_slots() > 0 and w.pool_allows(b):
 				return "forscher"
