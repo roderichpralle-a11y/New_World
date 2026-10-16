@@ -309,6 +309,8 @@ func _maybe_autotest() -> void:
 		_autotest_store()
 	if args.has("langcheck"):
 		await _lang_check()
+	if args.has("fitcheck"):
+		await _fit_check()
 	if args.has("shot"):
 		Engine.time_scale = 1.0
 		if args.has("night"):
@@ -685,6 +687,63 @@ func _autotest_tutorial() -> void:
 		"t_speed":
 			Game.set_speed(3)
 			Engine.time_scale = 10.0
+
+
+## Testhilfe --fitcheck=1: oeffnet jedes Fenster und prueft nach dem Layout, ob es zwischen Oberleiste und
+## unterer Leiste bleibt (sonst ist ein Teil der Liste verdeckt und der Scrollgriff fehlt). Am besten mit
+## --resolution=402x874 oder 874x402 unter xvfb. Gibt je Fenster eine Zeile und am Ende die Zahl der Fehler aus.
+func _fit_check() -> void:
+	await _fit_pass()
+	if _user_args().has("fitrotate"):  # Handy drehen: danach muss alles wieder passen (und die Listen wieder wachsen)
+		var win := get_window()
+		win.size = Vector2i(win.size.y, win.size.x)
+		for i in 10:
+			await get_tree().process_frame
+		await _fit_pass()
+
+
+func _fit_pass() -> void:
+	var vs := get_viewport().get_visible_rect().size
+	var bp: Control = hud._bottom.get_parent()
+	var limit := vs.y - bp.size.y - 18.0
+	var openers := {
+		"Bauen": func(): hud._toggle(hud._build_panel),
+		"Forschung": func():
+			hud._fill_research_list()
+			hud._toggle(hud._research_panel),
+		"Vorraete": func():
+			hud._refresh_stock(true)
+			hud._toggle(hud._stock_panel),
+		"Siedler": func():
+			hud._toggle(hud._settler_panel)
+			hud._refresh_settler_list(),
+		"Menue": func(): hud._toggle(hud._menu_panel),
+		"Anleitung": func(): hud._toggle(hud._help_panel),
+		"Meldungen": func(): hud._toggle(hud._notify_panel),
+		"Spielstaende": func(): hud._open_slots(),
+		"Wertung": func(): hud._toggle(hud._score_panel),
+		"Auftraege": func(): hud._toggle(hud._quest_panel),
+	}
+	var bad := 0
+	for name in openers:
+		for pnl in hud._panels():
+			pnl.visible = false
+		openers[name].call()
+		for i in 6:
+			await get_tree().process_frame
+		var shown: Control = null
+		for pnl in hud._panels():
+			if pnl.visible:
+				shown = pnl
+		if shown == null:
+			print("   Fenster %s: nicht sichtbar" % name)
+			continue
+		var bottom: float = shown.position.y + shown.size.y
+		var ok := bottom <= limit + 1.0 and shown.position.y >= 0.0
+		if not ok:
+			bad += 1
+		print("   Fenster %s: oben %d unten %d (Grenze %d) %s" % [name, shown.position.y, bottom, limit, "OK" if ok else "ZU HOCH"])
+	print("Fenstertest: %d von %d zu hoch (Bild %dx%d)" % [bad, openers.size(), vs.x, vs.y])
 
 
 ## Testhilfe: Gebaeude fertig auf einer beliebigen Insel hinstellen.
