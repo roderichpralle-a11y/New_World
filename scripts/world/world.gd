@@ -55,6 +55,8 @@ var _rng := RandomNumberGenerator.new()
 var _den_t: float = 0.0
 var _den_breed: Dictionary = {}  # "x,y" -> Tag des letzten Wurfs (-1 = in diesem Fruehling bereit)
 var _grazed: Dictionary = {}  # Zelle -> Tag, bis wann Tiere dort nichts mehr finden
+var _danger_cells: Dictionary = {}  # Zellen nahe wilder Tiere: Siedler meiden sie (Wegkosten)
+var _danger_t: float = 0.0
 var _species_seen: Dictionary = {}  # Tierarten, die es auf der Insel gab
 var _school_frame: int = -1
 var _school_of: Dictionary = {}  # Kind-ID -> Schule
@@ -146,6 +148,7 @@ func build_from_save(w: Dictionary, m: Dictionary) -> void:
 		node.amount = int(n[3])
 		node.regrow_at = float(n[4])
 		node.clear_mark = n.size() > 6 and int(n[6]) == 1  # Förster soll roden
+		node.destroy_mark = n.size() > 7 and int(n[7]) == 1 and node.def.has("spawns")  # Jäger soll zerstören
 		node.refresh()
 	for b in w.buildings:
 		if not Data.buildings.has(b.type):
@@ -165,8 +168,11 @@ func build_from_save(w: Dictionary, m: Dictionary) -> void:
 	for g in w.get("graves", []):
 		_add_grave(cell_to_pos(Vector2i(int(g[0]), int(g[1]))), float(g[2]))
 	for a in w.get("animals", []):
-		spawn_animal(a[0], Vector2i(int(a[1]), int(a[2])), Vector2i(int(a[4]), int(a[5])), float(a[3]),
+		var an := spawn_animal(a[0], Vector2i(int(a[1]), int(a[2])), Vector2i(int(a[4]), int(a[5])), float(a[3]),
 			float(a[6]) if a.size() > 6 else -1.0, float(a[7]) if a.size() > 7 else 1.0)
+		if a.size() > 8:
+			an.lose_home()
+			an.homeless_t = float(a[8])
 	if w.has("den_breed"):
 		_den_breed = w.den_breed
 	else:
@@ -340,7 +346,10 @@ func _grass_cost() -> float:
 ## Wegkosten der Zelle neu setzen (nach Bau oder Abriss einer Straße).
 func _update_weight(c: Vector2i) -> void:
 	if is_inside(c):
-		astar.set_point_weight_scale(c, 1.0 if road_at(c) else _grass_cost())
+		var w := 1.0 if road_at(c) else _grass_cost()
+		if _danger_cells.has(c):
+			w *= float(Data.bal("animal_avoid_cost", 6.0))
+		astar.set_point_weight_scale(c, w)
 
 
 func _make_clouds() -> void:
@@ -501,11 +510,14 @@ func remove_node(n: ResNode) -> void:
 	n.queue_free()
 
 
-func find_node_for(type: String, from: Vector2i, sid: int):
+## avoid: Rohstoffe nahe wilder Tiere auslassen (alle ausser Jaegern).
+func find_node_for(type: String, from: Vector2i, sid: int, avoid: bool = true):
 	var best = null
 	var best_d := INF
 	for n in nodes:
 		if n.type != type or not n.is_available():
+			continue
+		if avoid and _danger_cells.has(n.cell):
 			continue
 		if n.reserved_by != 0 and n.reserved_by != sid:
 			continue
@@ -1233,6 +1245,7 @@ func _process(delta: float) -> void:
 			d[0].queue_free()
 			decor.remove_at(i)
 	_process_dens(delta)
+	_update_danger(delta)
 
 
 # ================================================================== Jahreszeiten (Aussehen)
@@ -1594,6 +1607,8 @@ func adult_count(type: String) -> int:
 func is_protected(a) -> bool:
 	if a is Raider:
 		return false  # Piraten (Events) werden immer vertrieben
+	if is_homeless(a):
+		return false  # ohne Bau stirbt die Art hier ohnehin aus
 	return not a.is_adult() or adult_count(a.type) <= int(Data.bal("hunt_min_keep", 2))
 
 
@@ -1739,6 +1754,103 @@ func on_animal_starved(a) -> void:
 		Game.notify_at(self, tr("%s ist verhungert. Für so viele Tiere gibt es nicht genug Futter.") % a.def.name, "schild")
 	_check_extinct(a.type)
 	a.queue_free()
+
+
+# ------------------------------------------------------------------ Baue zerstoeren, Gefahrenzonen
+## Hat das Tier keinen Bau seiner Art mehr (vom Jaeger zerstoert)?
+func is_homeless(a) -> bool:
+	if a is Raider:
+		return false
+	var n = node_at.get(a.home)
+	return n == null or not is_instance_valid(n) or n.def.get("spawns", "") != a.type
+
+
+## Ein Jaeger arbeitet am Bau: die Tiere dort verteidigen ihn.
+func den_alarm(den, s) -> void:
+	for a in animals:
+		if a.home == den.cell and a.is_adult() and a.visible and not a.dead and not a.is_scared():
+			a.defend_den(s)
+
+
+## Der Jaeger hat den Bau zerstoert. Die Tiere ziehen zu einem anderen Bau ihrer Art auf der
+## Insel; gibt es keinen, sind sie heimatlos und sterben hier nach und nach aus.
+func destroy_den(den, by) -> void:
+	var type: String = den.def.spawns
+	var cell: Vector2i = den.cell
+	var other = null
+	var best := INF
+	for n in nodes:
+		if n != den and n.def.get("spawns", "") == type and not n.destroy_mark:
+			var d := Vector2(n.cell - cell).length_squared()
+			if d < best:
+				best = d
+				other = n
+	if other == null:
+		for n in nodes:
+			if n != den and n.def.get("spawns", "") == type:
+				var d := Vector2(n.cell - cell).length_squared()
+				if d < best:
+					best = d
+					other = n
+	var moved := 0
+	for a in animals:
+		if a.home == cell and not a.dead:
+			if other != null:
+				a.home = other.cell
+				moved += 1
+			else:
+				a.lose_home()
+	_den_breed.erase("%d,%d" % [cell.x, cell.y])
+	spawn_effect("dust", den.position)
+	spawn_effect("chips_" + den.type, den.position + Vector2(0, -6))
+	remove_node(den)
+	var an: Dictionary = Data.animals[type]
+	var who: String = by.display_name if by is Settler else tr("Ein Jäger")
+	if other != null:
+		Game.notify_at(self, tr("%s hat einen Bau zerstört (%s). Die %s ziehen zu einem anderen Bau.") % [who, den.def.name, an.get("plural", an.name)], "schild", "tiere")
+	elif animals.any(func(a): return a.type == type and not a.dead):
+		Game.notify_at(self, tr("%s hat den letzten Bau der %s zerstört. Ohne Bau sterben sie hier aus.") % [who, an.get("plural", an.name)], "schild", "tiere")
+	else:
+		Game.notify_at(self, tr("%s hat einen Bau zerstört (%s).") % [who, den.def.name], "schild", "tiere")
+
+
+## Ein heimatloses Tier ist eingegangen.
+func on_animal_perished(a) -> void:
+	animals.erase(a)
+	if Game.selected == a:
+		Game.select(null)
+	_check_extinct(a.type)
+	a.queue_free()
+
+
+## Zellen um wilde Tiere werden teurer, damit Siedler dort nicht laufen und nichts sammeln.
+## Wege bleiben offen (nur teurer); Jaeger suchen ihre Ziele ohne diese Sperre.
+func _update_danger(delta: float) -> void:
+	_danger_t -= delta
+	if _danger_t > 0.0:
+		return
+	_danger_t = 0.5
+	var now := {}
+	for a in animals:
+		if a.dead or not a.visible or not a.is_adult() or a.is_scared() or a is Raider:
+			continue
+		var r := int(clamp(ceil(float(a.def.get("aggro", 3.0))) + 1, 3, int(Data.bal("animal_avoid_radius", 5))))
+		for dy in range(-r, r + 1):
+			for dx in range(-r, r + 1):
+				if dx * dx + dy * dy <= r * r:
+					now[a.cell + Vector2i(dx, dy)] = true
+	var old := _danger_cells
+	_danger_cells = now
+	for c in old:
+		if not now.has(c):
+			_update_weight(c)
+	for c in now:
+		if not old.has(c):
+			_update_weight(c)
+
+
+func is_dangerous(c: Vector2i) -> bool:
+	return _danger_cells.has(c)
 
 
 func _check_extinct(type: String) -> void:

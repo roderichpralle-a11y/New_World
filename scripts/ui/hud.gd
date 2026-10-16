@@ -2514,11 +2514,44 @@ func _info_node(n: ResNode) -> void:
 		var l2 := UiTheme.label(tr("Im Frühling bekommt ein sattes Paar Junge, wenn das Futter reicht. Jäger lassen von jeder Art mindestens %d erwachsene Tiere auf der Insel übrig.") % int(Data.bal("hunt_min_keep", 2)), 12)
 		l2.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_info_box.add_child(l2)
+		_den_destroy_rows(n)
 	else:
 		_info_box.add_child(UiTheme.label(tr("Wird bearbeitet von: %s") % who.get(n.type, "?"), 13))
 	if n.def.has("decay_days") and n.regrow_at >= 0.0:
 		_info_box.add_child(UiTheme.label(tr("Verdirbt in %d Std.") % max(1, int(ceil((n.regrow_at - Game.time_days) * 24.0))), 13))
 	Land.node_rows(self, n)  # Förster: Roden lassen
+
+
+## Tierbau: Knopf "Bau zerstören lassen" (nur mit freigeschaltetem Jäger).
+func _den_destroy_rows(n: ResNode) -> void:
+	if not Data.job_unlocked("jaeger"):
+		return
+	var on: bool = n.destroy_mark
+	var bt := UiTheme.button(tr("Nicht zerstören") if on else tr("Bau zerstören lassen (Jäger)"), "schild" if on else "abriss", 34)
+	bt.pressed.connect(func():
+		n.destroy_mark = not n.destroy_mark
+		if not n.destroy_mark and n.reserved_by != 0:
+			n.reserved_by = 0
+		n.refresh()
+		_rebuild_info())
+	_info_box.add_child(bt)
+	var w = n.world
+	var type: String = n.def.spawns
+	var an: Dictionary = Data.animals[type]
+	var others: bool = w.nodes.any(func(o): return o != n and o.def.get("spawns", "") == type)
+	var hunters: bool = w.settlers.any(func(s): return s.job == "jaeger" and s.is_adult())
+	var t := ""
+	if on and not hunters:
+		t = tr("Es gibt hier noch keinen Jäger. Gib einem Siedler den Beruf Jäger.")
+	elif on:
+		t = tr("Ein Jäger zerstört den Bau bald. Die Tiere verteidigen ihn!")
+	elif others:
+		t = tr("Die %s ziehen dann zu einem anderen Bau auf der Insel.") % an.get("plural", an.name)
+	else:
+		t = tr("Das ist der letzte Bau der %s hier. Ohne Bau sterben sie auf dieser Insel aus.") % an.get("plural", an.name)
+	var l := UiTheme.label(t, 12, UiTheme.BAD if (on and not hunters) or (not on and not others) else Color("#6e5a50"))
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_info_box.add_child(l)
 
 
 func _info_animal(a: Animal) -> void:

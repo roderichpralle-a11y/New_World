@@ -19,6 +19,8 @@ var target = null  # Settler
 var dead: bool = false
 var age: float = 99.0  # Tage
 var food: float = 1.0  # 1 = satt, 0 = hungert
+var homeless_t: float = -1.0  # Tage ohne Bau (-1 = hat einen Bau)
+var _homeless_limit: float = 2.0
 
 var _provoked: float = 0.0
 var _calm: float = 0.0  # Wildschweine beruhigen sich nach einem Angriff
@@ -86,7 +88,25 @@ func is_scared() -> bool:
 
 ## Baeren halten im Winter Winterruhe in ihrer Hoehle.
 func _hibernates() -> bool:
-	return def.get("hibernate", false) and Seasons.is_winter()
+	return def.get("hibernate", false) and Seasons.is_winter() and homeless_t < 0.0
+
+
+## Der Bau wurde zerstoert und es gibt keinen anderen: das Tier geht nach einigen Tagen ein.
+func lose_home() -> void:
+	if homeless_t < 0.0:
+		homeless_t = 0.0
+	var lim: Array = Data.bal("animal_homeless_days", [1.0, 3.0])
+	_homeless_limit = _rng.randf_range(float(lim[0]), float(lim[1]))
+	if not visible:
+		visible = true  # aus der Winterruhe geweckt
+
+
+## Ein Jaeger zerstoert den Bau: das Tier greift ihn an.
+func defend_den(s) -> void:
+	_provoked = 14.0
+	_calm = 0.0
+	target = s
+	_path = PackedVector2Array()
 
 
 ## Greift von sich aus an (Wolf, Baer) oder nur, wenn man ihm zu nahe kommt.
@@ -108,6 +128,8 @@ func _aggro_px() -> float:
 
 ## Satt, hungrig oder am Verhungern, fuer das Infofenster.
 func state_text() -> String:
+	if homeless_t >= 0.0:
+		return tr("Hat keinen Bau mehr und irrt umher.")
 	if _hibernates():
 		return tr("Hält Winterruhe in der Höhle.") if not visible else tr("Zieht sich für den Winter in die Höhle zurück.")
 	if _scared > 0.0:
@@ -184,6 +206,14 @@ func _hibernate(delta: float) -> void:
 func _needs(days: float) -> bool:
 	var was_adult := is_adult()
 	age += days
+	if homeless_t < 0.0 and world.is_homeless(self):
+		lose_home()
+	if homeless_t >= 0.0:
+		homeless_t += days
+		if homeless_t >= _homeless_limit:
+			dead = true
+			world.on_animal_perished(self)
+			return false
 	if is_adult() and not was_adult:
 		_sprite.scale = Vector2.ONE
 		_shadow.scale *= 1.0 / 0.7
@@ -408,4 +438,7 @@ func _draw() -> void:
 
 
 func serialize() -> Array:
-	return [type, cell.x, cell.y, snappedf(hp, 0.1), home.x, home.y, snappedf(age, 0.01), snappedf(food, 0.01)]
+	var out := [type, cell.x, cell.y, snappedf(hp, 0.1), home.x, home.y, snappedf(age, 0.01), snappedf(food, 0.01)]
+	if homeless_t >= 0.0:
+		out.append(snappedf(homeless_t, 0.01))
+	return out

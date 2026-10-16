@@ -212,6 +212,19 @@ Zeitalterwechsel mit Wertung und Aufträge mit Wahl. Überblick und Zusammenspie
     Tier (eines der letzten zwei oder ein Jungtier) durch Jäger, Notwehr oder Wachturm sterben,
     entkommt es mit 20 % Kraft und flieht einen halben Tag lang in seinen Bau (`Animal._scared`).
     So stirbt keine Art mehr aus, solange noch zwei erwachsene Tiere leben.
+  - *Baue zerstören*: Im Infofenster eines Tierbaus (mit freigeschaltetem Jäger) „Bau zerstören lassen“
+    setzt `ResNode.destroy_mark` (gespeichert als 8. Wert des Knotens, Markierung wie beim Roden).
+    Ein Jäger (`Settler._plan_destroy_den`, vor dem Jagen) arbeitet am Bau; jeder Schritt nimmt eine
+    Einheit `amount` und bringt ein Fell, und die erwachsenen Tiere des Baus greifen ihn an
+    (`World.den_alarm`, `Animal.defend_den`). Ist `amount` 0, zerstört `World.destroy_den` den Bau:
+    die Tiere ziehen zum nächsten Bau ihrer Art auf der Insel. Gibt es keinen, sind sie heimatlos
+    (`Animal.homeless_t`, 9. Wert im Spielstand): keine Jungen, keine Schonung, keine Winterruhe, und
+    jedes geht nach `animal_homeless_days` (zufällig 1–3 Tage) ein. So stirbt die Art auf der Insel aus.
+    Die Seekarte zeigt bei besiedelten Inseln nur noch die Arten, die dort leben (`Sea.dangers`).
+  - *Siedler meiden Tiere*: alle 0,5 s markiert `World._update_danger` die Zellen um jedes sichtbare,
+    erwachsene Tier (Radius Angriffsweite + 1, 3 bis `animal_avoid_radius`). Diese Zellen kosten auf
+    dem Weg `animal_avoid_cost`-mal so viel (Wege bleiben offen, führen aber außen herum), und
+    `World.find_node_for` lässt Rohstoffe darin aus. Jäger (`is_armed`) suchen ohne diese Sperre.
   - *Winterruhe*: Tiere mit `hibernate` (Bär) ziehen sich im Winter in die Höhle zurück
     (unsichtbar, harmlos) und wachen im Frühling hungrig und damit angriffslustig auf.
   - Gefahr gegen Ausrottung: die letzten zwei Wölfe oder Bären bleiben immer gefährlich; Jäger
@@ -1418,7 +1431,7 @@ godot --headless --fixed-fps 60 -- --autotest=40 --scale=10 --fixture=sea.json -
 godot --headless --fixed-fps 60 -- --autotest=30 --scale=10 --seed=7 --basictrade=1  # Händler mit einfachen Waren
 godot --headless --fixed-fps 60 -- --autotest=820 --scale=10 --seed=11 --bot=1 --noevents=1 --winter=normal  # Spiel-Bot v2, 4 Jahre
 #   --fixed-fps 60 vor "--" rechnet so schnell wie moeglich (gleicher Spielverlauf); --seed=N feste Insel
-#   dazu --wildlife=1: Tierbestand je Insel und Bau; --weak=1: ohne Waffenkunde (Tiere gefährlicher), Bildschirmfoto: --island=<id>, --panel=sea
+#   dazu --wildlife=1: Tierbestand je Insel und Bau; --dentest=<Sekunde>: dann alle Baue zerstören lassen; --weak=1: ohne Waffenkunde (Tiere gefährlicher), Bildschirmfoto: --island=<id>, --panel=sea
 # Bildschirmfoto-Optionen: --panel=research|build|stock|fest (--festframe=<s>), --selectb=<typ>, --look=1
 godot --headless --fixed-fps 60 -- --autotest=25 --scale=10 --festvideo=1  # Fest-Video
 xvfb-run godot --rendering-driver opengl3 -- --autotest=20 --shot=/tmp/bild.png

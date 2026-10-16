@@ -1616,5 +1616,18 @@
  "Suche nach einer neuen Version ...": "Checking for a new version ...",
  "Der Server antwortet gerade nicht. Versuche es später noch einmal.": "The server is not answering right now. Try again later.",
  "Du spielst schon die neueste Version (%s).": "You are already playing the newest version (%s).",
- "Die neue Version lädst du jederzeit über Menü > Nach neuer Version suchen.": "You can load the new version any time via Menu > Check for a new version."
+ "Die neue Version lädst du jederzeit über Menü > Nach neuer Version suchen.": "You can load the new version any time via Menu > Check for a new version.",
+ "Hat keinen Bau mehr und irrt umher.": "Has no den anymore and wanders around.",
+ "Zerstört den Bau": "Destroying the den",
+ "Zerstört: %s": "Destroying: %s",
+ "Nicht zerstören": "Don't destroy",
+ "Bau zerstören lassen (Jäger)": "Destroy den (hunter)",
+ "Es gibt hier noch keinen Jäger. Gib einem Siedler den Beruf Jäger.": "There is no hunter here yet. Give a settler the hunter job.",
+ "Ein Jäger zerstört den Bau bald. Die Tiere verteidigen ihn!": "A hunter will destroy the den soon. The animals will defend it!",
+ "Die %s ziehen dann zu einem anderen Bau auf der Insel.": "The %s will then move to another den on the island.",
+ "Das ist der letzte Bau der %s hier. Ohne Bau sterben sie auf dieser Insel aus.": "This is the last den of the %s here. Without a den they die out on this island.",
+ "Ein Jäger": "A hunter",
+ "%s hat einen Bau zerstört (%s). Die %s ziehen zu einem anderen Bau.": "%s destroyed a den (%s). The %s move to another den.",
+ "%s hat den letzten Bau der %s zerstört. Ohne Bau sterben sie hier aus.": "%s destroyed the last den of the %s. Without a den they will die out here.",
+ "%s hat einen Bau zerstört (%s).": "%s destroyed a den (%s)."
 }
