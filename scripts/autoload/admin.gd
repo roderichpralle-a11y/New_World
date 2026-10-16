@@ -42,6 +42,8 @@ var orders: Dictionary = {}    # Beruf -> {"ot": Überstunden, "since": seit Tag
 var protest: Dictionary = {}   # Beruf -> Protest bis Tag
 var reported: Dictionary = {}  # Beruf -> letzte Meldung (Tag)
 var auto_reassign := false     # Stirbt jemand mit Beruf, bekommt ein freier Siedler diesen Beruf (josh 2026-10-16)
+var pending_jobs: Array = []   # Berufe Verstorbener ohne freien Nachfolger: das nächste erwachsene Kind lernt sie
+const AUTO_AGE := 2            # Neuzuweisung erst ab dem Mittelalter (Zeitalter-Index, josh 2026-10-16)
 var _next_tick := 0.0
 var _night_check_at := 0
 var _night_cached := false
@@ -286,10 +288,20 @@ func set_shift(job: String, on: bool) -> void:
 	changed.emit()
 
 
-## Automatische Neuzuweisung: Stirbt ein Siedler mit Beruf, übernimmt ein freier Erwachsener auf
-## derselben Insel den Beruf (einer mit passendem Talent zuerst). Nur auf der Insel der Verwaltung.
+## Neuzuweisung freigeschaltet (ab dem Mittelalter)?
+func auto_unlocked() -> bool:
+	return Game.current_age() >= AUTO_AGE
+
+
+func auto_on() -> bool:
+	return auto_reassign and auto_unlocked()
+
+
+## Automatische Neuzuweisung (ab dem Mittelalter): Stirbt ein Siedler mit Beruf, übernimmt ein freier
+## Erwachsener auf derselben Insel den Beruf (einer mit passendem Talent zuerst). Gibt es keinen,
+## lernt das nächste Kind, das erwachsen wird, den Beruf. Nur auf der Insel der Verwaltung.
 func _on_settler_died(s, _cause: String) -> void:
-	if not auto_reassign or s == null or not s.is_adult() or s.job in ["frei", JOB]:
+	if not auto_on() or s == null or not s.is_adult() or s.job in ["frei", JOB]:
 		return
 	if not active_on(s.world) or not Data.jobs.has(s.job):
 		return
@@ -300,10 +312,26 @@ func _on_settler_died(s, _cause: String) -> void:
 		if pick == null or (TalentInfo.job_match(o.mind, s.job) and not TalentInfo.job_match(pick.mind, s.job)):
 			pick = o
 	if pick == null:
+		pending_jobs.append(s.job)
+		Game.notify_at(s.world, tr("Für den Beruf %s von %s gibt es keinen freien Siedler. Das nächste Kind, das erwachsen wird, lernt ihn.") % [_name(s.job), s.display_name], "wissen", "verwaltung")
+		changed.emit()
 		return
 	pick.set_job(s.job)
 	Game.notify_at(s.world, tr("%s übernimmt den Beruf %s von %s.") % [pick.display_name, _name(s.job), s.display_name], "wissen", "verwaltung")
 	changed.emit()
+
+
+## Ein Kind ist erwachsen geworden: es lernt den ältesten offenen Beruf eines Verstorbenen.
+func on_grown_up(s) -> bool:
+	if pending_jobs.is_empty() or not auto_on() or not active_on(s.world):
+		return false
+	var job: String = pending_jobs.pop_front()
+	if not Data.jobs.has(job):
+		return false
+	s.set_job(job)
+	Game.notify_at(s.world, tr("%s ist erwachsen und lernt den Beruf %s.") % [s.display_name, _name(job)], "wissen", "verwaltung")
+	changed.emit()
+	return true
 
 
 func _name(job: String) -> String:
@@ -352,12 +380,13 @@ func _on_reset() -> void:
 	protest = {}
 	reported = {}
 	auto_reassign = false
+	pending_jobs = []
 	_next_tick = 0.0
 	changed.emit()
 
 
 func _on_save(d: Dictionary) -> void:
-	d["admin"] = {"orders": orders.duplicate(true), "protest": protest.duplicate(), "reported": reported.duplicate(), "auto": auto_reassign}
+	d["admin"] = {"orders": orders.duplicate(true), "protest": protest.duplicate(), "reported": reported.duplicate(), "auto": auto_reassign, "pending": pending_jobs.duplicate()}
 
 
 func _on_load(data: Dictionary, old_rules: int) -> void:
@@ -368,6 +397,9 @@ func _on_load(data: Dictionary, old_rules: int) -> void:
 	if not (e is Dictionary):
 		return
 	auto_reassign = bool(e.get("auto", false))
+	var pj = e.get("pending", [])
+	if pj is Array:
+		pending_jobs = pj.map(func(j): return str(j)).filter(func(j): return Data.jobs.has(j))
 	var o = e.get("orders", {})
 	if o is Dictionary:
 		for job in o:

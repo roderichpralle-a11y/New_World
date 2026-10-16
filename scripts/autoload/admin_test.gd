@@ -165,6 +165,48 @@ static func run(main) -> void:
 	w2.remove_settler(o2)
 	w2.remove_settler(r2)
 	w2.remove_settler(v3)
+	# Neuzuweisung freier Berufe ab dem Mittelalter (josh 2026-10-16)
+	var keep_passed: int = Exams.passed
+	var keep_jobs := {}
+	for s in w.settlers:
+		if s.is_adult() and s.job == "frei":
+			keep_jobs[s] = "frei"
+			s.job = "sammler"
+	var mkx := func(n: String, job: String, age: float):
+		var x = w.spawn_settler({"name": n, "sex": "m", "age": age, "max_age": 70.0, "x": w.center.x, "y": w.center.y,
+			"mind": {"traits": {}, "talents": {}}})
+		if job != "":
+			x.set_job(job)
+		return x
+	Admin.auto_reassign = true
+	Exams.passed = 1
+	var f1 = mkx.call("A1", "", 30.0)
+	f1.set_job("frei")
+	w.kill_settler(mkx.call("D1", "fischer", 30.0), "Test")
+	_ok(not Admin.auto_unlocked() and f1.job == "frei" and Admin.pending_jobs.is_empty(), "vor dem Mittelalter keine Neuzuweisung")
+	Exams.passed = 2
+	w.kill_settler(mkx.call("D2", "fischer", 30.0), "Test")
+	_ok(f1.job == "fischer", "ab dem Mittelalter übernimmt ein freier Siedler den Beruf (%s)" % f1.job)
+	w.kill_settler(mkx.call("D3", "holzfaeller", 30.0), "Test")
+	_ok(Admin.pending_jobs == ["holzfaeller"], "kein freier Siedler: Beruf wartet auf ein Kind %s" % [Admin.pending_jobs])
+	var dp := {}
+	Admin._on_save(dp)
+	dp = JSON.parse_string(JSON.stringify(dp))
+	Admin._on_load(dp, 9)
+	_ok(Admin.pending_jobs == ["holzfaeller"] and Admin.auto_reassign, "offener Beruf bleibt im Spielstand")
+	var kid = mkx.call("K1", "", float(Data.bal("adult_age")) - 0.001)
+	kid._needs(0.01)
+	_ok(kid.is_adult() and kid.job == "holzfaeller" and Admin.pending_jobs.is_empty(), "das nächste erwachsene Kind lernt den Beruf (%s)" % kid.job)
+	var kid2 = mkx.call("K2", "", float(Data.bal("adult_age")) - 0.001)
+	kid2._needs(0.01)
+	_ok(kid2.job == "frei", "danach werden Kinder wieder frei")
+	for x in [f1, kid, kid2]:
+		w.remove_settler(x)
+	for s in keep_jobs:
+		if is_instance_valid(s):
+			s.job = keep_jobs[s]
+	Admin.auto_reassign = false
+	Exams.passed = keep_passed
 	# Spielstand
 	var d := {}
 	Admin._on_save(d)

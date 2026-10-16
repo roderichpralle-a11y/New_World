@@ -305,7 +305,8 @@ func _needs(days: float) -> void:
 	if not was_adult and is_adult():
 		job = "frei"
 		var tal := TalentInfo.short_list(mind)
-		Game.notify(tr("%s ist erwachsen und kann jetzt arbeiten.%s") % [display_name,
+		if not Admin.on_grown_up(self):
+			Game.notify(tr("%s ist erwachsen und kann jetzt arbeiten.%s") % [display_name,
 			(tr(" Talent: %s schneller.") % tal) if tal != "" else ""], "person")
 		abort_plan()
 	_update_scale()

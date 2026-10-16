@@ -1700,5 +1700,10 @@
  "Es gibt fünf Plätze. Im aktiven Spielstand speichert das Spiel von selbst. Hier kannst du einen Spielstand laden, hierhin speichern, ein neues Spiel beginnen sowie als Datei ausgeben und einlesen.": "There are five slots. The game saves by itself into the active slot. Here you can load a saved game, save here, start a new game, and export or import a file.",
  "Hier schaltest du ein, welche Arten von Meldungen im Spiel erscheinen. „Alle an“ schaltet alle Arten wieder ein.": "Here you choose which kinds of messages appear in the game. \"All on\" turns every kind back on.",
  "Hier stehen die offenen Aufträge mit Fortschritt und Belohnung.": "Here you see the open quests with progress and reward.",
- "Unter „Karte“ siehst du die Inseln, die du kennst; unter „Schiffe“ deine Schiffe, Besatzungen und Routen. Waren kommen nur mit dem Schiff von Insel zu Insel. Mit der Entdeckungsreise suchst du neue Inseln.": "Under \"Map\" you see the islands you know; under \"Ships\" your ships, crews and routes. Goods only travel between islands by ship. With the expedition you look for new islands."
+ "Unter „Karte“ siehst du die Inseln, die du kennst; unter „Schiffe“ deine Schiffe, Besatzungen und Routen. Waren kommen nur mit dem Schiff von Insel zu Insel. Mit der Entdeckungsreise suchst du neue Inseln.": "Under \"Map\" you see the islands you know; under \"Ships\" your ships, crews and routes. Goods only travel between islands by ship. With the expedition you look for new islands.",
+ "Für den Beruf %s von %s gibt es keinen freien Siedler. Das nächste Kind, das erwachsen wird, lernt ihn.": "There is no free settler for the job %s of %s. The next child to grow up will learn it.",
+ "%s ist erwachsen und lernt den Beruf %s.": "%s has grown up and learns the job %s.",
+ "Stirbt ein Siedler mit Beruf, bekommt automatisch ein freier Siedler diesen Beruf. Gibt es keinen, lernt ihn das nächste Kind, das erwachsen wird.": "When a settler with a job dies, a free settler automatically gets that job. If there is none, the next child to grow up learns it.",
+ "(ab dem Mittelalter)": "(from the Middle Ages)",
+ "Wartet auf das nächste erwachsene Kind: %s": "Waiting for the next child to grow up: %s"
 }
