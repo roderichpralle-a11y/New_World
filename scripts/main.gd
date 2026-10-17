@@ -930,7 +930,7 @@ func _update_ui_scale() -> void:
 
 ## Beispielzeilen fuer das Fenster "Neue Regeln" (Testhilfe --rulesdialog=1).
 func _sample_rules_lines() -> Array:
-	return [tr("Forschung ab der Antike verbraucht Tontafeln (Tafelmacherei), später Papier, Strom und Elektronik. Forschungen kosten mehr."),
+	return [tr("Forschung ab der Antike verbraucht Tontafeln (Tafelmacherei), später Papier, Strom und Elektronik. Fehlen sie, wird nur mit 20 % des Tempos geforscht."),
 		tr("Winter und Sommer sind jedes Jahr anders. Im Herbst sagen die Alten voraus, wie hart der Winter wird."),
 		tr("Häuser haben Bedürfnisse. Höhere Werkstätten brauchen Arbeiter aus zufriedenen Häusern, z. B. die Schmiede Bewohner zufriedener Holzhäuser."),
 		tr("Jede Inselart hat Stärken. Palmeninseln haben Gewürze. Händler kommen an Häfen und handeln gegen Gold."),

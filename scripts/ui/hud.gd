@@ -2017,6 +2017,57 @@ func _fit_rules_dialog() -> void:
 		_rules_panel.reset_size()
 
 
+## Hinweis-Fenster (Hints, josh 2026-10-17): Symbol, Überschrift, 3 bis 5 Sätze und „Verstanden“,
+## so breit wie eine Menükarte. Das Spiel hält an, solange es offen ist; danach kommt der nächste Hinweis.
+var _hint_dialog: Control
+
+
+func _show_hint(key: String) -> void:
+	if key == "":
+		return
+	var bg := ColorRect.new()
+	bg.color = Color(0.05, 0.08, 0.15, 0.35)
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.mouse_filter = Control.MOUSE_FILTER_STOP
+	root.add_child(bg)
+	_hint_dialog = bg
+	var c := CenterContainer.new()
+	c.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.add_child(c)
+	var p := PanelContainer.new()
+	c.add_child(p)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 10)
+	p.add_child(v)
+	var w: float = minf(440.0, get_viewport().get_visible_rect().size.x - 40.0)
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 8)
+	head.add_child(UiTheme.icon_rect(Data.icon(Hints.icon(key)), 26))
+	var t := UiTheme.label(Hints.title(key), 20, UiTheme.TEXT, true)
+	t.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	t.custom_minimum_size.x = w - 40.0
+	head.add_child(t)
+	v.add_child(head)
+	var l := UiTheme.label(Hints.text(key), 15)
+	l.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.custom_minimum_size.x = w
+	v.add_child(l)
+	var ok := UiTheme.button(tr("Verstanden"), "play", 40)
+	ok.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	ok.custom_minimum_size.x = 160
+	v.add_child(ok)
+	var prev := Game.speed
+	Game.set_speed(0)
+	ok.pressed.connect(func():
+		bg.queue_free()
+		_hint_dialog = null
+		if Game.speed == 0:
+			Game.set_speed(prev))
+	Sound.play("klick")
+
+
 func _slot_button(text: String) -> Button:
 	var b := Button.new()
 	b.text = text
@@ -2044,7 +2095,8 @@ func _build_notify_panel() -> void:
 	var r := _popup_panel(tr("Meldungen"), "glocke", "meldungen")
 	_notify_panel = r[0]
 	var v: VBoxContainer = r[1]
-	var rows := [["goal_card", tr("Zielkarte mit Aufträgen (oben links)"), Game.goal_card_on]]
+	var rows := [["goal_card", tr("Zielkarte mit Aufträgen (oben links)"), Game.goal_card_on],
+		["hints", tr("Hinweis-Fenster, wenn etwas Neues kommt"), Game.hints_on]]
 	for c in Game.NOTIFY_CATS:
 		rows.append([c, Game.NOTIFY_CATS[c], not Game.notify_off.get(c, false)])
 	_notify_grid = GridContainer.new()
@@ -2138,7 +2190,7 @@ const CHALLENGE_HELP := """[b]Mehr Herausforderung[/b]
 Jedes Jahr ist anders: Es gibt milde, normale, harte und eisige Winter und manchmal einen heißen Sommer. Im Herbst sagen die Alten genau voraus, wie hart der Winter wird; das Symbol neben der Jahreszeit zeigt es. Lege dann genug Holz und Essen zurück.
 Häuser haben Bedürfnisse: Dorfbewohner im Holzhaus wollen Abwechslung beim Essen und Möbel (Bretter), Bürger im Steinhaus zubereitetes Essen, Hausrat (Werkzeug) und eine Schule, später kommen Glas, Papier, Gewürze, Strom und Elektronik dazu. Nur zufriedene Häuser stellen Fachkräfte für höhere Werkstätten wie Schmiede, Bibliothek oder Fabrik. Ein Haus zählt nur dann als Steinhaus oder höher, wenn auch die Bedürfnisse der Stufen darunter erfüllt sind. Tippe auf ein Haus, um zu sehen, was fehlt.
 Ab dem zweiten Jahr kündigen sich Ereignisse an: Dürre, Ratten, Brand, Seuche, Sturmflut und ab dem Mittelalter Piraten. Das Ereignis-Symbol oben rechts zeigt, was kommt und was hilft (zum Beispiel ein Großes Lager gegen Ratten).
-Ab der Antike brauchen Forscher Tontafeln aus der Tafelmacherei, später Papier, Strom und Elektronik. Fehlen sie, geht die Forschung nur langsam.
+Ab der Antike verbrauchen Forscher Tontafeln aus der Tafelmacherei, später Papier, Strom und Elektronik. Fehlen sie, wird nur mit 20 % des Tempos geforscht.
 Ein neues Zeitalter beginnt erst nach einer Prüfung. Im Entwicklungsbaum steht unter dem nächsten Zeitalter, was dafür fehlt. Jede bestandene Prüfung bringt ein Fest, Einwanderer und Waren.
 Oben links bietet das Auftragsbrett drei Aufträge an; du suchst dir einen aus. Belohnungen sind Waren, Forschung, Einwanderer, dauerhafte Segen oder Baupläne."""
 
@@ -2954,7 +3006,8 @@ func _overlay_clear() -> void:
 
 func has_overlay() -> bool:
 	# Auch das Fenster "Neue Regeln" (Spiel angehalten; Zeigerpfeil und Ziele warten)
-	return _overlay != null or (_rules_dialog != null and is_instance_valid(_rules_dialog))
+	return _overlay != null or (_rules_dialog != null and is_instance_valid(_rules_dialog)) \
+		or (_hint_dialog != null and is_instance_valid(_hint_dialog))
 
 
 # ================================================================== Layout
@@ -3178,6 +3231,8 @@ func _process(delta: float) -> void:
 	_season_label.text = Seasons.short_text(get_viewport().get_visible_rect().size.x >= 900.0)  # Klima-Name nur mit Platz
 	if _rules_dialog:
 		_fit_rules_dialog()
+	if not Hints.queue.is_empty() and _hint_dialog == null and not has_overlay():
+		_show_hint(Hints.pop())
 	_research_tick -= delta
 	if _research_tick <= 0.0:
 		_research_tick = 0.5

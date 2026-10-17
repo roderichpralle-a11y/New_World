@@ -29,7 +29,7 @@ func _ready() -> void:
 func _on_state_load(_data: Dictionary, old_rules: int) -> void:
 	clear_cache()
 	if old_rules < 1:
-		Game.rules_lines.append(tr("Forschung ab der Antike verbraucht Tontafeln (Tafelmacherei), später Papier, Strom und Elektronik. Forschungen kosten mehr."))
+		Game.rules_lines.append(tr("Forschung ab der Antike verbraucht Tontafeln (Tafelmacherei), später Papier, Strom und Elektronik. Fehlen sie, wird nur mit 20 % des Tempos geforscht."))
 
 
 ## Freischaltungen haben sich geaendert (Game._recompute_effects: Forschung fertig, Laden, neues Spiel).
@@ -193,7 +193,7 @@ func head_lines(w, researchers: int) -> Array:
 	var miss := missing_at(w, t)
 	var warn := ""
 	if not miss.is_empty() and researchers > 0:
-		warn = tr("Es fehlen %s: Forschung nur %d %%.") % [names_text(miss), roundi(float(Data.bal("writing_missing_factor", 0.2)) * 100.0)]
+		warn = tr("Es fehlen %s, darum wird nur mit %d %% des Tempos geforscht.") % [names_text(miss), roundi(float(Data.bal("writing_missing_factor", 0.2)) * 100.0)]
 		var hint := _producer_hint(w, miss)
 		if not hint[0].is_empty():
 			warn += " " + tr("Baue: %s.") % ", ".join(hint[0])
@@ -212,7 +212,7 @@ func info_line(w) -> Array:
 	var g := goods_for(t)
 	if g.is_empty():
 		if Game.current_age() < 1:
-			return [tr("Ab der Antike brauchen Forscher Tontafeln."), false]
+			return [tr("Ab der Antike verbrauchen Forscher Tontafeln. Ohne Tontafeln wird nur mit 20 % des Tempos geforscht."), false]
 		return ["", false]
 	var parts := []
 	for id in g:

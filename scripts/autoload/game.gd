@@ -576,6 +576,7 @@ const NOTIFY_ICON_CAT := {"": "tag", "sonne": "tag", "herz": "siedler", "person"
 	"feuer": "ereignis", "ratte": "ereignis", "ziel": "ziel"}
 var notify_off: Dictionary = {}  # Art -> true, wenn abgeschaltet (user://settings.cfg [notify])
 var goal_card_on: bool = true
+var hints_on: bool = true  # Hinweis-Fenster bei Neuem (Hints), sonst nur als Meldung
 
 
 func notify(text: String, icon: String = "", cat: String = "") -> void:
@@ -618,11 +619,14 @@ func _load_notify_settings() -> void:
 	for c in NOTIFY_CATS:
 		notify_off[c] = not bool(cf.get_value("notify", c, true))
 	goal_card_on = bool(cf.get_value("notify", "goal_card", true))
+	hints_on = bool(cf.get_value("notify", "hints", true))
 
 
 func set_notify(cat: String, on: bool) -> void:
 	if cat == "goal_card":
 		goal_card_on = on
+	elif cat == "hints":
+		hints_on = on
 	else:
 		notify_off[cat] = not on
 	var cf := ConfigFile.new()
