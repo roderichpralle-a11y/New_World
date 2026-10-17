@@ -273,6 +273,30 @@ Zeitalterwechsel mit Wertung und Aufträge mit Wahl. Überblick und Zusammenspie
 **Versionsnummer:** steht in `project.godot` unter `application/config/version`. Die ersten beiden Stellen (1.0) zählt man dort von Hand hoch; die letzte setzt der Web-Build selbst auf die Zahl der Stände des Zweigs (`git rev-list --count --first-parent HEAD`), jeder Build von main zählt also eins weiter. Das Menü und der Titelbildschirm zeigen sie unten an, die Testversion mit dem Zusatz „(Testversion)“.
 
 **Leiste unten (josh 2026-10-19):** Bildknöpfe ohne Text (`Hud._menu_button`, Bilder 20x20 aus assets/sprites/menu_icons.png, erzeugt mit tools/gen_art_menu.py, Name im Tooltip): Bauen, Forschung (Tooltip mit Fortschritt), Siedler, Inseln, Verwalter (ab der Forschung der Verwaltung; öffnet das Infofenster der Verwaltung, ohne Verwaltung ein Hinweis), Menü. **Offene Fenster stehen still** (josh 2026-10-19): Bauen, Forschung, Siedler, Vorräte, Inseln, Handel und Aufträge bauen sich nicht von selbst neu, nur beim Öffnen oder bis 1,5 s nach einem Tipp des Spielers (`Hud.user_just_acted`); die Seekarte bewegt sich weiter. Das Baumenü zeigt je Ware „im Lager / nötig“; was offene Baustellen noch holen, steht im Fuß.
+**Verwalter-Steuerung bis KI (josh 2026-10-17, Testversion /neu/, in Stufen):** Fahrplan: 1. Verwalter
+steuert die Berufe ab der 2. Insel; 2. ab der 3. Insel Routen nach Mindest- und Höchststand je Insel;
+3. ab Papier tauschen die Verwalter der Inseln Bedarf aus (Heimatinsel nur noch Endverarbeitung, Inseln
+liefern Essen und Rohstoffe), Automaten ab 2. Insel + über 60 Siedler + Renaissance, mit Strom ersetzt ein
+Automat den Verwalter; 4. Droiden aus der Fabrik ab Strom und Halbleitern; 5. KI und Superintelligenz bis
+zum Ende am Lagerfeuer. **Stufe 1** (`scripts/autoload/steward.gd`, Autoload `Steward`): ab zwei
+besiedelten Inseln einmal das Fenster „Der Verwalter kann die Berufe steuern“ (`Hud.choice_dialog`,
+`Steward.offer`); an/aus auch im Reiter Inseln (`SeaPanel._steward_row`). Kein Gebäude nötig. Alle
+0,25 Tage je Insel (nicht über `MAX_POP` 60 Siedler) bis zu 2 Wechsel nach `Steward.needed`: Essen unter
+3 Tagen (unter 1,5 Tagen auch aus anderen Berufen), Brennholz unter 4 Tagen ab Sommer, Baustellen,
+stillstehende Werkstätten, Lager unter 90 % der Höchstmenge (`World.store_limits`, Erzeuger aus
+`RAW_JOB` oder der Werkstatt). Nimmt zuerst Freie, dann Überzählige (Waren am Ziel oder Lager voll), nie
+Verwalter, Seeleute, Baumeister, Forscher. Vom Spieler gesetzte Berufe (`Steward.player_set` aus der
+Siedlerliste und dem Infofenster) bleiben 2 Tage. Spielstand `steward` {on, offered, locks}. Test
+`--fixture=sea.json --stewardtest=1` („Verwalter OK/FEHLER“), Bild `--stewardtest=shot`. **Stufe 2**
+(ab drei besiedelten Inseln, Fenster „Der Verwalter kann Waren zwischen den Inseln fahren“): im Reiter
+Inseln auf eine Zahl tippen, Mindest- und Höchststand je Insel und Ware (`Steward.minmax`, gespeichert,
+`SeaPanel._minmax_editor`, Zelle zeigt „min–max“). Alle 0,5 Tage (`route_tick`, nur wenn an) eine Fahrt:
+unter Mindeststand holt ein freies Schiff (keine Route, keine Fahrt, leer, mit Besatzung, das nächste
+zuerst) die Ware bis zum Höchststand (ohne Höchststand doppelter Mindeststand) von der Insel mit dem
+meisten Überschuss (über ihrem eigenen Mindeststand); über Höchststand fährt der Überschuss zu einer Insel
+unter ihrem Höchststand (Heimatinsel zuerst). Unterwegs- und Abholmengen (`incoming`, `outgoing`) zählen
+mit. Fahrten über `Sea.start_trip`, `sh.steward = true`. Test `--stewardtest=routes`, Bild
+`--panel=sea --seaview=minmax`.
 
 **Einheitliche Fenster (josh 2026-10-16, Variante A):** Jedes Fenster aus `Hud._popup_panel(titel, symbol)` hat denselben Kopf: Symbol, Titel (genau der Name des Knopfes, der es öffnet), rechts das X. Kein Hinweistext unter dem Titel; was man wissen muss, steht im Fenster selbst oder als Tooltip. Ein Tipp außerhalb aller Fenster (nicht auf die Leisten oben und unten, nicht aufs Infofenster) schließt sie (`Hud._input`) und löst nichts auf der Karte aus. Namen: Fenster „Vorräte“ (früher Lager; das Gebäude heißt weiter Lager), Fenster „Inseln“ (früher Seekarte) mit Reiter „Karte“ und Knopf „Entdeckungsreise“ (früher „Neue Insel suchen“). Menü > Wertung entfällt (das Fenster `_score_panel` und die Punkte bleiben im Code). Siedlerfenster: zwei Listen übereinander, oben „Mit Beruf“, unten „Frei“ (freie Erwachsene und Kinder); Filter und Sortierung gelten für beide; auf dem Handy quer entfallen Zähler und Spaltenköpfe (`_size_settler_panel`, `tight`). Gesperrte Gebäude im Bauen-Fenster zeigen statt der Kosten den kleinen Knopf „Forsch.“ (öffnet die Forschung). Verwaltung (Infofenster des Gebäudes, `AdminInfo.office_rows`): Reiter Verwalter, Schichten, Überstunden; Reiter Verwalter zeigt den Verwalter und den Schalter „Automatische Neuzuweisung freier Berufe“ (`Admin.auto_reassign`, gespeichert unter `admin.auto`): stirbt ein Siedler mit Beruf auf der Insel der Verwaltung, übernimmt ein freier Erwachsener (einer mit passendem Talent zuerst) den Beruf. Erst ab dem Mittelalter (`Admin.AUTO_AGE` 2, `Admin.auto_unlocked()`, vorher ist der Schalter ausgegraut; josh 2026-10-16). Gibt es keinen freien Erwachsenen, kommt der Beruf in `Admin.pending_jobs` (gespeichert unter `admin.pending`), und das nächste Kind, das erwachsen wird, lernt ihn (`Admin.on_grown_up` aus `Settler._needs`); das Fenster zeigt die wartenden Berufe. Stirbt der Verwalter selbst, wird sein Posten genauso neu besetzt (josh 2026-10-17; `Admin._covers` lässt den Verwalterposten auch ohne lebenden Verwalter zu, solange die Verwaltung auf der Insel steht). Entwurfsbilder: /mnt/project-files/konzept/.
 

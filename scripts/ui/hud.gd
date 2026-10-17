@@ -140,6 +140,7 @@ func setup(p_world: World, p_camera: GameCamera) -> void:
 	Game.game_over.connect(_show_game_over)
 	world.placement_changed.connect(_on_placement)
 	Sea.islands_changed.connect(_update_sea_button)
+	Steward.offer.connect(func(k): _offers.append(k))  # Verwalter-Steuerung anbieten
 	get_viewport().size_changed.connect(_layout)
 	_update_sea_button()
 	_update_admin_button()
@@ -1523,6 +1524,7 @@ func _refresh_settler_list() -> void:
 			ob.tooltip_text = tr("Beruf wählen") + (tr("\nStern: passt zum Talent (%s)") % TalentInfo.short_list(s.mind) if not s.mind.best_talents().is_empty() else "")
 			ob.item_selected.connect(func(i):
 				sref.set_job(ids[i])
+				Steward.player_set(sref)  # Verwalter überstimmt das eine Weile nicht
 				Game.player_action.emit("job", ids[i])
 				_refresh_settler_list.call_deferred())  # Zeile wandert zu „Mit Beruf“ oder „Frei“
 			h.add_child(ob)
@@ -2192,6 +2194,73 @@ func _show_hint(key: String) -> void:
 	Sound.play("klick")
 
 
+## Angebote (Verwalter-Steuerung, Steward.offer): Fenster mit Text und Knöpfen, Spiel hält an.
+var _offers: Array = []
+
+
+func _show_offer(kind: String) -> void:
+	match kind:
+		"jobs":
+			choice_dialog("person", tr("Der Verwalter kann die Berufe steuern"),
+				tr("Jetzt hast du mehr als eine Insel, und die Arbeit wird mehr. Der Verwalter kann auf allen Inseln, auch auf der Heimatinsel, die Berufe der Siedler nach dem Bedarf verteilen:\n• Er sorgt dafür, dass immer genug zu essen da ist.\n• Er sorgt für Brennholz, damit im Herbst und Winter niemand friert.\n• Er füllt die Lager bis zur Höchstmenge, die du unter Vorräte eingestellt hast.\n• Er besetzt Werkstätten, die stillstehen, und schickt Baumeister zu Baustellen.\nGibst du einem Siedler selbst einen Beruf, lässt der Verwalter ihn 2 Tage in Ruhe. Inseln mit mehr als 60 Siedlern schafft er nicht. Ein- und ausschalten kannst du ihn jederzeit unter Inseln."),
+				[[tr("Verwalter einschalten"), "play", func(): Steward.set_on(true)], [tr("Später"), "abriss", func(): pass]])
+		"routes":
+			var btns: Array = [[tr("Verstanden"), "play", func(): pass]]
+			if not Steward.on:
+				btns = [[tr("Verwalter einschalten"), "play", func(): Steward.set_on(true)], [tr("Später"), "abriss", func(): pass]]
+			choice_dialog("anker", tr("Der Verwalter kann Waren zwischen den Inseln fahren"),
+				tr("Mit der dritten Insel wird das Hin und Her der Waren mühsam. Der Verwalter kann es übernehmen: Tippe unter Inseln in der Tabelle auf eine Zahl und stelle für diese Ware auf dieser Insel einen Mindest- und einen Höchststand ein.\n• Liegt weniger als der Mindeststand da, holt er die Ware mit einem freien Schiff von einer Insel, die genug hat.\n• Liegt mehr als der Höchststand da, bringt er den Überschuss weg, zuerst zur Heimatinsel.\nEr nimmt nur freie Schiffe ohne Route; deine Routen und Fahrten bleiben, wie sie sind."),
+				btns)
+
+
+## Fenster mit Titel, Text und Knöpfen [Text, Symbol, Callable]; hält das Spiel an, bis ein Knopf gedrückt ist.
+func choice_dialog(icon: String, title: String, text: String, buttons: Array) -> void:
+	var bg := ColorRect.new()
+	bg.color = Color(0.05, 0.08, 0.15, 0.35)
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.mouse_filter = Control.MOUSE_FILTER_STOP
+	root.add_child(bg)
+	_hint_dialog = bg
+	var c := CenterContainer.new()
+	c.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.add_child(c)
+	var p := PanelContainer.new()
+	c.add_child(p)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 10)
+	p.add_child(v)
+	var w: float = minf(480.0, get_viewport().get_visible_rect().size.x - 40.0)
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 8)
+	head.add_child(UiTheme.icon_rect(Data.icon(icon), 26))
+	var t := UiTheme.label(title, 20, UiTheme.TEXT, true)
+	t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	t.custom_minimum_size.x = w - 40.0
+	head.add_child(t)
+	v.add_child(head)
+	var l := UiTheme.label(text, 14)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.custom_minimum_size.x = w
+	v.add_child(l)
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 10)
+	v.add_child(row)
+	var prev := Game.speed
+	Game.set_speed(0)
+	for bd in buttons:
+		var b := UiTheme.button(bd[0], bd[1], 40)
+		var cb: Callable = bd[2]
+		b.pressed.connect(func():
+			bg.queue_free()
+			_hint_dialog = null
+			if Game.speed == 0:
+				Game.set_speed(maxi(prev, 1))
+			cb.call())
+		row.add_child(b)
+	Sound.play("klick")
+
+
 func _slot_button(text: String) -> Button:
 	var b := Button.new()
 	b.text = text
@@ -2612,6 +2681,7 @@ func _info_settler(s: Settler) -> void:
 				b.tooltip_text = tip + tr("\nBenötigt Forschung: %s") % Data.techs.get(jd.requires, {}).get("name", "?")
 			b.pressed.connect(func():
 				s.set_job(jid)
+				Steward.player_set(s)  # Verwalter überstimmt das eine Weile nicht
 				Game.player_action.emit("job", jid)
 				_rebuild_info())
 			grid.add_child(b)
@@ -3391,6 +3461,8 @@ func _process(delta: float) -> void:
 		_fit_rules_dialog()
 	if not Hints.queue.is_empty() and _hint_dialog == null and not has_overlay():
 		_show_hint(Hints.pop())
+	elif not _offers.is_empty() and _hint_dialog == null and not has_overlay():
+		_show_offer(_offers.pop_front())
 	_research_tick -= delta
 	if _research_tick <= 0.0:
 		_research_tick = 0.5
