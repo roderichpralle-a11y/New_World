@@ -309,7 +309,19 @@ des Spielers) zur Heimatinsel, größter zuerst; `_send_goods` lädt mehrere War
 baubar erst ab 2 Inseln, einer Insel mit über 60 Siedlern und der Renaissance (`Steward.automaton_reason`,
 `Game.is_unlocked`, Bauen-Fenster nennt, was fehlt); auf seiner Insel gilt die Grenze von 60 nicht. Ab
 Elektrizität ersetzt ein Automat den Verwalter (`automat_mode`, Fenster einmal, keine Grenze, Meldungen
-„Automat:“ über `Steward.who()`). Test `--stewardtest=net`, Bild `--stewardtest=netshot`.
+„Automat:“ über `Steward.who()`). Test `--stewardtest=net`, Bild `--stewardtest=netshot`. **Stufe 4** (Droiden,
+`scripts/autoload/droids.gd` Autoload `Droids`, `scripts/entities/droid.gd` `class_name Droid extends Settler`):
+Droidenfabrik (Forschung Computer, Bild `droid_factory`) stellt aus Elektronik 4, Stahl 4, Maschinen 2 und Strom
+6 die Ware `droide` her; `Settler._do_produce` legt sie nicht ins Lager, sondern ruft `Droids.build` (Droide
+erscheint am Eingang). Ein neuer Droide übernimmt den Beruf, den die meisten erwachsenen Siedler der Insel
+haben (nicht `Droids.HUMAN_JOBS`: Forscher, Verwalter, Seeleute, Jäger, Frei; keine vom Spieler gesperrten),
+der Siedler wird frei. Droiden stehen in `World.droids` (gespeichert unter `droids` je Insel, nicht in
+`settlers`: keine Bevölkerung, kein Essen, keine Häuser, kein Schaden), essen, schlafen und altern nicht,
+arbeiten mit Tempo 1,25 ohne Hausstufe (`HouseNeeds.pool_block`) und brauchen `POWER_PER_DAY` 1 Strom am Tag
+aus dem Inselllager (`Droids.tick` alle 0,1 Tage); ohne Strom stehen alle Droiden der Insel still (grau,
+„Kein Strom“). Eigenes Lauf-Sheet `settler_droid.png` (tools/gen_art_machines.py `droid_sheet`), eigenes
+Infofenster (`Hud._info_droid`, Berufswahl ohne Menschen-Berufe). Der Verwalter zählt Droiden bei den
+Berufen mit (`Steward._count`). Spielstand `droids.built`. Test `--droidtest=1`, Bild `--droidtest=shot`.
 
 **Einheitliche Fenster (josh 2026-10-16, Variante A):** Jedes Fenster aus `Hud._popup_panel(titel, symbol)` hat denselben Kopf: Symbol, Titel (genau der Name des Knopfes, der es öffnet), rechts das X. Kein Hinweistext unter dem Titel; was man wissen muss, steht im Fenster selbst oder als Tooltip. Ein Tipp außerhalb aller Fenster (nicht auf die Leisten oben und unten, nicht aufs Infofenster) schließt sie (`Hud._input`) und löst nichts auf der Karte aus. Namen: Fenster „Vorräte“ (früher Lager; das Gebäude heißt weiter Lager), Fenster „Inseln“ (früher Seekarte) mit Reiter „Karte“ und Knopf „Entdeckungsreise“ (früher „Neue Insel suchen“). Menü > Wertung entfällt (das Fenster `_score_panel` und die Punkte bleiben im Code). Siedlerfenster: zwei Listen übereinander, oben „Mit Beruf“, unten „Frei“ (freie Erwachsene und Kinder); Filter und Sortierung gelten für beide; auf dem Handy quer entfallen Zähler und Spaltenköpfe (`_size_settler_panel`, `tight`). Gesperrte Gebäude im Bauen-Fenster zeigen statt der Kosten den kleinen Knopf „Forsch.“ (öffnet die Forschung). Verwaltung (Infofenster des Gebäudes, `AdminInfo.office_rows`): Reiter Verwalter, Schichten, Überstunden; Reiter Verwalter zeigt den Verwalter und den Schalter „Automatische Neuzuweisung freier Berufe“ (`Admin.auto_reassign`, gespeichert unter `admin.auto`): stirbt ein Siedler mit Beruf auf der Insel der Verwaltung, übernimmt ein freier Erwachsener (einer mit passendem Talent zuerst) den Beruf. Erst ab dem Mittelalter (`Admin.AUTO_AGE` 2, `Admin.auto_unlocked()`, vorher ist der Schalter ausgegraut; josh 2026-10-16). Gibt es keinen freien Erwachsenen, kommt der Beruf in `Admin.pending_jobs` (gespeichert unter `admin.pending`), und das nächste Kind, das erwachsen wird, lernt ihn (`Admin.on_grown_up` aus `Settler._needs`); das Fenster zeigt die wartenden Berufe. Stirbt der Verwalter selbst, wird sein Posten genauso neu besetzt (josh 2026-10-17; `Admin._covers` lässt den Verwalterposten auch ohne lebenden Verwalter zu, solange die Verwaltung auf der Insel steht). Entwurfsbilder: /mnt/project-files/konzept/.
 

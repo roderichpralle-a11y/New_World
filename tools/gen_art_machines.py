@@ -110,3 +110,98 @@ def droid_factory():
     ground_line(img, 6, 58)
     add_outline(img)
     return img
+
+
+# ------------------------------------------------------------------ Droide (Lauf-Sheet wie die Siedler)
+DROID_DOWN = [
+    "................",
+    "................",
+    "......oooo......",
+    ".....oLLLLo.....",
+    "....oLMMMMLo....",
+    "....oMVVVVMo....",
+    "....oMEVVEMo....",
+    "....oMVVVVMo....",
+    ".....oMMMMo.....",
+    "......oDDo......",
+    "...ooMMMMMMoo...",
+    "..oMoLMMMMLoMo..",
+    "..oMoMMGGMMoMo..",
+    "..oMoMMGGMMoMo..",
+    "..oDoMMMMMMoDo..",
+    "..ooomDDDDmooo..",
+    ".....oMDDMo.....",
+    ".....oMooMo.....",
+    ".....oMo.oMo....",
+    ".....oMo.oMo....",
+    ".....oDo.oDo....",
+    ".....ooo.ooo....",
+    "................",
+    "................",
+]
+DROID_UP = [r.replace("E", "V").replace("G", "M") for r in DROID_DOWN]
+DROID_UP[5] = "....oMMMMMMo...."
+DROID_UP[6] = "....oMDMMDMo...."
+DROID_UP[7] = "....oMMMMMMo...."
+DROID_SIDE = [
+    "................",
+    "................",
+    "......oooo......",
+    ".....oLLLLo.....",
+    "....oLMMMMMo....",
+    "....oMMMVVVo....",
+    "....oMMMMVEo....",
+    "....oMMMVVVo....",
+    ".....oMMMMo.....",
+    "......oDDo......",
+    ".....oMMMMMo....",
+    ".....oLMMMMo....",
+    ".....oMMMGMo....",
+    ".....oMMMGMo....",
+    ".....oMMMMMo....",
+    ".....oDDDDDo....",
+    "......oMMDo.....",
+    "......oMMo......",
+    "......oMMo......",
+    "......oMMo......",
+    "......oDDo......",
+    "......oooo......",
+    "................",
+    "................",
+]
+DROID_COL = {"o": (30, 32, 44, 255), "L": STEEL[4] + (255,), "M": STEEL[2] + (255,), "m": STEEL[1] + (255,),
+             "D": STEEL[1] + (255,), "V": (40, 50, 70, 255), "E": LED + (255,), "G": (120, 240, 160, 255)}
+
+
+def _droid_frame(rows, frame, side):
+    rows = [list(r) for r in rows]
+    if frame in (1, 3):
+        # Körper 1px hoch, Beine wechseln
+        rows = rows[1:18] + [rows[17]] + rows[18:]
+        if not side:
+            lx = range(5, 8) if frame == 1 else range(9, 12)
+            for y in (19, 20):
+                for x in lx:
+                    if rows[y][x] in "MD":
+                        rows[y][x] = "D" if y == 19 else "o"
+            for x in lx:
+                rows[21][x] = "."
+        else:
+            rows[18] = list(".....oMo.oMo....") if frame == 1 else list("......oMMo......")
+            rows[19] = list("....oMo...oMo...") if frame == 1 else list("......oMMo......")
+            rows[20] = list("....oDo...oDo...") if frame == 1 else list("......oDDo......")
+            rows[21] = list("....ooo...ooo...") if frame == 1 else list("......oooo......")
+    return ["".join(r) for r in rows]
+
+
+def droid_sheet():
+    """settler_droid.png: 4 Lauf-Frames x 3 Richtungen (unten, oben, seitlich), 16x24 je Bild."""
+    sheet = new(64, 72)
+    for di, (rows, side) in enumerate([(DROID_DOWN, False), (DROID_UP, False), (DROID_SIDE, True)]):
+        for f in range(4):
+            fr = _droid_frame(rows, f, side)
+            for y, r in enumerate(fr[:24]):
+                for x, ch in enumerate(r[:16]):
+                    if ch != ".":
+                        put(sheet, f * 16 + x, di * 24 + y, DROID_COL[ch])
+    return sheet

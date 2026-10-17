@@ -1979,5 +1979,17 @@
  "Inselverbund: an (Heimatinsel verarbeitet, die anderen liefern)": "Island network: on (home island processes, the others supply)",
  "Inselverbund: aus (jede Insel versorgt sich selbst)": "Island network: off (every island supplies itself)",
  "Rechenautomat": "Calculating Engine",
- "Zahnräder und Lochstreifen rechnen für den Verwalter: auf dieser Insel steuert er die Berufe auch bei mehr als 60 Siedlern.": "Gears and punched tape calculate for the administrator, so on this island the administrator runs the jobs even with more than 60 settlers."
+ "Zahnräder und Lochstreifen rechnen für den Verwalter: auf dieser Insel steuert er die Berufe auch bei mehr als 60 Siedlern.": "Gears and punched tape calculate for the administrator, so on this island the administrator runs the jobs even with more than 60 settlers.",
+ "Kein Strom: steht still": "No power: standing still",
+ "Kein Strom: %d Droiden stehen still. Baue Kraftwerke oder Solarparks.": "No power: %d droids are standing still. Build power plants or solar parks.",
+ "Droide %s übernimmt die Arbeit von %s als %s. %s ist jetzt frei.": "Droid %s takes over the work of %s as %s. %s is free now.",
+ "Droide %s ist fertig und arbeitet als %s.": "Droid %s is finished and works as %s.",
+ "Wartet auf Arbeit": "Waiting for work",
+ "Droide %s": "Droid %s",
+ "Strom: da (1 am Tag, %d im Lager)": "Power: on (1 per day, %d in storage)",
+ "Isst nicht, schläft nicht, wird nicht alt. Arbeitet etwas schneller als ein Siedler.": "Does not eat, does not sleep, does not age. Works a little faster than a settler.",
+ "Droidenfabrik": "Droid Factory",
+ "Baut aus Elektronik, Stahl, Maschinen und Strom Droiden. Jeder Droide übernimmt die Arbeit eines Siedlers und braucht 1 Strom am Tag.": "Builds droids from electronics, steel, machines and power. Each droid takes over the work of a settler and needs 1 power per day.",
+ "Baut einen Droiden": "Building a droid",
+ "Droide": "Droid"
 }

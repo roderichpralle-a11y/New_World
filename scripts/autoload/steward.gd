@@ -122,7 +122,7 @@ func _adults(w) -> Array:
 
 
 func _count(w, job: String) -> int:
-	return _adults(w).filter(func(s): return s.job == job).size()
+	return _adults(w).filter(func(s): return s.job == job).size() + w.droids.filter(func(d): return d.job == job).size()
 
 
 func _cold_season() -> bool:

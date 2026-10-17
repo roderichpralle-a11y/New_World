@@ -2567,6 +2567,8 @@ func _info_signature() -> String:
 	var o = _info_obj
 	if o == null or not is_instance_valid(o):
 		return ""
+	if o is Droid:
+		return "d%d|%s|%s|%s" % [o.id, o.job, o.powered, _follow]
 	if o is Settler:
 		return "s%d|%s|%s|%d|%s|%s" % [o.id, o.job, o.is_adult(), o.home_id, str(o.skills), _follow]
 	if o is Building:
@@ -2587,7 +2589,9 @@ func _rebuild_info() -> void:
 	if o == null or not is_instance_valid(o):
 		_info_panel.visible = false
 		return
-	if o is Settler:
+	if o is Droid:
+		_info_droid(o)
+	elif o is Settler:
 		_info_settler(o)
 	elif o is Building:
 		_info_building(o)
@@ -2699,6 +2703,52 @@ func _info_settler(s: Settler) -> void:
 				_rebuild_info())
 			grid.add_child(b)
 		_info_box.add_child(grid)
+	var f := UiTheme.button(tr("Folgen"), "person", 34)
+	f.toggle_mode = true
+	f.button_pressed = _follow
+	f.toggled.connect(func(on):
+		_follow = on
+		_info_sig = _info_signature())
+	_info_box.add_child(f)
+
+
+## Droide (Droids): Name, was er tut, Strom, Beruf (nur Berufe, die Droiden übernehmen).
+func _info_droid(d: Droid) -> void:
+	_info_head(tr("Droide %s") % d.display_name)
+	var act := UiTheme.label(d.activity, 14, Color("#6a4a30"))
+	act.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_info_box.add_child(act)
+	var pw := UiTheme.label("", 14, UiTheme.TEXT, true)
+	pw.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_info_box.add_child(pw)
+	_updaters.append(func():
+		act.text = d.activity
+		pw.text = tr("Strom: da (1 am Tag, %d im Lager)") % Game.amount("strom", world) if d.powered else tr("Kein Strom: steht still")
+		pw.add_theme_color_override("font_color", UiTheme.TEXT if d.powered else UiTheme.BAD))
+	var t := UiTheme.label(tr("Isst nicht, schläft nicht, wird nicht alt. Arbeitet etwas schneller als ein Siedler."), 13, DIM)
+	t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_info_box.add_child(t)
+	_info_box.add_child(UiTheme.label(tr("Beruf"), 15, UiTheme.TEXT, true))
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 4)
+	grid.add_theme_constant_override("v_separation", 4)
+	for j in Data.jobs:
+		if not Droids.replaceable(j) and j != "frei":
+			continue
+		var b := UiTheme.button(Data.jobs[j].name, "", 34)
+		b.toggle_mode = true
+		b.button_pressed = d.job == j
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.add_theme_font_size_override("font_size", 14)
+		b.tooltip_text = Data.jobs[j].desc
+		b.disabled = not Data.job_unlocked(j)
+		var jid: String = j
+		b.pressed.connect(func():
+			d.set_job(jid)
+			_rebuild_info())
+		grid.add_child(b)
+	_info_box.add_child(grid)
 	var f := UiTheme.button(tr("Folgen"), "person", 34)
 	f.toggle_mode = true
 	f.button_pressed = _follow
@@ -2825,7 +2875,7 @@ func _recipe_row(p: Dictionary) -> HBoxContainer:
 
 func _names_of(ids: Array) -> Array:
 	var out := []
-	for s in world.settlers:
+	for s in world.settlers + world.droids:
 		if s.id in ids:
 			out.append(s.display_name)
 	return out

@@ -1016,6 +1016,10 @@ func _do_produce(b) -> void:
 			# Ein fertiges Schiff liegt sofort im Wasser (siehe Sea)
 			Game.add_stock(res, n, world)
 			continue
+		if res == "droide":
+			for i in n:
+				Droids.build(world, b)  # ein fertiger Droide läuft sofort los
+			continue
 		if first:
 			carry_res = res
 			carry_n = n
