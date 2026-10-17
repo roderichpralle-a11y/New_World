@@ -26,6 +26,7 @@ HouseNeeds="*res://scripts/autoload/house_needs.gd"
 Merchant="*res://scripts/autoload/merchant.gd"
 Events="*res://scripts/autoload/events.gd"
 Admin="*res://scripts/autoload/admin.gd"
+Hints="*res://scripts/autoload/hints.gd"
 
 [display]
 
