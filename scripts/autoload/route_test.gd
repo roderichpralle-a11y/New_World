@@ -194,3 +194,52 @@ static func trip_test(main) -> void:
 	print("Fahrt ", _okf(int(after1.get("holz", 0)) == 15 and int(after1.get("stein", 0)) == 5), " Austausch an Insel 1: an Bord %s" % [after1])
 	sh.route = []
 	sh.paused = false
+
+
+## --oncetest=werft: Bauaufträge der Werft (Building.ship_queue): ohne Auftrag kein Bau, Kogge erst ab
+## Stufe 2, Auftrag nimmt das Material und wird abgearbeitet, Speichern, Ausbau nimmt die Aufträge mit.
+## Druckt „Werft OK/FEHLER“.
+static func yard_test(main, shot: bool = false) -> void:
+	var w = Game.world
+	Data.balance["base_storage"] = 4000
+	for t in ["schiffsbau", "navigation"]:
+		if not t in Game.research.done:
+			Game.research.done.append(t)
+	for b in w.buildings.duplicate():
+		if b.def.get("ships", false):
+			w.demolish(b)
+	print("Werft: hingestellt ", main._place_on(w, "werft"))
+	var y = null
+	for b in w.buildings:
+		if b.type == "werft":
+			y = b
+	for r in ["bretter", "holz", "werkzeug", "eisen", "felle", "stein"]:
+		Game.add_stock(r, 80, w)
+	if shot:  # Bildschirmfoto: Werft mit zwei Aufträgen im Infofenster
+		y.ship_queue = ["boot", "boot"]
+		y.take_inputs()
+		Game.select(y)
+		main.camera.focus(y.position)
+		return
+	print("Werft ", _okf(y.next_ship() == "" and y.prod_blocker() != ""), " ohne Auftrag: %s" % y.prod_blocker())
+	y.ship_queue = ["kogge"]
+	print("Werft ", _okf(y.prod_blocker().contains("2")), " Kogge auf Stufe 1: %s" % y.prod_blocker())
+	y.ship_queue = ["boot", "boot"]
+	var b0 := Game.amount("bretter", w)
+	var free_b := Sea.free_berth(w, 1)
+	var took: bool = y.take_inputs() if free_b else false
+	print("Werft ", _okf(took and y.ship_wip == "boot" and y.ship_queue.size() == 1 and Game.amount("bretter", w) == b0 - 8),
+		" Auftrag begonnen: in Arbeit %s, noch %s, Bretter %d -> %d (Liegeplatz frei %s)" % [y.ship_wip, y.ship_queue, b0, Game.amount("bretter", w), free_b])
+	var b1 := Game.amount("bretter", w)
+	print("Werft ", _okf(y.take_inputs() and Game.amount("bretter", w) == b1), " angefangenes Schiff kostet nicht noch einmal")
+	var d = JSON.parse_string(JSON.stringify(y.serialize()))
+	print("Werft ", _okf(d.ship_wip == "boot" and d.ship_queue == ["boot"]), " Speichern: %s / %s" % [d.ship_wip, d.ship_queue])
+	y.ship_queue.append("kogge")
+	var nb = w.upgrade_building(y)
+	print("Werft ", _okf(nb != null and nb.type == "werft2" and nb.ship_wip == "boot" and nb.ship_queue == ["boot", "kogge"]), " Ausbau nimmt Aufträge mit: %s %s %s" % [nb.type if nb else "-", nb.ship_wip if nb else "", nb.ship_queue if nb else []])
+	if nb:
+		nb.complete = true
+		nb.ship_wip = ""
+		nb.ship_queue = ["kogge"]
+		var why: String = nb.prod_blocker()
+		print("Werft ", _okf(nb.yard_level() == 2 and not why.contains("Stufe") and not why.contains("level")), " Stufe 2 baut Koggen (sonst: %s)" % why)
