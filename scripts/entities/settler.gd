@@ -336,6 +336,8 @@ func _think() -> void:
 	_release()
 	var prev_kind := _stat_kind
 	_stat_kind = "needs"
+	if sleeping and AiRule.ending:
+		_wake_up()  # am Ende schläft niemand mehr, alle sitzen am Lagerfeuer
 	if sleeping and _sleep_time():
 		return
 	# Schwer krank: im Bett bleiben, nur zum Essen aufstehen
@@ -360,6 +362,12 @@ func _think() -> void:
 	# 2b. Nichts im Lager (oder Lager voll): Hungrige essen direkt am Strauch oder Ufer
 	if hunger < float(Data.bal("eat_below")) * 0.6 and Game.total_food(world) <= 0 and not Game.is_night():
 		if _plan_forage():
+			return
+	# 2c. Ende unter der Superintelligenz: die letzten Siedler sitzen frierend am Lagerfeuer
+	if AiRule.ending and is_adult():
+		var cf = AiRule.campfire(world)
+		if cf != null:
+			_plan_wander(1, tr("Sitzt am Lagerfeuer und friert"), cf.entrance_cell())
 			return
 	# 3. Schlafen (Schichtarbeit: jede Nacht arbeitet die Hälfte durch)
 	if _sleep_time():

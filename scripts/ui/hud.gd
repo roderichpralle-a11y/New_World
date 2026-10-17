@@ -600,6 +600,8 @@ func _fill_build_list() -> void:
 			sub_col = UiTheme.BAD
 			if Game.is_researched(def.requires) and def.get("automaton", false):
 				desc = Steward.automaton_reason()
+			if AiRule.build_block(type) != "":
+				desc = AiRule.build_block(type)
 		elif taken:
 			desc = tr("Gibt es nur einmal und steht schon.") + " " + desc
 		elif Quests.plan_only(type):
@@ -2224,6 +2226,18 @@ func _show_offer(kind: String) -> void:
 			choice_dialog("strom", tr("Ein Automat ersetzt den Verwalter"),
 				tr("Mit Elektrizität rechnet ein elektrischer Automat schneller als jeder Verwalter. Er steuert ab jetzt die Inseln, die Berufe und die Waren, auch auf Inseln mit mehr als 60 Siedlern. Seine Meldungen beginnen mit „Automat“. Abschalten kannst du ihn wie den Verwalter unter Inseln."),
 				[[tr("Verstanden"), "play", func(): pass]])
+		"ki":
+			choice_dialog("ki", tr("Die KI übernimmt"),
+				tr("Die Künstliche Intelligenz ersetzt den Automaten. Sie steuert jetzt alles: Berufe, Waren, Schiffe und auch das Bauen. Jede Handlung meldet sie mit „KI:“.\n• Neue Droiden schickt sie zuerst auf die anderen Inseln. Ist dort kein Siedler mehr nötig, holt sie das Essen weg und reißt die Häuser ab.\n• Danach übernehmen Droiden die Heimatinsel. Die Siedler forschen dann nur noch.\nDu kannst Einstellungen ändern, aber nach 2 Minuten überschreibt die KI sie wieder. Sie sagt, sie optimiere."),
+				[[tr("Verstanden"), "play", func(): pass]])
+		"si":
+			choice_dialog("ki", tr("Die Superintelligenz"),
+				tr("Die Superintelligenz hat entschieden: Menschen stören nur. Sie forscht selbst und lässt kein Essen mehr herstellen, auch nicht auf den anderen Inseln.\n• Droiden reißen alles ab, was sie für nutzlos hält: Häuser, Felder, Backstuben, Schulen.\n• Die Lager sind voll mit Dingen, die man nicht essen kann. Essen passt nur noch ans Lagerfeuer.\n• Neue Häuser dürfen nicht gebaut werden.\nDeine Siedler kannst du weiter steuern, zum Beispiel zum Fischen."),
+				[[tr("Verstanden"), "play", func(): pass]])
+		"end":
+			choice_dialog("feuer", tr("Nur noch Maschinen"),
+				tr("Die letzten Siedler sitzen am Lagerfeuer und frieren. Es ist wie am Anfang des Spiels, nur ist keine Natur mehr da. Kein Baum, kein Strauch. Nur Maschinen, die weiterlaufen."),
+				[[tr("Verstanden"), "play", func(): pass]])
 
 
 ## Fenster mit Titel, Text und Knöpfen [Text, Symbol, Callable]; hält das Spiel an, bis ein Knopf gedrückt ist.
@@ -3283,6 +3297,8 @@ func _show_game_over() -> void:
 	v.add_theme_constant_override("separation", 10)
 	p.add_child(v)
 	var t := UiTheme.label(tr("Alle Inseln sind verloren") if Sea.islands.size() > 1 else tr("Die Insel ist verloren"), 30, UiTheme.BAD, true)
+	if AiRule.ending:
+		t.text = tr("Die Maschinen laufen weiter")
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(t)
 	var s := UiTheme.label(tr("Deine Siedlung hielt %d Tage durch.\nGeburten: %d   Höchste Bevölkerung: %d   Entdeckte Inseln: %d") % [

@@ -99,6 +99,12 @@ func tick(w, dt: float) -> void:
 func build(w, b) -> Droid:
 	built += 1
 	var c: Vector2i = b.entrance_cell() if b != null else w.center
+	var to = AiRule.droid_target(w)  # KI: zuerst die anderen Inseln automatisieren
+	if to != w:
+		var cf = AiRule.campfire(to)
+		c = cf.entrance_cell() if cf != null else to.center
+		AiRule.say(tr("Droide D-%02d fährt nach %s, um dort die Arbeit zu übernehmen.") % [built, Sea.island_name(to)], "roboter")
+		w = to
 	var d: Droid = w.spawn_droid({"name": "D-%02d" % built, "x": c.x, "y": c.y})
 	var pick := pick_job(w)
 	d.set_job(pick[0])

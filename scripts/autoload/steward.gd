@@ -57,6 +57,7 @@ func blocked_on(w) -> String:
 func set_on(v: bool) -> void:
 	on = v
 	offered = true
+	AiRule.player_changed("on")
 	Game.notify(tr("Der Verwalter steuert jetzt die Berufe auf allen Inseln.") if v else tr("Der Verwalter steuert die Berufe nicht mehr."), "person", "verwaltung")
 	changed.emit()
 
@@ -64,7 +65,8 @@ func set_on(v: bool) -> void:
 ## Der Spieler hat einem Siedler selbst einen Beruf gegeben: der Verwalter überstimmt das eine Weile nicht.
 func player_set(s) -> void:
 	if s != null:
-		locks[int(s.id)] = Game.time_days + LOCK_DAYS
+		locks[int(s.id)] = Game.time_days + (AiRule.OVERRIDE_DAYS if AiRule.ki() else LOCK_DAYS)
+		AiRule.player_changed("job:%d" % int(s.id))
 
 
 func locked(s) -> bool:
@@ -104,6 +106,8 @@ func _process(_delta: float) -> void:
 
 
 func tick(w) -> void:
+	if AiRule.si() or (AiRule.ki() and not Sea.is_main(w) and AiRule.automated(w)):
+		return  # Superintelligenz: Menschen sind ihr egal; automatisierte Inseln brauchen keine Siedler mehr
 	for i in MOVES_PER_TICK:
 		var need := needed(w)
 		if need.is_empty():
@@ -505,6 +509,7 @@ func net_active() -> bool:
 
 func set_net(v: bool) -> void:
 	net_on = v
+	AiRule.player_changed("net")
 	Game.notify(tr("Inselverbund an: die Heimatinsel verarbeitet, die anderen Inseln liefern.") if v else tr("Inselverbund aus: jede Insel versorgt sich selbst."), "anker", "verwaltung")
 	changed.emit()
 
@@ -515,6 +520,8 @@ func automat_mode() -> bool:
 
 ## Wer steuert gerade? Für Meldungen.
 func who() -> String:
+	if AiRule.ki():
+		return tr("KI")
 	return tr("Automat") if automat_mode() else tr("Verwalter")
 
 
@@ -597,13 +604,15 @@ func net_tick() -> void:
 		return
 	var home_id := int(hw.island_id)
 	var fd := Game.food_days(hw)
-	# 1. Essen zur Heimatinsel
+	# 1. Essen zur Heimatinsel (nicht mehr unter der Superintelligenz)
+	if AiRule.si():
+		fd = 999.0
 	if fd >= 0.0 and fd + _incoming_food_days(hw) < HOME_FOOD_DAYS:
 		var src := _supplier(hw, "food")
 		if src != -1 and _send_goods(src, home_id, _food_load(Sea.worlds.get(src)), tr("Essen für die Heimatinsel")):
 			return
 	# 2. Brennholz zur Heimatinsel
-	if fuel_days(hw) < HOME_FUEL_DAYS and incoming(home_id, "holz") == 0:
+	if not AiRule.si() and fuel_days(hw) < HOME_FUEL_DAYS and incoming(home_id, "holz") == 0:
 		var src := _supplier(hw, "holz")
 		if src != -1 and _send(src, home_id, "holz", Game.amount("holz", Sea.worlds.get(src)) - KEEP_RAW, tr("Brennholz für die Heimatinsel")):
 			return

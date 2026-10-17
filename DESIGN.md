@@ -321,7 +321,25 @@ arbeiten mit Tempo 1,25 ohne Hausstufe (`HouseNeeds.pool_block`) und brauchen `P
 aus dem Inselllager (`Droids.tick` alle 0,1 Tage); ohne Strom stehen alle Droiden der Insel still (grau,
 „Kein Strom“). Eigenes Lauf-Sheet `settler_droid.png` (tools/gen_art_machines.py `droid_sheet`), eigenes
 Infofenster (`Hud._info_droid`, Berufswahl ohne Menschen-Berufe). Der Verwalter zählt Droiden bei den
-Berufen mit (`Steward._count`). Spielstand `droids.built`. Test `--droidtest=1`, Bild `--droidtest=shot`.
+Berufen mit (`Steward._count`). Spielstand `droids.built`. Test `--droidtest=1`, Bild `--droidtest=shot`. **Stufe 5**
+(KI-Herrschaft, `scripts/autoload/ai_rule.gd` Autoload `AiRule`): ab Forschung Künstliche Intelligenz ersetzt
+die KI den Automaten (`Steward.who()` „KI“, Fenster einmal, Verwalter wird eingeschaltet). Spieler-Änderungen
+(Verwalter aus, Inselverbund aus, Berufe über `Steward.player_set`, Mindest-/Höchststände) gelten nur noch
+`OVERRIDE_DAYS` 0,5 Tage (2 Minuten), dann überschreibt die KI sie mit Meldung (`AiRule.player_changed`,
+`overrides`). Neue Droiden fahren zuerst auf andere Inseln (`droid_target`); eine automatisierte Insel
+(`automated`: Droiden da, kein Siedler mit Droiden-Beruf) gibt ihr Essen zur Heimatinsel ab, verliert ihre
+Häuser, der Verwalter setzt dort keine Siedler mehr ein; sie bleibt mit Droiden bestehen
+(`Game.on_settler_died` prüft `droids`). Freie Erwachsene der Heimatinsel forschen. Die KI baut einmal am
+Tag selbst (Droidenfabrik, Solarpark/Kraftwerk, Elektronikwerk, Großes Lager, wenn bezahlbar). Neue Forschung
+**Superintelligenz** (Stufe 16, braucht KI und Robotik): Forscher werden frei, das KI-Zentrum verteilt keine
+Siedler mehr, Droiden verlassen Nahrungsberufe, Essen über `FIRE_FOOD` 30 je Insel wird weggeräumt, der Rest
+des Lagers füllt sich mit Elektronik, Maschinen, Stahl, je Runde und Insel wird ein Gebäude der Kategorien
+Wohnen, Nahrung, Wissen abgerissen (außer Lagerfeuer, KI-Zentrum, Zukunftsstadt) und Natur gerodet (Bäume,
+Sträucher, Palmen, Pilze, Gewürze, Baue; Fischgründe bleiben), Häuser sind nicht mehr baubar
+(`AiRule.build_block`, `Game.is_unlocked`), der Inselverbund fährt kein Essen und Holz mehr, der Spieler steuert
+die Siedler selbst. Bleiben höchstens 2 Siedler (`start_ending`): alle Natur weg, Fenster „Nur noch
+Maschinen“, die Siedler sitzen frierend am Lagerfeuer (`Settler._think`), das Spielende heißt „Die Maschinen
+laufen weiter“. Spielstand `ai_rule`. Test `--aitest=1`, Bild `--aitest=shot`.
 
 **Einheitliche Fenster (josh 2026-10-16, Variante A):** Jedes Fenster aus `Hud._popup_panel(titel, symbol)` hat denselben Kopf: Symbol, Titel (genau der Name des Knopfes, der es öffnet), rechts das X. Kein Hinweistext unter dem Titel; was man wissen muss, steht im Fenster selbst oder als Tooltip. Ein Tipp außerhalb aller Fenster (nicht auf die Leisten oben und unten, nicht aufs Infofenster) schließt sie (`Hud._input`) und löst nichts auf der Karte aus. Namen: Fenster „Vorräte“ (früher Lager; das Gebäude heißt weiter Lager), Fenster „Inseln“ (früher Seekarte) mit Reiter „Karte“ und Knopf „Entdeckungsreise“ (früher „Neue Insel suchen“). Menü > Wertung entfällt (das Fenster `_score_panel` und die Punkte bleiben im Code). Siedlerfenster: zwei Listen übereinander, oben „Mit Beruf“, unten „Frei“ (freie Erwachsene und Kinder); Filter und Sortierung gelten für beide; auf dem Handy quer entfallen Zähler und Spaltenköpfe (`_size_settler_panel`, `tight`). Gesperrte Gebäude im Bauen-Fenster zeigen statt der Kosten den kleinen Knopf „Forsch.“ (öffnet die Forschung). Verwaltung (Infofenster des Gebäudes, `AdminInfo.office_rows`): Reiter Verwalter, Schichten, Überstunden; Reiter Verwalter zeigt den Verwalter und den Schalter „Automatische Neuzuweisung freier Berufe“ (`Admin.auto_reassign`, gespeichert unter `admin.auto`): stirbt ein Siedler mit Beruf auf der Insel der Verwaltung, übernimmt ein freier Erwachsener (einer mit passendem Talent zuerst) den Beruf. Erst ab dem Mittelalter (`Admin.AUTO_AGE` 2, `Admin.auto_unlocked()`, vorher ist der Schalter ausgegraut; josh 2026-10-16). Gibt es keinen freien Erwachsenen, kommt der Beruf in `Admin.pending_jobs` (gespeichert unter `admin.pending`), und das nächste Kind, das erwachsen wird, lernt ihn (`Admin.on_grown_up` aus `Settler._needs`); das Fenster zeigt die wartenden Berufe. Stirbt der Verwalter selbst, wird sein Posten genauso neu besetzt (josh 2026-10-17; `Admin._covers` lässt den Verwalterposten auch ohne lebenden Verwalter zu, solange die Verwaltung auf der Insel steht). Entwurfsbilder: /mnt/project-files/konzept/.
 

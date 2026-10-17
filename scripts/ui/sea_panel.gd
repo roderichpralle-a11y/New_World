@@ -956,6 +956,7 @@ func _minmax_editor() -> void:
 				if wi == 0 and lim[1] > 0 and lim[0] > lim[1]:
 					lim[1] = lim[0]
 				Steward.set_limits(iid, gid, lim[0], lim[1])
+				AiRule.player_changed("minmax")
 				show.call())
 			row.add_child(b)
 		show.call()
