@@ -300,11 +300,14 @@ func auto_on() -> bool:
 ## Automatische Neuzuweisung (ab dem Mittelalter): Stirbt ein Siedler mit Beruf, übernimmt ein freier
 ## Erwachsener auf derselben Insel den Beruf (einer mit passendem Talent zuerst). Gibt es keinen,
 ## lernt das nächste Kind, das erwachsen wird, den Beruf. Nur auf der Insel der Verwaltung.
+## Stirbt der Verwalter selbst, bekommt ein Freier auf der Insel der Verwaltung den Posten (josh 2026-10-17).
 func _on_settler_died(s, _cause: String) -> void:
-	if not auto_on() or s == null or not s.is_adult() or s.job in ["frei", JOB]:
+	if not auto_on() or s == null or not s.is_adult() or s.job == "frei":
 		return
-	if not active_on(s.world) or not Data.jobs.has(s.job):
+	if not _covers(s.world, s.job) or not Data.jobs.has(s.job):
 		return
+	if s.job == JOB and local_manager() != null:
+		return  # es gibt schon einen neuen Verwalter
 	var pick = null
 	for o in s.world.settlers:
 		if o == s or not o.is_adult() or o.job != "frei":
@@ -323,15 +326,23 @@ func _on_settler_died(s, _cause: String) -> void:
 
 ## Ein Kind ist erwachsen geworden: es lernt den ältesten offenen Beruf eines Verstorbenen.
 func on_grown_up(s) -> bool:
-	if pending_jobs.is_empty() or not auto_on() or not active_on(s.world):
+	if pending_jobs.is_empty() or not auto_on() or not _covers(s.world, pending_jobs[0]):
 		return false
 	var job: String = pending_jobs.pop_front()
-	if not Data.jobs.has(job):
+	if not Data.jobs.has(job) or (job == JOB and local_manager() != null):
 		return false
 	s.set_job(job)
 	Game.notify_at(s.world, tr("%s ist erwachsen und lernt den Beruf %s.") % [s.display_name, _name(job)], "wissen", "verwaltung")
 	changed.emit()
 	return true
+
+
+## Gilt die Neuzuweisung für diesen Beruf auf dieser Insel? Den Verwalterposten besetzt sie auch ohne
+## Verwalter, solange die Verwaltung auf der Insel steht.
+func _covers(w, job: String) -> bool:
+	if job == JOB:
+		return w != null and w == admin_world()
+	return active_on(w)
 
 
 func _name(job: String) -> String:

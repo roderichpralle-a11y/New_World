@@ -103,7 +103,7 @@ static func _manager_tab(hud, b) -> void:
 	cb.focus_mode = Control.FOCUS_NONE
 	cb.custom_minimum_size.y = 40
 	cb.add_theme_font_size_override("font_size", 14)
-	cb.tooltip_text = Loc.t("Stirbt ein Siedler mit Beruf, bekommt automatisch ein freier Siedler diesen Beruf. Gibt es keinen, lernt ihn das nächste Kind, das erwachsen wird.")
+	cb.tooltip_text = Loc.t("Stirbt ein Siedler mit Beruf, auch der Verwalter, bekommt automatisch ein freier Siedler diesen Beruf. Gibt es keinen, lernt ihn das nächste Kind, das erwachsen wird.")
 	cb.button_pressed = Admin.auto_reassign
 	cb.toggled.connect(func(on):
 		Admin.auto_reassign = on

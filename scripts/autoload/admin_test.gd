@@ -200,6 +200,18 @@ static func run(main) -> void:
 	var kid2 = mkx.call("K2", "", float(Data.bal("adult_age")) - 0.001)
 	kid2._needs(0.01)
 	_ok(kid2.job == "frei", "danach werden Kinder wieder frei")
+	# Der Verwalter stirbt: ein Freier wird Verwalter, sonst das nächste erwachsene Kind (josh 2026-10-17)
+	kid2.job = "sammler"
+	var a2 = mkx.call("A2", "", 30.0)
+	a2.set_job("frei")
+	var old_m = Admin.local_manager()
+	w.kill_settler(old_m, "Test")
+	_ok(a2.job == Admin.JOB and Admin.active(), "Verwalter gestorben: ein Freier wird Verwalter (%s)" % a2.job)
+	w.kill_settler(a2, "Test")
+	_ok(Admin.pending_jobs == [Admin.JOB] and not Admin.active(), "kein Freier: der Verwalterposten wartet auf ein Kind %s" % [Admin.pending_jobs])
+	var kid3 = mkx.call("K3", "", float(Data.bal("adult_age")) - 0.001)
+	kid3._needs(0.01)
+	_ok(kid3.job == Admin.JOB and Admin.active(), "das nächste erwachsene Kind wird Verwalter (%s)" % kid3.job)
 	for x in [f1, kid, kid2]:
 		w.remove_settler(x)
 	for s in keep_jobs:
