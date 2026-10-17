@@ -1058,6 +1058,7 @@ const SETTLER_COLS := [["name", "Name", 0, 0], ["age", "Alter", 62, 30], ["act",
 var _settler_scroll: ScrollContainer
 var _settler_updaters: Array = []
 var _settler_tick: float = 0.0
+var _settler_sig: String = ""  # wer mit Beruf, wer frei: ändert es sich, wird die Liste neu gebaut
 var _settler_head: Dictionary = {}  # Spalte -> Knopf
 var _settler_sort: String = "age"
 var _settler_desc: bool = true
@@ -1249,6 +1250,8 @@ func _refresh_settler_list() -> void:
 	_size_settler_panel()
 	_update_settler_filters()
 	_settler_updaters.clear()
+	_settler_sig = _settler_signature()
+	var keep := [_settler_scroll.scroll_vertical, _settler_scroll_free.scroll_vertical]
 	for lst in [_settler_list, _settler_list_free]:
 		for c in lst.get_children():
 			lst.remove_child(c)
@@ -1398,7 +1401,8 @@ func _refresh_settler_list() -> void:
 			ob.tooltip_text = tr("Beruf wählen") + (tr("\nStern: passt zum Talent (%s)") % TalentInfo.short_list(s.mind) if not s.mind.best_talents().is_empty() else "")
 			ob.item_selected.connect(func(i):
 				sref.set_job(ids[i])
-				Game.player_action.emit("job", ids[i]))
+				Game.player_action.emit("job", ids[i])
+				_refresh_settler_list.call_deferred())  # Zeile wandert zu „Mit Beruf“ oder „Frei“
 			h.add_child(ob)
 		else:
 			var kl := UiTheme.label(tr("Kind"), 14, DIM)
@@ -1479,6 +1483,9 @@ func _refresh_settler_list() -> void:
 		rb.add_child(h)
 		(_settler_list if (s.is_adult() and s.job != "frei") else _settler_list_free).add_child(rb)
 	call_deferred("_layout")
+	(func():  # beim Neubauen an derselben Stelle in den Listen bleiben
+		_settler_scroll.scroll_vertical = keep[0]
+		_settler_scroll_free.scroll_vertical = keep[1]).call_deferred()
 
 
 var _settler_rb: StyleBoxFlat
@@ -1501,8 +1508,27 @@ func _tick_settler_list(delta: float) -> void:
 	if _settler_tick > 0.0:
 		return
 	_settler_tick = 1.0
+	if _settler_signature() != _settler_sig:
+		_refresh_settler_list()  # jemand ist frei geworden, erwachsen, geboren, gestorben oder umgezogen
+		return
 	for u in _settler_updaters:
 		u.call()
+
+
+## Kurzer Text, der sich ändert, sobald ein Siedler die Gruppe (mit Beruf / frei) wechselt
+## oder dazukommt oder fehlt. Dieselbe Auswahl der Insel wie in _refresh_settler_list.
+func _settler_signature() -> String:
+	var pool := []
+	if _settler_f_island.visible and _settler_f_island.selected == 1:
+		for w in Sea.all_worlds():
+			pool.append_array(w.settlers)
+	else:
+		pool = world.settlers
+	var parts := PackedStringArray()
+	for s in pool:
+		if is_instance_valid(s):
+			parts.append("%d%s%s" % [s.id, "a" if s.is_adult() else "k", s.job])
+	return ",".join(parts)
 
 
 # ================================================================== Menue / Hilfe
