@@ -2248,7 +2248,7 @@ Jedes Lager hat Stauraum: das Lagerfeuer 200, ein Lagerhaus 400, ein Großes Lag
 Gibt es mindestens drei Sorten Nahrung im Lager, kommen öfter Kinder zur Welt.
 
 [b]Seefahrt[/b]
-Jede Insel hat ihr eigenes Lager. Waren kommen nur mit Schiffen auf eine andere Insel. Mit der Forschung Schiffsbau baust du am Ufer eine Werft; im Fenster der Werft wählst du das nächste Schiff. Ruderboote sind klein und landen an jedem Strand, Koggen tragen viel, Schnellsegler sind schnell, Galeonen riesig. Jedes Schiff braucht Seeleute (Beruf Seemann) und einen Liegeplatz in seinem Heimathafen: Werft 1, Anlegesteg 2, Hafen 2, Großer Hafen 3, Kais 1. Koggen und Schnellsegler laufen nur Inseln mit Hafen an, Galeonen nur Große Häfen. Holz-, Erz- und Proviantkai laden ihre Waren dreimal so schnell.
+Jede Insel hat ihr eigenes Lager. Waren kommen nur mit Schiffen auf eine andere Insel. Mit der Forschung Schiffsbau baust du am Ufer eine Werft; in ihrem Fenster gibst du Schiffe in Auftrag, sie baut nur diese, der Reihe nach. Ausgebaut zur Großen Werft (Navigation) baut sie Koggen, als Königliche Werft (Seehandel) auch Schnellsegler und Galeonen. Größere Schiffe brauchen Felle für die Segel, Schnellsegler und Galeonen auch Gold. Ruderboote sind klein und landen an jedem Strand, Koggen tragen viel, Schnellsegler sind schnell, Galeonen riesig. Jedes Schiff braucht Seeleute (Beruf Seemann) und einen Liegeplatz in seinem Heimathafen: Werft 1, Anlegesteg 2, Hafen 2, Großer Hafen 3, Kais 1. Koggen und Schnellsegler laufen nur Inseln mit Hafen an, Galeonen nur Große Häfen. Holz-, Erz- und Proviantkai laden ihre Waren dreimal so schnell.
 
 [b]Inseln und Routen[/b]
 Über den Knopf Inseln öffnest du das Inselfenster. "Schiff hierher schicken" bringt Siedler und Waren zu einer Insel, "Entdeckungsreise" schickt ein Schiff auf Erkundung. Unter "Schiffe" schickst du ein Schiff einmal los: zu einer Insel fahren, Waren laden und zu einer anderen Insel bringen, danach ist es frei. Oder du legst eine Route von A nach B fest, mit Zwischenhalten zum Dazuladen oder Tauschen; die fährt das Schiff immer wieder.
@@ -2624,31 +2624,76 @@ func _names_of(ids: Array) -> Array:
 	return out
 
 
-## Werft: welches Schiff als naechstes gebaut wird.
+## Werft: Bauaufträge (josh 2026-10-17). Die Werft baut nur, was hier in Auftrag steht, der Reihe nach;
+## größere Schiffe erst ab Werft-Stufe 2 bzw. 3 (ships.json "yard").
+const SHIP_ORDERS_MAX := 5
+
+
 func _info_shipyard(b: Building) -> void:
-	_info_box.add_child(UiTheme.label(tr("Nächstes Schiff"), 15, UiTheme.TEXT, true))
-	var flow := HFlowContainer.new()
-	flow.add_theme_constant_override("h_separation", 4)
-	flow.add_theme_constant_override("v_separation", 4)
+	_info_box.add_child(UiTheme.label(tr("Bauaufträge (Werft Stufe %d)") % b.yard_level(), 15, UiTheme.TEXT, true))
+	var list: Array = b.ship_queue.duplicate()
+	if b.ship_wip != "":
+		list.push_front(b.ship_wip)
+	if list.is_empty():
+		var e := UiTheme.label(tr("Keine Aufträge: die Werft baut nichts. Gib unten ein Schiff in Auftrag."), 12, Color("#8a5a3a"))
+		e.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_info_box.add_child(e)
+	for i in list.size():
+		var t: String = list[i]
+		var sd: Dictionary = Data.ships.get(t, {})
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 6)
+		row.add_child(UiTheme.icon_rect(Data.icon(sd.get("icon", "boot")), 18))
+		var wip: bool = i == 0 and b.ship_wip != ""
+		var nl := UiTheme.label("%d. %s%s" % [i + 1, sd.get("name", t), tr(" (wird gebaut)") if wip else ""], 13, UiTheme.GOOD if wip else UiTheme.TEXT)
+		nl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(nl)
+		if not wip:
+			var qi: int = i - (1 if b.ship_wip != "" else 0)
+			var rm := UiTheme.button("", "abriss", 28)
+			rm.tooltip_text = tr("Auftrag streichen")
+			rm.pressed.connect(func():
+				if qi < b.ship_queue.size():
+					b.ship_queue.remove_at(qi)
+				_rebuild_info())
+			row.add_child(rm)
+		_info_box.add_child(row)
+	var why := b.prod_blocker()
+	if not list.is_empty() and why != "" and why != tr("nicht fertig"):
+		var wl := UiTheme.label(why, 12, UiTheme.BAD)
+		wl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_info_box.add_child(wl)
+	_info_box.add_child(UiTheme.label(tr("In Auftrag geben"), 14, UiTheme.TEXT, true))
 	for t in Data.ships:
 		var sd: Dictionary = Data.ships[t]
 		if not Game.is_researched(sd.get("requires", "")):
 			continue
-		var bt := UiTheme.button(sd.name, sd.get("icon", "boot"), 34)
-		bt.toggle_mode = true
-		bt.button_pressed = b.ship_choice == t
-		bt.tooltip_text = tr("%s\nLaderaum %d, %d Fahrgäste, Besatzung %d, Tempo x%.1f") % [sd.desc, int(sd.cargo), int(sd.passengers), int(sd.crew), float(sd.speed)]
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 3)
+		var add := UiTheme.button(sd.name, sd.get("icon", "boot"), 32)
+		add.add_theme_font_size_override("font_size", 13)
+		add.custom_minimum_size.x = 132
+		add.tooltip_text = tr("%s\nLaderaum %d, %d Fahrgäste, Besatzung %d, Tempo x%.1f") % [sd.desc, int(sd.cargo), int(sd.passengers), int(sd.crew), float(sd.speed)]
+		var need := int(sd.get("yard", 1))
 		var tt: String = t
-		bt.pressed.connect(func():
+		if need > b.yard_level():
+			add.disabled = true
+		elif list.size() >= SHIP_ORDERS_MAX:
+			add.disabled = true
+			add.tooltip_text = tr("Höchstens %d Aufträge.") % SHIP_ORDERS_MAX
+		add.pressed.connect(func():
+			b.ship_queue.append(tt)
 			b.ship_choice = tt
 			_rebuild_info())
-		flow.add_child(bt)
-	_info_box.add_child(flow)
-	var sd: Dictionary = Data.ships.get(b.ship_choice, {})
-	var l := UiTheme.label(tr("%s: Laderaum %d, %d Fahrgäste, %d Seeleute, Tempo x%.1f. %s") % [sd.get("name", ""), int(sd.get("cargo", 0)),
-		int(sd.get("passengers", 0)), int(sd.get("crew", 1)), float(sd.get("speed", 1.0)), sd.get("desc", "")], 12)
-	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_info_box.add_child(l)
+		row.add_child(add)
+		if need > b.yard_level():
+			row.add_child(UiTheme.label(tr("ab Werft Stufe %d") % need, 12, Color("#8a5a3a")))
+		else:
+			var inp: Dictionary = sd.build.inputs
+			for res in inp:
+				row.add_child(UiTheme.icon_rect(Data.res_icon(res), 14))
+				row.add_child(UiTheme.label(str(int(inp[res])), 12, UiTheme.TEXT if Game.amount(res, world) >= int(inp[res]) else UiTheme.BAD))
+		_info_box.add_child(row)
 
 
 ## Hafen, Steg, Kai: Liegeplaetze und Schiffe der Insel.

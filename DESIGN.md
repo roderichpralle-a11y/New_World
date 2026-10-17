@@ -132,9 +132,15 @@ Zeitalterwechsel mit Wertung und Aufträge mit Wahl. Überblick und Zusammenspie
   (`Game.notify_at`).
 - **Schiffe** (`data/ships.json`, Logik in `Sea`): Ruderboot (Größe 1, 1 Seemann, Laderaum 40),
   Kogge (2, 2 Seeleute, 200, langsam), Schnellsegler (2, 3 Seeleute, 80, fast doppelt so schnell),
-  Galeone (3, 5 Seeleute, 500). Die **Werft** (`ships: true`) baut das im Gebäudefenster gewählte
-  Schiff (`Building.ship_choice`, Bauplan aus `ships.json`, `ship_wip` merkt das bezahlte
-  Schiff). Fertige Schiffe entstehen als Ware (`boot`, `kogge`, ...; Größe 0, nicht im
+  Galeone (3, 5 Seeleute, 500). Die **Werft** (`ships: true`) baut nur, was im Gebäudefenster in
+  Auftrag steht (josh 2026-10-17): `Building.ship_queue` (höchstens 5, `Hud._info_shipyard`, X streicht),
+  der Reihe nach; `take_inputs` nimmt den ersten Auftrag als `ship_wip` (bezahlt, wird nicht noch einmal
+  bezahlt), leer = „Kein Bauauftrag“. Beides wird gespeichert (`ship_queue`, `ship_wip`); alte Spielstände
+  bekommen einen Auftrag mit der alten Wahl `ship_choice`. **Stufen** (`yard` in buildings.json und
+  ships.json): Werft 1 (Ruderboot), Große Werft `werft2` 2 (Kogge, Forschung Navigation), Königliche Werft
+  `werft3` 3 (Schnellsegler, Galeone, Seehandel), Ausbau über `upgrade`/`base`, Aufträge ziehen beim
+  Ausbau mit (`World.upgrade_building`). Material: Kogge +6 Felle, Schnellsegler +8 Felle 2 Gold,
+  Galeone +16 Felle 6 Gold. Test `--oncetest=werft` („Werft OK/FEHLER“), Bild `--oncetest=werftshot`. Fertige Schiffe entstehen als Ware (`boot`, `kogge`, ...; Größe 0, nicht im
   Lagerfenster) und `Sea._ship_tick_all` macht daraus sofort ein Schiff in `Sea.ships`:
   `{id, type, name, home, at, state: dock|load|sea, until, crew: [Siedler-IDs], cargo, route,
   leg, paused, note}`. Alte Spielstände: ihre Ware `boot` wird so zu Ruderbooten.

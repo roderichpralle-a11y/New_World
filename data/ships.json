@@ -17,7 +17,8 @@
       "time": 18.0
     },
     "icon": "boot",
-    "sprite": "boat"
+    "sprite": "boat",
+    "yard": 1
   },
   "kogge": {
     "name": "Kogge",
@@ -33,12 +34,14 @@
         "bretter": 30,
         "holz": 10,
         "werkzeug": 4,
-        "eisen": 2
+        "eisen": 2,
+        "felle": 6
       },
       "time": 40.0
     },
     "icon": "kogge",
-    "sprite": "ship_kogge"
+    "sprite": "ship_kogge",
+    "yard": 2
   },
   "schnellsegler": {
     "name": "Schnellsegler",
@@ -53,12 +56,15 @@
       "inputs": {
         "bretter": 30,
         "eisen": 4,
-        "werkzeug": 6
+        "werkzeug": 6,
+        "felle": 8,
+        "gold": 2
       },
       "time": 40.0
     },
     "icon": "schnellsegler",
-    "sprite": "ship_fast"
+    "sprite": "ship_fast",
+    "yard": 3
   },
   "galeone": {
     "name": "Galeone",
@@ -74,11 +80,14 @@
         "bretter": 70,
         "holz": 20,
         "eisen": 12,
-        "werkzeug": 10
+        "werkzeug": 10,
+        "felle": 16,
+        "gold": 6
       },
       "time": 80.0
     },
     "icon": "galeone",
-    "sprite": "ship_galleon"
+    "sprite": "ship_galleon",
+    "yard": 3
   }
 }

@@ -17,7 +17,8 @@ var reserved_by: int = 0
 var occupants: Array = []  # Siedler-IDs, die hier arbeiten (Produktion, Forschung)
 var paused: bool = false
 var adm: bool = false  # Verwaltung: Vertretung erlaubt (Admin)
-var ship_choice: String = "boot"  # Werft: welches Schiff als naechstes gebaut wird
+var ship_choice: String = "boot"  # Werft (alte Spielstände): Schiff, das früher immer wieder gebaut wurde
+var ship_queue: Array = []  # Werft: Bauaufträge der Reihe nach (josh 2026-10-17); leer = baut nichts
 var ship_wip: String = ""  # Werft: Schiff, fuer das die Rohstoffe schon genommen sind
 var active_until: float = 0.0  # Echtzeit, bis zu der die Werkstatt als tr("in Betrieb") gilt
 var deliveries: int = 0  # Ablieferungen an dieses Lager (nur zur Verteilung, nicht gespeichert)
@@ -228,13 +229,25 @@ func farm_task() -> String:
 # ---------------------------------------------------------------- Werkstatt / Forschung
 func prod_def() -> Dictionary:
 	if def.get("ships", false):
-		return ship_recipe(ship_wip if ship_wip != "" else ship_choice)
+		return ship_recipe(next_ship())
 	return def.get("production", {})
 
 
 ## Inselstärke (buildings.json biome_bonus): so viel schneller arbeitet die Werkstatt auf dieser Insel.
 func biome_factor() -> float:
 	return IslandTraits.factor(type, world.biome) if world else 1.0
+
+
+## Werft: Schiff, das gerade gebaut wird oder als Nächstes dran ist ("" = kein Auftrag).
+func next_ship() -> String:
+	if ship_wip != "":
+		return ship_wip
+	return str(ship_queue[0]) if not ship_queue.is_empty() else ""
+
+
+## Werft: Stufe (1 Werft, 2 Große Werft, 3 Königliche Werft); ships.json "yard" ist die nötige Stufe.
+func yard_level() -> int:
+	return int(def.get("yard", 1))
 
 
 ## Werft: Bauplan fuer ein Schiff aus data/ships.json.
@@ -274,12 +287,17 @@ func prod_blocker() -> String:
 	if paused:
 		return tr("angehalten")
 	if def.get("ships", false):
-		var sd: Dictionary = Data.ships.get(ship_choice, {})
+		var t := next_ship()
+		if t == "":
+			return tr("Kein Bauauftrag. Gib im Fenster der Werft ein Schiff in Auftrag")
+		var sd: Dictionary = Data.ships.get(t, {})
+		if int(sd.get("yard", 1)) > yard_level():
+			return tr("Für %s muss die Werft auf Stufe %d ausgebaut werden") % [sd.get("name", "?"), int(sd.get("yard", 1))]
 		if not Game.is_researched(sd.get("requires", "")):
 			return tr("Für %s fehlt die Forschung %s") % [sd.get("name", "?"), Data.techs[sd.requires].name]
 		if not Sea.free_berth(world, int(sd.get("size", 1))):
 			return tr("Kein freier Liegeplatz für ein weiteres Schiff. Baue einen Hafen oder Steg")
-	for res in p.get("inputs", {}):
+	for res in ({} if ship_wip != "" else p.get("inputs", {})):  # Schiff in Arbeit: Material ist schon genommen
 		if Game.amount(res, world) < int(p.inputs[res]):
 			return tr("Es fehlt %s") % Data.resource_name(res)
 	var any_space := false
@@ -296,10 +314,12 @@ func take_inputs() -> bool:
 	if prod_blocker() != "":
 		return false
 	var p := prod_def()
+	if def.get("ships", false):
+		if ship_wip != "":
+			return true  # Material für dieses Schiff liegt schon in der Werft
+		ship_wip = str(ship_queue.pop_front())
 	for res in p.get("inputs", {}):
 		Game.take_stock(res, int(p.inputs[res]), world)
-	if def.get("ships", false):
-		ship_wip = ship_choice
 	return true
 
 
@@ -418,4 +438,5 @@ func serialize() -> Dictionary:
 		"id": id, "type": type, "x": cell.x, "y": cell.y, "complete": complete,
 		"progress": progress, "delivered": delivered,
 		"farm_state": farm_state, "farm_time": farm_time, "paused": paused, "ship": ship_choice, "adm": adm,
+		"ship_queue": ship_queue, "ship_wip": ship_wip,
 	}

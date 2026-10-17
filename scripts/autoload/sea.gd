@@ -1009,6 +1009,10 @@ func autotest_setup(args: Dictionary, main) -> void:
 	if args.has("oncetest"):
 		if str(args.oncetest) == "trip":
 			await RouteTest.trip_test(main)
+		elif str(args.oncetest) == "werft":
+			await RouteTest.yard_test(main)
+		elif str(args.oncetest) == "werftshot":
+			await RouteTest.yard_test(main, true)
 		else:
 			await RouteTest.once_test(main, str(args.oncetest))
 

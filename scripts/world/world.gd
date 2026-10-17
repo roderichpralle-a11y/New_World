@@ -162,6 +162,11 @@ func build_from_save(w: Dictionary, m: Dictionary) -> void:
 		bld.adm = bool(b.get("adm", false))
 		if Data.ships.has(b.get("ship", "")):
 			bld.ship_choice = b.ship
+		if b.has("ship_queue"):
+			bld.ship_queue = Array(b.ship_queue).filter(func(t): return Data.ships.has(str(t))).map(func(t): return str(t))
+			bld.ship_wip = str(b.get("ship_wip", "")) if Data.ships.has(str(b.get("ship_wip", ""))) else ""
+		elif bld.def.get("ships", false) and bld.complete:
+			bld.ship_queue = [bld.ship_choice]  # alter Spielstand: die Werft baut noch ein Schiff der alten Wahl
 		bld.refresh()
 	for s in w.settlers:
 		spawn_settler(s)
@@ -827,6 +832,10 @@ func upgrade_building(b: Building) -> Building:
 	var was_selected: bool = Game.selected == b
 	b.queue_free()
 	var nb := place_building(to, c, false, bid)
+	if b.def.get("ships", false):  # Werft: Bauaufträge und angefangenes Schiff ziehen mit
+		nb.ship_queue = b.ship_queue.duplicate()
+		nb.ship_wip = b.ship_wip
+		nb.ship_choice = b.ship_choice
 	spawn_effect("dust", nb.position)
 	assign_homes()
 	if was_selected:
