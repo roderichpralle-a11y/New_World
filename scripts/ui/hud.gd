@@ -413,7 +413,7 @@ const MENU_HELP := {
 	"spielstaende": "Es gibt fünf Plätze. Im aktiven Spielstand speichert das Spiel von selbst. Hier kannst du einen Spielstand laden, hierhin speichern, ein neues Spiel beginnen sowie als Datei ausgeben und einlesen.",
 	"meldungen": "Hier schaltest du ein, welche Arten von Meldungen im Spiel erscheinen. „Alle an“ schaltet alle Arten wieder ein.",
 	"auftraege": "Hier stehen die offenen Aufträge mit Fortschritt und Belohnung.",
-	"inseln": "Unter „Karte“ siehst du die Inseln, die du kennst; unter „Schiffe“ deine Schiffe, Besatzungen und Routen. Waren kommen nur mit dem Schiff von Insel zu Insel. Mit der Entdeckungsreise suchst du neue Inseln.",
+	"inseln": "Unter „Inseln“ siehst du, welche Waren auf welcher Insel liegen. Unter „Schiffe“ schickst du ein Schiff einmal los (Waren von einer Insel zur anderen) oder legst eine Route fest, die es immer wieder fährt. Rot heißt: dort fehlen Seeleute. Unter „Karte“ siehst du alle Inseln und suchst mit der Entdeckungsreise neue.",
 }
 var _menu_help: PanelContainer
 var _menu_help_title: Label
@@ -2251,7 +2251,7 @@ Gibt es mindestens drei Sorten Nahrung im Lager, kommen öfter Kinder zur Welt.
 Jede Insel hat ihr eigenes Lager. Waren kommen nur mit Schiffen auf eine andere Insel. Mit der Forschung Schiffsbau baust du am Ufer eine Werft; im Fenster der Werft wählst du das nächste Schiff. Ruderboote sind klein und landen an jedem Strand, Koggen tragen viel, Schnellsegler sind schnell, Galeonen riesig. Jedes Schiff braucht Seeleute (Beruf Seemann) und einen Liegeplatz in seinem Heimathafen: Werft 1, Anlegesteg 2, Hafen 2, Großer Hafen 3, Kais 1. Koggen und Schnellsegler laufen nur Inseln mit Hafen an, Galeonen nur Große Häfen. Holz-, Erz- und Proviantkai laden ihre Waren dreimal so schnell.
 
 [b]Inseln und Routen[/b]
-Über den Knopf Inseln öffnest du das Inselfenster. "Schiff hierher schicken" bringt Siedler und Waren zu einer Insel, "Entdeckungsreise" schickt ein Schiff auf Erkundung. Unter "Schiffe" legst du Routen fest: An jedem Halt lädt das Schiff die eingestellten Waren und lädt alles andere ab, dann fährt es weiter, immer wieder. Mit „Einmal hin und zurück“ fährt es die Route nur einmal und ist danach wieder frei.
+Über den Knopf Inseln öffnest du das Inselfenster. "Schiff hierher schicken" bringt Siedler und Waren zu einer Insel, "Entdeckungsreise" schickt ein Schiff auf Erkundung. Unter "Schiffe" schickst du ein Schiff einmal los: zu einer Insel fahren, Waren laden und zu einer anderen Insel bringen, danach ist es frei. Oder du legst eine Route von A nach B fest, mit Zwischenhalten zum Dazuladen oder Tauschen; die fährt das Schiff immer wieder.
 
 [b]Neue Inseln[/b]
 Palmeninseln haben Kokosnüsse und viel Fisch, Waldinseln Pilze und Holz, Felseninseln Erz und Gold. Gold brauchst du für die höchsten Forschungen. Je weiter draußen, desto mehr wilde Tiere.

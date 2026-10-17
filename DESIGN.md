@@ -155,8 +155,22 @@ Zeitalterwechsel mit Wertung und Aufträge mit Wahl. Überblick und Zusammenspie
   „Schiffe“): bis 6 Halte; an jedem Halt lädt das Schiff alles ab, was dort nicht geladen wird,
   und lädt bis zur eingestellten Menge. Fahrzeit `(voyage_days_base + voyage_days_per_dist *
   Entfernung) / (eff(ship_speed) * Tempo des Schiffs) * Seasons.sail_mult()`.
-  **Fahrtart** (josh: „Bei den Routen kann es auch einmal Routen geben, also hin und zurück“): unter den
-  Halten „Fahrt: Immer wieder | Einmal hin und zurück“ (`sea_panel._route_mode_row`). Einmal: Start ist der
+  **Einmal schicken und Routen (josh 2026-10-17, ersetzt die Fahrtart unten im Fenster):** Reiter
+  „Schiffe“ zeigt jedes Schiff als Kasten (Name, Art, Laderaum, wo es liegt, was es tut, Besatzung), rot,
+  wenn es liegt und Seeleute fehlen (Knopf „Seemann anheuern“). Freie Schiffe: „Einmal schicken“ und
+  „Route“. *Einmal schicken* (`trip`-Ansicht, `Sea.start_trip(sh, von, nach, waren)`): 1 Fahre nach (liegt es
+  schon dort, lädt es gleich), 2 Lade ein (Mengen aus dem Lager dort), 3 Bringe es nach; das Schiff hat
+  `trip = true` und eine Route aus zwei Halten (`drop_all` false am Ladehalt), lädt am Ziel alles ab, dann
+  `_trip_end`: Route leer, frei, Meldung. „Fahrt abbrechen“ (`Sea.cancel_trip`) leert die Route; ein Schiff
+  auf See lädt dann am Ziel alles ab (Einzelfahrt). *Route* (`ship`-Ansicht): Kette A, Zwischenhalte, B,
+  „↺ zurück zu A“; neue Route A = Liegeinsel, B = nächste Insel, angehalten bis „Route starten“. Jeder Halt
+  (`stop`-Ansicht): Insel, „Alles abladen“ (`drop_all`, Standard und alte Halte ohne Schlüssel,
+  `Sea.stop_drop_all`; lädt bis zur Menge auf) oder „Nur bestimmte Waren“ (`drop`: nur diese Mengen ab,
+  `Sea.unload_some`; lädt die Menge zusätzlich ein). Zwischenhalte starten mit „Nur bestimmte Waren“.
+  „Route auflösen“ macht das Schiff frei. Spielstand: Halt `drop_all`, `drop`, Schiff `trip`. Test
+  `--fixture=sea.json --oncetest=trip` (`RouteTest.trip_test`, „Fahrt OK/FEHLER“).
+  Alte **Fahrtart** (josh: „Bei den Routen kann es auch einmal Routen geben, also hin und zurück“; nur noch
+  für alte Spielstände, „Starten“ stellt sie auf Immer wieder): Einmal: Start ist der
   erste Halt, an dem das Schiff lädt (der, den es als Nächstes anläuft); es fährt alle anderen Halte an,
   kommt zum Start zurück, lädt dort alles ab (lädt nichts mehr) und ist wieder frei: Route angehalten
   (`idle_ships` zählt es), die Halte bleiben, „Route starten“ fährt sie noch einmal; Meldung „Die … ist
@@ -170,10 +184,13 @@ Zeitalterwechsel mit Wertung und Aufträge mit Wahl. Überblick und Zusammenspie
   Fahrt, alte Route fährt weiter, neu starten, umstellen („Einmal-Route OK/FEHLER“); `--oncetest=shot
   --panel=sea --seaview=ship` fürs Bildschirmfoto. Liegende Schiffe
   zeigt `World.sync_ships` im Wasser vor dem Hafen. Forschung **Seehandel** (Stufe VI).
-- **Seekarte** (Knopf „Inseln“, `scripts/ui/sea_panel.gd`): Reiter Inseln und Schiffe, Ansichten
-  `island`, `send`, `ships`, `ship`, `stop`. Die Karte zoomt (Mausrad, zwei Finger, Knöpfe „-“ „+“
+- **Fenster Inseln** (Knopf „Inseln“, `scripts/ui/sea_panel.gd`): Reiter Inseln (`goods`, Standard:
+  Tabelle Insel x Ware mit Siedlerzahl, Spalte Essen = alle Lebensmittel, rot unter 10 bzw. Essen unter
+  einem Tag, Spalte Seeleute = `Sea.free_sailors`; Filter Wichtige Waren / Alle Waren / Nur was fehlt;
+  Tipp auf eine Insel öffnet sie auf der Karte; Entdeckungsreise), Schiffe (`ships`, `trip`, `ship`,
+  `stop`) und Karte (`island`, `send`; Karte nur in diesem Reiter sichtbar). Die Karte zoomt (Mausrad, zwei Finger, Knöpfe „-“ „+“
   „Alle“, 1x bis 8x um den Zeiger) und lässt sich gezoomt ziehen; ein Klick ohne Ziehen wählt
-  eine Insel. Testhilfen `--panel=sea --seazoom=N --seaview=ships|ship|stop|send`, `--seatest
+  eine Insel. Testhilfen `--panel=sea --seazoom=N --seaview=ships|trip|ship|stop|send|map`, `--seatest
   --tradetest` (Hafen, Kogge auf Route).
 - **Inselarten** (`data/islands.json`): `heimat` (Etappe 1, unverändert), `tropen` (Palmeninsel:
   Kokospalmen, viel Fisch, Wildschweine), `wald` (Waldinsel: Nadelwald, Pilze, Wölfe), `berg`
@@ -1445,6 +1462,7 @@ godot --headless --fixed-fps 60 -- --autotest=30 --scale=10 --admintest=1  # Ver
 godot --headless --fixed-fps 60 -- --autotest=200 --scale=10 --landtest=1 --noevents=1  # Straßen, Deiche, Neuland, Förster (Bild: --landshot=road|dike)
 godot --headless --fixed-fps 60 -- --autotest=60 --scale=10 --protestvideo=1  # Protest-Video
 godot --headless --fixed-fps 60 -- --autotest=40 --scale=10 --fixture=sea.json --oncetest=1  # Einmal-Route hin und zurück
+godot --headless --fixed-fps 60 -- --autotest=40 --scale=10 --fixture=sea.json --oncetest=trip  # Einmal schicken, Austausch-Halt
 godot --headless --fixed-fps 60 -- --autotest=30 --scale=10 --seed=7 --basictrade=1  # Händler mit einfachen Waren
 godot --headless --fixed-fps 60 -- --autotest=820 --scale=10 --seed=11 --bot=1 --noevents=1 --winter=normal  # Spiel-Bot v2, 4 Jahre
 #   --fixed-fps 60 vor "--" rechnet so schnell wie moeglich (gleicher Spielverlauf); --seed=N feste Insel

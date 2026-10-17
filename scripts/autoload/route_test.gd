@@ -124,3 +124,73 @@ static func once_test(main, mode: String = "1") -> void:
 	# Umstellen auf Immer wieder: zählt nicht mehr
 	Sea.set_route_once(sh, false)
 	print("Einmal-Route ", _okf(not Sea.is_once(sh) and Sea.once_stops_left(sh) == 0), " umgestellt auf Immer wieder")
+
+
+## --oncetest=trip mit --fixture=<sea.json>: „Einmal schicken“ (Sea.start_trip) von Insel 0 aus: fährt nach 1,
+## lädt Stein, bringt ihn nach 0, ist danach frei (Route leer); Speichern/Laden mitten auf der Fahrt. Dann eine
+## Route 0 -> 1 mit Zwischenhalt-Austausch an 1 (lädt nur 5 Holz ab, lädt 5 Stein dazu). Druckt „Fahrt OK/FEHLER“.
+static func trip_test(main) -> void:
+	var w0 = Sea.worlds.get(0)
+	var w1 = Sea.worlds.get(1)
+	if w0 == null or w1 == null:
+		print("Fahrt FEHLER: braucht zwei besiedelte Inseln (--fixture=sea.json)")
+		return
+	Data.balance["base_storage"] = 4000
+	var sh := {}
+	for s in Sea.idle_ships(0):
+		if s.route.is_empty():
+			sh = s
+			break
+	if sh.is_empty():
+		print("Fahrt FEHLER: kein freies Schiff auf Insel 0")
+		return
+	Sea.fill_crew(sh)
+	if Sea.crew_missing(sh) > 0:
+		Sea.hire_sailor(sh)
+	Game.add_stock("stein", 30, w1)
+	print("Fahrt ", _okf(Sea.start_trip(sh, 0, 0, {"stein": 10}) != ""), " gleiche Insel abgelehnt")
+	print("Fahrt ", _okf(Sea.start_trip(sh, 1, 0, {}) != ""), " ohne Ware abgelehnt")
+	var b0 := Game.amount("stein", w0)
+	var err := Sea.start_trip(sh, 1, 0, {"stein": 10})
+	print("Fahrt ", _okf(err == "" and Sea.is_trip(sh)), " Einmal: %s %s" % [Sea.plan_text(sh), err])
+	var t0 := Game.time_days
+	var saved := false
+	var loaded_at := []
+	var last := ""
+	while Game.time_days - t0 < 6.0:
+		await _wait(main, 0.1)
+		if sh.state == "load" and last != "load":
+			loaded_at.append(int(sh.at))
+		last = str(sh.state)
+		if not saved and sh.state == "sea" and loaded_at.size() == 1:
+			saved = true
+			var data = JSON.parse_string(JSON.stringify(Sea.serialize()))
+			var copy := {}
+			for e in data.ships:
+				if int(e.id) == int(sh.id):
+					copy = e
+			var ok: bool = bool(copy.get("trip", false)) and copy.get("route", []).size() == 2 and not bool(copy.route[0].get("drop_all", true))
+			print("Fahrt ", _okf(ok), " Speichern mitten auf der Fahrt: trip %s, Halte %d" % [copy.get("trip"), copy.get("route", []).size()])
+		if not Sea.is_trip(sh) and sh.state == "dock":
+			break
+	var b1 := Game.amount("stein", w0)
+	print("Fahrt ", _okf(loaded_at == [1, 0] and b1 >= b0 + 10), " fährt 1 -> 0, Stein auf Insel 0 %d -> %d (Halte %s, %.2f Tage)" % [b0, b1, loaded_at, Game.time_days - t0])
+	print("Fahrt ", _okf(sh.route.is_empty() and not Sea.is_trip(sh) and sh.cargo.is_empty() and Sea.idle_ships(0).has(sh)), " danach frei (Route %d Halte, Ladung %s)" % [sh.route.size(), Sea.goods_text(sh.cargo)])
+	# Route mit Austausch: an 1 nur 5 Holz abladen, 5 Stein dazuladen
+	Game.add_stock("holz", 60, w0)
+	sh.route = [{"island": 0, "load": {"holz": 20}, "drop_all": true, "drop": {}},
+		{"island": 1, "load": {"stein": 5}, "drop_all": false, "drop": {"holz": 5}}]
+	sh.leg = 0
+	sh.paused = false
+	var after1 := {}
+	last = ""
+	t0 = Game.time_days
+	while Game.time_days - t0 < 4.0:
+		await _wait(main, 0.1)
+		if sh.state == "sea" and last != "sea" and int(sh.leg) == 0 and after1.is_empty() and Game.time_days - t0 > 0.05:
+			after1 = sh.cargo.duplicate()
+			break
+		last = str(sh.state)
+	print("Fahrt ", _okf(int(after1.get("holz", 0)) == 15 and int(after1.get("stein", 0)) == 5), " Austausch an Insel 1: an Bord %s" % [after1])
+	sh.route = []
+	sh.paused = false

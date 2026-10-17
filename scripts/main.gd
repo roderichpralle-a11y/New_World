@@ -388,6 +388,12 @@ func _maybe_autotest() -> void:
 								sp2._go("ships")
 							"ship":
 								sp2._open_ship(int(first.id))
+							"trip":
+								sp2._open_trip(int(Sea.ships[0].id))
+								sp2._trip_goods = {"holz": 20}
+								sp2.refresh()
+							"map":
+								sp2._go("island")
 							"stop":
 								sp2._ship_id = int(first.id)
 								sp2._stop_i = 0
@@ -398,6 +404,7 @@ func _maybe_autotest() -> void:
 					if args.has("seazoom"):
 						# Testhilfe: Mausrad ueber der Karte, dann ein Stueck ziehen
 						var sp = hud._sea_panel
+						sp._go("island")
 						await get_tree().process_frame
 						for i in int(args.seazoom):
 							var w := InputEventMouseButton.new()
