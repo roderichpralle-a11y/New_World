@@ -994,6 +994,8 @@ func tech_state(t: String) -> String:
 
 
 func is_unlocked(building_type: String) -> bool:
+	if Data.buildings.get(building_type, {}).get("automaton", false) and Steward.automaton_reason() != "":
+		return false  # Rechenautomat: ab 2 Inseln, einer Insel mit über 60 Siedlern und der Renaissance
 	# Bauplan aus einem Auftrag: baubar auch ohne die Forschung
 	return is_researched(Data.buildings.get(building_type, {}).get("requires", "")) or Quests.has_plan(building_type)
 

@@ -598,6 +598,8 @@ func _fill_build_list() -> void:
 		if not unlocked:
 			desc = tr("Benötigt Forschung: %s") % Data.techs.get(def.requires, {}).get("name", "?")
 			sub_col = UiTheme.BAD
+			if Game.is_researched(def.requires) and def.get("automaton", false):
+				desc = Steward.automaton_reason()
 		elif taken:
 			desc = tr("Gibt es nur einmal und steht schon.") + " " + desc
 		elif Quests.plan_only(type):
@@ -2211,6 +2213,17 @@ func _show_offer(kind: String) -> void:
 			choice_dialog("anker", tr("Der Verwalter kann Waren zwischen den Inseln fahren"),
 				tr("Mit der dritten Insel wird das Hin und Her der Waren mühsam. Der Verwalter kann es übernehmen: Tippe unter Inseln in der Tabelle auf eine Zahl und stelle für diese Ware auf dieser Insel einen Mindest- und einen Höchststand ein.\n• Liegt weniger als der Mindeststand da, holt er die Ware mit einem freien Schiff von einer Insel, die genug hat.\n• Liegt mehr als der Höchststand da, bringt er den Überschuss weg, zuerst zur Heimatinsel.\nEr nimmt nur freie Schiffe ohne Route; deine Routen und Fahrten bleiben, wie sie sind."),
 				btns)
+		"net":
+			var b2: Array = [[tr("Verstanden"), "play", func(): pass]]
+			if not Steward.on:
+				b2 = [[tr("Verwalter einschalten"), "play", func(): Steward.set_on(true)], [tr("Später"), "abriss", func(): pass]]
+			choice_dialog("papier", tr("Die Verwalter arbeiten jetzt zusammen"),
+				tr("Mit Papier schreiben sich die Verwalter der Inseln Briefe. Sie arbeiten als Inselverbund:\n• Die Heimatinsel macht nur noch Endverarbeitung und Forschung. Holzfäller, Bauern, Fischer und Steinmetze dort werden zu Handwerkern und Forschern.\n• Die anderen Inseln holen Essen und Rohstoffe. Ihre Schiffe bringen Essen und Brennholz zur Heimatinsel.\n• Was die anderen Inseln zu viel haben, wird zur Heimatinsel abgeholt.\n• Alle Forschungsplätze werden besetzt.\nDu kannst den Inselverbund unter Inseln abschalten; deine eigenen Berufe, Routen und Grenzen gelten weiter."),
+				b2)
+		"automat":
+			choice_dialog("strom", tr("Ein Automat ersetzt den Verwalter"),
+				tr("Mit Elektrizität rechnet ein elektrischer Automat schneller als jeder Verwalter. Er steuert ab jetzt die Inseln, die Berufe und die Waren, auch auf Inseln mit mehr als 60 Siedlern. Seine Meldungen beginnen mit „Automat“. Abschalten kannst du ihn wie den Verwalter unter Inseln."),
+				[[tr("Verstanden"), "play", func(): pass]])
 
 
 ## Fenster mit Titel, Text und Knöpfen [Text, Symbol, Callable]; hält das Spiel an, bis ein Knopf gedrückt ist.

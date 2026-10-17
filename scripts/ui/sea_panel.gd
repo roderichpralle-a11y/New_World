@@ -976,7 +976,7 @@ func _steward_row() -> void:
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 8)
 	h.add_child(UiTheme.icon_rect(Data.icon("person"), 20))
-	var l := UiTheme.label(tr("Verwalter steuert die Berufe: an") if Steward.on else tr("Verwalter steuert die Berufe: aus"), 14, UiTheme.TEXT, true)
+	var l := UiTheme.label((tr("Automat steuert die Inseln: an") if Steward.on else tr("Automat steuert die Inseln: aus")) if Steward.automat_mode() else (tr("Verwalter steuert die Berufe: an") if Steward.on else tr("Verwalter steuert die Berufe: aus")), 14, UiTheme.TEXT, true)
 	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	l.custom_minimum_size.x = 150
@@ -989,6 +989,23 @@ func _steward_row() -> void:
 	h.add_child(b)
 	box.add_child(h)
 	_details.add_child(box)
+	if Steward.on and Steward.net_unlocked():
+		var nb := _box(Color("#e3eecf") if Steward.net_on else CELL_BG, CELL_LINE, 2, 6)
+		var nh := HBoxContainer.new()
+		nh.add_theme_constant_override("separation", 8)
+		nh.add_child(UiTheme.icon_rect(Data.icon("papier"), 20))
+		var nl := UiTheme.label(tr("Inselverbund: an (Heimatinsel verarbeitet, die anderen liefern)") if Steward.net_on else tr("Inselverbund: aus (jede Insel versorgt sich selbst)"), 14, UiTheme.TEXT, true)
+		nl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		nl.custom_minimum_size.x = 150
+		nh.add_child(nl)
+		var nbt := _small_btn(tr("Ausschalten") if Steward.net_on else tr("Einschalten"), "pause" if Steward.net_on else "play")
+		nbt.pressed.connect(func():
+			Steward.set_net(not Steward.net_on)
+			refresh())
+		nh.add_child(nbt)
+		nb.add_child(nh)
+		_details.add_child(nb)
 	if Steward.on:
 		for m in Sea.settled_islands():
 			var why := Steward.blocked_on(Sea.worlds.get(int(m.id)))

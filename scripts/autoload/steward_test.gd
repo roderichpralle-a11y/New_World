@@ -24,6 +24,19 @@ static func run(main, mode: String) -> void:
 	if mode == "shot":
 		Steward.offered = false
 		return
+	if mode == "netshot":  # Angebot Inselverbund
+		main.hud._offers.clear()
+		if main.hud._hint_dialog != null and is_instance_valid(main.hud._hint_dialog):
+			main.hud._hint_dialog.queue_free()
+			main.hud._hint_dialog = null
+		Steward.on = true
+		Steward.offered_routes = true
+		Game.research.done.erase("elektrizitaet")
+		if not Game.is_researched("papier"):
+			Game.research.done.append("papier")
+		Steward.offered_net = true
+		main.hud._show_offer("net")
+		return
 	var hud = main.hud
 	print("Verwalter ", _okf(Steward.offered and (not hud._offers.is_empty() or hud._hint_dialog != null)), " Angebot bei %d Inseln" % Sea.settled_islands().size())
 	if hud._hint_dialog != null and is_instance_valid(hud._hint_dialog):
@@ -129,3 +142,92 @@ static func routes(main) -> void:
 	var copy = JSON.parse_string(JSON.stringify(d))
 	Steward._on_load(copy, 99)
 	print("Verwalter ", _okf(Steward.limits(to_id, "stein")[0] == s0 + 30), " Speichern der Grenzen")
+
+
+## --stewardtest=net mit --fixture=<sea.json>: Inselverbund ab Papier (Essen zur Heimatinsel, Rohstoff-Berufe
+## dort überzählig, Forscher, Überschuss abholen), Rechenautomat-Bedingung und Automat ab Elektrizität.
+static func net(main) -> void:
+	await _wait(main, 0.5)
+	var hud = main.hud
+	if hud._hint_dialog != null and is_instance_valid(hud._hint_dialog):
+		hud._hint_dialog.queue_free()
+		hud._hint_dialog = null
+	hud._offers.clear()
+	Game.set_speed(1)
+	Steward.on = true
+	Steward.offered = true
+	Steward.offered_routes = true
+	Data.balance["base_storage"] = 4000
+	Game.research.done.erase("papier")
+	Game.research.done.erase("elektrizitaet")
+	print("Verwalter ", _okf(not Steward.net_active()), " ohne Papier kein Inselverbund")
+	Game.research.done.append("papier")
+	print("Verwalter ", _okf(Steward.net_active()), " mit Papier: Inselverbund an")
+	var hw = Sea.main_world()
+	var home_id := int(hw.island_id)
+	var ids: Array = Sea.settled_islands().map(func(m): return int(m.id)).filter(func(i): return i != home_id)
+	var ow = Sea.worlds.get(ids[0])
+	# Essen: Heimatinsel knapp (2 Tage), andere Insel reichlich
+	for w in [hw, ow]:
+		_food_ids_zero(w)
+	ow.stock["fisch"] = 3000
+	hw.stock["fisch"] = 100
+	var fd := Game.food_days(hw)
+	hw.stock["fisch"] = int(100.0 * 2.0 / maxf(0.01, fd))
+	var need := Steward.needed(hw)
+	print("Verwalter ", _okf(need.get("job", "") not in Steward.FOOD_JOBS), " Heimatinsel mit %.1f Tagen Essen holt nicht selbst (%s)" % [Game.food_days(hw), need.get("job", "-")])
+	Steward.net_tick()
+	print("Verwalter ", _okf(Steward.incoming(home_id, "fisch") > 0), " Schiff bringt %d Fisch zur Heimatinsel" % Steward.incoming(home_id, "fisch"))
+	# Rohstoff-Berufe auf der Heimatinsel sind überzählig, auf der anderen nicht
+	print("Verwalter ", _okf(Steward._surplus(hw, "holzfaeller") and not Steward._surplus(ow, "fischer")), " Heimatinsel: Holzfäller überzählig")
+	# Andere Insel hält 6 Tage Essen vor
+	_food_ids_zero(ow)
+	ow.stock["fisch"] = 50
+	need = Steward.needed(ow)
+	print("Verwalter ", _okf(need.get("job", "") in Steward.FOOD_JOBS), " andere Insel holt Essen für die Heimatinsel (%s, %s)" % [need.get("job", ""), need.get("why", "")])
+	# Forscher: freie Forschungsplätze auf der Heimatinsel
+	hw.stock["fisch"] = 5000
+	if Game.research.current == "":
+		for t in Data.techs:
+			if not Game.is_researched(t):
+				Game.research.current = t
+				break
+	for s in hw.settlers:
+		if s.is_adult() and s.job == "forscher":
+			s.set_job("frei")
+	hw.stock["holz"] = 2000
+	need = Steward.needed(hw)
+	var slots := 0
+	for b in hw.buildings:
+		if b.complete and b.def.has("research") and b.free_slots() > 0 and hw.pool_allows(b):
+			slots += 1
+	print("Verwalter ", _okf(slots == 0 or need.get("job", "") == "forscher" or need.get("job", "") == "baumeister"), " freie Forschungsplätze (%d) -> %s" % [slots, need.get("job", "")])
+	# Überschuss abholen: viel Stein auf der anderen Insel
+	ow.stock["stein"] = 600
+	hw.stock["fisch"] = 0  # Platz im Lager der Heimatinsel, Essen und Brennstoff reichen trotzdem
+	hw.stock["brot"] = 500
+	hw.stock["holz"] = 0
+	hw.stock["kohle"] = 400
+	for i in 3:
+		Steward.net_tick()
+	var out := 0
+	for i in ids:
+		out += Steward.outgoing(i, "stein")
+	var free := Sea.ships.filter(func(sh): return sh.state == "dock" and sh.route.is_empty()).size()
+	print("Heimatinsel %.1f Tage Essen, %.1f Tage Brennstoff" % [Game.food_days(hw), Steward.fuel_days(hw)])
+	print("Verwalter ", _okf(free == 0 or out >= 20 or Steward.incoming(home_id, "stein") >= 20), " Überschuss Stein wird abgeholt (%d, %d freie Schiffe)" % [maxi(out, Steward.incoming(home_id, "stein")), free])
+	# Rechenautomat
+	print("Verwalter ", _okf(not Game.is_unlocked("rechenautomat") and Steward.automaton_reason() != ""), " Rechenautomat noch nicht: %s" % Steward.automaton_reason())
+	# Automat ab Elektrizität
+	print("Verwalter ", _okf(not Steward.automat_mode()), " vor Elektrizität: %s" % Steward.who())
+	Game.research.done.append("elektrizitaet")
+	print("Verwalter ", _okf(Steward.automat_mode()), " ab Elektrizität: %s" % Steward.who())
+	await _wait(main, 0.5)
+	print("Verwalter ", _okf(Steward.offered_automat and Steward.offered_net), " Angebote Inselverbund und Automat gezeigt")
+	# Speichern
+	Steward.set_net(false)
+	var d := {}
+	Steward._on_save(d)
+	var copy = JSON.parse_string(JSON.stringify(d))
+	Steward._on_load(copy, 99)
+	print("Verwalter ", _okf(not Steward.net_on and Steward.offered_net), " Speichern: Inselverbund aus")

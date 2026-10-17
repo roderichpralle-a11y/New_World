@@ -296,7 +296,20 @@ zuerst) die Ware bis zum Höchststand (ohne Höchststand doppelter Mindeststand)
 meisten Überschuss (über ihrem eigenen Mindeststand); über Höchststand fährt der Überschuss zu einer Insel
 unter ihrem Höchststand (Heimatinsel zuerst). Unterwegs- und Abholmengen (`incoming`, `outgoing`) zählen
 mit. Fahrten über `Sea.start_trip`, `sh.steward = true`. Test `--stewardtest=routes`, Bild
-`--panel=sea --seaview=minmax`.
+`--panel=sea --seaview=minmax`. **Stufe 3** (Inselverbund, ab Papier, Fenster „Die Verwalter arbeiten jetzt
+zusammen“, Schalter `Steward.net_on` im Reiter Inseln, gespeichert): auf der Heimatinsel (`Sea.main_world`)
+sind alle Rohstoff-Berufe aus `RAW_JOB` überzählig (`_surplus`), Essen holt sie nur unter 1 Tag Vorrat und
+Brennholz nur unter 1 Tag, solange eine andere Insel liefern kann (`_supplier`); Lager-Höchstmengen für
+Rohstoffe zählen dort nicht; freie Forschungsplätze bekommen Forscher. Die anderen Inseln halten
+`NET_FOOD_DAYS` 6 Tage Essen und holen die Rohstoffe, die den Werkstätten der Heimatinsel fehlen
+(`_home_wants`, unter 20). `net_tick` (alle 0,5 Tage, eine Fahrt): Essen zur Heimatinsel unter 5 Tagen (mit
+Unterwegs), Brennholz unter 6 Tagen, sonst Überschüsse über `KEEP_RAW` 60 je Rohstoff (ohne eigene Grenzen
+des Spielers) zur Heimatinsel, größter zuerst; `_send_goods` lädt mehrere Waren. Rechenautomat (Gebäude
+`rechenautomat`, Bild `automaton` aus tools/gen_art_machines.py, Forschung Mechanische Uhr, `automaton: true`):
+baubar erst ab 2 Inseln, einer Insel mit über 60 Siedlern und der Renaissance (`Steward.automaton_reason`,
+`Game.is_unlocked`, Bauen-Fenster nennt, was fehlt); auf seiner Insel gilt die Grenze von 60 nicht. Ab
+Elektrizität ersetzt ein Automat den Verwalter (`automat_mode`, Fenster einmal, keine Grenze, Meldungen
+„Automat:“ über `Steward.who()`). Test `--stewardtest=net`, Bild `--stewardtest=netshot`.
 
 **Einheitliche Fenster (josh 2026-10-16, Variante A):** Jedes Fenster aus `Hud._popup_panel(titel, symbol)` hat denselben Kopf: Symbol, Titel (genau der Name des Knopfes, der es öffnet), rechts das X. Kein Hinweistext unter dem Titel; was man wissen muss, steht im Fenster selbst oder als Tooltip. Ein Tipp außerhalb aller Fenster (nicht auf die Leisten oben und unten, nicht aufs Infofenster) schließt sie (`Hud._input`) und löst nichts auf der Karte aus. Namen: Fenster „Vorräte“ (früher Lager; das Gebäude heißt weiter Lager), Fenster „Inseln“ (früher Seekarte) mit Reiter „Karte“ und Knopf „Entdeckungsreise“ (früher „Neue Insel suchen“). Menü > Wertung entfällt (das Fenster `_score_panel` und die Punkte bleiben im Code). Siedlerfenster: zwei Listen übereinander, oben „Mit Beruf“, unten „Frei“ (freie Erwachsene und Kinder); Filter und Sortierung gelten für beide; auf dem Handy quer entfallen Zähler und Spaltenköpfe (`_size_settler_panel`, `tight`). Gesperrte Gebäude im Bauen-Fenster zeigen statt der Kosten den kleinen Knopf „Forsch.“ (öffnet die Forschung). Verwaltung (Infofenster des Gebäudes, `AdminInfo.office_rows`): Reiter Verwalter, Schichten, Überstunden; Reiter Verwalter zeigt den Verwalter und den Schalter „Automatische Neuzuweisung freier Berufe“ (`Admin.auto_reassign`, gespeichert unter `admin.auto`): stirbt ein Siedler mit Beruf auf der Insel der Verwaltung, übernimmt ein freier Erwachsener (einer mit passendem Talent zuerst) den Beruf. Erst ab dem Mittelalter (`Admin.AUTO_AGE` 2, `Admin.auto_unlocked()`, vorher ist der Schalter ausgegraut; josh 2026-10-16). Gibt es keinen freien Erwachsenen, kommt der Beruf in `Admin.pending_jobs` (gespeichert unter `admin.pending`), und das nächste Kind, das erwachsen wird, lernt ihn (`Admin.on_grown_up` aus `Settler._needs`); das Fenster zeigt die wartenden Berufe. Stirbt der Verwalter selbst, wird sein Posten genauso neu besetzt (josh 2026-10-17; `Admin._covers` lässt den Verwalterposten auch ohne lebenden Verwalter zu, solange die Verwaltung auf der Insel steht). Entwurfsbilder: /mnt/project-files/konzept/.
 
