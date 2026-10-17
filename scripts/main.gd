@@ -416,6 +416,16 @@ func _maybe_autotest() -> void:
 				"settlers":
 					hud._toggle(hud._settler_panel)
 					hud._refresh_settler_list()
+					if args.has("freetest"):
+						# Testhilfe (josh 2026-10-17): Wird bei offenem Fenster jemand frei, steht er unter „Frei“
+						var before: int = hud._settler_list_free.get_child_count()
+						var adults := world.settlers.filter(func(s): return s.is_adult() and s.job != "frei")
+						adults[0].set_job("frei")
+						adults[1].set_job("frei")
+						for i in 90:
+							await get_tree().process_frame
+						var after: int = hud._settler_list_free.get_children().filter(func(c): return not c.is_queued_for_deletion()).size()
+						print("FREETEST frei vorher %d, nachher %d: %s" % [before, after, "OK" if after == before + 2 or (before == 1 and after == 2) else "FEHLER"])
 					if args.has("sfilter"):
 						# Testhilfe: Filter und Sortierung der Siedlerliste
 						hud._settler_head["hunger"].pressed.emit()
