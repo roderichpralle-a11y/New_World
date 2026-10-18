@@ -1917,5 +1917,6 @@
  "Große Werft": "Large Shipyard",
  "Ausgebaute Werft (Stufe 2): baut auch Koggen. Liegeplatz für ein Ruderboot.": "Upgraded shipyard (level 2): also builds cogs. Berth for one rowboat.",
  "Königliche Werft": "Royal Shipyard",
- "Ausgebaute Werft (Stufe 3): baut alle Schiffe, auch Schnellsegler und Galeonen. Liegeplatz für ein Ruderboot.": "Upgraded shipyard (level 3): builds every ship, including clippers and galleons. Berth for one rowboat."
+ "Ausgebaute Werft (Stufe 3): baut alle Schiffe, auch Schnellsegler und Galeonen. Liegeplatz für ein Ruderboot.": "Upgraded shipyard (level 3): builds every ship, including clippers and galleons. Berth for one rowboat.",
+ "Fehlt auf dieser Insel: %s": "Missing on this island: %s"
 }

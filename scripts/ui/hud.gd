@@ -529,6 +529,15 @@ func _fill_build_list() -> void:
 			desc = tr("Gibt es nur einmal und steht schon.") + " " + desc
 		elif Quests.plan_only(type):
 			desc = tr("Bauplan aus einem Auftrag.") + " " + desc
+		if unlocked and not taken and not affordable:
+			# Bauten zahlen aus dem Lager dieser Insel: sagen, was hier fehlt
+			var miss := []
+			for res in def.cost:
+				var n := int(def.cost[res]) - Game.amount(res)
+				if n > 0:
+					miss.append("%d %s" % [n, Data.resource_name(res)])
+			desc = tr("Fehlt auf dieser Insel: %s") % ", ".join(miss)
+			sub_col = UiTheme.BAD
 		var rw := Win.row(Data.building_tex(type), def.name, desc, {"sub_color": sub_col,
 			"button": tr("Bauen") if unlocked else tr("Forsch."), "button_off": not unlocked or taken or not affordable})
 		var box: PanelContainer = rw.box

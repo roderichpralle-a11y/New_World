@@ -144,7 +144,7 @@ static func row(tex: Texture2D, name: String, sub: String = "", opts: Dictionary
 		bt.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		bt.add_theme_font_size_override("font_size", 14)
 		if opts.get("button_off", false):
-			bt.modulate = Color(1, 1, 1, 0.55)
+			bt.modulate = Color(0.45, 0.45, 0.45, 0.75)  # deutlich grau
 		if opts.has("on_press"):
 			bt.pressed.connect(opts.on_press)
 		h.add_child(bt)
