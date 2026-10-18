@@ -191,8 +191,8 @@ Zeitalterwechsel mit Wertung und Aufträge mit Wahl. Überblick und Zusammenspie
   --panel=sea --seaview=ship` fürs Bildschirmfoto. Liegende Schiffe
   zeigt `World.sync_ships` im Wasser vor dem Hafen. Forschung **Seehandel** (Stufe VI).
 - **Fenster Inseln** (Knopf „Inseln“, `scripts/ui/sea_panel.gd`): Reiter Inseln (`goods`, Standard:
-  Tabelle Insel x Ware mit Siedlerzahl, Spalte Essen = alle Lebensmittel, rot unter 10 bzw. Essen unter
-  einem Tag, Spalte Seeleute = `Sea.free_sailors`; Filter Wichtige Waren / Alle Waren / Nur was fehlt;
+  Tabelle Insel x Ware mit Siedlerzahl, Lebensmittel einzeln (jedes, das irgendwo liegt; josh 2026-10-18,
+  damit man sie für Routen und Grenzen antippen kann), rot unter 10, Spalte Seeleute = `Sea.free_sailors`; Filter Wichtige Waren / Alle Waren / Nur was fehlt;
   Tipp auf eine Insel öffnet sie auf der Karte; Entdeckungsreise), Schiffe (`ships`, `trip`, `ship`,
   `stop`) und Karte (`island`, `send`; Karte nur in diesem Reiter sichtbar). Die Karte zoomt (Mausrad, zwei Finger, Knöpfe „-“ „+“
   „Alle“, 1x bis 8x um den Zeiger) und lässt sich gezoomt ziehen; ein Klick ohne Ziehen wählt
