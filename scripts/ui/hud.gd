@@ -125,6 +125,7 @@ func setup(p_world: World, p_camera: GameCamera) -> void:
 	root.add_child(_toasts_top)
 	get_viewport().size_changed.connect(_refresh_top)
 	Game.stock_changed.connect(_refresh_top)
+	Game.stock_changed.connect(_on_stock_for_build)
 	Game.stock_changed.connect(_refresh_stock)
 	Game.research_changed.connect(_on_research_changed)
 	Game.population_changed.connect(_refresh_top)
@@ -511,7 +512,7 @@ func _fill_build_list() -> void:
 	for t in _build_tabs:
 		t[0].set_pressed_no_signal(t[1] == _build_cat)
 	var locked_rows := []
-	var used_res := []
+	var free := _build_free()
 	for type in Data.buildings:
 		var def: Dictionary = Data.buildings[type]
 		if not def.get("buildable", false) or def.get("category", "") != _build_cat:
@@ -519,9 +520,7 @@ func _fill_build_list() -> void:
 		var unlocked := Game.is_unlocked(type)
 		var affordable := true
 		for res in def.cost:
-			if not res in used_res:
-				used_res.append(res)
-			if Game.amount(res) < int(def.cost[res]):
+			if int(free.get(res, 0)) < int(def.cost[res]):
 				affordable = false
 		if _build_only_afford and (not unlocked or not affordable):
 			continue
@@ -540,7 +539,7 @@ func _fill_build_list() -> void:
 			# Bauten zahlen aus dem Lager dieser Insel: sagen, was hier fehlt
 			var miss := []
 			for res in def.cost:
-				var n := int(def.cost[res]) - Game.amount(res)
+				var n := int(def.cost[res]) - int(free.get(res, 0))
 				if n > 0:
 					miss.append("%d %s" % [n, Data.resource_name(res)])
 			desc = tr("Fehlt auf dieser Insel: %s") % ", ".join(miss)
@@ -558,8 +557,10 @@ func _fill_build_list() -> void:
 		cost.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		for res in def.cost:
 			cost.add_child(UiTheme.icon_rect(Data.res_icon(res), 16))
-			var enough := Game.amount(res) >= int(def.cost[res])
-			cost.add_child(UiTheme.label(str(int(def.cost[res])), 14, UiTheme.TEXT if enough else UiTheme.BAD))
+			# vorhanden / nötig; vorhanden ohne das Material, das offene Baustellen noch holen
+			var hv := int(free.get(res, 0))
+			var nd := int(def.cost[res])
+			cost.add_child(UiTheme.label("%d/%d" % [mini(hv, 9999), nd], 13, UiTheme.TEXT if hv >= nd else UiTheme.BAD))
 		rw.h.add_child(cost)
 		rw.h.move_child(cost, rw.h.get_child_count() - 2)
 		cost.visible = unlocked
@@ -578,8 +579,9 @@ func _fill_build_list() -> void:
 				toast(tr("Gibt es nur einmal und steht schon."), "hammer")
 				return
 			var miss := []
+			var fr := _build_free()
 			for res in Data.buildings[tp].cost:
-				var n := int(Data.buildings[tp].cost[res]) - Game.amount(res)
+				var n := int(Data.buildings[tp].cost[res]) - int(fr.get(res, 0))
 				if n > 0:
 					miss.append("%d %s" % [n, Data.resource_name(res)])
 			if not miss.is_empty():
@@ -593,11 +595,42 @@ func _fill_build_list() -> void:
 		_build_list.add_child(b)
 	if _build_list.get_child_count() == 0:
 		_build_list.add_child(UiTheme.label(tr("Gerade ist hier nichts bezahlbar.") if _build_only_afford else tr("Hier gibt es noch nichts zu bauen."), 14, Win.DIM))
-	var have := []
-	for res in used_res.slice(0, 5):
-		have.append("%s %d" % [Data.resource_name(res), Game.amount(res)])
-	_build_footer.left.text = tr("Du hast: %s") % ", ".join(have) if not have.is_empty() else ""
+	var held := []
+	for res in _build_held:
+		held.append("%d %s" % [int(_build_held[res]), Data.resource_name(res)])
+	_build_footer.left.text = tr("Zahlen: vorhanden / nötig.") + (" " + tr("Für offene Baustellen schon abgezogen: %s") % ", ".join(held) if not held.is_empty() else "")
+	_build_dirty = false
 	Win.set_left2(_build_footer, tr("Bauen abbrechen: im Plan auf X tippen"))
+
+
+## Freies Baumaterial auf dieser Insel: Lager minus das, was offene Baustellen noch holen (josh 2026-10-18).
+## Sonst zeigte die Liste „genug“, obwohl das Material schon für eine andere Baustelle gedacht ist.
+var _build_held: Dictionary = {}
+var _build_dirty := false
+
+
+func _build_free() -> Dictionary:
+	_build_held = {}
+	for b in world.buildings:
+		if not b.complete:
+			var rc: Dictionary = b.remaining_cost()
+			for res in rc:
+				_build_held[res] = int(_build_held.get(res, 0)) + int(rc[res])
+	var out := {}
+	for res in Data.resources:
+		out[res] = maxi(0, Game.amount(res) - int(_build_held.get(res, 0)))
+	return out
+
+
+## Lager ändert sich, während das Bauen-Fenster offen ist: höchstens einmal je Sekunde neu füllen.
+func _on_stock_for_build() -> void:
+	if _build_panel == null or not _build_panel.visible or _build_dirty:
+		return
+	_build_dirty = true
+	get_tree().create_timer(1.0, true, false, true).timeout.connect(func():
+		if _build_dirty and _build_panel.visible:
+			_fill_build_list()
+		_build_dirty = false)
 
 
 # ================================================================== Forschung
