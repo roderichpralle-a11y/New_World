@@ -761,7 +761,16 @@ func _goods_short(id: String, w, n: int) -> bool:
 
 func _goods_columns(islands: Array) -> Array:
 	if _goods_mode == "main":
-		return MAIN_GOODS.duplicate()
+		# Essen einzeln, damit man jedes Nahrungsmittel für Routen und Grenzen antippen kann (josh 2026-10-18)
+		var main := []
+		for id in MAIN_GOODS:
+			if id != "essen":
+				main.append(id)
+				continue
+			for f in Data.sorted_resource_ids():
+				if f in Data.food_ids() and islands.any(func(m): return Game.amount(f, Sea.worlds.get(int(m.id))) > 0):
+					main.append(f)
+		return main
 	var cols := []
 	for id in Data.sorted_resource_ids():
 		if Data.resources[id].get("category", "") == "ship":
