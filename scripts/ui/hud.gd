@@ -61,6 +61,7 @@ var _place_bar: PanelContainer
 var _place_ok: Button
 var _place_label: Label
 var _toasts: VBoxContainer
+var _toasts_top: VBoxContainer  # über allen Fenstern
 var _overlay: Control
 var _info_timer: float = 0.0
 var _info_obj = null
@@ -116,13 +117,19 @@ func setup(p_world: World, p_camera: GameCamera) -> void:
 	_toasts.add_theme_constant_override("separation", 3)
 	root.add_child(_toasts)
 	root.move_child(_toasts, goal_card.get_index() + 1)  # Meldungen unter offenen Fenstern, nicht über Knöpfen und Titeln
+	# Antworten auf einen Tipp (z. B. "Dafür fehlt noch") stehen über den Fenstern, sonst sieht man sie nicht
+	_toasts_top = VBoxContainer.new()
+	_toasts_top.position = Vector2(8, 56)
+	_toasts_top.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_toasts_top.add_theme_constant_override("separation", 3)
+	root.add_child(_toasts_top)
 	get_viewport().size_changed.connect(_refresh_top)
 	Game.stock_changed.connect(_refresh_top)
 	Game.stock_changed.connect(_refresh_stock)
 	Game.research_changed.connect(_on_research_changed)
 	Game.population_changed.connect(_refresh_top)
 	Game.population_changed.connect(_refresh_settler_list)
-	Game.notified.connect(toast)
+	Game.notified.connect(func(t, i = "", c = ""): toast(t, i, c, false))  # Meldungen aus dem Spiel: unter den Fenstern
 	Game.selection_changed.connect(_on_selection)
 	Game.speed_changed.connect(_on_speed)
 	Game.game_over.connect(_show_game_over)
@@ -570,10 +577,14 @@ func _fill_build_list() -> void:
 			if Admin.exists(tp) and Data.buildings[tp].get("unique", false):
 				toast(tr("Gibt es nur einmal und steht schon."), "hammer")
 				return
+			var miss := []
 			for res in Data.buildings[tp].cost:
-				if Game.amount(res) < int(Data.buildings[tp].cost[res]):
-					toast(tr("Dafür fehlt noch: %s") % Data.resource_name(res), "hammer")
-					return
+				var n := int(Data.buildings[tp].cost[res]) - Game.amount(res)
+				if n > 0:
+					miss.append("%d %s" % [n, Data.resource_name(res)])
+			if not miss.is_empty():
+				toast(tr("Fehlt auf dieser Insel: %s") % ", ".join(miss), "hammer")
+				return
 			_build_panel.visible = false
 			Game.select(null)
 			world.start_placement(tp, camera.position))
@@ -2929,9 +2940,13 @@ func _info_animal(a: Animal) -> void:
 
 
 # ================================================================== Meldungen
-func toast(text: String, icon_name: String = "", _cat: String = "") -> void:
+## top: über den Fenstern (Antwort auf einen Tipp, Standard); Meldungen aus dem Spiel kommen mit false darunter.
+func toast(text: String, icon_name: String = "", _cat: String = "", top: bool = true) -> void:
+	var box := _toasts_top if top else _toasts
+	if top:
+		root.move_child(_toasts_top, -1)  # auch über später geöffneten Fenstern
 	# Dieselbe Meldung nicht doppelt stapeln
-	for c in _toasts.get_children():
+	for c in box.get_children():
 		if c.get_meta("text", "") == text and not c.is_queued_for_deletion():
 			return
 	var p := PanelContainer.new()
@@ -2946,10 +2961,10 @@ func toast(text: String, icon_name: String = "", _cat: String = "") -> void:
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	l.custom_minimum_size.x = min(300.0, root.size.x - 60.0)
 	h.add_child(l)
-	_toasts.add_child(p)
-	while _toasts.get_child_count() > 4:
-		var c := _toasts.get_child(0)
-		_toasts.remove_child(c)
+	box.add_child(p)
+	while box.get_child_count() > 4:
+		var c := box.get_child(0)
+		box.remove_child(c)
 		c.queue_free()
 	p.modulate.a = 0.0
 	var tw := p.create_tween()
@@ -3136,6 +3151,8 @@ func _layout() -> void:
 	else:
 		sp.position = Vector2(vs.x - sp.size.x - 6, 6)
 	_toasts.position = Vector2(8, top_h + 6)
+	if _toasts_top:
+		_toasts_top.position = _toasts.position
 	if goal_card:
 		var narrow := portrait or vs.x < 760
 		var gw: float = (vs.x - sp.size.x - 18.0) if narrow else min(310.0, vs.x * 0.4)
