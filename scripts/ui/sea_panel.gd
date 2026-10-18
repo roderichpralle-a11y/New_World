@@ -4,6 +4,7 @@ extends PanelContainer
 
 var hud  # Hud (fuer Meldungen und Kamera)
 var _selected: int = 0
+var _goods_hscroll := 0  # seitliche Stelle der Warentabelle
 var _view: String = "goods"  # goods (Inseln), ships, trip, ship (Route), stop, island (Karte), send
 var _send_sel: Array = []
 var _send_goods: Dictionary = {}
@@ -110,7 +111,7 @@ func setup(p_hud) -> void:
 	_details = VBoxContainer.new()
 	_details.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_scroll.add_child(_details)
-	Sea.islands_changed.connect(refresh)
+	Sea.islands_changed.connect(_on_islands_changed)
 	Game.stock_changed.connect(func():
 		if visible:
 			_update_head())
@@ -142,6 +143,16 @@ func refresh() -> void:
 	_update_head()
 	_fill_details()
 	_map.queue_redraw()
+
+
+## Die Warentabelle bleibt stehen, während man sie rollt oder einstellt (josh 2026-10-18): neue Zahlen erst beim
+## Öffnen, beim Reiterwechsel oder nach einem Tipp im Fenster. Die anderen Ansichten folgen weiter sofort.
+func _on_islands_changed() -> void:
+	if _view == "goods" and visible:
+		_update_head()
+		_map.queue_redraw()
+		return
+	refresh()
 
 
 func _update_head() -> void:
@@ -842,6 +853,8 @@ func _fill_goods() -> void:
 	hs.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	hs.add_child(grid)
 	_details.add_child(hs)
+	# Beim Neuaufbau (z. B. nach dem Tipp auf eine Zahl) seitlich an derselben Stelle bleiben
+	_keep_hscroll(hs, _goods_hscroll)
 	if cols.is_empty():
 		_details.add_child(_hint(tr("Gerade fehlt auf keiner Insel etwas.")))
 	var chips := HFlowContainer.new()
@@ -872,6 +885,15 @@ func _fill_goods() -> void:
 
 
 # ---------------------------------------------------------------- Schiffe
+func _keep_hscroll(hs: ScrollContainer, x: int) -> void:
+	await get_tree().process_frame
+	await get_tree().process_frame  # erst nach dem Layout ist die Breite bekannt
+	if not is_instance_valid(hs):
+		return
+	hs.scroll_horizontal = x
+	hs.get_h_scroll_bar().value_changed.connect(func(v): _goods_hscroll = int(v))
+
+
 func _small_btn(text: String, icon: String = "") -> Button:
 	var b := UiTheme.button(text, icon, 34)
 	b.add_theme_font_size_override("font_size", 13)

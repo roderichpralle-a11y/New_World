@@ -78,17 +78,35 @@ static func make() -> Theme:
 	# Scrollleiste
 	var sbg := StyleBoxFlat.new()
 	sbg.bg_color = Color(0.35, 0.25, 0.2, 0.3)
-	sbg.content_margin_left = 10
-	sbg.content_margin_right = 10
+	sbg.content_margin_left = 14  # dicker Griff, gut mit Finger und Maus zu greifen (josh 2026-10-18)
+	sbg.content_margin_right = 14
 	var sg := StyleBoxFlat.new()
 	sg.bg_color = Color("#a8743e")
-	sg.set_corner_radius_all(2)
-	sg.content_margin_left = 10
-	sg.content_margin_right = 10
+	sg.set_corner_radius_all(3)
+	sg.content_margin_left = 14
+	sg.content_margin_right = 14
+	var sgp: StyleBoxFlat = sg.duplicate()
+	sgp.bg_color = Color("#7a5230")
 	t.set_stylebox("scroll", "VScrollBar", sbg)
 	t.set_stylebox("grabber", "VScrollBar", sg)
 	t.set_stylebox("grabber_highlight", "VScrollBar", sg)
-	t.set_stylebox("grabber_pressed", "VScrollBar", sg)
+	t.set_stylebox("grabber_pressed", "VScrollBar", sgp)
+	# Waagrecht genauso (z. B. die breite Warentabelle unter Inseln)
+	var hbg := StyleBoxFlat.new()
+	hbg.bg_color = sbg.bg_color
+	hbg.content_margin_top = 14
+	hbg.content_margin_bottom = 14
+	var hg := StyleBoxFlat.new()
+	hg.bg_color = sg.bg_color
+	hg.set_corner_radius_all(3)
+	hg.content_margin_top = 14
+	hg.content_margin_bottom = 14
+	var hgp: StyleBoxFlat = hg.duplicate()
+	hgp.bg_color = sgp.bg_color
+	t.set_stylebox("scroll", "HScrollBar", hbg)
+	t.set_stylebox("grabber", "HScrollBar", hg)
+	t.set_stylebox("grabber_highlight", "HScrollBar", hg)
+	t.set_stylebox("grabber_pressed", "HScrollBar", hgp)
 	# Tooltip
 	var tip := StyleBoxFlat.new()
 	tip.bg_color = Color("#fff6e0")
