@@ -170,6 +170,10 @@ func needed(w) -> Dictionary:
 	var sites: Array = w.construction_sites()
 	if not sites.is_empty() and _count(w, "baumeister") < 1 + sites.size() / 3:
 		return {"job": "baumeister", "why": tr("Baustellen"), "hard": false}
+	# 3b. Hauptaufgabe der Insel (vom Spieler gewählt): die passenden Berufe besetzen
+	var tn := task_need(w)
+	if not tn.is_empty():
+		return tn
 	# 4. Werkstätten, die arbeiten könnten, aber niemand ist da
 	for b in w.buildings:
 		if b.complete and b.def.has("production") and b.free_slots() > 0 and b.occupants.is_empty() and b.prod_blocker() == "":
@@ -231,6 +235,8 @@ func _producer(w, id: String) -> String:
 
 ## Ein Beruf ist überzählig, wenn alle seine Waren das Lagerziel erreicht haben oder das Lager dafür voll ist.
 func _surplus(w, job: String) -> bool:
+	if job in task_jobs(w):
+		return false  # Hauptaufgabe der Insel: diese Berufe bleiben
 	if net_active() and Sea.is_main(w) and job in RAW_JOB.values() and Sea.settled_islands().size() >= 2:
 		return true  # Heimatinsel im Inselverbund: nur noch Endverarbeitung
 	var goods := []
@@ -258,6 +264,13 @@ func _take_worker(w, need: Dictionary):
 	var spare := adults.filter(func(s): return _surplus(w, s.job))
 	if not spare.is_empty():
 		return AiJobs._best_for(spare, job)
+	if need.get("task", false):
+		# Hauptaufgabe: aus Berufen außerhalb der Aufgabe holen; Essen holen nur, wenn genug zu essen da ist
+		var tj := task_jobs(w)
+		var fed: bool = Game.food_days(w) >= 4.0
+		var cand := adults.filter(func(s): return not s.job in tj and (fed or not s.job in FOOD_JOBS))
+		if not cand.is_empty():
+			return AiJobs._best_for(cand, job)
 	if need.get("hard", false):
 		var others := adults.filter(func(s): return not s.job in FOOD_JOBS)  # Essen holen bleibt immer besetzt
 		if not others.is_empty():
@@ -275,6 +288,7 @@ func _on_reset() -> void:
 	net_on = true
 	locks = {}
 	minmax = {}
+	tasks = {}
 	_next = 0.0
 	_route_next = 0.0
 	_net_next = 0.0
@@ -282,7 +296,7 @@ func _on_reset() -> void:
 
 
 func _on_save(d: Dictionary) -> void:
-	d["steward"] = {"on": on, "offered": offered, "offered_routes": offered_routes, "offered_net": offered_net, "offered_automat": offered_automat, "net_on": net_on, "locks": locks.duplicate(), "minmax": minmax.duplicate(true)}
+	d["steward"] = {"on": on, "offered": offered, "offered_routes": offered_routes, "offered_net": offered_net, "offered_automat": offered_automat, "net_on": net_on, "locks": locks.duplicate(), "minmax": minmax.duplicate(true), "tasks": tasks.duplicate()}
 
 
 func _on_load(data: Dictionary, _old_rules: int) -> void:
@@ -306,6 +320,11 @@ func _on_load(data: Dictionary, _old_rules: int) -> void:
 						if not minmax.has(str(k)):
 							minmax[str(k)] = {}
 						minmax[str(k)][str(id)] = [int(v[0]), int(v[1])]
+	var tk = e.get("tasks", {})
+	if tk is Dictionary:
+		for k in tk:
+			if TASKS.has(str(tk[k])):
+				tasks[str(k)] = str(tk[k])
 	var l = e.get("locks", {})
 	if l is Dictionary:
 		for k in l:
@@ -319,6 +338,8 @@ func autotest_setup(args: Dictionary, main) -> void:
 			await StewardTest.routes(main)
 		elif str(args.stewardtest) == "net":
 			await StewardTest.net(main)
+		elif str(args.stewardtest).begins_with("task"):
+			await StewardTest.task(main, str(args.stewardtest))
 		else:
 			await StewardTest.run(main, str(args.stewardtest))
 
@@ -644,3 +665,102 @@ func _incoming_food_days(hw) -> float:
 		sat += incoming(int(hw.island_id), f) * Data.food_satiety(f)
 	var need := float(Data.bal("hunger_per_day")) * Game.eff("hunger") * Seasons.hunger_mult(hw)
 	return sat / (maxf(1.0, hw.settlers.size()) * maxf(need, 0.01))
+
+
+
+# ---------------------------------------------------------------- Hauptaufgabe je Insel (josh 2026-10-18)
+## Der Spieler wählt für eine Insel eine Hauptaufgabe; der Verwalter setzt dann TASK_SHARE der Erwachsenen
+## (ohne Verwalter, Seeleute, Baumeister, Forscher) in die passenden Berufe, gleich verteilt. Werkstatt-Berufe
+## (Handwerker, Koch) nur, wenn auf der Insel eine Werkstatt steht, die eine Ware der Aufgabe herstellt, und nur
+## so viele, wie sie Plätze hat. Essen, Brennholz und Baustellen gehen weiter vor; diese Berufe sind nie überzählig.
+const TASK_SHARE := 0.6
+const TASKS := {
+	"holz": {"name": "Holz und Bretter", "icon": "holz", "goods": ["holz", "bretter"], "jobs": ["holzfaeller", "handwerker"]},
+	"stein": {"name": "Stein und Ziegel", "icon": "stein", "goods": ["stein", "lehm", "ziegel"], "jobs": ["steinmetz", "handwerker"]},
+	"getreide": {"name": "Getreide und Brot", "icon": "weizen", "goods": ["weizen", "mehl", "brot"], "jobs": ["bauer", "koch"]},
+	"fisch": {"name": "Fisch", "icon": "fisch", "goods": ["fisch", "raeucherfisch"], "jobs": ["fischer", "koch"]},
+	"sammeln": {"name": "Beeren und Pilze", "icon": "beeren", "goods": ["beeren", "pilze", "kokos"], "jobs": ["sammler"]},
+	"jagd": {"name": "Fleisch und Felle", "icon": "fleisch", "goods": ["fleisch", "felle"], "jobs": ["jaeger"]},
+	"metall": {"name": "Erz und Metall", "icon": "eisen", "goods": ["erz", "kohle", "eisen", "werkzeug", "stahl"], "jobs": ["steinmetz", "handwerker"]},
+	"forschung": {"name": "Forschung", "icon": "wissen", "goods": [], "jobs": ["forscher"]},
+}
+var tasks: Dictionary = {}  # Insel-ID (String) -> Schlüssel aus TASKS
+
+
+## Nur für die Übersetzung (tools/i18n.py findet tr-Texte): die Namen aus TASKS.
+func _task_names() -> Array:
+	return [tr("Holz und Bretter"), tr("Stein und Ziegel"), tr("Getreide und Brot"), tr("Fisch"), tr("Beeren und Pilze"),
+		tr("Fleisch und Felle"), tr("Erz und Metall"), tr("Forschung")]
+
+
+func task_of(w) -> String:
+	return str(tasks.get(str(int(w.island_id)), "")) if w != null else ""
+
+
+func set_task(island_id: int, key: String) -> void:
+	if key == "" or not TASKS.has(key):
+		tasks.erase(str(island_id))
+	else:
+		tasks[str(island_id)] = key
+		Game.notify(tr("Hauptaufgabe für %s: %s. Der Verwalter setzt die passenden Berufe ein.") % [Sea.meta(island_id).get("name", "?"), tr(TASKS[key].name)], "person", "verwaltung")
+	AiRule.player_changed("task")
+	changed.emit()
+
+
+## Berufe, die für die Hauptaufgabe auf dieser Insel gebraucht werden und dort arbeiten können.
+func task_jobs(w) -> Array:
+	var key := task_of(w)
+	if key == "":
+		return []
+	var t: Dictionary = TASKS[key]
+	var out := []
+	for j in t.jobs:
+		if not Data.job_unlocked(j):
+			continue
+		if j == "forscher" and not Sea.is_main(w):
+			continue  # geforscht wird nur auf der Heimatinsel
+		if j in ["handwerker", "koch"] and _task_places(w, t, j) == 0:
+			continue
+		out.append(j)
+	return out
+
+
+## Plätze in Werkstätten dieser Insel, die eine Ware der Aufgabe herstellen (für Handwerker und Köche).
+func _task_places(w, t: Dictionary, job: String) -> int:
+	var kind := "handwerk" if job == "handwerker" else "kueche"
+	var n := 0
+	for b in w.buildings:
+		if b.complete and b.def.has("production") and b.prod_def().get("job", "") == kind:
+			for id in b.prod_def().get("outputs", {}):
+				if id in t.goods:
+					n += b.slots()
+					break
+	return n
+
+
+## Wie viele Siedler soll ein Beruf der Hauptaufgabe haben?
+func task_target(w, job: String) -> int:
+	var jobs := task_jobs(w)
+	if not job in jobs:
+		return 0
+	var pool: int = _adults(w).filter(func(s): return not s.job in KEEP or s.job in jobs).size() + w.droids.size()
+	var n: int = maxi(1, int(ceil(pool * TASK_SHARE / float(jobs.size()))))
+	if job in ["handwerker", "koch"]:
+		n = mini(n, _task_places(w, TASKS[task_of(w)], job))
+	return n
+
+
+func task_need(w) -> Dictionary:
+	var key := task_of(w)
+	if key == "":
+		return {}
+	var best := ""
+	var gap := 0
+	for j in task_jobs(w):
+		var g: int = task_target(w, j) - _count(w, j)
+		if g > gap:
+			gap = g
+			best = j
+	if best == "":
+		return {}
+	return {"job": best, "why": tr("Hauptaufgabe: %s") % tr(TASKS[key].name), "hard": false, "task": true}

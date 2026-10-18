@@ -2020,5 +2020,18 @@
  "Die letzten Siedler sitzen am Lagerfeuer und frieren. Es ist wie am Anfang des Spiels, nur ist keine Natur mehr da. Kein Baum, kein Strauch. Nur Maschinen, die weiterlaufen.": "The last settlers sit at the campfire, freezing. It is like the start of the game, only there is no nature left. No tree, no bush. Only machines that keep running.",
  "Die Maschinen laufen weiter": "The machines keep running",
  "Superintelligenz": "Superintelligence",
- "Eine KI, klüger als alle Menschen zusammen. Sie übernimmt die Forschung und entscheidet selbst, was nützlich ist.": "An AI cleverer than all humans together. It takes over the research and decides for itself what is useful."
+ "Eine KI, klüger als alle Menschen zusammen. Sie übernimmt die Forschung und entscheidet selbst, was nützlich ist.": "An AI cleverer than all humans together. It takes over the research and decides for itself what is useful.",
+ "Holz und Bretter": "Wood and Planks",
+ "Stein und Ziegel": "Stone and Bricks",
+ "Getreide und Brot": "Grain and Bread",
+ "Beeren und Pilze": "Berries and Mushrooms",
+ "Fleisch und Felle": "Meat and Furs",
+ "Erz und Metall": "Ore and Metal",
+ "Hauptaufgabe für %s: %s. Der Verwalter setzt die passenden Berufe ein.": "Main task for %s: %s. The administrator assigns the matching jobs.",
+ "Hauptaufgabe: %s": "main task: %s",
+ "Hauptaufgabe je Insel": "Main task per island",
+ "Keine (nur nach Bedarf)": "None (only as needed)",
+ "Berufe: %s": "Jobs: %s",
+ "Hier fehlt noch die passende Werkstatt oder Forschung.": "The matching workshop or research is still missing here.",
+ "Keine": "None"
 }

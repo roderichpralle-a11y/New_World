@@ -231,3 +231,51 @@ static func net(main) -> void:
 	var copy = JSON.parse_string(JSON.stringify(d))
 	Steward._on_load(copy, 99)
 	print("Verwalter ", _okf(not Steward.net_on and Steward.offered_net), " Speichern: Inselverbund aus")
+
+
+## --stewardtest=task mit --fixture=<sea.json>: Hauptaufgabe „Holz und Bretter“ auf einer anderen Insel ->
+## der Verwalter setzt Holzfäller ein (auch aus anderen Berufen), sie sind nicht überzählig, Speichern.
+## --stewardtest=taskshot: Inseln-Fenster mit offener Auswahl.
+static func task(main, mode: String) -> void:
+	await _wait(main, 0.5)
+	var hud = main.hud
+	if hud._hint_dialog != null and is_instance_valid(hud._hint_dialog):
+		hud._hint_dialog.queue_free()
+		hud._hint_dialog = null
+	hud._offers.clear()
+	Game.set_speed(1)
+	Steward.on = true
+	Steward.offered = true
+	Steward.offered_routes = true
+	var hw = Sea.main_world()
+	var ow = Sea.all_worlds().filter(func(w): return w != hw and w.settlers.size() >= 3)[0]
+	var oid := int(ow.island_id)
+	if mode == "taskshot":
+		Steward.set_task(oid, "holz")
+		Steward.set_task(int(hw.island_id), "getreide")
+		hud._toggle(hud._sea_panel)
+		await _wait(main, 0.3)
+		hud._sea_panel._task_island = oid
+		hud._sea_panel.refresh()
+		await _wait(main, 0.3)
+		hud._sea_panel._scroll.scroll_vertical = 110
+		return
+	Data.balance["base_storage"] = 6000
+	for s in ow.settlers:
+		if s.is_adult():
+			s.set_job("fischer")
+	ow.stock["fisch"] = 3000
+	ow.stock["holz"] = 2000
+	Steward.set_task(oid, "holz")
+	var target := Steward.task_target(ow, "holzfaeller")
+	for i in 20:
+		Steward.tick(ow)
+	var n := Steward._count(ow, "holzfaeller")
+	print("Verwalter ", _okf(n >= target and target >= 1), " Hauptaufgabe Holz auf %s: %d Holzfäller (Ziel %d)" % [Sea.island_name(ow), n, target])
+	print("Verwalter ", _okf(not Steward._surplus(ow, "holzfaeller")), " Holzfäller sind nicht überzählig, obwohl viel Holz da ist")
+	var d := {}
+	Steward._on_save(d)
+	Steward._on_load(JSON.parse_string(JSON.stringify(d)), 99)
+	print("Verwalter ", _okf(Steward.task_of(ow) == "holz"), " Speichern der Hauptaufgabe")
+	Steward.set_task(oid, "")
+	print("Verwalter ", _okf(Steward.task_of(ow) == "" and Steward.task_need(ow).is_empty()), " Hauptaufgabe aus")
