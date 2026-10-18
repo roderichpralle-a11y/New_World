@@ -251,14 +251,14 @@ static func task(main, mode: String) -> void:
 	var ow = Sea.all_worlds().filter(func(w): return w != hw and w.settlers.size() >= 3)[0]
 	var oid := int(ow.island_id)
 	if mode == "taskshot":
-		Steward.set_task(oid, "holz")
-		Steward.set_task(int(hw.island_id), "getreide")
+		Steward.set_tasks(oid, ["holz", "gold", "pilze"])
+		Steward.set_tasks(int(hw.island_id), ["getreide"])
 		hud._toggle(hud._sea_panel)
 		await _wait(main, 0.3)
 		hud._sea_panel._task_island = oid
 		hud._sea_panel.refresh()
 		await _wait(main, 0.3)
-		hud._sea_panel._scroll.scroll_vertical = 110
+		hud._sea_panel._scroll.scroll_vertical = 230
 		return
 	Data.balance["base_storage"] = 6000
 	for s in ow.settlers:
@@ -266,7 +266,7 @@ static func task(main, mode: String) -> void:
 			s.set_job("fischer")
 	ow.stock["fisch"] = 3000
 	ow.stock["holz"] = 2000
-	Steward.set_task(oid, "holz")
+	Steward.set_tasks(oid, ["holz"])
 	var target := Steward.task_target(ow, "holzfaeller")
 	for i in 20:
 		Steward.tick(ow)
@@ -276,6 +276,18 @@ static func task(main, mode: String) -> void:
 	var d := {}
 	Steward._on_save(d)
 	Steward._on_load(JSON.parse_string(JSON.stringify(d)), 99)
-	print("Verwalter ", _okf(Steward.task_of(ow) == "holz"), " Speichern der Hauptaufgabe")
-	Steward.set_task(oid, "")
-	print("Verwalter ", _okf(Steward.task_of(ow) == "" and Steward.task_need(ow).is_empty()), " Hauptaufgabe aus")
+	print("Verwalter ", _okf(Steward.tasks_of(ow) == ["holz"]), " Speichern der Hauptaufgabe")
+	# Mehrere Aufgaben: Holz und Pilze -> Holzfäller und Sammler, Sammler gehen zuerst an Pilzkreise
+	Steward.toggle_task(oid, "pilze")
+	var jobs := Steward.task_jobs(ow)
+	print("Verwalter ", _okf(Steward.tasks_of(ow) == ["holz", "pilze"] and "holzfaeller" in jobs and "sammler" in jobs), " zwei Hauptaufgaben: %s" % ", ".join(PackedStringArray(jobs)))
+	var order := IslandTraits.gather_order(Data.jobs.sammler.targets, ow)
+	print("Verwalter ", _okf(order[0] == "pilzkreis"), " Sammler gehen zuerst an: %s" % order[0])
+	Steward.toggle_task(oid, "gold")
+	var st := IslandTraits.gather_order(Data.jobs.steinmetz.targets, ow)
+	print("Verwalter ", _okf(st[0] == "goldader" and "steinmetz" in Steward.task_jobs(ow)), " Gold: Steinmetze zuerst an %s" % st[0])
+	var d2 := {"steward": {"tasks": {str(oid): "holz"}}}
+	Steward._on_load(d2, 99)
+	print("Verwalter ", _okf(Steward.tasks_of(ow) == ["holz"]), " alter Spielstand mit einer Aufgabe lädt")
+	Steward.toggle_task(oid, "")
+	print("Verwalter ", _okf(Steward.tasks_of(ow).is_empty() and Steward.task_need(ow).is_empty()), " Hauptaufgabe aus")

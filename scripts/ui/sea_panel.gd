@@ -1017,7 +1017,7 @@ func _steward_row() -> void:
 				_details.add_child(_hint(tr("%s: %s.") % [m.name, why]))
 
 
-## Hauptaufgabe je Insel (josh 2026-10-18): eine Zeile je Insel, Tippen öffnet die Auswahl.
+## Hauptaufgabe je Insel (josh 2026-10-18): eine Zeile je Insel, Tippen öffnet die Auswahl (mehrere wählbar).
 func _task_rows() -> void:
 	_details.add_child(UiTheme.label(tr("Hauptaufgabe je Insel"), 14, UiTheme.TEXT, true))
 	for m in Sea.settled_islands():
@@ -1025,24 +1025,26 @@ func _task_rows() -> void:
 		var w = Sea.worlds.get(iid)
 		if w == null:
 			continue
-		var key := Steward.task_of(w)
+		var keys := Steward.tasks_of(w)
 		var h := HBoxContainer.new()
 		h.add_theme_constant_override("separation", 6)
-		var l := UiTheme.label(str(m.name), 14)
+		var l := UiTheme.label("%s: %s" % [m.name, Steward.task_names(w) if not keys.is_empty() else tr("Keine (nur nach Bedarf)")], 14)
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		h.add_child(l)
-		var b := _small_btn(tr(Steward.TASKS[key].name) if key != "" else tr("Keine (nur nach Bedarf)"), Steward.TASKS[key].icon if key != "" else "person")
+		var b := _small_btn(tr("Fertig") if _task_island == iid else tr("Wählen"), Steward.TASKS[keys[0]].icon if not keys.is_empty() else "person")
 		b.pressed.connect(func():
 			_task_island = -1 if _task_island == iid else iid
 			refresh())
 		h.add_child(b)
 		_details.add_child(h)
-		if key != "":
+		if not keys.is_empty():
 			var parts := []
 			for j in Steward.task_jobs(w):
 				parts.append("%s %d/%d" % [Data.jobs[j].name, Steward._count(w, j), Steward.task_target(w, j)])
 			_details.add_child(_hint(tr("Berufe: %s") % ", ".join(PackedStringArray(parts)) if not parts.is_empty() else tr("Hier fehlt noch die passende Werkstatt oder Forschung.")))
 		if _task_island == iid:
+			_details.add_child(_hint(tr("Mehrere wählbar. Nochmal tippen wählt ab.")))
 			var grid := GridContainer.new()
 			grid.columns = 2
 			grid.add_theme_constant_override("h_separation", 4)
@@ -1053,12 +1055,11 @@ func _task_rows() -> void:
 					continue
 				var tb := _small_btn(tr(Steward.TASKS[k].name) if k != "" else tr("Keine"), Steward.TASKS[k].icon if k != "" else "abriss")
 				tb.toggle_mode = true
-				tb.button_pressed = k == key
+				tb.button_pressed = k in keys if k != "" else keys.is_empty()
 				tb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 				var kk: String = k
 				tb.pressed.connect(func():
-					Steward.set_task(iid, kk)
-					_task_island = -1
+					Steward.toggle_task(iid, kk)
 					refresh())
 				grid.add_child(tb)
 			_details.add_child(grid)
