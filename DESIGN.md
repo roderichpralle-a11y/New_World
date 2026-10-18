@@ -292,7 +292,8 @@ Siedlerliste und dem Infofenster) bleiben 2 Tage. Spielstand `steward` {on, offe
 Inseln auf eine Zahl tippen, Mindest- und Höchststand je Insel und Ware (`Steward.minmax`, gespeichert,
 `SeaPanel._minmax_editor`, Zelle zeigt „min–max“). Alle 0,5 Tage (`route_tick`, nur wenn an) eine Fahrt:
 unter Mindeststand holt ein freies Schiff (keine Route, keine Fahrt, leer, mit Besatzung, das nächste
-zuerst) die Ware bis zum Höchststand (ohne Höchststand doppelter Mindeststand) von der Insel mit dem
+zuerst; liegen mehrere bis einen halben Tag gleich nah, das mit dem größten Laderaum; Kogge und größere nur
+mit passendem Hafen auf beiden Inseln, sonst meldet der Verwalter höchstens alle 3 Tage je Insel „fehlt ein Hafen“) die Ware bis zum Höchststand (ohne Höchststand doppelter Mindeststand) von der Insel mit dem
 meisten Überschuss (über ihrem eigenen Mindeststand); über Höchststand fährt der Überschuss zu einer Insel
 unter ihrem Höchststand (Heimatinsel zuerst). Unterwegs- und Abholmengen (`incoming`, `outgoing`) zählen
 mit. Fahrten über `Sea.start_trip`, `sh.steward = true`. Test `--stewardtest=routes`, Bild

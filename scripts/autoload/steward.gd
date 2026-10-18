@@ -401,22 +401,35 @@ func outgoing(from_id: int, id: String) -> int:
 	return n
 
 
+## Das beste freie Schiff für eine Fahrt: das nächste; liegen mehrere etwa gleich nah (bis einen halben Tag),
+## das mit dem größten Laderaum (josh 2026-10-18: sonst fuhr meist das Ruderboot, die Kogge blieb liegen).
+## Größere Schiffe brauchen auf beiden Inseln einen Hafen (Sea.can_visit); fehlt er, sagt der Verwalter es einmal.
 func _free_ship(from_id: int, to_id: int) -> Dictionary:
 	var best := {}
 	var best_d := INF
+	var no_harbor := {}
 	for sh in Sea.ships:
 		if sh.state != "dock" or not sh.route.is_empty() or Sea.is_trip(sh) or not sh.cargo.is_empty():
 			continue
 		if not Sea.can_visit(sh.type, from_id) or not Sea.can_visit(sh.type, to_id):
+			no_harbor = sh
 			continue
 		Sea.fill_crew(sh)
 		if Sea.ship_blocker(sh) != "":
 			continue
 		var d := 0.0 if int(sh.at) == from_id else Sea.voyage_days(int(sh.at), from_id, sh.type)
-		if d < best_d:
-			best_d = d
+		if best.is_empty() or d < best_d - 0.5 or (d <= best_d + 0.5 and Sea.cargo_room(sh) > Sea.cargo_room(best)):
+			best_d = minf(d, best_d)
 			best = sh
+	if not no_harbor.is_empty() and (best.is_empty() or Sea.cargo_room(best) < Sea.cargo_room(no_harbor)):
+		var where := from_id if not Sea.can_visit(no_harbor.type, from_id) else to_id
+		if Game.time_days - float(_harbor_hint.get(where, -9.0)) > 3.0:
+			_harbor_hint[where] = Game.time_days
+			Game.notify(who() + ": " + tr("Die %s kann nicht nach %s fahren, dort fehlt ein Hafen. Bis dahin fahren kleinere Schiffe.") % [no_harbor.name, Sea.meta(where).get("name", "?")], "anker", "verwaltung")
 	return best
+
+
+var _harbor_hint: Dictionary = {}  # Insel-ID -> Tag der letzten Meldung „fehlt ein Hafen“
 
 
 ## Verfügbar zum Abgeben: über dem eigenen Mindeststand (und nicht schon abgeholt).

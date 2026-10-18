@@ -142,6 +142,20 @@ static func routes(main) -> void:
 	var copy = JSON.parse_string(JSON.stringify(d))
 	Steward._on_load(copy, 99)
 	print("Verwalter ", _okf(Steward.limits(to_id, "stein")[0] == s0 + 30), " Speichern der Grenzen")
+	# Schiffswahl (josh 2026-10-18): Kogge nur mit Hafen auf beiden Inseln, dann vor dem Ruderboot
+	var home: int = ids[0]
+	var hw = Sea.worlds.get(home)
+	var kg: Dictionary = Sea._new_ship("kogge", home)
+	for i in 3:
+		hw.spawn_settler({"name": "Matrose %d" % i, "job": "seemann", "x": hw.center.x, "y": hw.center.y, "age": 25.0})
+	Sea.fill_crew(kg)
+	var pick := Steward._free_ship(home, to_id)
+	print("Verwalter ", _okf(pick.get("type", "") == "boot"), " ohne Hafen auf %s fährt das Ruderboot (%s)" % [Sea.island_name(wt), pick.get("type", "-")])
+	for w in [hw, wt]:
+		if Sea.harbor_level(w) < 2:
+			w.place_building("hafen", w.center + Vector2i(6, 6), true)
+	pick = Steward._free_ship(home, to_id)
+	print("Verwalter ", _okf(pick.get("type", "") == "kogge"), " mit Hafen auf beiden Inseln fährt die Kogge (%s)" % pick.get("type", "-"))
 
 
 ## --stewardtest=net mit --fixture=<sea.json>: Inselverbund ab Papier (Essen zur Heimatinsel, Rohstoff-Berufe

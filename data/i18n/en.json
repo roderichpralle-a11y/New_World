@@ -2035,5 +2035,6 @@
  "Hier fehlt noch die passende Werkstatt oder Forschung.": "The matching workshop or research is still missing here.",
  "Keine": "None",
  "Mehrere wählbar. Nochmal tippen wählt ab.": "Several can be picked. Tap again to unpick.",
- "Wählen": "Choose"
+ "Wählen": "Choose",
+ "Die %s kann nicht nach %s fahren, dort fehlt ein Hafen. Bis dahin fahren kleinere Schiffe.": "The %s cannot sail to %s, there is no harbor there. Until then smaller ships go."
 }
