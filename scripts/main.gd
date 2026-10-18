@@ -452,6 +452,10 @@ func _maybe_autotest() -> void:
 						for row in hud._build_list.get_children():
 							if row.get_meta("btype", "") == args.buildscroll:
 								(hud._build_list.get_parent() as ScrollContainer).scroll_vertical = int(row.position.y)
+								if args.has("buildpress"):
+									# Testhilfe --buildpress=1: den Bauen-Knopf dieser Zeile drücken
+									for bt in row.find_children("*", "Button", true, false):
+										bt.pressed.emit()
 		if args.has("shipcam") and not world._ship_nodes.is_empty():
 			var spn = world._ship_nodes.values()[0]
 			print("Schiffe im Bild: ", world._ship_nodes.size(), " Hafen ", world.harbor_cell(), " Schiff ", world.pos_to_cell(spn.position))
