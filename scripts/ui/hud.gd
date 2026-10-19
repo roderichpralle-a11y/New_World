@@ -126,10 +126,14 @@ func setup(p_world: World, p_camera: GameCamera) -> void:
 	get_viewport().size_changed.connect(_refresh_top)
 	Game.stock_changed.connect(_refresh_top)
 	Game.stock_changed.connect(_on_stock_for_build)
-	Game.stock_changed.connect(_refresh_stock)
+	Game.stock_changed.connect(func():
+		if user_just_acted():
+			_refresh_stock())
 	Game.research_changed.connect(_on_research_changed)
 	Game.population_changed.connect(_refresh_top)
-	Game.population_changed.connect(_refresh_settler_list)
+	Game.population_changed.connect(func():
+		if user_just_acted():
+			_refresh_settler_list())
 	Game.notified.connect(func(t, i = "", c = ""): toast(t, i, c, false))  # Meldungen aus dem Spiel: unter den Fenstern
 	Game.selection_changed.connect(_on_selection)
 	Game.speed_changed.connect(_on_speed)
@@ -138,6 +142,7 @@ func setup(p_world: World, p_camera: GameCamera) -> void:
 	Sea.islands_changed.connect(_update_sea_button)
 	get_viewport().size_changed.connect(_layout)
 	_update_sea_button()
+	_update_admin_button()
 	_refresh_top()
 	goal_card.attach_pointer(root)
 	AdminInfo.attach(self)  # Vorschläge des Verwalters (scripts/ui/admin_info.gd)
@@ -278,37 +283,86 @@ func _on_speed(s: int) -> void:
 
 
 # ================================================================== Unterleiste
+## Knöpfe der Leiste unten (josh 2026-10-19): Bilder statt Text aus assets/sprites/menu_icons.png
+## (tools/gen_art_menu.py, je 20x20, doppelt groß gezeigt); der Name steht im Tooltip.
+const MENU_ICONS := ["bauen", "forschung", "siedler", "inseln", "menue", "verwalter"]
+const MENU_TEX := preload("res://assets/sprites/menu_icons.png")
+var _admin_btn: Button
+
+
+func _menu_button(icon: String, tip: String) -> Button:
+	var b := UiTheme.button("", "", 48)
+	var at := AtlasTexture.new()
+	at.atlas = MENU_TEX
+	at.region = Rect2(20 * MENU_ICONS.find(icon), 0, 20, 20)
+	b.icon = at
+	b.expand_icon = true
+	b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	b.add_theme_constant_override("icon_max_width", 40)
+	b.custom_minimum_size = Vector2(54, 50)
+	b.tooltip_text = tip
+	return b
+
+
 func _build_bottom() -> void:
 	var p := PanelContainer.new()
 	p.name = tr("BottomPanel")
 	root.add_child(p)
 	_bottom = HBoxContainer.new()
-	_bottom.add_theme_constant_override("separation", 8)
+	_bottom.add_theme_constant_override("separation", 6)
 	p.add_child(_bottom)
-	var bb := UiTheme.button(tr("Bauen"), "hammer", 44)
+	var bb := _menu_button("bauen", tr("Bauen"))
 	bb.pressed.connect(func():
 		Game.player_action.emit("panel", "bauen")
+		if not _build_panel.visible:
+			_fill_build_list()  # neue Zahlen beim Öffnen
 		_toggle(_build_panel))
 	_bottom.add_child(bb)
 	_build_btn = bb
-	_research_btn = UiTheme.button(tr("Forschung"), "wissen", 44)
+	_research_btn = _menu_button("forschung", tr("Forschung"))
 	_research_btn.pressed.connect(func():
 		Game.player_action.emit("panel", "forschung")
 		_fill_research_list()
 		_toggle(_research_panel))
 	_bottom.add_child(_research_btn)
-	var sb := UiTheme.button(tr("Siedler"), "person", 44)
+	var sb := _menu_button("siedler", tr("Siedler"))
 	sb.pressed.connect(func():
 		Game.player_action.emit("panel", "siedler")
 		_toggle(_settler_panel)
 		_refresh_settler_list())
 	_bottom.add_child(sb)
-	_sea_btn = UiTheme.button(tr("Inseln"), "boot", 44)
+	_sea_btn = _menu_button("inseln", tr("Inseln"))
 	_sea_btn.pressed.connect(_open_sea)
 	_bottom.add_child(_sea_btn)
-	var mb := UiTheme.button(tr("Menü"), "menu", 44)
+	_admin_btn = _menu_button("verwalter", tr("Verwalter"))
+	_admin_btn.pressed.connect(_open_admin)
+	_admin_btn.visible = false
+	_bottom.add_child(_admin_btn)
+	var mb := _menu_button("menue", tr("Menü"))
 	mb.pressed.connect(func(): _toggle(_menu_panel))
 	_bottom.add_child(mb)
+
+
+## Verwalter-Knopf (josh 2026-10-19): ab der Forschung der Verwaltung; öffnet das Fenster der Verwaltung.
+func _update_admin_button() -> void:
+	if _admin_btn == null:
+		return
+	var show := Game.is_unlocked("verwaltung")
+	if _admin_btn.visible != show:
+		_admin_btn.visible = show
+		_layout()
+
+
+func _open_admin() -> void:
+	var o = Admin.office()
+	if o == null:
+		toast(tr("Baue zuerst die Verwaltung (Bauen, Reiter Wissen). Dann findest du hier den Verwalter, Schichten und Überstunden."), "person")
+		return
+	if o.world != world:
+		Sea.switch_to(int(o.world.island_id))
+	for pnl in _panels():
+		pnl.visible = false
+	Game.select(o)
 
 
 func _open_sea() -> void:
@@ -337,13 +391,25 @@ func on_island_switched() -> void:
 	_refresh_top()
 	_refresh_settler_list()
 	_update_sea_button()
+	_update_admin_button()
 	if _sea_panel.visible:
 		_sea_panel.refresh()
 
 
 ## Ein Tipp außerhalb der Fenster (nicht auf die Leisten oben und unten, nicht aufs Infofenster)
 ## schließt alle offenen Fenster. Der Tipp zählt nur dafür und löst nichts auf der Karte aus.
+## Offene Fenster aktualisieren sich nicht von selbst (josh 2026-10-19), nur kurz nach einem Tipp des Spielers,
+## damit seine eigene Änderung sofort zu sehen ist. Neue Zahlen sonst beim nächsten Öffnen.
+var _last_tap_ms := -100000
+
+
+func user_just_acted() -> bool:
+	return Time.get_ticks_msec() - _last_tap_ms < 1500
+
+
 func _input(ev: InputEvent) -> void:
+	if ev is InputEventMouseButton and ev.pressed:
+		_last_tap_ms = Time.get_ticks_msec()
 	if not (ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT):
 		return
 	if has_overlay() or _panels().all(func(pn): return pn == null or not pn.visible):
@@ -557,7 +623,7 @@ func _fill_build_list() -> void:
 		cost.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		for res in def.cost:
 			cost.add_child(UiTheme.icon_rect(Data.res_icon(res), 16))
-			# vorhanden / nötig; vorhanden ohne das Material, das offene Baustellen noch holen
+			# im Lager / nötig
 			var hv := int(free.get(res, 0))
 			var nd := int(def.cost[res])
 			cost.add_child(UiTheme.label("%d/%d" % [mini(hv, 9999), nd], 13, UiTheme.TEXT if hv >= nd else UiTheme.BAD))
@@ -598,13 +664,13 @@ func _fill_build_list() -> void:
 	var held := []
 	for res in _build_held:
 		held.append("%d %s" % [int(_build_held[res]), Data.resource_name(res)])
-	_build_footer.left.text = tr("Zahlen: vorhanden / nötig.") + (" " + tr("Für offene Baustellen schon abgezogen: %s") % ", ".join(held) if not held.is_empty() else "")
+	_build_footer.left.text = tr("Zahlen: im Lager / nötig.") + (" " + tr("Offene Baustellen holen davon noch: %s") % ", ".join(held) if not held.is_empty() else "")
 	_build_dirty = false
 	Win.set_left2(_build_footer, tr("Bauen abbrechen: im Plan auf X tippen"))
 
 
-## Freies Baumaterial auf dieser Insel: Lager minus das, was offene Baustellen noch holen (josh 2026-10-18).
-## Sonst zeigte die Liste „genug“, obwohl das Material schon für eine andere Baustelle gedacht ist.
+## Baumaterial im Lager dieser Insel (josh 2026-10-19: die Zahl soll zeigen, was im Lager liegt). Was offene
+## Baustellen davon noch holen, steht nur als Hinweis im Fuß des Fensters (_build_held).
 var _build_held: Dictionary = {}
 var _build_dirty := false
 
@@ -618,13 +684,13 @@ func _build_free() -> Dictionary:
 				_build_held[res] = int(_build_held.get(res, 0)) + int(rc[res])
 	var out := {}
 	for res in Data.resources:
-		out[res] = maxi(0, Game.amount(res) - int(_build_held.get(res, 0)))
+		out[res] = Game.amount(res)
 	return out
 
 
 ## Lager ändert sich, während das Bauen-Fenster offen ist: höchstens einmal je Sekunde neu füllen.
 func _on_stock_for_build() -> void:
-	if _build_panel == null or not _build_panel.visible or _build_dirty:
+	if _build_panel == null or not _build_panel.visible or _build_dirty or not user_just_acted():
 		return
 	_build_dirty = true
 	get_tree().create_timer(1.0, true, false, true).timeout.connect(func():
@@ -740,8 +806,8 @@ func _update_research_head() -> void:
 		ExamView.refresh(_exam_box)
 	var label := tr("Forschung")
 	if cur != "":
-		label = "%d%%" % int(Game.tech_progress(cur) / Game.tech_points(cur) * 100.0)
-	_research_btn.text = label
+		label += ": %s %d%%" % [Data.techs[cur].name, int(Game.tech_progress(cur) / Game.tech_points(cur) * 100.0)]
+	_research_btn.tooltip_text = label  # Knopf zeigt nur das Bild (josh 2026-10-19)
 
 
 const ROMAN := ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI"]
@@ -909,11 +975,14 @@ func _on_tech_pressed(tid: String, _b: Button, d: Label) -> void:
 
 func _on_research_changed() -> void:
 	_update_sea_button()
+	_update_admin_button()
 	if _research_panel.visible:
-		_fill_research_list()
+		if user_just_acted():
+			_fill_research_list()
 	else:
 		_update_research_head()
-	_fill_build_list()
+	if not _build_panel.visible or user_just_acted():
+		_fill_build_list()
 
 
 # ================================================================== Vorraete
@@ -1561,6 +1630,8 @@ func _tick_settler_list(delta: float) -> void:
 	if _settler_tick > 0.0:
 		return
 	_settler_tick = 1.0
+	if not user_just_acted():
+		return  # offen: steht still, bis der Spieler etwas tippt
 	if _settler_signature() != _settler_sig:
 		_refresh_settler_list()  # jemand ist frei geworden, erwachsen, geboren, gestorben oder umgezogen
 		return
@@ -3133,30 +3204,13 @@ func _layout() -> void:
 	var vs := get_viewport().get_visible_rect().size
 	var portrait := vs.y > vs.x
 	var bp: Control = _bottom.get_parent()
-	# Schmaler Bildschirm: Symbol ueber dem Text, alle Knoepfe gleich breit
+	# Bildknöpfe: auf schmalen Bildschirmen etwas schmaler, damit alle in eine Reihe passen
 	var btns := _bottom.get_children().filter(func(b): return b.visible)
-	var narrow_bar := vs.x < 140.0 * btns.size()
+	var narrow_bar := vs.x < 64.0 * btns.size() + 30.0
 	for b in btns:
-		b.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP if narrow_bar else VERTICAL_ALIGNMENT_CENTER
-		b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER if narrow_bar else HORIZONTAL_ALIGNMENT_LEFT
-		for st in ["normal", "hover", "pressed", "hover_pressed", "disabled"]:
-			if narrow_bar:
-				var sb: StyleBox = root.theme.get_stylebox(st, tr("Button")).duplicate()
-				sb.content_margin_left = 2
-				sb.content_margin_right = 2
-				b.add_theme_stylebox_override(st, sb)
-			else:
-				b.remove_theme_stylebox_override(st)
-		if narrow_bar:
-			b.add_theme_font_size_override("font_size", 12)
-			b.custom_minimum_size = Vector2(floor((vs.x - 30.0 - 6.0 * (btns.size() - 1)) / btns.size()), 50)
-			b.clip_text = true
-		else:
-			b.remove_theme_font_size_override("font_size")
-			b.custom_minimum_size = Vector2(44, 44)
-			b.clip_text = false
+		b.custom_minimum_size = Vector2(floor((vs.x - 30.0 - 4.0 * (btns.size() - 1)) / btns.size()), 50) if narrow_bar else Vector2(54, 50)
 		b.reset_size()
-	_bottom.add_theme_constant_override("separation", 6 if narrow_bar else 8)
+	_bottom.add_theme_constant_override("separation", 4 if narrow_bar else 6)
 	bp.reset_size()
 	bp.position = Vector2((vs.x - bp.size.x) / 2.0, vs.y - bp.size.y - 6)
 	_place_bar.reset_size()
@@ -3340,7 +3394,8 @@ func _process(delta: float) -> void:
 	_research_tick -= delta
 	if _research_tick <= 0.0:
 		_research_tick = 0.5
-		_update_research_head()
+		if not _research_panel.visible or user_just_acted():
+			_update_research_head()
 	_info_timer -= delta / max(Engine.time_scale, 0.001) if Engine.time_scale > 0 else delta
 	if _info_panel.visible and _info_timer <= 0.0:
 		_info_timer = 0.5

@@ -113,7 +113,7 @@ func setup(p_hud) -> void:
 	_scroll.add_child(_details)
 	Sea.islands_changed.connect(_on_islands_changed)
 	Game.stock_changed.connect(func():
-		if visible:
+		if visible and hud.user_just_acted():
 			_update_head())
 	get_viewport().size_changed.connect(_fit)
 
@@ -145,12 +145,11 @@ func refresh() -> void:
 	_map.queue_redraw()
 
 
-## Die Warentabelle bleibt stehen, während man sie rollt oder einstellt (josh 2026-10-18): neue Zahlen erst beim
-## Öffnen, beim Reiterwechsel oder nach einem Tipp im Fenster. Die anderen Ansichten folgen weiter sofort.
+## Das Fenster bleibt stehen, während es offen ist (josh 2026-10-18 Warentabelle, 2026-10-19 alle Fenster):
+## neue Zahlen erst beim Öffnen, beim Reiterwechsel oder nach einem Tipp im Fenster.
 func _on_islands_changed() -> void:
-	if _view == "goods" and visible:
-		_update_head()
-		_map.queue_redraw()
+	if visible and not hud.user_just_acted():
+		_map.queue_redraw()  # offene Fenster stehen still (josh 2026-10-19); nur die Karte bewegt sich
 		return
 	refresh()
 
