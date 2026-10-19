@@ -356,6 +356,9 @@ func _maybe_autotest() -> void:
 				"research":
 					hud._fill_research_list()
 					hud._toggle(hud._research_panel)
+				"buildinfo":  # Testhilfe: Baumenü und das „i“ der Mühle
+					hud._toggle(hud._build_panel)
+					hud.show_info(Data.buildings.muehle.name, hud._build_info_text("muehle"))
 				"menu":
 					hud._toggle(hud._menu_panel)
 					if args.has("menutab"):  # Testhilfe: 1 = Einstellungen
