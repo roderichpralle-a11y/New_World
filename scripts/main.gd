@@ -399,6 +399,17 @@ func _maybe_autotest() -> void:
 								sp2.refresh()
 							"map":
 								sp2._go("island")
+							"minmax":
+								Steward.offered = true
+								Steward.offered_routes = true
+								hud._offers.clear()
+								if hud._hint_dialog != null and is_instance_valid(hud._hint_dialog):
+									hud._hint_dialog.queue_free()
+									hud._hint_dialog = null
+								Steward.set_limits(int(Sea.islands[1].id), "holz", 100, 400)
+								sp2._mm_island = int(Sea.islands[1].id)
+								sp2._mm_good = "holz"
+								sp2.refresh()
 							"stop":
 								sp2._ship_id = int(first.id)
 								sp2._stop_i = 0
