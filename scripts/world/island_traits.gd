@@ -141,11 +141,19 @@ static func patch_spice(w, island: Dictionary) -> int:
 
 
 ## Sammler: Gewürze nur, solange die Insel Essen für 10 Mahlzeiten je Siedler hat, dann aber zuerst;
-## sonst sammeln sie nur Essen.
+## sonst sammeln sie nur Essen. Mit Hauptaufgabe der Insel gehen Sammler und Steinmetze zuerst an deren Fundstellen
+## (Gewürze dann schon ab 4 Mahlzeiten je Siedler).
 static func gather_order(targets: Array, w) -> Array:
-	if not "gewuerzstrauch" in targets or w == null:
+	if w == null:
 		return targets
-	var out := targets.filter(func(t): return t != "gewuerzstrauch")
-	if Game.total_food(w) >= w.settlers.size() * 10:
-		out.push_front("gewuerzstrauch")
-	return out
+	var out := targets
+	if "gewuerzstrauch" in targets:
+		out = targets.filter(func(t): return t != "gewuerzstrauch")
+		if Game.total_food(w) >= w.settlers.size() * 10:
+			out.push_front("gewuerzstrauch")
+	# Hauptaufgabe der Insel (Steward): deren Fundstellen zuerst, Gewürze aber nur, wenn das Essen nicht knapp ist
+	var first: Array = Steward.task_nodes(w).filter(func(t): return t in targets and \
+		(t != "gewuerzstrauch" or Game.total_food(w) >= w.settlers.size() * 4))
+	if first.is_empty():
+		return out
+	return first + out.filter(func(t): return not t in first)

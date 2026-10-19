@@ -20,6 +20,7 @@ var node_at: Dictionary = {}
 var buildings: Array = []
 var building_at: Dictionary = {}
 var settlers: Array = []
+var droids: Array = []  # Droiden (scripts/entities/droid.gd, Droids): keine Siedler, zählen nicht zur Bevölkerung
 var graves: Array = []  # [Sprite2D, bis_tag]
 var animals: Array = []  # wilde Tiere (Animal)
 var decor: Array = []  # Boote am Strand: [Sprite2D, bis_tag]
@@ -170,6 +171,8 @@ func build_from_save(w: Dictionary, m: Dictionary) -> void:
 		bld.refresh()
 	for s in w.settlers:
 		spawn_settler(s)
+	for d in w.get("droids", []):
+		spawn_droid(d)
 	for g in w.get("graves", []):
 		_add_grave(cell_to_pos(Vector2i(int(g[0]), int(g[1]))), float(g[2]))
 	for a in w.get("animals", []):
@@ -629,6 +632,9 @@ func demolish(b: Building) -> void:
 				s._wake_up()
 		if s._reserved == b or s._incoming.any(func(i): return i[0] == b):
 			s.abort_plan()
+	for d in droids:
+		if d._reserved == b or d._incoming.any(func(i): return i[0] == b):
+			d.abort_plan()
 	buildings.erase(b)
 	for cc in b.cells():
 		building_at.erase(cc)
@@ -825,6 +831,9 @@ func upgrade_building(b: Building) -> Building:
 			s.abort_plan()
 		if s.home_id == bid and s.sleeping:
 			s._wake_up()
+	for d in droids:
+		if d._reserved == b or d._incoming.any(func(i): return i[0] == b):
+			d.abort_plan()
 	buildings.erase(b)
 	for cc in b.cells():
 		building_at.erase(cc)
@@ -976,6 +985,24 @@ func spawn_settler(data: Dictionary) -> Settler:
 	entities.add_child(s)
 	settlers.append(s)
 	return s
+
+
+func spawn_droid(data: Dictionary) -> Droid:
+	var d := Droid.new()
+	d.setup(self, data)
+	d.set_job(str(data.get("job", "frei")))
+	entities.add_child(d)
+	droids.append(d)
+	return d
+
+
+func remove_droid(d) -> void:
+	if not droids.has(d):
+		return
+	d.abort_plan()
+	droids.erase(d)
+	spawn_effect("dust", d.position)
+	d.queue_free()
 
 
 func spawn_child(mother, father) -> Settler:
@@ -1409,7 +1436,7 @@ func is_placing() -> bool:
 func pick_at(p: Vector2, radius: float = 12.0):
 	var best = null
 	var best_d := radius
-	for s in settlers:
+	for s in settlers + droids:
 		if not s.visible:
 			continue
 		var d: float = (s.position + Vector2(0, -9) - p).length()
@@ -1450,6 +1477,7 @@ func serialize() -> Dictionary:
 		"nodes": nodes.map(func(n): return n.serialize()),
 		"buildings": buildings.map(func(b): return b.serialize()),
 		"settlers": settlers.map(func(s): return s.serialize()),
+		"droids": droids.map(func(d): return d.serialize()),
 		"graves": graves.map(func(g): return [pos_to_cell(g[0].position).x, pos_to_cell(g[0].position).y, g[1]]),
 		"animals": animals.filter(func(a): return not a is Raider).map(func(a): return a.serialize()),  # Piraten: Events
 		"den_breed": _den_breed,
