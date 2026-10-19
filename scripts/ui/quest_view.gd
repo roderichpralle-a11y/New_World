@@ -54,14 +54,14 @@ static func build_panel(hud) -> PanelContainer:
 		if p.visible:
 			fill(box, hud))
 	Quests.changed.connect(func():
-		if is_instance_valid(p) and p.visible:
+		if is_instance_valid(p) and p.visible and hud.user_just_acted():
 			fill(box, hud))
 	var t := Timer.new()
 	t.wait_time = 0.5
 	t.ignore_time_scale = true
 	t.autostart = true
 	t.timeout.connect(func():
-		if p.visible:
+		if p.visible and hud.user_just_acted():  # offen: steht still (josh 2026-10-19)
 			refresh(box))
 	p.add_child(t)
 	return p

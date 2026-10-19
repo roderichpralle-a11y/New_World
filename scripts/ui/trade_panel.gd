@@ -82,7 +82,7 @@ func setup(p_hud) -> void:
 	hud.top_alerts.add_child(_badge)
 	Merchant.changed.connect(_on_changed)
 	Game.stock_changed.connect(func():
-		if visible:
+		if visible and hud.user_just_acted():
 			refresh())
 	get_viewport().size_changed.connect(func():
 		if _fit():
@@ -119,7 +119,7 @@ func _fit() -> bool:
 
 func _on_changed() -> void:
 	_refresh_badge()
-	if visible:
+	if visible and hud.user_just_acted():
 		refresh()
 
 
@@ -129,7 +129,7 @@ func _process(_delta: float) -> void:
 		return
 	_next_ms = now + 500
 	_refresh_badge()
-	if visible:
+	if visible and hud.user_just_acted():
 		_update_head()
 
 

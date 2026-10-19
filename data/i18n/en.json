@@ -1920,5 +1920,8 @@
  "Ausgebaute Werft (Stufe 3): baut alle Schiffe, auch Schnellsegler und Galeonen. Liegeplatz für ein Ruderboot.": "Upgraded shipyard (level 3): builds every ship, including clippers and galleons. Berth for one rowboat.",
  "Fehlt auf dieser Insel: %s": "Missing on this island: %s",
  "Zahlen: vorhanden / nötig.": "Numbers: available / needed.",
- "Für offene Baustellen schon abgezogen: %s": "Already set aside for open building sites: %s"
+ "Für offene Baustellen schon abgezogen: %s": "Already set aside for open building sites: %s",
+ "Baue zuerst die Verwaltung (Bauen, Reiter Wissen). Dann findest du hier den Verwalter, Schichten und Überstunden.": "Build the administration first (Build, tab Knowledge). Then you find the administrator, shifts and overtime here.",
+ "Zahlen: im Lager / nötig.": "Numbers: in storage / needed.",
+ "Offene Baustellen holen davon noch: %s": "Open building sites will still fetch: %s"
 }
