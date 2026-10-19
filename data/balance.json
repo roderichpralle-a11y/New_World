@@ -29,7 +29,7 @@
   "base_storage": 0,
   "delivery_spread": 6,
   "start_stock": {
-    "holz": 10,
+    "holz": 16,
     "stein": 0,
     "beeren": 16
   },

@@ -126,6 +126,7 @@ func setup(p_world: World, p_camera: GameCamera) -> void:
 	get_viewport().size_changed.connect(_refresh_top)
 	Game.stock_changed.connect(_refresh_top)
 	Game.stock_changed.connect(_on_stock_for_build)
+	Game.stock_changed.connect(_update_costs)
 	Game.stock_changed.connect(func():
 		if user_just_acted():
 			_refresh_stock())
@@ -162,8 +163,15 @@ func _chip(icon_name: String) -> Array:
 	return [h, l]
 
 
+var top_bar: PanelContainer  # Statuszeile oben (Zeiger der Einführung)
+var speed_bar: PanelContainer  # Geschwindigkeit oben rechts
+var menu_btn: Button
+var settler_btn: Button
+
+
 func _build_topbar() -> void:
 	var p := PanelContainer.new()
+	top_bar = p
 	p.position = Vector2(6, 6)
 	p.tooltip_text = tr("Tippen: alle Vorräte anzeigen")
 	p.gui_input.connect(func(ev):
@@ -222,6 +230,7 @@ func _build_topbar() -> void:
 
 	var sp := PanelContainer.new()
 	sp.name = tr("SpeedPanel")
+	speed_bar = sp
 	root.add_child(sp)
 	var sh := HBoxContainer.new()
 	sh.add_theme_constant_override("separation", 4)
@@ -326,6 +335,7 @@ func _build_bottom() -> void:
 		_toggle(_research_panel))
 	_bottom.add_child(_research_btn)
 	var sb := _menu_button("siedler", tr("Siedler"))
+	settler_btn = sb
 	sb.pressed.connect(func():
 		Game.player_action.emit("panel", "siedler")
 		_toggle(_settler_panel)
@@ -339,8 +349,11 @@ func _build_bottom() -> void:
 	_admin_btn.visible = false
 	_bottom.add_child(_admin_btn)
 	var mb := _menu_button("menue", tr("Menü"))
-	mb.pressed.connect(func(): _toggle(_menu_panel))
+	mb.pressed.connect(func():
+		Game.player_action.emit("panel", "menue")
+		_toggle(_menu_panel))
 	_bottom.add_child(mb)
+	menu_btn = mb
 
 
 ## Verwalter-Knopf (josh 2026-10-19): ab der Forschung der Verwaltung; öffnet das Fenster der Verwaltung.
@@ -579,6 +592,7 @@ const BUILD_TAB_NAMES := {"see": "Seefahrt", "land": "Wege"}
 
 
 func _fill_build_list() -> void:
+	_build_costs.clear()
 	for c in _build_list.get_children():
 		_build_list.remove_child(c)
 		c.queue_free()
@@ -617,13 +631,14 @@ func _fill_build_list() -> void:
 		cost.add_theme_constant_override("v_separation", 2)
 		for res in def.cost:
 			# im Lager / nötig
-			var hv := int(free.get(res, 0))
-			var nd := int(def.cost[res])
 			var one := HBoxContainer.new()
 			one.add_theme_constant_override("separation", 2)
 			one.tooltip_text = Data.resource_name(res)
 			one.add_child(UiTheme.icon_rect(Data.res_icon(res), 16))
-			one.add_child(UiTheme.label("%d/%d" % [mini(hv, 9999), nd], 13, UiTheme.TEXT if hv >= nd else UiTheme.BAD))
+			var cl := UiTheme.label("", 13)
+			_build_costs.append([cl, res, int(def.cost[res])])
+			_set_cost(_build_costs[-1], null)
+			one.add_child(cl)
 			cost.add_child(one)
 		rw.h.add_child(cost)
 		rw.h.move_child(cost, tv.get_index() + 1)
@@ -725,6 +740,30 @@ func _build_free() -> Dictionary:
 	return out
 
 
+## Kosten in den Zeilen von Bauen und Forschung: „im Lager/nötig“, rot bei zu wenig. Ändert sich das Lager,
+## werden nur Zahl und Farbe neu gesetzt, die Zeilen bleiben stehen (josh 2026-10-19: Vergleich muss stimmen).
+var _build_costs: Array = []  # [Label, Ware, nötig]
+var _research_costs: Array = []
+
+
+func _set_cost(e: Array, w) -> void:
+	var cl: Label = e[0]
+	if not is_instance_valid(cl):
+		return
+	var hv := Game.amount(e[1], w)
+	cl.text = "%d/%d" % [mini(hv, 9999), int(e[2])]
+	cl.add_theme_color_override("font_color", UiTheme.TEXT if hv >= int(e[2]) else UiTheme.BAD)
+
+
+func _update_costs() -> void:
+	if _build_panel != null and _build_panel.visible:
+		for e in _build_costs:
+			_set_cost(e, null)
+	if _research_panel != null and _research_panel.visible:
+		for e in _research_costs:
+			_set_cost(e, Sea.main_world())
+
+
 ## Lager ändert sich, während das Bauen-Fenster offen ist: höchstens einmal je Sekunde neu füllen.
 func _on_stock_for_build() -> void:
 	if _build_panel == null or not _build_panel.visible or _build_dirty or not user_just_acted():
@@ -820,7 +859,8 @@ func _update_research_head() -> void:
 		_research_bar.value = 0
 	else:
 		var pts := Game.tech_points(cur)
-		_research_label.text = tr("Forschung: %s  (%d / %d)\n%s") % [Data.techs[cur].name, int(Game.tech_progress(cur)), int(pts), who]
+		# Ohne Punkte (josh 2026-10-19): Name und Prozent, der Balken zeigt den Fortschritt
+		_research_label.text = tr("Forschung: %s  %d%%\n%s") % [Data.techs[cur].name, int(Game.tech_progress(cur) / pts * 100.0), who]
 		_research_bar.value = Game.tech_progress(cur) / pts * 100.0
 	_research_label.add_theme_color_override("font_color", UiTheme.BAD if n == 0 else UiTheme.TEXT)
 	var wt: Array = Writing.head_lines(Sea.main_world(), n)
@@ -844,6 +884,7 @@ const ROMAN := ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI
 
 func _fill_research_list() -> void:
 	var keep := _research_scroll.scroll_vertical
+	_research_costs.clear()
 	for c in _research_list.get_children():
 		_research_list.remove_child(c)
 		c.queue_free()
@@ -967,12 +1008,14 @@ func _tech_row(t: String) -> Control:
 				one.add_theme_constant_override("separation", 2)
 				one.tooltip_text = Data.resource_name(res)
 				one.add_child(UiTheme.icon_rect(Data.res_icon(res), 16))
-				var hv := Game.amount(res, Sea.main_world())
-				var nd := int(def.cost[res])
-				one.add_child(UiTheme.label("%d/%d" % [mini(hv, 9999), nd], 13, UiTheme.TEXT if hv >= nd else UiTheme.BAD))
+				var cl := UiTheme.label("", 13)
+				_research_costs.append([cl, res, int(def.cost[res])])
+				_set_cost(_research_costs[-1], Sea.main_world())
+				one.add_child(cl)
 				mid.add_child(one)
 		var pct := Game.tech_progress(t) / Game.tech_points(t) * 100.0
-		mid.add_child(UiTheme.label(tr("%d Pkt.") % int(Game.tech_points(t)) if pct <= 0 else "%d%%" % int(pct), 13, UiTheme.TEXT, true))
+		if pct > 0:  # keine Punkte mehr (josh 2026-10-19), nur der Fortschritt einer begonnenen Forschung
+			mid.add_child(UiTheme.label("%d%%" % int(pct), 13, UiTheme.TEXT, true))
 	var bt: Button = rw.button
 	bt.icon = Data.icon({"available": "play", "current": "uhr", "done": "haken", "locked": "wissen",
 		"exam": "zeitalter", "soon": "uhr"}.get(st, "play"))
@@ -1011,8 +1054,6 @@ func _tech_info_text(t: String) -> String:
 	var wr := Writing.row_text(t) if st != "done" else ""
 	if wr != "":
 		parts.append(wr)
-	if st != "done":
-		parts.append(tr("%d Pkt.") % int(Game.tech_points(t)))
 	if Sea.all_worlds().size() > 1:
 		parts.append(tr("Geforscht wird nur auf %s, die Kosten kommen aus ihrem Lager.") % Sea.island_name(Sea.main_world()))
 	return "\n\n".join(parts)
@@ -1203,7 +1244,7 @@ func _build_place_bar() -> void:
 	root.add_child(_place_bar)
 	var h := HBoxContainer.new()
 	_place_bar.add_child(h)
-	_place_label = UiTheme.label(tr("Klicke auf einen freien Platz."), 14)
+	_place_label = UiTheme.label("", 14)
 	_place_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_place_label.custom_minimum_size.x = 220
 	_place_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1224,7 +1265,8 @@ func _on_placement(active: bool, type: String, valid: bool) -> void:
 		var moving: bool = world.moving_building() != null
 		_place_ok.text = tr("Hier hinstellen") if moving else tr("Hier bauen")
 		if moving:
-			_place_label.text = tr("%s verschieben: Klicke auf den neuen Platz. Am Handy tippen, dann Hier hinstellen.%s") % [
+			# Ohne Bedienhinweis (josh 2026-10-19): nur Gebäude und ob der Platz passt
+			_place_label.text = tr("%s verschieben.%s") % [
 				Data.buildings[type].name, tr(" Der Platz passt.") if valid else (tr("\nMuss am Ufer stehen und Platz haben.") if Data.buildings[type].get("coast", false) else tr("\nHier ist kein Platz frei."))]
 			_layout()
 			return
@@ -1233,7 +1275,7 @@ func _on_placement(active: bool, type: String, valid: bool) -> void:
 			why = tr("\nMuss am Ufer stehen und Platz haben.")
 		elif Data.buildings[type].get("water_ok", false):
 			why = tr("\nIm Wasser nur neben Land oder einem anderen Deich.")
-		_place_label.text = tr("%s: Klicke auf einen freien Platz. Am Handy tippen, dann Hier bauen.%s") % [
+		_place_label.text = "%s.%s" % [
 			Data.buildings[type].name, tr(" Der Platz passt.") if valid else why]
 		if Data.buildings[type].get("repeat", false):
 			_place_label.text += tr("\nDu kannst mehrere nacheinander setzen. Abbrechen beendet das Bauen.")
@@ -1264,17 +1306,17 @@ func _build_settler_panel() -> void:
 	var r := _popup_panel(tr("Siedler"), "person", "siedler")
 	_settler_panel = r[0]
 	var v: VBoxContainer = r[1]
-	# Reiter Alle / Erwachsene / Kinder, darunter die Filter als Chips (josh 2026-10-16)
+	# Altersfilter bleibt unsichtbar (Testhilfe --sfilter), sonst immer „Alle Alter“
 	_settler_f_group = _settler_filter_button(tr("Erwachsene oder Kinder anzeigen"))
 	for t in [tr("Alle Alter"), tr("Erwachsene"), tr("Kinder")]:
 		_settler_f_group.add_item(t)
 	_settler_f_group.visible = false
 	v.add_child(_settler_f_group)
-	var fr := Win.tabs([tr("Alle"), tr("Erwachsene"), tr("Kinder")], 0, func(i):
-		_settler_f_group.select(i)
-		_refresh_settler_list())
-	# Filter in derselben Zeile wie die Reiter, damit sie auch auf kleinen Bildschirmen sichtbar bleiben:
-	# nur Berufe und bei mehreren Inseln die Insel; keine Filter „Nur Hungrige“/„Nur Kranke“ (josh 2026-10-19)
+	# Keine Reiter Alle / Erwachsene / Kinder mehr (josh 2026-10-19, die Liste zeigt immer alle).
+	# Filter nur für Berufe und bei mehreren Inseln die Insel; keine „Nur Hungrige“/„Nur Kranke“ (josh 2026-10-19)
+	var fr := HFlowContainer.new()
+	fr.add_theme_constant_override("h_separation", 4)
+	fr.add_theme_constant_override("v_separation", 4)
 	_settler_f_job = _settler_filter_button(tr("Welche Berufe anzeigen"))
 	fr.add_child(_settler_f_job)
 	_settler_f_island = _settler_filter_button(tr("Welche Insel anzeigen"))
@@ -3308,7 +3350,7 @@ func _layout() -> void:
 	_toasts.position = Vector2(8, top_h + 6)
 	if _toasts_top:
 		_toasts_top.position = _toasts.position
-	if goal_card:
+	if goal_card and not goal_card.bubble:  # als Sprechblase setzt die Karte sich selbst neben ihr Ziel
 		var narrow := portrait or vs.x < 760
 		var gw: float = (vs.x - sp.size.x - 18.0) if narrow else min(310.0, vs.x * 0.4)
 		goal_card.custom_minimum_size.x = gw

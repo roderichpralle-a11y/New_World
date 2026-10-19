@@ -2,7 +2,9 @@ class_name GoalCard
 extends PanelContainer
 ## Einfuehrung und Ziele (Etappe 4). Zeigt oben links den naechsten Schritt bzw. das
 ## naechste Ziel, prueft es regelmaessig und verteilt Belohnungen. Waehrend der
-## Einfuehrung zeigt ein huepfender Pfeil auf den passenden Knopf.
+## Einfuehrung zeigt ein huepfender Pfeil auf den passenden Knopf oder Teil eines Fensters,
+## und die Karte steht als Sprechblase daneben (josh 2026-10-19). Erklaer-Schritte haben
+## den Knopf Weiter (check action/next), "gift" schenkt Waren, sobald der Schritt beginnt.
 ## Daten: data/goals.json, Zustand: Game.goals {tut, ms}.
 
 var hud  # Hud
@@ -11,6 +13,9 @@ var _text: Label
 var _hint: Label
 var _bar: ProgressBar
 var _skip: Button
+var _next: Button  # Weiter bei Erklaer-Schritten der Einfuehrung
+var bubble: bool = false  # Karte steht als Sprechblase neben dem Ziel des Zeigers (hud._layout laesst sie dann in Ruhe)
+var _home_idx: int = -1
 var _pointer: TextureRect
 var _tick: float = 0.0
 var _cur_id: String = ""
@@ -66,8 +71,19 @@ func setup(p_hud) -> void:
 	_hint.custom_minimum_size.x = 170
 	_hint.visible = false
 	v.add_child(_hint)
+	_next = UiTheme.button(tr("Weiter"), "play", 34)
+	_next.size_flags_horizontal = Control.SIZE_SHRINK_END
+	_next.add_theme_font_size_override("font_size", 14)
+	_next.visible = false
+	_next.pressed.connect(func():
+		Sound.play("klick")
+		Game.player_action.emit("next", _cur_id)
+		_tick = 0.0)  # gleich weiter, nicht erst nach der naechsten Pruefung
+	v.add_child(_next)
 	tooltip_text = tr("Tippen: Erklärung ein- und ausblenden")
 	gui_input.connect(func(ev):
+		if in_tutorial():
+			return  # in der Einfuehrung bleibt die Erklaerung offen
 		if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
 			_hint.visible = not _hint.visible and _hint.text != ""
 			Sound.play("auf" if _hint.visible else "zu")
@@ -203,6 +219,21 @@ func _ms_shown() -> bool:
 	return str(Game.goals.get("hide", "")) != current().id
 
 
+## Geschenk eines Schritts der Einfuehrung (z. B. 12 Holz fuer die Flechtkoerbe): einmal, auf die Hauptinsel.
+func _give_gift(g: Dictionary) -> void:
+	var gift: Dictionary = g.get("gift", {})
+	if gift.is_empty() or str(Game.goals.get("gift", "")) == str(g.id):
+		return
+	Game.goals["gift"] = g.id
+	var parts := []
+	for res in gift:
+		var got := Game.add_stock(res, int(gift[res]), Sea.main_world())
+		if got > 0:
+			parts.append("%d %s" % [got, Data.resource_name(res)])
+	if not parts.is_empty():
+		hud.toast(tr("Geschenkt: %s") % ", ".join(parts), "ziel")
+
+
 func _skip_tutorial() -> void:
 	Game.goals.tut = Data.goals.get("tutorial", []).size()
 	_actions.clear()
@@ -217,6 +248,7 @@ func _process(delta: float) -> void:
 	var active: bool = Game.world != null and is_instance_valid(Game.world) and not Game.is_over and not hud.has_overlay()
 	if not active:
 		_set_visible(false)
+		_set_bubble(false)
 		return
 	_tick -= real
 	if _tick <= 0.0:
@@ -230,6 +262,7 @@ func _process(delta: float) -> void:
 func _set_visible(on: bool) -> void:
 	if not on:
 		_pointer.visible = false
+		_set_bubble(false)
 	if visible != on:
 		visible = on
 		if hud:
@@ -258,6 +291,10 @@ func _check() -> void:
 		# In der Einfuehrung ist die Erklaerung immer offen
 		_hint.visible = t and _hint.text != ""
 		_skip.visible = t
+		var c: Dictionary = g.get("check", {})
+		_next.visible = t and c.get("type", "") == "action" and c.get("kind", "") == "next"
+		if t:
+			_give_gift(g)
 		_relayout()
 	elif is_exam(g) and _hint.text != str(g.get("hint", "")):
 		_hint.text = g.get("hint", "")  # Pruefung: was noch fehlt, aendert sich laufend
@@ -281,20 +318,75 @@ func _update_pointer() -> void:
 		target = _pointer_target(current())
 	if target == null:
 		_pointer.visible = false
+		if in_tutorial() and _panel_open():
+			# Erklaerung ohne Ziel bei offenem Fenster: Karte oben links, aber ueber dem Fenster
+			_set_bubble(true)
+			_fit_width(minf(330.0, get_viewport().get_visible_rect().size.x - 12.0))
+			position = Vector2(6, hud._top_h + 4.0)
+		else:
+			_set_bubble(false)
 		return
 	var bob := sin(_bob * 6.0) * 4.0
 	_pointer.visible = true
-	_pointer.flip_v = false
+	var r: Rect2
 	if target is Vector2:
-		_pointer.position = target - Vector2(15, 34 - bob)
+		r = Rect2(target - Vector2(10, 12), Vector2(20, 24))
+	elif target is Rect2:
+		r = target
 	else:
-		var r: Rect2 = target.get_global_rect()
-		if r.position.y < 40:
-			_pointer.flip_v = true
-			_pointer.position = Vector2(r.get_center().x - 15, r.end.y + 4 + bob)
-		else:
-			_pointer.position = Vector2(r.get_center().x - 15, r.position.y - 32 + bob)
+		_scroll_into_view(target)
+		r = target.get_global_rect()
+	var vs := get_viewport().get_visible_rect().size
+	# Ziel in der oberen Haelfte: Pfeil darunter zeigt nach oben, die Sprechblase steht darunter; sonst umgekehrt
+	var below := r.get_center().y < vs.y * 0.5
+	_pointer.flip_v = below
+	var px := clampf(r.get_center().x - 15, 2, vs.x - 32)
+	# Pfeilspitze ragt etwas ins Ziel, damit klar ist, worauf er zeigt
+	_pointer.position = Vector2(px, r.end.y - 8 + bob) if below else Vector2(px, r.position.y - 22 + bob)
+	if in_tutorial():
+		_set_bubble(true)
+		var w := minf(330.0, vs.x - 12.0)
+		_fit_width(w)
+		var y := r.end.y + 24.0 if below else r.position.y - 24.0 - size.y
+		position = Vector2(clampf(r.get_center().x - w * 0.5, 6, vs.x - w - 6), clampf(y, 4, maxf(4.0, vs.y - size.y - 4)))
 	_pointer.get_parent().move_child(_pointer, -1)
+
+
+var _scrolled_for: String = ""
+
+
+## Ziel in einer Liste: einmal je Schritt hinrollen, danach darf der Spieler selbst rollen.
+func _scroll_into_view(c: Control) -> void:
+	if _scrolled_for == _cur_id:
+		return
+	var p := c.get_parent()
+	while p != null and not p is ScrollContainer:
+		p = p.get_parent()
+	if p == null:
+		return
+	_scrolled_for = _cur_id
+	(p as ScrollContainer).ensure_control_visible(c)
+
+
+func _fit_width(w: float) -> void:
+	if size.x != w:
+		custom_minimum_size.x = w
+		size = Vector2(w, 0)
+
+
+## Sprechblase: ueber allen Fenstern neben dem Ziel; sonst wieder an ihrem Platz oben links unter den Fenstern.
+func _set_bubble(on: bool) -> void:
+	if bubble == on:
+		return
+	bubble = on
+	var par := get_parent()
+	if on:
+		_home_idx = get_index()
+		par.move_child(self, -1)
+	elif _home_idx >= 0:
+		par.move_child(self, mini(_home_idx, par.get_child_count() - 1))
+	if hud:
+		hud._layout.call_deferred()
 
 
 ## Aktionsknopf einer Listenzeile (Win.row: der letzte Knopf rechts), sonst die Zeile selbst.
@@ -345,7 +437,79 @@ func _pointer_target(g: Dictionary):
 			if _panel_open():
 				return null
 			return hud._speed_btns[2][0]
+		"top":
+			return _closed_or(hud.top_bar)
+		"speeds":
+			return _closed_or(hud.speed_bar)
+		"bottom":
+			return _closed_or(hud._bottom.get_parent())
+		"build_btn":
+			return _closed_or(hud._build_btn)
+		"research_btn":
+			return _closed_or(hud._research_btn)
+		"settler_btn":
+			return _closed_or(hud.settler_btn)
+		"menu_btn":
+			return _closed_or(hud.menu_btn)
+		"hut_row":
+			if not hud._build_panel.visible:
+				return null
+			for row in hud._build_list.get_children():
+				if row.get_meta("btype", "") == "huette":
+					return row
+			return null
+		"settler_head":
+			if not hud._settler_panel.visible:
+				return null
+			if hud._settler_head_row.visible:
+				return hud._settler_head_row
+			return hud._settler_list.get_child(0) if hud._settler_list.get_child_count() > 0 else null
+		"job":
+			# Berufswahl der ersten Erwachsenenzeile im Menü Siedler, sonst der Knopf Siedler
+			if hud._settler_panel.visible:
+				var obs: Array = hud._settler_list.find_children("*", "OptionButton", true, false)
+				if obs.is_empty():
+					return null
+				# Forscher: am besten der Baumeister, der nach der Hütte frei ist
+				if g.check.get("what", "") == "forscher":
+					for ob in obs:
+						if ob.selected >= 0 and ob.get_item_text(ob.selected) == Data.jobs.baumeister.name:
+							return ob
+				return obs[0]
+			return _closed_or(hud.settler_btn)
+		"age_tabs":
+			return _children_rect(hud._research_tabs) if hud._research_panel.visible else null
+		"tech_row", "tech_btn":
+			if not hud._research_panel.visible:
+				return _closed_or(hud._research_btn)
+			for row in hud._research_list.get_children():
+				if row.get_meta("tid", "") == "flechtkoerbe":
+					return row if pt == "tech_row" else _row_button(row)
+			return null
+		"menu_tabs":
+			return _children_rect(hud._menu_tabs) if hud._menu_panel.visible else null
+		"child":
+			if _panel_open():
+				return null
+			for s in w.settlers:
+				if not s.is_adult():
+					return s.get_global_transform_with_canvas().origin - Vector2(0, 16 * hud.camera.zoom.y)
+			return null
 	return null
+
+
+## Reiterzeile: nur die Flaeche der Reiter selbst (die Zeile ist so breit wie das Fenster).
+func _children_rect(box: Control):
+	var r := Rect2()
+	for c in box.get_children():
+		if c is Control and c.visible:
+			r = c.get_global_rect() if r.size == Vector2.ZERO else r.merge(c.get_global_rect())
+	return r if r.size != Vector2.ZERO else null
+
+
+## Knopf oder Leiste, solange kein Fenster offen ist (sonst verdeckt der Pfeil das Fenster).
+func _closed_or(c: Control):
+	return null if _panel_open() or not is_instance_valid(c) or not c.is_visible_in_tree() else c
 
 
 func _panel_open() -> bool:

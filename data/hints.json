@@ -2,7 +2,7 @@
  "_info": "Hinweis-Fenster (josh 2026-10-17, Texte aus dem Dokument 'Hinweis-Fenster: Ereignisse und Texte'). Schlüssel: age_<Zeitalter 0-7>, tier_<Stufe>, tech_<Forschung>, first_<Ereignis>. Je Eintrag name (Überschrift), text, optional icon. Siehe scripts/autoload/hints.gd.",
  "age_0": {
   "name": "Die Steinzeit",
-  "text": "Zwei Siedler sind auf der Insel gelandet. Sammelt Beeren, fällt Holz und baut Hütten, damit Kinder kommen. Im Herbst und Winter wird geheizt: Im Winter braucht jeder Siedler etwa 1 Holz am Tag. Am Lagerfeuer könnt ihr Steinwerkzeuge, Flechtkörbe und die Schrift erforschen. Oben links steht immer das nächste Ziel."
+  "text": "Zwei Siedler sind auf der Insel gelandet. Sammelt Beeren, fällt Holz und baut Hütten, damit Kinder kommen. Im Herbst und Winter wird geheizt: Im Winter braucht jeder Siedler etwa 1 Holz am Tag. Am Lagerfeuer könnt ihr Steinwerkzeuge, Flechtkörbe und die Schrift erforschen."
  },
  "age_1": {
   "name": "Du hast die Antike erreicht",
