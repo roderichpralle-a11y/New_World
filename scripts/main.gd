@@ -340,6 +340,8 @@ func _maybe_autotest() -> void:
 		Engine.time_scale = 1.0
 		if args.has("night"):
 			pass
+		if args.has("tut"):  # Testhilfe: Schritt der Einführung
+			Game.goals.tut = int(args.tut)
 		if args.has("select"):
 			Game.select(world.settlers[0])
 			camera.focus(world.settlers[0].position)
@@ -356,6 +358,12 @@ func _maybe_autotest() -> void:
 				"research":
 					hud._fill_research_list()
 					hud._toggle(hud._research_panel)
+				"build":
+					hud._fill_build_list()
+					hud._toggle(hud._build_panel)
+				"settlers":
+					hud._toggle(hud._settler_panel)
+					hud._refresh_settler_list()
 				"buildinfo":  # Testhilfe: Baumenü und das „i“ der Mühle
 					hud._toggle(hud._build_panel)
 					hud.show_info(Data.buildings.muehle.name, hud._build_info_text("muehle"))
@@ -712,34 +720,36 @@ func _autotest_tutorial() -> void:
 	var g: Dictionary = hud.goal_card.current()
 	print("   Ziel: ", g.id, " ", hud.goal_card.progress(g), " tut=", Game.goals.tut, " ms=", Game.goals.ms)
 	match g.id:
-		"t_bar":
+		"t_build_open":
 			Game.player_action.emit("panel", "bauen")
-		"t_select":
-			Game.select(world.settlers[0])
-		"t_job":
-			world.settlers[0].set_job("holzfaeller")
-			Game.player_action.emit("job", "holzfaeller")
+		"t_settlers_open":
+			Game.player_action.emit("panel", "siedler")
+		"t_research_open":
+			Game.player_action.emit("panel", "forschung")
+		"t_menu_open":
+			Game.player_action.emit("panel", "menue")
 		"t_builder":
 			world.settlers[1].set_job("baumeister")
-		"t_stone":
-			if world.settlers[1].job != "steinmetz":
-				world.settlers[1].set_job("steinmetz")
-		"t_hut", "t_field":
-			var type := "huette" if g.id == "t_hut" else "feld"
+		"t_researcher":
+			world.settlers[1].set_job("forscher")
+		"t_hut":
 			for rad in range(3, 12):
 				for dy in range(-rad, rad + 1):
 					for dx in range(-rad, rad + 1):
 						var cc := world.center + Vector2i(dx, dy)
-						if not world.is_placing() and hud.goal_card.current().id == g.id and world.can_place(type, cc) and _roomy(type, cc):
-							world.start_placement(type, world.cell_to_pos(cc))
+						if not world.is_placing() and hud.goal_card.current().id == g.id and world.can_place("huette", cc) and _roomy("huette", cc):
+							world.start_placement("huette", world.cell_to_pos(cc))
 							world.move_placement(world.cell_to_pos(cc))
 							print("   platziert: ", world.confirm_placement())
 							return
-		"t_research":
-			Game.start_research("steinwerkzeuge")
+		"t_flecht":
+			Game.start_research("flechtkoerbe")
 		"t_speed":
 			Game.set_speed(3)
 			Engine.time_scale = 10.0
+		_:
+			if g.get("check", {}).get("kind", "") == "next":
+				Game.player_action.emit("next", g.id)
 
 
 ## Testhilfe --fitcheck=1: oeffnet jedes Fenster und prueft nach dem Layout, ob es zwischen Oberleiste und

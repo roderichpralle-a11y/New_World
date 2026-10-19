@@ -61,6 +61,8 @@ static func progress(c: Dictionary) -> Array:
 			return [best, n]
 		"tech":
 			return [1 if what != "" and Data.techs.has(what) and what in Game.research.done else 0, 1]
+		"tech_started":  # Forschung laeuft oder ist fertig (Einfuehrung)
+			return [1 if what != "" and (Game.research.current == what or what in Game.research.done) else 0, 1]
 		"age_techs":
 			var age := int(c.get("age", 0))
 			var cnt := 0

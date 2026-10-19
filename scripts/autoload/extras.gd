@@ -384,10 +384,8 @@ func _tut_test() -> void:
 	var n: int = Data.goals.get("tutorial", []).size()
 	var before := [w.settlers.size(), w.buildings.filter(func(b): return b.type == "huette").size()]
 	print("Einfuehrungs-Test: vorher Siedler %d, Huetten %d, Platz fuer Huette %s" % [before[0], before[1], hut_spot(w)])
-	Game.goals.tut = n - 1  # letzter Schritt: Tempo
-	var ts := Engine.time_scale
-	Game.set_speed(3)
-	Engine.time_scale = ts
+	Game.goals.tut = n - 1  # letzter Schritt: Erklaerung mit Weiter
+	Game.player_action.emit("next", "")
 	await get_tree().create_timer(2.0, true, false, true).timeout
 	var after := [w.settlers.size(), w.buildings.filter(func(b): return b.type == "huette").size()]
 	var c: bool = after[0] == before[0] + 2 and after[1] == before[1] + 1

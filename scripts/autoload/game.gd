@@ -88,7 +88,7 @@ var lineage: Dictionary = {}  # Siedler-ID -> [Eltern-IDs], auch fuer Verstorben
 ## Forschung: aktuelles Ziel, Fortschritt je Forschung, erforschte und bezahlte Forschungen
 var research: Dictionary = {"current": "", "progress": {}, "done": [], "paid": []}
 ## Einfuehrung und Ziele: Schritt der Einfuehrung (tut), Index des Ziels (ms)
-var goals: Dictionary = {"tut": 0, "ms": 0, "tv": 3}
+var goals: Dictionary = {"tut": 0, "ms": 0, "tv": 4}
 var eaten: Dictionary = {}  # gegessene Speisen seit Spielbeginn (fuer Statistik und Tests)
 var effects: Dictionary = {}  # Summe aller Forschungs-Effekte, z. B. {"build": 0.2}
 var reward_wait: Dictionary = {}  # Belohnungen ohne Lagerplatz, siehe _wait_goods
@@ -145,7 +145,7 @@ func reset_state(new_seed: int) -> void:
 	stats = {"births": 0, "deaths": 0, "max_pop": 0, "starved": 0, "starve_day": time_days}
 	lineage = {}
 	research = {"current": "", "progress": {}, "done": [], "paid": []}
-	goals = {"tut": 0, "ms": 0, "tv": 3}
+	goals = {"tut": 0, "ms": 0, "tv": 4}
 	rules = RULES
 	rules_old = RULES
 	rules_day = time_days
@@ -1425,7 +1425,13 @@ func apply_save_header(d: Dictionary) -> void:
 		# Seit tv 3 beginnt die Einfuehrung mit der Knopfleiste (Bauen, Forschung, Siedler)
 		if tv < 3:
 			tut += 1
-		goals = {"tut": tut, "ms": int(g.get("ms", 0)), "hide": str(g.get("hide", "")), "tv": 3}
+		# Seit tv 4 erklaert die Einfuehrung mit Pfeil und Sprechblase (21 Schritte, josh 2026-10-19):
+		# eine angefangene alte Einfuehrung beginnt neu, erledigte Schritte gehen von selbst weiter
+		# (die alte hatte 10 Schritte; fertig bleibt fertig)
+		if tv < 4:
+			tut = 0 if tut < 10 else 999
+		goals = {"tut": tut, "ms": int(g.get("ms", 0)), "hide": str(g.get("hide", "")), "tv": 4,
+			"gift": str(g.get("gift", ""))}
 	else:
 		goals = {"tut": 999, "ms": 0, "catchup": true}
 	_recompute_effects()
