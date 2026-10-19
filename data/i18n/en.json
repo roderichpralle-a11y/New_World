@@ -1923,5 +1923,7 @@
  "Für offene Baustellen schon abgezogen: %s": "Already set aside for open building sites: %s",
  "Baue zuerst die Verwaltung (Bauen, Reiter Wissen). Dann findest du hier den Verwalter, Schichten und Überstunden.": "Build the administration first (Build, tab Knowledge). Then you find the administrator, shifts and overtime here.",
  "Zahlen: im Lager / nötig.": "Numbers: in storage / needed.",
- "Offene Baustellen holen davon noch: %s": "Open building sites will still fetch: %s"
+ "Offene Baustellen holen davon noch: %s": "Open building sites will still fetch: %s",
+ "Ware": "Goods",
+ "Seeleute frei": "Free sailors"
 }

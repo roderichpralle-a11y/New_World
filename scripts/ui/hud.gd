@@ -1656,20 +1656,29 @@ func _settler_signature() -> String:
 
 
 # ================================================================== Menue / Hilfe
+var _menu_grids: Array = []
+var _menu_tabs: HFlowContainer
+
+
 func _build_menu_panel() -> void:
 	var r := _popup_panel(tr("Menü"), "menu", "menue")
 	_menu_panel = r[0]
 	var v: VBoxContainer = r[1]
 	# Reiter Spiel / Einstellungen, jede Zeile gleich aufgebaut (josh 2026-10-16)
-	var game_box := VBoxContainer.new()
-	game_box.add_theme_constant_override("separation", 4)
-	var set_box := VBoxContainer.new()
-	set_box.add_theme_constant_override("separation", 6)
+	# Zwei Spalten, wenn breit genug: dann passt jeder Reiter ohne Rollen auf eine Seite (josh 2026-10-19)
+	var game_box := GridContainer.new()
+	game_box.add_theme_constant_override("h_separation", 6)
+	game_box.add_theme_constant_override("v_separation", 4)
+	var set_box := GridContainer.new()
+	set_box.add_theme_constant_override("h_separation", 12)
+	set_box.add_theme_constant_override("v_separation", 6)
 	set_box.visible = false
-	v.add_child(Win.tabs([tr("Spiel"), tr("Einstellungen")], 0, func(i):
+	_menu_grids = [game_box, set_box]
+	_menu_tabs = Win.tabs([tr("Spiel"), tr("Einstellungen")], 0, func(i):
 		game_box.visible = i == 0
 		set_box.visible = i == 1
-		_layout.call_deferred()))
+		_layout.call_deferred())
+	v.add_child(_menu_tabs)
 	v.add_child(game_box)
 	v.add_child(set_box)
 	var rows := [
@@ -3255,6 +3264,8 @@ func _layout() -> void:
 		_toasts.position.y = maxf(_toasts.position.y, top_alerts.position.y + top_alerts.size.y + 4.0)
 	_top_h = top_h
 	_notify_grid.columns = 2 if vs.x >= 640 else 1
+	for g in _menu_grids:
+		g.columns = 2 if vs.x >= 640 else 1
 	_size_settler_panel(vs.y - top_h - bp.size.y - 18.0)
 	_fit_research(top_h)
 	# Alle Fenster gleich groß (josh 2026-10-16): so breit wie das Siedler-Fenster, so hoch wie der freie Platz
@@ -3296,6 +3307,8 @@ func _fit_visible_panels() -> void:
 		if ws != null and is_instance_valid(ws):
 			var inner: Control = ws.get_child(0)
 			var head: float = pnl.size.y - ws.size.y
+			if _hide_footer_for(inner, inner.get_combined_minimum_size().y - (cap - head)):
+				continue  # nur ein kleines Stück zu hoch: ohne Fuß passt es, im nächsten Bild neu messen
 			var want := minf(inner.get_combined_minimum_size().y, maxf(cap - head, 90.0))
 			if absf(want - ws.custom_minimum_size.y) > 0.5 or pnl.size.y > cap + 0.5:
 				ws.custom_minimum_size.y = want
@@ -3305,10 +3318,15 @@ func _fit_visible_panels() -> void:
 			# Passt, ist aber nach dem Layout noch gewachsen (umbrechende Reiter, Texte): neu ausrichten
 			if pnl.position.y + pnl.size.y > vs.y - bp.size.y - 18.0 + 0.5:
 				_refit_panel(pnl, vs, bp)
+			elif _hide_for_small_scroll(pnl):
+				_refit_panel(pnl, vs, bp)
 			continue
 		var sc: Control = _biggest_scroller(pnl)
 		if sc == null:
-			_wrap_in_scroll(pnl)  # ab dem nächsten Bild von oben passt es mit
+			if _hide_footer_for(pnl, pnl.size.y - cap):  # nur ein kleines Stück zu hoch: ohne Fuß passt es ohne Rollen
+				_refit_panel(pnl, vs, bp)
+			else:
+				_wrap_in_scroll(pnl)  # ab dem nächsten Bild von oben passt es mit
 			continue
 		var cur := maxf(sc.custom_minimum_size.y, sc.size.y)
 		var floor_h := 90.0 if vs.y >= 500.0 else 64.0
@@ -3323,6 +3341,40 @@ func _fit_visible_panels() -> void:
 			_fit_orig[sc] = sc.custom_minimum_size.y
 		sc.custom_minimum_size.y = target
 		_refit_panel(pnl, vs, bp)
+
+
+## Fehlt der Liste nur ein kleines Stück (höchstens so viel, wie die Fußzeile hoch ist),
+## blendet sie diese aus, damit man nicht für ein paar Pixel rollen muss (josh 2026-10-19).
+func _hide_for_small_scroll(pnl: Control) -> bool:
+	var sc := _biggest_scroller(pnl)
+	if not (sc is ScrollContainer) or sc.get_child_count() == 0 or not sc.is_visible_in_tree():
+		return false
+	return _hide_footer_for(pnl, sc.get_child(0).get_combined_minimum_size().y - sc.size.y)
+
+
+## Blendet die Fußzeile aus, wenn das reicht, um excess Pixel zu sparen.
+func _hide_footer_for(pnl: Node, excess: float) -> bool:
+	if excess <= 0.5:
+		return false
+	var parts := []
+	_fit_parts(pnl, parts)
+	var room := 0.0
+	for c in parts:
+		room += c.size.y + 6.0
+	if parts.is_empty() or excess > room:
+		return false
+	for c in parts:
+		c.visible = false
+		_fit_hidden.append(c)
+	return true
+
+
+func _fit_parts(n: Node, out: Array) -> void:
+	for c in n.get_children():
+		if c is Control and c.visible and c.has_meta("fit_footer"):
+			out.append(c)
+		elif c is Container and not c is ScrollContainer:
+			_fit_parts(c, out)
 
 
 func _hide_fit_parts(n: Node) -> bool:
