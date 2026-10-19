@@ -160,9 +160,11 @@ static func footer(parent: Container) -> Dictionary:
 	line.thickness = 2
 	sep.add_theme_stylebox_override("separator", line)
 	sep.set_meta("fit_hide", true)
+	sep.set_meta("fit_footer", true)  # Hud blendet den Fuß aus, wenn die Liste sonst nur ein kleines Stück rollen müsste
 	parent.add_child(sep)
 	var h := HBoxContainer.new()
 	h.set_meta("fit_hide", true)
+	h.set_meta("fit_footer", true)
 	h.add_theme_constant_override("separation", 8)
 	parent.add_child(h)
 	var lv := VBoxContainer.new()

@@ -358,6 +358,8 @@ func _maybe_autotest() -> void:
 					hud._toggle(hud._research_panel)
 				"menu":
 					hud._toggle(hud._menu_panel)
+					if args.has("menutab"):  # Testhilfe: 1 = Einstellungen
+						hud._menu_tabs.get_child(int(args.menutab)).emit_signal("pressed")
 				"help":
 					hud._toggle(hud._build_panel)
 					hud.show_menu_help("bauen", Loc.t("Bauen"))

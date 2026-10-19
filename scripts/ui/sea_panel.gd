@@ -37,6 +37,7 @@ var _dragging: bool = false
 var _touches: Dictionary = {}  # Fingerindex -> Position (Zwei-Finger-Zoom)
 var _pinch_dist: float = 0.0
 var _zoom_btns: HBoxContainer
+var _body: BoxContainer
 
 
 func setup(p_hud) -> void:
@@ -45,31 +46,37 @@ func setup(p_hud) -> void:
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 6)
 	add_child(v)
+	# Kopf wie bei den anderen Fenstern (josh 2026-10-19): Bild und Titel links, Hilfe und Schließen rechts,
+	# darunter die Reiter links
 	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 6)
+	var tic := UiTheme.icon_rect(Data.icon("anker"), 28)
+	tic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	head.add_child(tic)
 	_title = UiTheme.label(tr("Inseln"), 20, UiTheme.TEXT, true)
+	_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(_title)
-	var gap := Control.new()
-	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	head.add_child(gap)
-	# Reiter (josh 2026-10-17): Inseln (Waren je Insel), Schiffe (Fahrten und Routen), Karte
-	_tab_goods = UiTheme.button(tr("Inseln"), "kiste", 32)
-	_tab_goods.toggle_mode = true
-	_tab_goods.pressed.connect(func(): _go("goods"))
-	head.add_child(_tab_goods)
-	_tab_ships = UiTheme.button(tr("Schiffe"), "anker", 32)
-	_tab_ships.toggle_mode = true
-	_tab_ships.pressed.connect(func(): _go("ships"))
-	head.add_child(_tab_ships)
-	_tab_islands = UiTheme.button(tr("Karte"), "kompass", 32)
-	_tab_islands.toggle_mode = true
-	_tab_islands.pressed.connect(func(): _go("island"))
-	head.add_child(_tab_islands)
 	head.add_child(hud.help_button("inseln", tr("Inseln")))
-	var x := UiTheme.button("", "abriss", 32)
+	var x := UiTheme.button("", "abriss", 36)
 	x.tooltip_text = tr("Schließen")
 	x.pressed.connect(func(): visible = false)
 	head.add_child(x)
 	v.add_child(head)
+	# Reiter (josh 2026-10-17): Inseln (Waren je Insel), Schiffe (Fahrten und Routen), Karte
+	var tabs := HFlowContainer.new()
+	tabs.add_theme_constant_override("h_separation", 4)
+	tabs.add_theme_constant_override("v_separation", 4)
+	_tab_goods = UiTheme.button(tr("Inseln"), "kiste", 36)
+	_tab_goods.pressed.connect(func(): _go("goods"))
+	_tab_ships = UiTheme.button(tr("Schiffe"), "anker", 36)
+	_tab_ships.pressed.connect(func(): _go("ships"))
+	_tab_islands = UiTheme.button(tr("Karte"), "kompass", 36)
+	_tab_islands.pressed.connect(func(): _go("island"))
+	for tb in [_tab_goods, _tab_ships, _tab_islands]:
+		tb.toggle_mode = true
+		tb.add_theme_font_size_override("font_size", 14)
+		tabs.add_child(tb)
+	v.add_child(tabs)
 	_head = UiTheme.label("", 13)
 	_head.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_head.custom_minimum_size.x = 340
@@ -81,7 +88,13 @@ func setup(p_hud) -> void:
 	_map.mouse_filter = Control.MOUSE_FILTER_STOP
 	_map.clip_contents = true
 	_map.tooltip_text = tr("Mausrad oder zwei Finger: zoomen. Ziehen: Karte verschieben.")
-	v.add_child(_map)
+	# Karte und Liste: im Querformat nebeneinander, damit die Liste ohne Rollen Platz hat (josh 2026-10-19)
+	_body = BoxContainer.new()
+	_body.vertical = true
+	_body.add_theme_constant_override("separation", 6)
+	_body.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	v.add_child(_body)
+	_body.add_child(_map)
 	_zoom_btns = HBoxContainer.new()
 	_zoom_btns.add_theme_constant_override("separation", 4)
 	var zin := UiTheme.button("+", "", 30)
@@ -107,7 +120,8 @@ func setup(p_hud) -> void:
 	_scroll = ScrollContainer.new()
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_scroll.custom_minimum_size = Vector2(350, 135)
-	v.add_child(_scroll)
+	_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_body.add_child(_scroll)
 	_details = VBoxContainer.new()
 	_details.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_scroll.add_child(_details)
@@ -131,10 +145,16 @@ func _fit() -> void:
 	var on_map := _view in ["island", "send"]
 	_map.visible = on_map
 	_head.visible = on_map
-	_title.visible = vs.x >= 560.0  # auf dem Handy passen nur die Reiter
-	_scroll.custom_minimum_size.y = clamp(vs.y - 365.0, 130.0, 460.0) if on_map else clamp(vs.y - 130.0, 200.0, 600.0)
+	var side := on_map and vs.x >= 760.0
+	_body.vertical = not side
+	if side:
+		var h := clampf(vs.y - 285.0, 150.0, 600.0)
+		_map.custom_minimum_size = Vector2(floor((vs.x - 60.0) * 0.5), h)
+		_scroll.custom_minimum_size = Vector2(300.0, h)
+		return
+	_map.custom_minimum_size = Vector2(clamp(vs.x - 40.0, 300.0, 420.0), 175.0)
+	_scroll.custom_minimum_size.y = clamp(vs.y - 405.0, 130.0, 460.0) if on_map else clamp(vs.y - 170.0, 200.0, 600.0)
 	_scroll.custom_minimum_size.x = 350.0 if on_map else clamp(vs.x - 40.0, 330.0, 720.0)
-	_map.custom_minimum_size.x = clamp(vs.x - 40.0, 300.0, 420.0)
 
 
 func refresh() -> void:
@@ -803,50 +823,89 @@ func _fill_goods() -> void:
 	_details.add_child(_wrap(tr("Was liegt auf welcher Insel? Tippe auf eine Insel, um sie auf der Karte zu sehen."), 13))
 	var islands := Sea.settled_islands()
 	var cols := _goods_columns(islands)
+	# Hochkant (josh 2026-10-19): je Ware eine Zeile, je Insel eine Spalte. So rollt die Tabelle nach unten
+	# wie die anderen Listen und muss nur bei vielen Inseln seitlich rollen.
+	var vs := get_viewport().get_visible_rect().size
+	var name_w := 112.0 if vs.x >= 480.0 else 92.0
+	var col_w := clampf(floor((vs.x - 56.0 - name_w) / maxf(islands.size(), 1.0)) - 3.0, 56.0, 110.0)
 	var grid := GridContainer.new()
-	grid.columns = cols.size() + 2
+	grid.columns = islands.size() + 1
 	grid.add_theme_constant_override("h_separation", 3)
 	grid.add_theme_constant_override("v_separation", 3)
-	grid.add_child(UiTheme.label(tr("Insel"), 13, UiTheme.TEXT, true))
+	var corner := UiTheme.label(tr("Ware"), 13, UiTheme.TEXT, true)
+	corner.custom_minimum_size.x = name_w
+	corner.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	grid.add_child(corner)
+	for m in islands:
+		# Inselname als Kopf: antippen zeigt die Insel auf der Karte
+		var nb := _box(Color("#d8a868"), Color("#7a4a28"), 2, 2)
+		nb.custom_minimum_size = Vector2(col_w, 40)
+		nb.mouse_filter = Control.MOUSE_FILTER_STOP
+		nb.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		nb.tooltip_text = tr("Auf der Karte zeigen")
+		var nl0 := UiTheme.label(m.name, 11, UiTheme.TEXT, true)
+		nl0.autowrap_mode = TextServer.AUTOWRAP_WORD
+		nl0.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		nl0.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		nb.add_child(nl0)
+		var mid := int(m.id)
+		nb.gui_input.connect(func(ev):
+			if ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT and not ev.pressed:
+				_selected = mid
+				_go("island"))
+		grid.add_child(nb)
 	for id in cols:
 		var hc := HBoxContainer.new()
-		hc.alignment = BoxContainer.ALIGNMENT_CENTER
+		hc.add_theme_constant_override("separation", 4)
+		hc.custom_minimum_size = Vector2(name_w, 30)
 		hc.tooltip_text = tr("Essen") if id == "essen" else Data.resource_name(id)
-		hc.add_child(UiTheme.icon_rect(Data.icon("beeren") if id == "essen" else Data.res_icon(id), 16))
-		if _goods_mode == "main":
-			hc.add_child(UiTheme.label(tr("Essen") if id == "essen" else Data.resource_name(id), 12, UiTheme.TEXT, true))
+		var ic := UiTheme.icon_rect(Data.icon("beeren") if id == "essen" else Data.res_icon(id), 16)
+		ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		hc.add_child(ic)
+		var nl := UiTheme.label(tr("Essen") if id == "essen" else Data.resource_name(id), 12, UiTheme.TEXT, true)
+		nl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		nl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		nl.clip_text = true
+		hc.add_child(nl)
 		grid.add_child(hc)
-	grid.add_child(UiTheme.label(tr("Seeleute"), 12, UiTheme.TEXT, true))
-	for m in islands:
-		var w = Sea.worlds.get(int(m.id))
-		var nb := UiTheme.button("", "", 40)
-		nb.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		nb.text = "%s\n%s" % [m.name, tr("%d Siedler") % (w.settlers.size() if w else 0)]
-		nb.add_theme_font_size_override("font_size", 12)
-		nb.custom_minimum_size = Vector2(118, 40)
-		var mid := int(m.id)
-		nb.pressed.connect(func():
-			_selected = mid
-			_go("island"))
-		grid.add_child(nb)
-		for id in cols:
+		for m in islands:
+			var w = Sea.worlds.get(int(m.id))
 			var n := _goods_amount(id, w)
-			var cell := _box()
-			cell.custom_minimum_size = Vector2(56 if _goods_mode == "main" else 44, 40)
+			var cell := _box(CELL_BG, CELL_LINE, 2, 2)
+			cell.custom_minimum_size = Vector2(col_w, 30)
 			var l := UiTheme.label(str(n), 13, UiTheme.BAD if _goods_short(id, w, n) else UiTheme.TEXT, true)
 			l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 			cell.add_child(l)
 			grid.add_child(cell)
-		var free := Sea.free_sailors(w)
-		var sc := _box()
-		sc.custom_minimum_size = Vector2(64, 40)
-		var sl := UiTheme.label(tr("%d frei") % free, 13, UiTheme.GOOD if free > 0 else UiTheme.BAD, true)
+	# Unten: Siedler und freie Seeleute je Insel
+	var ph := UiTheme.label(tr("Siedler"), 12, UiTheme.TEXT, true)
+	ph.custom_minimum_size = Vector2(name_w, 30)
+	ph.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	grid.add_child(ph)
+	for m in islands:
+		var w = Sea.worlds.get(int(m.id))
+		var pc := _box(CELL_BG, CELL_LINE, 2, 2)
+		pc.custom_minimum_size = Vector2(col_w, 30)
+		var pl := UiTheme.label(str(w.settlers.size() if w else 0), 13, UiTheme.TEXT, true)
+		pl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		pl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		pc.add_child(pl)
+		grid.add_child(pc)
+	var sh := UiTheme.label(tr("Seeleute frei"), 12, UiTheme.TEXT, true)
+	sh.custom_minimum_size = Vector2(name_w, 30)
+	sh.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	grid.add_child(sh)
+	for m in islands:
+		var free := Sea.free_sailors(Sea.worlds.get(int(m.id)))
+		var sc := _box(CELL_BG, CELL_LINE, 2, 2)
+		sc.custom_minimum_size = Vector2(col_w, 30)
+		var sl := UiTheme.label(str(free), 13, UiTheme.GOOD if free > 0 else UiTheme.BAD, true)
 		sl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		sl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		sc.add_child(sl)
 		grid.add_child(sc)
-	# Nur die Tabelle rollt seitlich (viele Spalten auf dem Handy)
+	# Nur die Tabelle rollt seitlich (viele Inseln auf dem Handy)
 	var hs := ScrollContainer.new()
 	hs.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	hs.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
