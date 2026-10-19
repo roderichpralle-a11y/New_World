@@ -16,12 +16,21 @@ static var _chip_boxes: Dictionary = {}
 
 ## Reiter mit Text in einer umbrechenden Reihe. on_pick bekommt den Index. Gibt die Reihe zurück;
 ## die Knöpfe stehen in ihr der Reihe nach (select() setzt den gedrückten).
-static func tabs(names: Array, selected: int, on_pick: Callable) -> HFlowContainer:
+## icons: wenn angegeben, zeigt jeder Reiter nur ein Bild (Name im Tooltip; josh 2026-10-19 im Baumenü).
+static func tabs(names: Array, selected: int, on_pick: Callable, icons: Array = []) -> HFlowContainer:
 	var f := HFlowContainer.new()
 	f.add_theme_constant_override("h_separation", 4)
 	f.add_theme_constant_override("v_separation", 4)
 	for i in names.size():
 		var b := UiTheme.button(str(names[i]), "", 36)
+		if i < icons.size():
+			b.text = ""
+			b.icon = Data.icon(str(icons[i]))
+			b.expand_icon = true
+			b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			b.add_theme_constant_override("icon_max_width", 28)
+			b.custom_minimum_size = Vector2(48, 40)
+			b.tooltip_text = str(names[i])
 		b.toggle_mode = true
 		b.button_pressed = i == selected
 		b.add_theme_font_size_override("font_size", 14)
