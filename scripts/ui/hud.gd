@@ -482,7 +482,7 @@ const MENU_HELP := {
 	"bauen": "Hier wählst du ein Gebäude. Oben stehen die Reiter nach Art der Gebäude als Bilder (Wohnen, Nahrung, Handwerk, Lager, Wissen, Seefahrt, Wege). In der Mitte jeder Zeile steht, was du im Lager hast und was das Gebäude braucht; Rot heißt: zu wenig.\n\nTippe auf den Hammer, dann auf einen freien Platz in der Landschaft und bestätige mit „Hier bauen“. Das „i“ rechts zeigt die Beschreibung des Gebäudes. Gesperrte Gebäude haben ein Buch statt des Hammers: Es öffnet die Forschung, in der du sie freischaltest. Bauen abbrechen: im Plan auf X tippen.",
 	"forschung": "Hier wählst du, was erforscht wird. Die Reiter sind die Zeitalter, als Bilder. Der Knopf mit dem Dreieck beginnt eine Forschung; dafür brauchst du einen Siedler mit dem Beruf Forscher und die Kosten in der Mitte der Zeile (im Lager / nötig, Rot heißt: zu wenig).\n\nDas „i“ rechts zeigt die Beschreibung. Jede Forschung bringt Punkte und schaltet Gebäude oder Berufe frei. Unten steht, woran gerade geforscht wird.",
 	"vorraete": "Hier siehst du alle Waren im Lager. Die Reiter zeigen alles, nur Nahrung oder nur Material; „Nur vorhandene“ blendet leere Waren aus.\n\nMit − und + stellst du für eine Ware eine feste Menge ein, die im Lager reserviert bleibt. Unten steht, wie voll das Lager ist.",
-	"siedler": "Hier siehst du alle Siedler: oben die mit Beruf, unten die freien. Die Reiter trennen Erwachsene und Kinder, die Filter zeigen einen Beruf, eine Insel, nur Hungrige oder nur Kranke.\n\nTippe auf einen Siedler, um ihn anzusehen und ihm einen Beruf zu geben. Unten steht, wie viele Siedler hungrig oder krank sind.",
+	"siedler": "Hier siehst du alle Siedler: oben die mit Beruf, unten die freien. Die Reiter trennen Erwachsene und Kinder, der Filter zeigt einen Beruf, bei mehreren Inseln auch eine Insel.\n\nTippe auf einen Siedler, um ihn anzusehen und ihm einen Beruf zu geben. Unten steht, wie viele Siedler hungrig oder krank sind.",
 	"menue": "Unter „Spiel“ speicherst du, öffnest die Spielstände, die Aufträge, die Spielanleitung und die Meldungen. Unter „Einstellungen“ stellst du Musik, Geräusche, Vollbild und Sprache ein.\n\nDas Spiel speichert auch von selbst.",
 	"spielstaende": "Es gibt fünf Plätze. Im aktiven Spielstand speichert das Spiel von selbst. Hier kannst du einen Spielstand laden, hierhin speichern, ein neues Spiel beginnen sowie als Datei ausgeben und einlesen.",
 	"meldungen": "Hier schaltest du ein, welche Arten von Meldungen im Spiel erscheinen. „Alle an“ schaltet alle Arten wieder ein.",
@@ -1254,8 +1254,6 @@ var _settler_sort: String = "age"
 var _settler_desc: bool = true
 var _settler_f_job: OptionButton
 var _settler_f_group: OptionButton
-var _settler_f_hungry: Button
-var _settler_f_sick: Button
 var _settler_f_island: OptionButton
 var _settler_count: Label
 var _settler_count_ft: Dictionary = {}
@@ -1272,18 +1270,15 @@ func _build_settler_panel() -> void:
 		_settler_f_group.add_item(t)
 	_settler_f_group.visible = false
 	v.add_child(_settler_f_group)
-	v.add_child(Win.tabs([tr("Alle"), tr("Erwachsene"), tr("Kinder")], 0, func(i):
+	var fr := Win.tabs([tr("Alle"), tr("Erwachsene"), tr("Kinder")], 0, func(i):
 		_settler_f_group.select(i)
-		_refresh_settler_list()))
-	var fr := Win.chip_row()
+		_refresh_settler_list())
+	# Filter in derselben Zeile wie die Reiter, damit sie auch auf kleinen Bildschirmen sichtbar bleiben:
+	# nur Berufe und bei mehreren Inseln die Insel; keine Filter „Nur Hungrige“/„Nur Kranke“ (josh 2026-10-19)
 	_settler_f_job = _settler_filter_button(tr("Welche Berufe anzeigen"))
 	fr.add_child(_settler_f_job)
 	_settler_f_island = _settler_filter_button(tr("Welche Insel anzeigen"))
 	fr.add_child(_settler_f_island)
-	_settler_f_hungry = Win.chip(tr("Nur Hungrige"), false, func(_on): _refresh_settler_list())
-	fr.add_child(_settler_f_hungry)
-	_settler_f_sick = Win.chip(tr("Nur Kranke"), false, func(_on): _refresh_settler_list())
-	fr.add_child(_settler_f_sick)
 	v.add_child(fr)
 	# Spaltenkoepfe: antippen sortiert, nochmal antippen dreht die Reihenfolge um
 	var head := HBoxContainer.new()
@@ -1461,10 +1456,6 @@ func _refresh_settler_list() -> void:
 		if group == 1 and not s.is_adult():
 			return false
 		if group == 2 and s.is_adult():
-			return false
-		if _settler_f_hungry.button_pressed and s.hunger >= 30.0:
-			return false
-		if _settler_f_sick.button_pressed and s.mind.sick == "":
 			return false
 		return true)
 	var key := _settler_sort

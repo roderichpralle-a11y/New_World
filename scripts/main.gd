@@ -442,7 +442,6 @@ func _maybe_autotest() -> void:
 						# Testhilfe: Filter und Sortierung der Siedlerliste
 						hud._settler_head["hunger"].pressed.emit()
 						hud._settler_head["hunger"].pressed.emit()
-						hud._settler_f_hungry.button_pressed = true
 						hud._settler_f_group.select(1)
 						hud._settler_f_group.item_selected.emit(1)
 						print("Siedlerliste: ", hud._settler_count.text)
