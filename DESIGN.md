@@ -879,6 +879,12 @@ Ratten, Brand, Seuche, Sturmflut und ab dem Mittelalter Piraten. Wer sie gut üb
     Kinder, Alte, Kranke und Verletzte verstecken sich in Häusern und bleiben drin, bis die Piraten fort
     sind. **Waffen**: Ware `waffen` (Größe 2) aus der **Waffenschmiede** (`waffenschmiede`, Schmiedekunst,
     Bild `armory` in buildings.png Zelle 53, `tools/gen_art_pirates.py`): 2 Eisen + 1 Holz → 1 Waffe in 8 s.
+    **Belastung** (josh 2026-10-20, Testversion /neu/): `Events.pirate_fear` bei der Landung, Schutz = bewaffnete
+    Kämpfer x `fear_armed` (1) + Kämpfer ohne Waffe x `fear_unarmed` (0,4) + fertige Wachtürme x `fear_tower` (3);
+    Angst = `fear_max` (25) x clamp(1 − Schutz/Piraten/2, 0,1, 1) x `fear_tower_calm`^Türme (0,7). Laune-Grund
+    „Hat Angst vor den Piraten“ während des Überfalls, danach `fear_after_days` (2) Tage „Steckt der Piratenüberfall
+    noch in den Knochen“ (0,4 der Angst, mit Beute 0,7); Kämpfer verlieren `fear_rest` (40) x Angst/25 Erholung.
+    Gespeichert in `Events.islands[id].fear` und `ev.fear`. Meldung bei der Landung (`fear_text`).
     Test `--eventtest=piraten`: erst ab Stufe 4, Schiff und Aussteigen, ohne Abwehr (`Events.no_defense`),
     mit Wachturm und Jägern, mit Waffen (Waffen zurück im Lager), ohne Waffen. Bild: `--eventshot=piraten:now
     --fightcam=<s> --fightshot=<png> --scale=1`. Die Piraten gehen zum nächsten Lager, plündern dort 4 Sekunden und gehen zurück;

@@ -2130,5 +2130,11 @@
  "Lesestoff": "Reading material",
  "Bücher": "Books",
  "Zeitungen": "Newspapers",
- "Schaltet die Papiermühle frei: aus Holz wird Papier. Die Druckerei macht daraus Bücher und Zeitungen.": "Unlocks the paper mill: wood becomes paper. The print shop turns it into books and newspapers."
+ "Schaltet die Papiermühle frei: aus Holz wird Papier. Die Druckerei macht daraus Bücher und Zeitungen.": "Unlocks the paper mill: wood becomes paper. The print shop turns it into books and newspapers.",
+ "Die Siedler haben Angst (Laune −%d).": "The settlers are afraid (mood −%d).",
+ "Die Siedler fühlen sich gut beschützt (Laune nur −%d).": "The settlers feel well protected (mood only −%d).",
+ "Wachtürme und Waffen würden sie beruhigen.": "Watchtowers and weapons would calm them.",
+ "Hat Angst vor den Piraten": "Is afraid of the pirates",
+ "Steckt der Piratenüberfall noch in den Knochen": "Still shaken by the pirate raid",
+ "Waffen aus der Waffenschmiede machen die Siedler doppelt so stark, Wachtürme helfen und beruhigen. Je schlechter die Insel geschützt ist, desto mehr Angst haben die Siedler. Ihre Beute nehmen die Piraten erst beim Ablegen mit.": "Weapons from the armory make the settlers twice as strong, watchtowers help and reassure them. The worse the island is protected, the more afraid the settlers are. The pirates only take their loot when they cast off."
 }

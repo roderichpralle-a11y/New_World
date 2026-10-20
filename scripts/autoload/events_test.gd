@@ -415,6 +415,8 @@ static func _test_pirates(main) -> void:
 	var ev := await _force_wait(main, w, "piraten")
 	var all_in: bool = await _until(main, func(): return Events._raiders_of(w).all(func(r): return r.visible), 0.5)
 	print("Ereignis-Test Piraten ", _okf(all_in and Events._ships.has(int(w.island_id))), " Schiff legt an, Piraten steigen nacheinander aus")
+	var fr: Array = Events.fear_reasons(w.settlers[0])
+	print("Ereignis-Test Piraten ", _okf(not fr.is_empty() and float(fr[0][1]) < -10.0), " Angst während des Überfalls ohne Abwehr: %s" % [fr])
 	var rs: Array = Events._raiders_of(w)
 	var r_ok: bool = rs.size() == int(ev.get("count", -1)) and rs.all(func(r): return r in w.animals and r.is_hostile() and w.is_huntable(r) and not w.is_protected(r))
 	print("Ereignis-Test Piraten ", _okf(r_ok and rs.size() >= 2 and Events.busy(w) and not Merchant.eligible(w)), " gelandet %d (erwartet %d), feindlich, jagdbar, Händler meidet die Insel" % [rs.size(), int(ev.get("count", -1))])
@@ -513,6 +515,9 @@ static func _test_pirates(main) -> void:
 	var hurt: int = w.settlers.filter(func(s): return s.health < 60.0).size()
 	print("Ereignis-Test Piraten ", _okf(_gone(w)), " ohne Waffen: vertrieben %d von %d, Beute %s, Tote %d, Verletzte %d, nach %.2f Tagen" % [int(ev4.get("kills", 0)), int(ev4.get("count", 0)),
 		ev4.get("loot", {}), int(ev4.get("deaths", 0)), hurt, Game.time_days - t4])
+	var f1 := float(ev.get("fear", 0)); var f2 := float(ev2.get("fear", 0)); var f3 := float(ev3.get("fear", 0)); var f4 := float(ev4.get("fear", 0))
+	var after: Array = Events.fear_reasons(w.settlers[0])
+	print("Ereignis-Test Piraten ", _okf(f1 > f4 and f4 > f3 and f2 < f4 and not after.is_empty() and float(after[0][1]) > -f4), " Belastung (Laune): ohne Abwehr %.1f, Wachturm+Jäger %.1f, mit Waffen %.1f, ohne Waffen %.1f; danach %s" % [f1, f2, f3, f4, after])
 	var beute1: int = w.nodes.filter(func(n): return n.type == "beute").size()
 	print("Ereignis-Test Piraten ", _okf(int(Game.stats.get("kills", 0)) == kills0 and Game.amount("felle", w) == felle0 and beute1 == beute0 and Merchant.eligible(w) and not Events.busy(w)), " keine Jagdbeute: kills %d -> %d, Felle %d -> %d, Fleischstellen %d -> %d; Händler darf wieder" % [kills0, int(Game.stats.get("kills", 0)), felle0, Game.amount("felle", w), beute0, beute1])
 

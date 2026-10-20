@@ -429,7 +429,8 @@ func _update_mood(days: float) -> void:
 		r.append([(tr("Freut sich über: %s") if sm > 0.0 else tr("Leidet unter: %s")) % Seasons.season_title(), sm * 60.0])
 	if not Seasons.is_warm(s.world):
 		r.append([tr("Friert (kein Holz, keine Kohle)"), -15.0])
-	r.append_array(Admin.mood_reasons(s))  # Schichtarbeit, Protest gegen Überstunden
+	r.append_array(Admin.mood_reasons(s))
+	r.append_array(Events.fear_reasons(s))  # Piratenüberfall (josh 2026-10-20)  # Schichtarbeit, Protest gegen Überstunden
 	var target := base
 	for x in r:
 		target += float(x[1])
