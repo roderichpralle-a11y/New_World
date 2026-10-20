@@ -242,6 +242,8 @@ func pool(w, k: int) -> Array:
 func pool_block(w, b, sid: int = 0) -> int:
 	if w == null or not bool(Data.bal("worker_levels", true)):
 		return 0
+	if Droids.is_droid_id(w, sid):
+		return 0  # Droiden brauchen keine Hausstufe
 	var lv: int = mini(b.worker_level(), levels.size())
 	if lv <= 1:
 		return 0
