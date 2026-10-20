@@ -764,7 +764,7 @@ func _test_tap(main, mode: String) -> void:
 		if c is ClimateBadge:
 			var r: Rect2 = c.get_global_rect()
 			print("Klima-Test Oberleiste: Leiste bis x=%d, Bild %dx%d, Symbol sichtbar=%s bei x=%d..%d (im Bild=%s), Jahreszeit-Text sichtbar=%s" % [bar.get_global_rect().end.x, vs.x, vs.y,
-				c.is_visible_in_tree(), r.position.x, r.end.x, r.end.x <= vs.x, main.hud._season_label.visible])
+				c.is_visible_in_tree() and c.modulate.a > 0.0, r.position.x, r.end.x, r.end.x <= vs.x, main.hud._season_label.visible])
 
 
 func autotest_report() -> String:

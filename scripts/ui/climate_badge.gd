@@ -28,7 +28,7 @@ func _init() -> void:
 	_icon = UiTheme.icon_rect(Data.icon("schnee"), 14)
 	_icon.mouse_filter = Control.MOUSE_FILTER_PASS
 	add_child(_icon)
-	visible = false
+	modulate.a = 0.0  # unsichtbar, aber mit festem Platz: die Statuszeile ändert ihre Größe nicht (josh 2026-10-20)
 
 
 func _process(_delta: float) -> void:
@@ -48,7 +48,8 @@ func refresh() -> void:
 	if sig == _sig:
 		return
 	_sig = sig
-	visible = not b.is_empty()
+	modulate.a = 0.0 if b.is_empty() else 1.0
+	mouse_filter = Control.MOUSE_FILTER_IGNORE if b.is_empty() else Control.MOUSE_FILTER_PASS
 	if b.is_empty():
 		tooltip_text = ""
 		return
