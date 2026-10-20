@@ -2108,5 +2108,16 @@
  "Zaun": "Fence",
  "Holzzaun, 1 Feld. Siedler steigen darüber, wilde Tiere kommen nicht hindurch. Ein ganz umschlossenes Stück Land ist ein Gehege: Tiere darin bleiben drin und vermehren sich dort.": "Wooden fence, 1 tile. Settlers climb over it, wild animals cannot get through. A piece of land fenced in all around is an enclosure: animals inside stay there and breed there.",
  "Jagdhütte": "Hunting lodge",
- "Wird als Teil des Zauns direkt ans Gehege gebaut, die Tür nach draußen. Gibt es eine Jagdhütte, jagt der Jäger nur noch hier: Er lauert in der Hütte und erlegt ein Tier im Gehege, die anderen laufen davon. Dann holt er das Fleisch. Von jeder Art bleiben 2 Tiere übrig.": "Built as part of the fence right at the enclosure, with the door facing out. Once there is a hunting lodge, the hunter only hunts here: he lies in wait in the lodge and shoots one animal in the enclosure while the others run away. Then he fetches the meat. 2 animals of each kind are kept."
+ "Wird als Teil des Zauns direkt ans Gehege gebaut, die Tür nach draußen. Gibt es eine Jagdhütte, jagt der Jäger nur noch hier: Er lauert in der Hütte und erlegt ein Tier im Gehege, die anderen laufen davon. Dann holt er das Fleisch. Von jeder Art bleiben 2 Tiere übrig.": "Built as part of the fence right at the enclosure, with the door facing out. Once there is a hunting lodge, the hunter only hunts here: he lies in wait in the lodge and shoots one animal in the enclosure while the others run away. Then he fetches the meat. 2 animals of each kind are kept.",
+ "ein Buch": "a book",
+ "Zeitung": "the newspaper",
+ "Liest am Feuer %s": "Reads %s by the fire",
+ "Liest im Grünen %s": "Reads %s out in the open",
+ "Druckerei": "Print shop",
+ "Druckt aus Papier Bücher und Zeitungen. Bewohner von Steinhäusern brauchen Lesestoff. Wer liest, macht etwas längere Pausen, dafür lernen die Kinder schneller.": "Prints books and newspapers from paper. People in stone houses need reading material. Readers take somewhat longer breaks, but children learn faster.",
+ "Druckt Bücher und Zeitungen": "Printing books and newspapers",
+ "Lesestoff": "Reading material",
+ "Bücher": "Books",
+ "Zeitungen": "Newspapers",
+ "Schaltet die Papiermühle frei: aus Holz wird Papier. Die Druckerei macht daraus Bücher und Zeitungen.": "Unlocks the paper mill: wood becomes paper. The print shop turns it into books and newspapers."
 }

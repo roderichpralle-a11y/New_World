@@ -2034,6 +2034,16 @@ func on_animal_killed(a: Animal, by) -> void:
 	a.queue_free()
 
 
+# ------------------------------------------------------------------ Lesen (josh 2026-10-20)
+## Lesestoff im Lager dieser Insel: "zeitungen", sonst "buecher", sonst "". Siedler lesen dann in der
+## Freizeit (am Feuer, im Grünen), machen etwas längere Pausen, und Kinder lernen schneller.
+func reading_good() -> String:
+	for g in ["zeitungen", "buecher"]:
+		if Game.amount(g, self) > 0:
+			return g
+	return ""
+
+
 # ------------------------------------------------------------------ Gehege und Jagdhütte (josh 2026-10-20)
 var last_kill = null  # Fleisch (ResNode "beute") des zuletzt erlegten Tiers
 

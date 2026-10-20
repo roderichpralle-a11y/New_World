@@ -1566,6 +1566,20 @@ Bilder in `assets/sprites/objects3.png` (`tools/gen_art_land.py`, `Data.OBJECT3_
 - **Test** `--pentest=1` (`pen_test.gd`): Gehege, Wege, Jäger in der Hütte, Schuss, Flucht, Fleisch, 2
   bleiben, Junge, Spielstand. Ausgabe `Gehege OK`. Bild: `--pentest=shot`.
 
+## Bücher, Zeitungen und Lesen (josh 2026-10-20, Testversion /neu/)
+
+- **Druckerei** (`druckerei`, 3x2, Forschung Papier, Bild `printshop` Zelle 59, `tools/gen_art_reading.py`):
+  3 Papier -> 2 Zeitungen und 1 Buch (Waren `zeitungen`, `buecher`, Symbole dort, Zeitung in der Hand
+  `newspaper` in tools.png, Index 13).
+- **Bedarf:** Hausstufe 3 (Steinhaus) hat „Lesestoff“ (`levels.json` id `lesen`, Ware `zeitungen`, `alt`
+  `buecher`: fehlen Zeitungen, werden Bücher verbraucht). Bedürfnisse mit `requires` zählen erst nach dieser
+  Forschung (`HouseNeeds.level_needs`), hier Papier.
+- **Lesen:** liegt Lesestoff im Lager der Insel (`World.reading_good`), lesen Siedler in der Freizeit am
+  Feuer oder im Grünen (`_plan_leisure`, Pausenschritt mit `read`: Buch oder Zeitung vor sich, `_animate`),
+  wollen `reading_leisure_mult` (1,2) mal so viel Freizeit (`SettlerMind.leisure_share`), und Kinder lernen
+  `reading_child_learn` (1,3) mal so schnell (`_learn_as_child`).
+- **Test** `--readtest=1` (`read_test.gd`), Ausgabe `Lesen OK`. Bild: `--readtest=shot`.
+
 ## Testen
 
 ```

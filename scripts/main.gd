@@ -214,6 +214,11 @@ func _maybe_autotest() -> void:
 		_autotest_reward()
 	if args.has("talenttest"):
 		TalentTest.run(self)  # Talente: Bonus und Anzeige (scripts/world/talent_test.gd)
+	if args.has("readtest"):  # Bücher, Zeitungen, Lesen (scripts/world/read_test.gd)
+		if str(args.readtest) == "shot":
+			ReadTest.shot(self)
+		else:
+			await ReadTest.run(self)
 	if args.has("pentest"):  # Zaun, Gehege, Jagdhütte (scripts/world/pen_test.gd)
 		if str(args.pentest) == "shot":
 			PenTest.shot(self)

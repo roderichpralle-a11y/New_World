@@ -66,6 +66,7 @@ const BUILDING_CELLS := {
 	"pigsty": [54, 1], "cowshed": [55, 1],  # Ställe (tools/gen_art_stalls.py)
 	"automaton": [56, 1], "droid_factory": [57, 1],  # Maschinen (tools/gen_art_machines.py)
 	"lodge": [58, 1],  # Jagdhütte (tools/gen_art_lodge.py)
+	"printshop": [59, 1],  # Druckerei (tools/gen_art_reading.py)
 }
 ## Etappe 3 in objects2.png: name -> [x, y, w, h, frames]
 const OBJECT2_REGIONS := {
@@ -105,7 +106,7 @@ const CART_POS := [Vector2(0, 0), Vector2(0, -20), Vector2(10, -8)]
 ## Ware in der Wanne: [Mitte relativ zu den Fuessen, Groesse]
 const CART_LOAD := [[Vector2(0, -4), 0.625], [Vector2(0, -24), 0.5], [Vector2(11, -14), 0.625]]
 const TOOL_INDEX := {"axe": 0, "pick": 1, "basket": 2, "rod": 3, "hammer": 4, "sickle": 5,
-	"spoon": 6, "book": 7, "shovel": 8, "spear": 9, "saber": 10, "pitchfork": 11, "club": 12}
+	"spoon": 6, "book": 7, "shovel": 8, "spear": 9, "saber": 10, "pitchfork": 11, "club": 12, "newspaper": 13}
 
 var _icon_index: Dictionary = {}
 var _cache: Dictionary = {}
