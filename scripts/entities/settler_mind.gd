@@ -178,6 +178,8 @@ static func comfort_stage() -> Array:
 ## Anteil des Tages, den der Siedler gern frei haette.
 func leisure_share() -> float:
 	var f := 1.25 - 0.05 * trait_value("fleiss")  # Fleissige brauchen weniger Pausen
+	if s.world != null and s.world.reading_good() != "":
+		f *= float(Data.bal("reading_leisure_mult", 1.2))  # wer Lesestoff hat, liest gern und arbeitet etwas weniger
 	return clampf(comfort() * float(Data.ppl("leisure_share_max", 0.3)) * f, 0.0, 0.45)
 
 

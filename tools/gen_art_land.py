@@ -6,6 +6,7 @@ Ausgabe: assets/sprites/objects3.png, Regionen in Data.OBJECT3_REGIONS:
   Zeile y=0:  road0..road15  Strassenkacheln 16x16, Maske N=1 O=2 S=4 W=8 (Nachbar ist auch Strasse)
   Zeile y=16: dike0..dike15  Deichkacheln 16x16, Maske wie oben (Nachbar ist Deich oder Land)
   Zeile y=32: plant_mark (Pflanzloch mit Pflock), clear_mark (rot-weisses Band: wird gerodet)
+  Zeile y=48: fence0..fence15 Holzzaun 16x16, Maske wie oben (Nachbar ist auch Zaun; josh 2026-10-20)
 Die Kachel liegt mittig auf der Zelle (Bodengebaeude, siehe Building.refresh).
 """
 import os
@@ -171,11 +172,49 @@ ICONS_LAND = {
 }
 
 
+def fence(mask):
+    """Holzzaun: Pfosten in der Mitte, zwei Querlatten zu jedem Nachbarzaun, Halbpfosten an den Enden."""
+    img = new(16, 16)
+    post = [WOOD[0], WOOD[1], WOOD[2]]
+    # Querlatten (oben y=7, unten y=10) zu den Seiten; nach N/S eine schmale Latte in der Mitte
+    for y in (7, 10):
+        if mask & W:
+            for x in range(0, 8):
+                put(img, x, y, WOOD[3] if y == 7 else WOOD[2])
+                put(img, x, y + 1, WOOD[1])
+        if mask & E:
+            for x in range(8, 16):
+                put(img, x, y, WOOD[3] if y == 7 else WOOD[2])
+                put(img, x, y + 1, WOOD[1])
+    if mask & N:
+        for y in range(0, 6):
+            put(img, 7, y, WOOD[3])
+            put(img, 8, y, WOOD[1])
+        put(img, 7, 2, WOOD[0])
+    if mask & S:
+        for y in range(13, 16):
+            put(img, 7, y, WOOD[3])
+            put(img, 8, y, WOOD[1])
+    # Pfosten mit Spitze und Schatten am Boden
+    for y in range(4, 14):
+        put(img, 6, y, post[1])
+        put(img, 7, y, post[2])
+        put(img, 8, y, post[1])
+        put(img, 9, y, post[0])
+    put(img, 7, 3, post[2])
+    put(img, 8, 3, post[1])
+    for x in range(5, 11):
+        put(img, x, 14, (60, 90, 50, 110))
+    add_outline(img)
+    return img
+
+
 def gen_objects3():
-    atlas = new(256, 48)
+    atlas = new(256, 64)
     for m in range(16):
         atlas.paste(road(m), (m * 16, 0))
         atlas.paste(dike(m), (m * 16, 16))
+        atlas.paste(fence(m), (m * 16, 48))
     atlas.paste(plant_mark(), (0, 32))
     atlas.paste(clear_mark(), (16, 32))
     atlas.save(os.path.join(OUT, "objects3.png"))

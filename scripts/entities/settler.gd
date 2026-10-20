@@ -356,6 +356,8 @@ func _needs(days: float) -> void:
 ## Kinder lernen beim Spielen ein wenig, in der Schule viel, vor allem in ihren Begabungen.
 func _learn_as_child(days: float, in_school: bool) -> void:
 	var xp := float(Data.ppl("school_xp_per_day", 120.0)) if in_school else float(Data.ppl("play_xp_per_day", 12.0))
+	if world.reading_good() != "":
+		xp *= float(Data.bal("reading_child_learn", 1.3))  # Bücher und Zeitungen: Kinder lernen schneller
 	for sk in Data.skills:
 		gain_xp(sk, xp * days * float(mind.talents.get(sk, 1.0)), true)
 
@@ -371,6 +373,8 @@ func _think() -> void:
 	_release()
 	var prev_kind := _stat_kind
 	_stat_kind = "needs"
+	if sleeping and AiRule.ending:
+		_wake_up()  # am Ende schläft niemand mehr, alle sitzen am Lagerfeuer
 	if sleeping and _sleep_time():
 		return
 	# Schwer krank: im Bett bleiben, nur zum Essen aufstehen
@@ -395,6 +399,12 @@ func _think() -> void:
 	# 2b. Nichts im Lager (oder Lager voll): Hungrige essen direkt am Strauch oder Ufer
 	if hunger < float(Data.bal("eat_below")) * 0.6 and Game.total_food(world) <= 0 and not Game.is_night():
 		if _plan_forage():
+			return
+	# 2c. Ende unter der Superintelligenz: die letzten Siedler sitzen frierend am Lagerfeuer
+	if AiRule.ending and is_adult():
+		var cf = AiRule.campfire(world)
+		if cf != null:
+			_plan_wander(1, tr("Sitzt am Lagerfeuer und friert"), cf.entrance_cell())
 			return
 	# 3. Schlafen (Schichtarbeit: jede Nacht arbeitet die Hälfte durch)
 	if _sleep_time():
@@ -646,6 +656,18 @@ func _plan_leisure() -> bool:
 	if not kids.is_empty():
 		var k = kids[_rng.randi() % kids.size()]
 		opts.append([1.0 + g * 0.15, k.cell, tr("Spielt mit %s") % k.display_name, false])
+	# Lesestoff im Lager (josh 2026-10-20): mit Buch oder Zeitung am Feuer oder draußen im Grünen
+	var rg: String = world.reading_good()
+	if rg != "":
+		var what := tr("ein Buch") if rg == "buecher" else tr("Zeitung")
+		var tool := "book" if rg == "buecher" else "newspaper"
+		if fire:
+			opts.append([2.0, fire.cell, tr("Liest am Feuer %s") % what, true, tool])
+		for i in 6:
+			var c := cell + Vector2i(_rng.randi_range(-7, 7), _rng.randi_range(-7, 7))
+			if world.is_walkable(c) and not world.building_at.has(c) and not world.near_fire(world.cell_to_pos(c)):
+				opts.append([2.0, c, tr("Liest im Grünen %s") % what, false, tool])
+				break
 	for b in world.buildings:
 		if b.complete and b.def.get("base", b.type) in ["bibliothek", "schreibstube"] and b.def.has("research"):
 			opts.append([mind.trait_value("iq") * 0.4, b.entrance_cell(), tr("Liest in: %s") % b.def.name, false])
@@ -673,7 +695,10 @@ func _plan_leisure() -> bool:
 	if pick[1] == beach and beach != null and _plan_stroll(beach, pick[2]):
 		activity = tr("Freizeit: ") + pick[2]
 		return true
-	_plan.append({"a": "wait", "t": mind.break_length(), "rest": true, "act": pick[2]})
+	var rest := {"a": "wait", "t": mind.break_length(), "rest": true, "act": pick[2]}
+	if pick.size() > 4:
+		rest["read"] = pick[4]
+	_plan.append(rest)
 	activity = tr("Freizeit: ") + pick[2]
 	return true
 
@@ -784,7 +809,11 @@ func _plan_work() -> bool:
 			return _plan_free_gather()
 		"jaeger":
 			if Data.job_unlocked("jaeger"):
-				if _plan_destroy_den() or _plan_hunt() or _plan_gather(["beute"]):
+				if not world.lodges().is_empty():
+					# Jagdhütte (josh 2026-10-20): der Jäger jagt nur noch aus der Hütte ins Gehege
+					if _plan_lodge_meat() or _plan_lodge():
+						return true
+				elif _plan_destroy_den() or _plan_hunt() or _plan_gather(["beute"]):
 					return true
 			_stat_kind = "other"
 			return _plan_free_gather()
@@ -1110,6 +1139,10 @@ func _do_produce(b) -> void:
 			# Ein fertiges Schiff liegt sofort im Wasser (siehe Sea)
 			Game.add_stock(res, n, world)
 			continue
+		if res == "droide":
+			for i in n:
+				Droids.build(world, b)  # ein fertiger Droide läuft sofort los
+			continue
 		if first:
 			carry_res = res
 			carry_n = n
@@ -1230,6 +1263,8 @@ func _run_action(delta: float) -> void:
 			_run_hunt(a, delta)
 		"hide":
 			_run_hide(a, delta)
+		"lodge":
+			_run_lodge(a, delta)
 
 
 func _walk(delta: float, mult: float = 1.0) -> void:
@@ -1504,6 +1539,74 @@ func _run_hunt(a: Dictionary, delta: float) -> void:
 	_walk(delta, 1.1)
 
 
+## Jagdhütte: Fleisch aus dem Gehege holen, wenn dort welches liegt (die Tiere sind dann fort).
+func _plan_lodge_meat() -> bool:
+	for b in world.lodges():
+		var n = world.pen_meat(world.lodge_pen(b))
+		if n == null or not n.is_available() or (n.reserved_by != 0 and n.reserved_by != id):
+			continue
+		if Game.space_for("fleisch", world) <= 0:
+			return false
+		return _plan_gather(["beute"])
+	return false
+
+
+## Jagdhütte: hingehen, drinnen lauern und ein Tier im Gehege schießen. Die Hütte mit jagdbarem Wild
+## zuerst, sonst die nächste.
+func _plan_lodge() -> bool:
+	if health < 40.0 or Game.is_night() or mind.sick != "":
+		return false
+	var best = null
+	var best_d := INF
+	for b in world.lodges():
+		if world.lodge_pen(b) <= 0:
+			continue
+		var d: float = b.dist_sq(cell) + (0.0 if world.lodge_prey(b) != null else 100000.0)
+		if d < best_d:
+			best_d = d
+			best = b
+	if best == null:
+		return false
+	if world.find_path(cell, best.entrance_cell()).is_empty() and cell != best.entrance_cell():
+		return false
+	_plan.append({"a": "move", "cell": best.entrance_cell()})
+	_plan.append({"a": "lodge", "b": best})
+	activity = tr("Geht zur Jagdhütte")
+	return true
+
+
+func _run_lodge(a: Dictionary, delta: float) -> void:
+	var b = a.b
+	if not is_instance_valid(b) or not b.complete or world.lodge_pen(b) <= 0:
+		abort_plan()
+		return
+	if not a.get("started", false):
+		a.started = true
+		a.t = 0.0
+		a.aim = 0.0
+		_hiding = b
+		visible = false
+		_moving = false
+		_working = false
+		activity = tr("Lauert in der Jagdhütte")
+	a.t = float(a.t) + delta
+	var prey = world.lodge_prey(b)
+	if prey != null:
+		activity = tr("Zielt auf: %s") % prey.def.name
+		a.aim = float(a.aim) + delta * work_factor("jagd")
+		if float(a.aim) >= float(Data.bal("lodge_aim_secs", 4.0)):
+			world.lodge_shot(b, prey, self)
+			gain_xp("jagd", 0.6)
+			a.t = 999.0
+	else:
+		a.aim = 0.0
+	# Nach dem Schuss, bei Nacht oder nach langem Warten raus (Essen, Schlaf, dann wieder herein)
+	if float(a.t) >= float(Data.bal("lodge_wait_secs", 25.0)) or Game.is_night():
+		_hiding = null
+		visible = true
+		_plan.pop_front()
+
+
 func _run_hide(a: Dictionary, delta: float) -> void:
 	var b = a.b
 	if not is_instance_valid(b) or not b.complete:
@@ -1570,14 +1673,25 @@ func _animate(delta: float) -> void:
 		s.offset.x = -8 if not s.flip_h else -8
 	# Werkzeug schwingen
 	var battle: bool = _battle_tool != "" and not _plan.is_empty() and _plan[0].get("defend", false) and not _working
-	_tool.visible = (_working and _cur_tool != "" or battle) and not sleeping
+	var reading: String = _plan[0].get("read", "") if not _plan.is_empty() and _plan[0].a == "wait" and not _moving else ""
+	_tool.visible = (_working and _cur_tool != "" or battle or reading != "") and not sleeping
 	if _layers["saw"].visible != (job == "foerster" and is_adult() and not _tool.visible):  # Säge in der Hand, außer beim Arbeiten
 		_layers["saw"].visible = not _layers["saw"].visible
 	if _layers["rifle"].visible:  # Gewehr auf dem Rücken: von vorn und von der Seite hinter dem Körper
 		var at: int = _body.get_child_count() - 1 if _dir == DIR_UP else 0
 		if _layers["rifle"].get_index() != at:
 			_body.move_child(_layers["rifle"], at)
-	if battle and _tool.visible:
+	if reading != "" and _tool.visible:
+		# Liest: Buch oder Zeitung ruhig vor sich halten, ab und zu umblättern
+		_tool.texture = Data.tool_tex(reading)
+		_tool.rotation = 0.0
+		_tool.position = Vector2(-6 if (_flip and _dir == DIR_SIDE) else -2, -4 + (1 if int(_anim_t * 0.5) % 4 == 0 else 0))
+		_tool.scale = Vector2(0.75, 0.75)
+		_tool.flip_h = _flip and _dir == DIR_SIDE
+		_tool.z_index = -1 if _dir == DIR_UP else 0
+		_body.position.y = 0
+	elif battle and _tool.visible:
+		_tool.scale = Vector2.ONE
 		# Waffe oder Werkzeug kampfbereit hochhalten, während er zum Piraten rennt
 		_tool.texture = Data.tool_tex(_battle_tool)
 		_tool.rotation = -0.35 + sin(_anim_t * 10.0) * 0.12
@@ -1585,6 +1699,7 @@ func _animate(delta: float) -> void:
 		_tool.flip_h = _flip and _dir == DIR_SIDE
 		_tool.z_index = -1 if _dir == DIR_UP else 0
 	elif _tool.visible:
+		_tool.scale = Vector2.ONE
 		_tool.texture = Data.tool_tex(_cur_tool)
 		var swing := sin(_anim_t * 9.0)
 		_tool.rotation = -0.9 + swing * 0.9 if _cur_tool != "rod" else -0.3 + swing * 0.08

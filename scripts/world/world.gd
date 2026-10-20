@@ -15,11 +15,16 @@ var island_id: int = 0
 var biome: String = "heimat"
 var terrain: PackedByteArray
 var astar := AStarGrid2D.new()
+## Wegnetz der Tiere: wie astar, aber fertige Zäune sind für Tiere unpassierbar (josh 2026-10-20).
+var animal_astar := AStarGrid2D.new()
+var _pens: Dictionary = {}  # Zelle -> Nummer des geschlossenen Geheges (siehe pen_of)
+var _pens_dirty: bool = true
 var nodes: Array = []
 var node_at: Dictionary = {}
 var buildings: Array = []
 var building_at: Dictionary = {}
 var settlers: Array = []
+var droids: Array = []  # Droiden (scripts/entities/droid.gd, Droids): keine Siedler, zählen nicht zur Bevölkerung
 var graves: Array = []  # [Sprite2D, bis_tag]
 var animals: Array = []  # wilde Tiere (Animal)
 var decor: Array = []  # Boote am Strand: [Sprite2D, bis_tag]
@@ -170,6 +175,8 @@ func build_from_save(w: Dictionary, m: Dictionary) -> void:
 		bld.refresh()
 	for s in w.settlers:
 		spawn_settler(s)
+	for d in w.get("droids", []):
+		spawn_droid(d)
 	for g in w.get("graves", []):
 		_add_grave(cell_to_pos(Vector2i(int(g[0]), int(g[1]))), float(g[2]))
 	for a in w.get("animals", []):
@@ -335,6 +342,12 @@ func _setup_astar() -> void:
 	astar.default_compute_heuristic = AStarGrid2D.HEURISTIC_OCTILE
 	astar.default_estimate_heuristic = AStarGrid2D.HEURISTIC_OCTILE
 	astar.update()
+	animal_astar.region = astar.region
+	animal_astar.cell_size = astar.cell_size
+	animal_astar.diagonal_mode = astar.diagonal_mode
+	animal_astar.default_compute_heuristic = AStarGrid2D.HEURISTIC_OCTILE
+	animal_astar.default_estimate_heuristic = AStarGrid2D.HEURISTIC_OCTILE
+	animal_astar.update()
 	# Wegzeit statt Weglänge (josh 2026-10-12): ein Feld Gras kostet road_speed, ein Feld Straße 1.
 	# So bleibt die Schätzung (Luftlinie mal 1) nie zu hoch und A* findet den schnellsten Weg.
 	astar.fill_weight_scale_region(astar.region, _grass_cost())
@@ -342,6 +355,7 @@ func _setup_astar() -> void:
 		for x in size:
 			if terrain[y * size + x] == WATER:
 				astar.set_point_solid(Vector2i(x, y), true)
+				animal_astar.set_point_solid(Vector2i(x, y), true)
 
 
 func _grass_cost() -> float:
@@ -415,6 +429,12 @@ func road_at(c: Vector2i) -> bool:
 	return b != null and b.complete and b.def.get("tile", "") == "road"
 
 
+## Fertiger Zaun auf der Zelle (Tiere kommen nicht hindurch, Siedler steigen darüber)?
+func fence_at(c: Vector2i) -> bool:
+	var b = building_at.get(c)
+	return b != null and b.complete and b.def.get("tile", "") == "fence"
+
+
 ## Nachbarmaske für Straßen- und Deichkacheln (N=1, O=2, S=4, W=8). Deiche verbinden sich auch mit Land.
 func tile_mask(b) -> int:
 	var m := 0
@@ -433,6 +453,7 @@ func tile_mask(b) -> int:
 ## Straßen und Deiche ringsum neu zeichnen (nach Bau, Abriss, Neuland).
 func refresh_tiles_around(c: Vector2i) -> void:
 	_update_weight(c)
+	_sync_animal(c)
 	for d in [Vector2i(0, -1), Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 0), Vector2i.ZERO]:
 		var o = building_at.get(c + d)
 		if o != null and o.def.has("tile"):
@@ -456,8 +477,26 @@ func find_path(from: Vector2i, to: Vector2i) -> PackedVector2Array:
 	return path
 
 
+## Weg für Tiere: wie find_path, aber Zäune versperren ihn.
+func find_animal_path(from: Vector2i, to: Vector2i) -> PackedVector2Array:
+	if not is_inside(from) or not is_inside(to):
+		return PackedVector2Array()
+	var from_solid := animal_astar.is_point_solid(from)
+	if from_solid:
+		animal_astar.set_point_solid(from, false)
+	var path := animal_astar.get_point_path(from, to)
+	if from_solid:
+		animal_astar.set_point_solid(from, true)
+	return path
+
+
+func animal_walkable(c: Vector2i) -> bool:
+	return is_inside(c) and not animal_astar.is_point_solid(c)
+
+
 ## Bester begehbarer Platz neben (oder auf) den Zielzellen, der erreichbar ist.
-func find_approach(from: Vector2i, target_cells: Array, adjacent: bool):
+## for_animal: Wegnetz der Tiere (Zäune versperren den Weg).
+func find_approach(from: Vector2i, target_cells: Array, adjacent: bool, for_animal: bool = false):
 	var cand := []
 	var tset := {}
 	for t in target_cells:
@@ -467,11 +506,11 @@ func find_approach(from: Vector2i, target_cells: Array, adjacent: bool):
 			for d in [Vector2i(0, 1), Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, -1),
 					Vector2i(1, 1), Vector2i(-1, 1), Vector2i(1, -1), Vector2i(-1, -1)]:
 				var c: Vector2i = t + d
-				if not tset.has(c) and is_walkable(c) and not c in cand:
+				if not tset.has(c) and (animal_walkable(c) if for_animal else is_walkable(c)) and not c in cand:
 					cand.append(c)
 	else:
 		for t in target_cells:
-			if is_walkable(t):
+			if animal_walkable(t) if for_animal else is_walkable(t):
 				cand.append(t)
 	if cand.is_empty():
 		return null
@@ -479,7 +518,8 @@ func find_approach(from: Vector2i, target_cells: Array, adjacent: bool):
 	for i in min(4, cand.size()):
 		if cand[i] == from:
 			return from
-		if not find_path(from, cand[i]).is_empty():
+		var p := find_animal_path(from, cand[i]) if for_animal else find_path(from, cand[i])
+		if not p.is_empty():
 			return cand[i]
 	return null
 
@@ -494,6 +534,64 @@ func _set_solid(c: Vector2i, solid: bool) -> void:
 	if is_water(c) and not dike_at(c):  # fertige Deiche im Wasser sind begehbar
 		solid = true
 	astar.set_point_solid(c, solid)
+	_sync_animal(c)
+
+
+## Wegnetz der Tiere an einer Zelle nachziehen: gesperrt wie für Siedler, dazu fertige Zäune.
+## Jede Änderung kann ein Gehege schließen oder öffnen (pen_of rechnet beim nächsten Aufruf neu).
+func _sync_animal(c: Vector2i) -> void:
+	if not is_inside(c):
+		return
+	animal_astar.set_point_solid(c, astar.is_point_solid(c) or fence_at(c))
+	_pens_dirty = true
+
+
+## Geschlossenes Gehege (josh 2026-10-20): eine Fläche, die Zäune ganz umschließen (Wasser, Felsen und
+## Gebäude dürfen mithelfen) und die höchstens pen_max_cells Felder groß ist. 0 = kein Gehege.
+func pen_of(c: Vector2i) -> int:
+	if _pens_dirty:
+		_update_pens()
+	return int(_pens.get(c, 0))
+
+
+func _update_pens() -> void:
+	_pens_dirty = false
+	_pens.clear()
+	var lim := int(Data.bal("pen_max_cells", 400))
+	var open := {}
+	var n := 0
+	var dirs := [Vector2i(0, -1), Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 0)]
+	for b in buildings:
+		if not b.complete or b.def.get("tile", "") != "fence":
+			continue
+		for d in dirs:
+			var start: Vector2i = b.cell + d
+			if not animal_walkable(start) or _pens.has(start) or open.has(start):
+				continue
+			# Fläche hinter dem Zaun füllen; wird sie zu groß, ist sie offen (die Insel draußen)
+			var region := [start]
+			var seen := {start: true}
+			var i := 0
+			var closed := true
+			while i < region.size():
+				var c: Vector2i = region[i]
+				i += 1
+				for dd in dirs:
+					var nb: Vector2i = c + dd
+					if seen.has(nb) or not animal_walkable(nb):
+						continue
+					seen[nb] = true
+					region.append(nb)
+				if region.size() > lim:
+					closed = false
+					break
+			if closed:
+				n += 1
+				for c in region:
+					_pens[c] = n
+			else:
+				for c in seen:
+					open[c] = true
 
 
 # ================================================================== Rohstoffe
@@ -629,6 +727,9 @@ func demolish(b: Building) -> void:
 				s._wake_up()
 		if s._reserved == b or s._incoming.any(func(i): return i[0] == b):
 			s.abort_plan()
+	for d in droids:
+		if d._reserved == b or d._incoming.any(func(i): return i[0] == b):
+			d.abort_plan()
 	buildings.erase(b)
 	for cc in b.cells():
 		building_at.erase(cc)
@@ -825,6 +926,9 @@ func upgrade_building(b: Building) -> Building:
 			s.abort_plan()
 		if s.home_id == bid and s.sleeping:
 			s._wake_up()
+	for d in droids:
+		if d._reserved == b or d._incoming.any(func(i): return i[0] == b):
+			d.abort_plan()
 	buildings.erase(b)
 	for cc in b.cells():
 		building_at.erase(cc)
@@ -976,6 +1080,24 @@ func spawn_settler(data: Dictionary) -> Settler:
 	entities.add_child(s)
 	settlers.append(s)
 	return s
+
+
+func spawn_droid(data: Dictionary) -> Droid:
+	var d := Droid.new()
+	d.setup(self, data)
+	d.set_job(str(data.get("job", "frei")))
+	entities.add_child(d)
+	droids.append(d)
+	return d
+
+
+func remove_droid(d) -> void:
+	if not droids.has(d):
+		return
+	d.abort_plan()
+	droids.erase(d)
+	spawn_effect("dust", d.position)
+	d.queue_free()
 
 
 func spawn_child(mother, father) -> Settler:
@@ -1409,7 +1531,7 @@ func is_placing() -> bool:
 func pick_at(p: Vector2, radius: float = 12.0):
 	var best = null
 	var best_d := radius
-	for s in settlers:
+	for s in settlers + droids:
 		if not s.visible:
 			continue
 		var d: float = (s.position + Vector2(0, -9) - p).length()
@@ -1450,6 +1572,7 @@ func serialize() -> Dictionary:
 		"nodes": nodes.map(func(n): return n.serialize()),
 		"buildings": buildings.map(func(b): return b.serialize()),
 		"settlers": settlers.map(func(s): return s.serialize()),
+		"droids": droids.map(func(d): return d.serialize()),
 		"graves": graves.map(func(g): return [pos_to_cell(g[0].position).x, pos_to_cell(g[0].position).y, g[1]]),
 		"animals": animals.filter(func(a): return not a is Raider).map(func(a): return a.serialize()),  # Piraten: Events
 		"den_breed": _den_breed,
@@ -1598,7 +1721,7 @@ func _spawn_at_den(den: ResNode, age: float = -1.0):
 	dirs.shuffle()
 	for d in dirs:
 		var c: Vector2i = den.cell + d
-		if is_walkable(c):
+		if animal_walkable(c):
 			return spawn_animal(den.def.spawns, c, den.cell, -1.0, age)
 	return null
 
@@ -1639,9 +1762,12 @@ func find_animal_food(a):
 	var r := float(a.def.get("roam", Data.bal("animal_food_radius", 10))) + (6.0 if a.is_hungry() else 0.0)
 	var best = null
 	var best_d := INF
+	var pen := pen_of(a.cell)
 	for n in nodes:
 		if not animal_can_eat(n, a.type) or Vector2(n.cell - a.home).length() > r:
 			continue
+		if pen > 0 and pen_near(n.cell) != pen:
+			continue  # im Gehege: nur Futter innerhalb des Zauns
 		if near_fire(n.position):
 			continue
 		var d := Vector2(n.cell - a.cell).length_squared()
@@ -1662,8 +1788,11 @@ func den_food(den) -> int:
 	var def: Dictionary = Data.animals[den.def.spawns]
 	var r := float(def.get("roam", Data.bal("animal_food_radius", 10)))
 	var n := 0
+	var pen := pen_near(den.cell)
 	for o in nodes:
 		if o.type != "beute" and def.food.has(o.type) and o.amount > 0 and Vector2(o.cell - den.cell).length() <= r:
+			if pen > 0 and pen_near(o.cell) != pen:
+				continue  # Bau im Gehege: nur das Futter innerhalb des Zauns zählt
 			n += 1
 	return n
 
@@ -1733,9 +1862,12 @@ func _process_dens(delta: float) -> void:
 func _find_mate(den, have: int) -> void:
 	var type: String = den.def.spawns
 	var cap := den_capacity(den)
+	var pen := pen_near(den.cell)
 	for a in animals:
 		if a.type != type or a.home == den.cell or not a.is_adult() or a.is_scared():
 			continue
+		if pen_of(a.cell) != pen:
+			continue  # durch den Zaun kommt kein Partner
 		var at := animals.filter(func(b): return b.home == a.home and b.is_adult()).size()
 		var other = node_at.get(a.home)
 		var other_cap := den_capacity(other) if other != null and other.def.has("spawns") else -1
@@ -1881,8 +2013,10 @@ func on_animal_killed(a: Animal, by) -> void:
 			if is_walkable(c + d) and not node_at.has(c + d):
 				c = c + d
 				break
+	last_kill = null
 	if not node_at.has(c) and not building_at.has(c):
 		var n := spawn_node("beute", c)
+		last_kill = n
 		n.amount = meat
 		n.regrow_at = Game.time_days + float(n.def.get("decay_days", 2.0))
 		n.refresh()
@@ -1899,6 +2033,90 @@ func on_animal_killed(a: Animal, by) -> void:
 	Game.notify_at(self, tr("%s wurde%s erlegt.") % [a.def.name, who], "fleisch")
 	_check_extinct(a.type)
 	a.queue_free()
+
+
+# ------------------------------------------------------------------ Lesen (josh 2026-10-20)
+## Lesestoff im Lager dieser Insel: "zeitungen", sonst "buecher", sonst "". Siedler lesen dann in der
+## Freizeit (am Feuer, im Grünen), machen etwas längere Pausen, und Kinder lernen schneller.
+func reading_good() -> String:
+	for g in ["zeitungen", "buecher"]:
+		if Game.amount(g, self) > 0:
+			return g
+	return ""
+
+
+# ------------------------------------------------------------------ Gehege und Jagdhütte (josh 2026-10-20)
+var last_kill = null  # Fleisch (ResNode "beute") des zuletzt erlegten Tiers
+
+
+## Gehege an oder unter der Zelle (Tierbau, Futterstrauch: die Zelle selbst ist gesperrt).
+func pen_near(c: Vector2i) -> int:
+	var p := pen_of(c)
+	if p > 0:
+		return p
+	for d in [Vector2i(0, 1), Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, -1)]:
+		p = pen_of(c + d)
+		if p > 0:
+			return p
+	return 0
+
+
+## Fertige Jagdhütten dieser Insel.
+func lodges() -> Array:
+	return buildings.filter(func(b): return b.complete and b.def.get("lodge", false))
+
+
+## Gehege, an das die Jagdhütte grenzt (0 = keins).
+func lodge_pen(b) -> int:
+	for c in b.cells():
+		for d in [Vector2i(0, 1), Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, -1)]:
+			var nb: Vector2i = c + d
+			if building_at.get(nb) != b and pen_of(nb) > 0:
+				return pen_of(nb)
+	return 0
+
+
+## Tiere im Gehege einer Jagdhütte (pen = lodge_pen).
+func pen_animals(pen: int) -> Array:
+	if pen <= 0:
+		return []
+	return animals.filter(func(a): return not a.dead and not (a is Raider) and pen_of(a.cell) == pen)
+
+
+## Tier, das der Jäger aus der Hütte schießen darf: erwachsen, nicht verschreckt, und von seiner Art
+## bleiben genug übrig (is_huntable). Das nächste zur Hütte.
+func lodge_prey(b):
+	var best = null
+	var best_d := INF
+	for a in pen_animals(lodge_pen(b)):
+		if not a.visible or not is_huntable(a):
+			continue
+		var d: float = (a.position - b.position).length()
+		if d < best_d:
+			best_d = d
+			best = a
+	return best
+
+
+## Liegt im Gehege der Hütte noch Fleisch, das der Jäger holen muss?
+func pen_meat(pen: int):
+	for n in nodes:
+		if n.type == "beute" and n.amount > 0 and pen_near(n.cell) == pen:
+			return n
+	return null
+
+
+## Schuss aus der Jagdhütte: das Tier fällt, die übrigen im Gehege laufen von der Hütte weg und
+## bleiben fern, bis der Jäger das Fleisch geholt hat.
+func lodge_shot(b, a, by) -> void:
+	var pen := pen_of(a.cell)
+	spawn_arrow(b.position + Vector2(8, -14), a.position + Vector2(0, -6))
+	a.take_damage(a.hp + 1.0, by)
+	if not a.dead:
+		return
+	var meat = last_kill
+	for o in pen_animals(pen):
+		o.startle(b.position, meat)
 
 
 ## filter: "" alle, "hunt" nur jagdbare (Jaeger), "hostile" nur angreifende (Wachturm).
@@ -1922,10 +2140,18 @@ func threat_for(s) -> Animal:
 	var r := float(Data.bal("flee_radius", 4.0)) * T
 	var best = null
 	var best_d := INF
+	var sp := -1
 	for a in animals:
 		if not a.visible:
 			continue
 		var d: float = (a.position - s.position).length()
+		if d < r * 2.0 and not (a is Raider):
+			# Tiere im Gehege kommen nicht durch den Zaun (josh 2026-10-20)
+			var ap := pen_of(a.cell)
+			if sp < 0:
+				sp = pen_of(s.cell)
+			if ap > 0 and ap != sp:
+				continue
 		if a.target == s and d < r * 2.0:
 			return a
 		if d < r and a.is_hostile() and d < best_d:

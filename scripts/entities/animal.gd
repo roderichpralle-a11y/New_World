@@ -34,8 +34,10 @@ var _wait: float = 0.0
 var _anim: float = 0.0
 var _hurt: float = 0.0
 var _moving: bool = false
+var _flee_t: float = 0.0  # rennt nach einem Schuss davon (Sekunden)
 var _scared: float = 0.0  # flieht verwundet in den Bau (Sekunden)
 var _eat_node = null
+var _shy = null  # Fleisch eines erlegten Tiers im Gehege: so lange bleibt das Tier fern (startle)
 var _eat_t: float = 0.0
 var _food_cd: float = 0.0
 var _rng := RandomNumberGenerator.new()
@@ -157,6 +159,12 @@ func _process(delta: float) -> void:
 	_attack_anim -= delta
 	_scared -= delta
 	_think -= delta
+	if _shy != null:
+		# Erst wenn der Jäger das Fleisch geholt hat, läuft das Tier wieder normal herum
+		if is_instance_valid(_shy) and _shy.amount > 0:
+			_scared = maxf(_scared, 0.5)
+		else:
+			_shy = null
 	if _hibernates():
 		_hibernate(delta)
 		_animate(delta)
@@ -194,7 +202,7 @@ func _hibernate(delta: float) -> void:
 			Game.select(null)
 		return
 	if _path_i >= _path.size():
-		_path = world.find_path(cell, home + Vector2i(0, 1))
+		_path = _path_to(home + Vector2i(0, 1))
 		_path_i = 1
 		if _path.size() <= 1:
 			visible = false
@@ -246,12 +254,12 @@ func _forage(delta: float) -> void:
 			return
 		_food_cd = 3.0 + _rng.randf()
 		var n = world.find_animal_food(self)
-		var spot = world.find_approach(cell, [n.cell], true) if n != null else null
+		var spot = world.find_approach(cell, [n.cell], true, true) if n != null else null
 		if spot == null:
 			_wander(delta)
 			return
 		_eat_node = n
-		_path = world.find_path(cell, spot)
+		_path = _path_to(spot)
 		_path_i = 1
 		_wait = 0.0
 		return
@@ -324,7 +332,7 @@ func _chase(delta: float) -> void:
 	_repath -= delta
 	if _repath <= 0.0 or _path_i >= _path.size():
 		_repath = 0.5
-		_path = world.find_path(cell, target.cell)
+		_path = _path_to(target.cell)
 		_path_i = 1
 		if _path.is_empty():
 			# Ziel unerreichbar (z. B. auf der anderen Seite des Wassers)
@@ -334,8 +342,15 @@ func _chase(delta: float) -> void:
 
 
 func _wander(delta: float) -> void:
+	_flee_t -= delta
+	if _flee_t > 0.0 and _path_i < _path.size():
+		_step(delta, float(def.speed) * 1.2)
+		return
 	if _wait > 0.0:
 		_wait -= delta
+		return
+	if _shy != null and _path_i >= _path.size():
+		_wait = 1.0  # bleibt am anderen Ende des Geheges, bis das Fleisch fort ist
 		return
 	if _path_i >= _path.size():
 		var r := 4 if Game.is_night() == (type == "wolf") else 3
@@ -345,8 +360,8 @@ func _wander(delta: float) -> void:
 			r = 2
 		for i in 6:
 			var c := home + Vector2i(_rng.randi_range(-r, r), _rng.randi_range(-r, r))
-			if world.is_walkable(c):
-				_path = world.find_path(cell, c)
+			if world.animal_walkable(c):
+				_path = _path_to(c)
 				_path_i = 1
 				break
 		if _path_i >= _path.size():
@@ -355,6 +370,11 @@ func _wander(delta: float) -> void:
 	_step(delta, float(def.speed) * 0.45)
 	if _path_i >= _path.size():
 		_wait = _rng.randf_range(1.5, 4.5)
+
+
+## Weg für dieses Tier: Zäune versperren ihn (World.find_animal_path). Piraten (Raider) steigen darüber.
+func _path_to(c: Vector2i) -> PackedVector2Array:
+	return world.find_animal_path(cell, c)
 
 
 func _step(delta: float, spd: float) -> void:
@@ -402,13 +422,36 @@ func take_damage(n: float, by) -> void:
 		world.on_animal_killed(self, by)
 
 
+## Schuss aus der Jagdhütte (josh 2026-10-20): weg von der Hütte, ans andere Ende des Geheges.
+func startle(from: Vector2, meat) -> void:
+	_shy = meat
+	_scared = 3.0
+	_provoked = 0.0
+	target = null
+	_eat_node = null
+	_wait = 0.0
+	var best := cell
+	var best_d := (position - from).length()
+	for i in 14:
+		var c := cell + Vector2i(_rng.randi_range(-7, 7), _rng.randi_range(-7, 7))
+		if not world.animal_walkable(c) or world.pen_of(c) != world.pen_of(cell):
+			continue
+		var d: float = (world.cell_to_pos(c) - from).length()
+		if d > best_d:
+			best_d = d
+			best = c
+	_path = _path_to(best)
+	_path_i = 1
+	_flee_t = 3.0
+
+
 func _flee_home() -> void:
 	_scared = float(Data.bal("day_length")) * 0.5
 	_provoked = 0.0
 	target = null
 	_eat_node = null
 	_wait = 0.0
-	_path = world.find_path(cell, home + Vector2i(0, 1))
+	_path = _path_to(home + Vector2i(0, 1))
 	_path_i = 1
 
 

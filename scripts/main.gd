@@ -214,6 +214,16 @@ func _maybe_autotest() -> void:
 		_autotest_reward()
 	if args.has("talenttest"):
 		TalentTest.run(self)  # Talente: Bonus und Anzeige (scripts/world/talent_test.gd)
+	if args.has("readtest"):  # Bücher, Zeitungen, Lesen (scripts/world/read_test.gd)
+		if str(args.readtest) == "shot":
+			ReadTest.shot(self)
+		else:
+			await ReadTest.run(self)
+	if args.has("pentest"):  # Zaun, Gehege, Jagdhütte (scripts/world/pen_test.gd)
+		if str(args.pentest) == "shot":
+			PenTest.shot(self)
+		else:
+			await PenTest.run(self)
 	if args.has("landtest"):
 		await LandTest.run(self)  # Straßen, Deiche, Neuland, Förster (scripts/world/land_test.gd)
 	if args.has("stalltest"):
@@ -407,6 +417,17 @@ func _maybe_autotest() -> void:
 								sp2.refresh()
 							"map":
 								sp2._go("island")
+							"minmax":
+								Steward.offered = true
+								Steward.offered_routes = true
+								hud._offers.clear()
+								if hud._hint_dialog != null and is_instance_valid(hud._hint_dialog):
+									hud._hint_dialog.queue_free()
+									hud._hint_dialog = null
+								Steward.set_limits(int(Sea.islands[1].id), "holz", 100, 400)
+								sp2._mm_island = int(Sea.islands[1].id)
+								sp2._mm_good = "holz"
+								sp2.refresh()
 							"stop":
 								sp2._ship_id = int(first.id)
 								sp2._stop_i = 0
