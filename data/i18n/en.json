@@ -1981,5 +1981,16 @@
  "bringt die Ladung zurück": "taking the cargo back",
  "Die %s hat die Ladung zurück nach %s gebracht und ist wieder frei.": "The %s has brought the cargo back to %s and is free again.",
  "Geladen wird nur, was dort ins Lager passt; ist bei der Ankunft doch kein Platz, bringt sie den Rest zurück.": "Only what fits into the storage there is loaded; if there is no room on arrival after all, she brings the rest back.",
- "Ziel: Platz %d": "Destination: room %d"
+ "Ziel: Platz %d": "Destination: room %d",
+ "Fenster Verwalter öffnen": "Open administrator window",
+ "Statistik": "Statistics",
+ "Kein Verwalter": "No administrator",
+ "Auslastung der Berufe": "Job utilization",
+ "Noch hat niemand einen Beruf.": "Nobody has a job yet.",
+ "Anteil der Zeit, in der die Leute in ihrem Beruf arbeiten (statt auszuhelfen oder nichts zu tun).": "Share of time people spend working in their job (instead of helping out or idling).",
+ "Erzeugte Waren: Jahr %d · bisher Jahr %d": "Goods produced: year %d · year %d so far",
+ "Erzeugte Waren im Jahr %d (bisher)": "Goods produced in year %d (so far)",
+ "Noch nichts gezählt. Gezählt wird, was gesammelt, geerntet, gejagt und in Werkstätten hergestellt wird.": "Nothing counted yet. Counted is everything gathered, harvested, hunted and made in workshops.",
+ "Unter „Verwalter“ siehst du, wer die Verwaltung leitet, und schaltest die automatische Neuzuweisung freier Berufe. Unter „Schichten“ ordnest du für einen Beruf Schichtarbeit rund um die Uhr an, unter „Nachtschicht“ siehst du, wer nachts arbeitet, unter „Überstunden“ lässt du einen Beruf länger arbeiten.\n\nUnter „Statistik“ steht, wie ausgelastet jeder Beruf ist (Anteil der Zeit, in der die Leute in ihrem Beruf arbeiten) und wie viel von jeder Ware im letzten Jahr und im laufenden Jahr erzeugt wurde.": "Under “Administrator” you see who runs the administration and switch automatic reassignment of free jobs. Under “Shifts” you order round-the-clock shift work for a job, under “Night shift” you see who works at night, under “Overtime” you let a job work longer.\n\nUnder “Statistics” you see how busy each job is (share of time people spend working in their job) and how much of each good was produced last year and this year.",
+ "Siedler: %d": "Settlers: %d"
 }
