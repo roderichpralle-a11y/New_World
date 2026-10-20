@@ -358,12 +358,6 @@ func _maybe_autotest() -> void:
 				"research":
 					hud._fill_research_list()
 					hud._toggle(hud._research_panel)
-				"build":
-					hud._fill_build_list()
-					hud._toggle(hud._build_panel)
-				"settlers":
-					hud._toggle(hud._settler_panel)
-					hud._refresh_settler_list()
 				"buildinfo":  # Testhilfe: Baumenü und das „i“ der Mühle
 					hud._toggle(hud._build_panel)
 					hud.show_info(Data.buildings.muehle.name, hud._build_info_text("muehle"))
@@ -446,6 +440,22 @@ func _maybe_autotest() -> void:
 							await get_tree().process_frame
 						var after: int = hud._settler_list_free.get_children().filter(func(c): return not c.is_queued_for_deletion()).size()
 						print("FREETEST frei vorher %d, nachher %d: %s" % [before, after, "OK" if after == before + 2 or (before == 1 and after == 2) else "FEHLER"])
+					if args.has("jobfree"):
+						# Testhilfe (josh 2026-10-20): mit gewähltem Beruf stehen die Freien weiter unter „Frei“
+						var ad := world.settlers.filter(func(s): return s.is_adult())
+						ad[0].set_job("frei")
+						ad[1].set_job("holzfaeller")
+						hud._refresh_settler_list()
+						var ob: OptionButton = hud._settler_f_job
+						for i in ob.item_count:
+							if ob.get_item_metadata(i) == "holzfaeller":
+								ob.select(i)
+								ob.item_selected.emit(i)
+						for i in 10:
+							await get_tree().process_frame
+						var rows := hud._settler_list_free.get_children().filter(func(c): return not c.is_queued_for_deletion() and c is not Label).size()
+						var free_n := world.settlers.filter(func(s): return not s.is_adult() or s.job == "frei").size()
+						print("JOBFREE Filter Holzfäller, Frei-Zeilen %d von %d: %s" % [rows, free_n, "OK" if rows == free_n and free_n > 0 else "FEHLER"])
 					if args.has("sfilter"):
 						# Testhilfe: Filter und Sortierung der Siedlerliste
 						hud._settler_head["hunger"].pressed.emit()

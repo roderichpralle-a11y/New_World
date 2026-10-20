@@ -1493,7 +1493,8 @@ func _refresh_settler_list() -> void:
 	var f_job: String = _settler_f_job.get_item_metadata(_settler_f_job.selected)
 	var group := _settler_f_group.selected
 	var list := pool.filter(func(s):
-		if f_job != "" and (not s.is_adult() or s.job != f_job):
+		# Berufe-Filter gilt nur für die Liste „Mit Beruf“; „Frei“ zeigt immer alle Freien und Kinder (josh 2026-10-20)
+		if f_job != "" and s.is_adult() and s.job != "frei" and s.job != f_job:
 			return false
 		if group == 1 and not s.is_adult():
 			return false
