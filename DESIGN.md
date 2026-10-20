@@ -1540,6 +1540,32 @@ Bilder in `assets/sprites/objects3.png` (`tools/gen_art_land.py`, `Data.OBJECT3_
   Sturmflut bricht einen Deich, Hütte nach Ereignis für 70 %, Förster pflanzt und rodet. Ausgabe
   `Land OK`. Bild: `--landshot=road|dike`.
 
+## Zäune, Gehege und Jagdhütte (josh 2026-10-20, Testversion /neu/)
+
+- **Zaun** (`zaun`, Forschung Tierhaltung, 3 Holz, Kachel `fence`, Bilder `fence0..15` in objects3.png Zeile
+  y=48, `tools/gen_art_land.py`): Bodengebäude wie die Straße, der Baumeister baut ihn. Siedler laufen
+  darüber, für Tiere ist er fertig unpassierbar.
+- **Wegnetz der Tiere:** `World.animal_astar` spiegelt `astar` (`_sync_animal` in `_set_solid` und
+  `refresh_tiles_around`) und sperrt dazu fertige Zäune (`fence_at`). Tiere suchen Wege mit
+  `Animal._path_to` -> `World.find_animal_path`, `animal_walkable`, `find_approach(..., for_animal)`;
+  Piraten (`Raider._path_to`) steigen über Zäune.
+- **Gehege:** `World.pen_of(zelle)` = Nummer der geschlossenen Fläche hinter einem Zaun (Füllung über das
+  Tier-Wegnetz, höchstens `pen_max_cells` = 400 Felder, sonst offen; Wasser, Felsen und Gebäude helfen mit),
+  bei jeder Änderung neu (`_pens_dirty`). Tiere im Gehege fressen nur Futter darin, die Baugröße zählt nur
+  Futter darin (`den_food`), Partner kommen nicht durch den Zaun (`_find_mate`), Junge kommen am Bau im
+  Gehege zur Welt. Siedler draußen fliehen nicht vor Tieren im Gehege (`threat_for`).
+- **Jagdhütte** (`jagdhuette`, 2x2, Waffenkunde, `lodge: true`, Bild `lodge` Zelle 58,
+  `tools/gen_art_lodge.py`): wird als Teil des Zauns gebaut (`lodge_pen`: ein Nachbarfeld liegt im Gehege).
+  Gibt es auf der Insel eine fertige Jagdhütte, jagt der Jäger nur noch dort: erst Fleisch aus dem Gehege
+  holen (`_plan_lodge_meat`), sonst zur Hütte und drinnen lauern (`_plan_lodge`, Plan „lodge“,
+  `_run_lodge`, unsichtbar wie beim Verstecken). Ein jagdbares Tier im Gehege (`lodge_prey`: erwachsen,
+  von der Art bleiben `hunt_min_keep` = 2) wird nach `lodge_aim_secs` geschossen (`lodge_shot`, Pfeil);
+  die übrigen laufen von der Hütte weg (`Animal.startle`) und bleiben fern, solange das Fleisch liegt
+  (`_shy`). Nach dem Schuss, nachts oder nach `lodge_wait_secs` geht er hinaus. Ohne Jagdhütte jagt er wie
+  bisher. Infofenster: Tiere im Gehege, Hinweise.
+- **Test** `--pentest=1` (`pen_test.gd`): Gehege, Wege, Jäger in der Hütte, Schuss, Flucht, Fleisch, 2
+  bleiben, Junge, Spielstand. Ausgabe `Gehege OK`. Bild: `--pentest=shot`.
+
 ## Testen
 
 ```

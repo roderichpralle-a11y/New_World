@@ -2993,6 +2993,8 @@ func _info_building(b: Building) -> void:
 		_info_research(b)
 	if b.def.get("office", false):
 		AdminInfo.office_rows(self, b)  # Verwaltung: Verwalter und Anordnungen
+	if b.complete and b.def.get("lodge", false):
+		_info_lodge(b)
 	if b.def.has("upgrade"):
 		_info_upgrade(b)
 	if not b.def.has("tile"):  # Straßen, Deiche, Pflanzstellen: neu bauen statt verschieben
@@ -3039,6 +3041,35 @@ func _names_of(ids: Array) -> Array:
 ## Werft: Bauaufträge (josh 2026-10-17). Die Werft baut nur, was hier in Auftrag steht, der Reihe nach;
 ## größere Schiffe erst ab Werft-Stufe 2 bzw. 3 (ships.json "yard").
 const SHIP_ORDERS_MAX := 5
+
+
+## Jagdhütte (josh 2026-10-20): Gehege daneben, Tiere darin, was der Jäger gerade tut.
+func _info_lodge(b) -> void:
+	var pen: int = b.world.lodge_pen(b)
+	var txt := ""
+	var col := UiTheme.TEXT
+	if pen <= 0:
+		txt = tr("Grenzt an kein Gehege. Baue Zäune ganz um ein Stück Land mit einem Tierbau, direkt an der Hütte.")
+		col = UiTheme.BAD
+	else:
+		var counts := {}
+		var adults := 0
+		for a in b.world.pen_animals(pen):
+			counts[a.def.name] = int(counts.get(a.def.name, 0)) + 1
+			if a.is_adult():
+				adults += 1
+		var parts := []
+		for k in counts:
+			parts.append("%d %s" % [counts[k], k])
+		txt = tr("Im Gehege: %s") % (", ".join(PackedStringArray(parts)) if not parts.is_empty() else tr("keine Tiere"))
+		if b.world.lodge_prey(b) == null and not parts.is_empty():
+			txt += "\n" + tr("Gerade ist kein Tier zum Jagen da: von jeder Art bleiben 2 Erwachsene, Jungtiere werden geschont.")
+	if not b.world.settlers.any(func(s): return s.job == "jaeger"):
+		txt += "\n" + tr("Es gibt keinen Jäger.")
+		col = UiTheme.BAD
+	var l := UiTheme.label(txt, 13, col)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_info_box.add_child(l)
 
 
 func _info_shipyard(b: Building) -> void:

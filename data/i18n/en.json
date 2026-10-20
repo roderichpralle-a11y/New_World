@@ -2094,5 +2094,19 @@
  "Keine": "None",
  "Mehrere wählbar. Nochmal tippen wählt ab.": "Several can be picked. Tap again to unpick.",
  "Wählen": "Choose",
- "Die %s kann nicht nach %s fahren, dort fehlt ein Hafen. Bis dahin fahren kleinere Schiffe.": "The %s cannot sail to %s, there is no harbor there. Until then smaller ships go."
+ "Die %s kann nicht nach %s fahren, dort fehlt ein Hafen. Bis dahin fahren kleinere Schiffe.": "The %s cannot sail to %s, there is no harbor there. Until then smaller ships go.",
+ "Geht zur Jagdhütte": "Going to the hunting lodge",
+ "Lauert in der Jagdhütte": "Lying in wait in the hunting lodge",
+ "Zielt auf: %s": "Aiming at: %s",
+ "Grenzt an kein Gehege. Baue Zäune ganz um ein Stück Land mit einem Tierbau, direkt an der Hütte.": "Not next to an enclosure. Build fences all around a piece of land with an animal den, right up to the lodge.",
+ "Im Gehege: %s": "In the enclosure: %s",
+ "keine Tiere": "no animals",
+ "Gerade ist kein Tier zum Jagen da: von jeder Art bleiben 2 Erwachsene, Jungtiere werden geschont.": "No animal to hunt right now: 2 adults of each kind are kept, young ones are spared.",
+ "Es gibt keinen Jäger.": "There is no hunter.",
+ "Lager hier: höchstens %d (Lagergrenze)": "Storage here: at most %d (storage limit)",
+ "Lager hier: Platz für höchstens %d": "Storage here: room for at most %d",
+ "Zaun": "Fence",
+ "Holzzaun, 1 Feld. Siedler steigen darüber, wilde Tiere kommen nicht hindurch. Ein ganz umschlossenes Stück Land ist ein Gehege: Tiere darin bleiben drin und vermehren sich dort.": "Wooden fence, 1 tile. Settlers climb over it, wild animals cannot get through. A piece of land fenced in all around is an enclosure: animals inside stay there and breed there.",
+ "Jagdhütte": "Hunting lodge",
+ "Wird als Teil des Zauns direkt ans Gehege gebaut, die Tür nach draußen. Gibt es eine Jagdhütte, jagt der Jäger nur noch hier: Er lauert in der Hütte und erlegt ein Tier im Gehege, die anderen laufen davon. Dann holt er das Fleisch. Von jeder Art bleiben 2 Tiere übrig.": "Built as part of the fence right at the enclosure, with the door facing out. Once there is a hunting lodge, the hunter only hunts here: he lies in wait in the lodge and shoots one animal in the enclosure while the others run away. Then he fetches the meat. 2 animals of each kind are kept."
 }

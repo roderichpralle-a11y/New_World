@@ -1021,6 +1021,10 @@ func _minmax_editor() -> void:
 			row.add_child(b)
 		show.call()
 		v.add_child(row)
+	var cap := Steward.store_cap(iid, gid)
+	if cap >= 0:
+		var lim_here := Game.limit_of(gid, w)
+		v.add_child(_hint(tr("Lager hier: höchstens %d (Lagergrenze)") % cap if lim_here >= 0 else tr("Lager hier: Platz für höchstens %d") % cap))
 	var why := tr("Liegt weniger als der Mindeststand da, holt der Verwalter die Ware von einer anderen Insel. Liegt mehr als der Höchststand da, bringt er den Überschuss weg (zuerst zur Heimatinsel). Dafür nimmt er freie Schiffe ohne Route.")
 	if not Steward.on:
 		why += " " + tr("Dafür muss der Verwalter eingeschaltet sein.")

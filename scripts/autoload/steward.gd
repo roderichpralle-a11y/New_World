@@ -371,6 +371,11 @@ func limits(island_id: int, id: String) -> Array:
 func set_limits(island_id: int, id: String, mn: int, mx: int) -> void:
 	mn = maxi(0, mn)
 	mx = maxi(0, mx)
+	# Höchstens so viel, wie das Lager der Insel für diese Ware fasst (Lagergrenze dort, josh 2026-10-20)
+	var cap := store_cap(island_id, id)
+	if cap >= 0:
+		mn = mini(mn, cap)
+		mx = mini(mx, cap)
 	if mx > 0 and mn > mx:
 		mn = mx
 	var key := str(island_id)
@@ -381,6 +386,16 @@ func set_limits(island_id: int, id: String, mn: int, mx: int) -> void:
 	else:
 		minmax[key][id] = [mn, mx]
 	changed.emit()
+
+
+## So viel kann das Lager der Insel von der Ware höchstens halten: die Lagergrenze, sonst der ganze
+## freie Platz für sie (Game.max_limit). -1 = Insel nicht geladen.
+func store_cap(island_id: int, id: String) -> int:
+	var w = Sea.worlds.get(island_id)
+	if w == null or not is_instance_valid(w):
+		return -1
+	var lim := Game.limit_of(id, w)
+	return lim if lim >= 0 else Game.max_limit(id, w)
 
 
 ## Was schon unterwegs ist (Fahrten des Verwalters) zur Insel to mit der Ware id.
@@ -482,7 +497,7 @@ func route_tick() -> void:
 			var have: int = Game.amount(id, w) + incoming(to_id, id)
 			# Unter dem Mindeststand: holen (bis zum Höchststand, sonst doppelter Mindeststand)
 			if lim[0] > 0 and have < lim[0]:
-				var want: int = (lim[1] if lim[1] > 0 else lim[0] * 2) - have
+				var want: int = mini((lim[1] if lim[1] > 0 else lim[0] * 2) - have, _room_below_max(to_id, id))
 				var srcs := settled.filter(func(i): return i != to_id and _spare(i, id) > 0)
 				srcs.sort_custom(func(a, b): return _over_max(a, id) > _over_max(b, id) or (_over_max(a, id) == _over_max(b, id) and _spare(a, id) > _spare(b, id)))
 				for src in srcs:
