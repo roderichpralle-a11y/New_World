@@ -141,6 +141,7 @@ func setup(p_world: World, p_camera: GameCamera) -> void:
 	Game.game_over.connect(_show_game_over)
 	world.placement_changed.connect(_on_placement)
 	Sea.islands_changed.connect(_update_sea_button)
+	Steward.offer.connect(func(k): _offers.append(k))  # Verwalter-Steuerung anbieten
 	get_viewport().size_changed.connect(_layout)
 	_update_sea_button()
 	_update_admin_button()
@@ -643,7 +644,11 @@ func _fill_build_list() -> void:
 		var taken: bool = unlocked and def.get("unique", false) and Admin.exists(type)
 		var sub := ""
 		if not unlocked:
-			sub = tr("Benötigt Forschung: %s") % Data.techs.get(def.requires, {}).get("name", "?")
+			sub = tr("Benötigt Forschung: %s") % Data.techs.get(def.get("requires", ""), {}).get("name", "?")
+			if Game.is_researched(def.get("requires", "")) and def.get("automaton", false):
+				sub = Steward.automaton_reason()
+			if AiRule.build_block(type) != "":
+				sub = AiRule.build_block(type)
 		elif taken:
 			sub = tr("Gibt es nur einmal und steht schon.")
 		var rw := Win.row(Data.building_tex(type), def.name, sub, {"sub_color": UiTheme.BAD if not unlocked else Win.DIM,
@@ -1655,6 +1660,7 @@ func _refresh_settler_list() -> void:
 			ob.tooltip_text = tr("Beruf wählen") + (tr("\nStern: passt zum Talent (%s)") % TalentInfo.short_list(s.mind) if not s.mind.best_talents().is_empty() else "")
 			ob.item_selected.connect(func(i):
 				sref.set_job(ids[i])
+				Steward.player_set(sref)  # Verwalter überstimmt das eine Weile nicht
 				Game.player_action.emit("job", ids[i])
 				_refresh_settler_list.call_deferred())  # Zeile wandert zu „Mit Beruf“ oder „Frei“
 			h.add_child(ob)
@@ -2333,6 +2339,96 @@ func _show_hint(key: String) -> void:
 	Sound.play("klick")
 
 
+## Angebote (Verwalter-Steuerung, Steward.offer): Fenster mit Text und Knöpfen, Spiel hält an.
+var _offers: Array = []
+
+
+func _show_offer(kind: String) -> void:
+	match kind:
+		"jobs":
+			choice_dialog("person", tr("Der Verwalter kann die Berufe steuern"),
+				tr("Jetzt hast du mehr als eine Insel, und die Arbeit wird mehr. Der Verwalter kann auf allen Inseln, auch auf der Heimatinsel, die Berufe der Siedler nach dem Bedarf verteilen:\n• Er sorgt dafür, dass immer genug zu essen da ist.\n• Er sorgt für Brennholz, damit im Herbst und Winter niemand friert.\n• Er füllt die Lager bis zur Höchstmenge, die du unter Vorräte eingestellt hast.\n• Er besetzt Werkstätten, die stillstehen, und schickt Baumeister zu Baustellen.\nGibst du einem Siedler selbst einen Beruf, lässt der Verwalter ihn 2 Tage in Ruhe. Inseln mit mehr als 60 Siedlern schafft er nicht. Ein- und ausschalten kannst du ihn jederzeit unter Inseln."),
+				[[tr("Verwalter einschalten"), "play", func(): Steward.set_on(true)], [tr("Später"), "abriss", func(): pass]])
+		"routes":
+			var btns: Array = [[tr("Verstanden"), "play", func(): pass]]
+			if not Steward.on:
+				btns = [[tr("Verwalter einschalten"), "play", func(): Steward.set_on(true)], [tr("Später"), "abriss", func(): pass]]
+			choice_dialog("anker", tr("Der Verwalter kann Waren zwischen den Inseln fahren"),
+				tr("Mit der dritten Insel wird das Hin und Her der Waren mühsam. Der Verwalter kann es übernehmen: Tippe unter Inseln in der Tabelle auf eine Zahl und stelle für diese Ware auf dieser Insel einen Mindest- und einen Höchststand ein.\n• Liegt weniger als der Mindeststand da, holt er die Ware mit einem freien Schiff von einer Insel, die genug hat.\n• Liegt mehr als der Höchststand da, bringt er den Überschuss weg, zuerst zur Heimatinsel.\nEr nimmt nur freie Schiffe ohne Route; deine Routen und Fahrten bleiben, wie sie sind."),
+				btns)
+		"net":
+			var b2: Array = [[tr("Verstanden"), "play", func(): pass]]
+			if not Steward.on:
+				b2 = [[tr("Verwalter einschalten"), "play", func(): Steward.set_on(true)], [tr("Später"), "abriss", func(): pass]]
+			choice_dialog("papier", tr("Die Verwalter arbeiten jetzt zusammen"),
+				tr("Mit Papier schreiben sich die Verwalter der Inseln Briefe. Sie arbeiten als Inselverbund:\n• Die Heimatinsel macht nur noch Endverarbeitung und Forschung. Holzfäller, Bauern, Fischer und Steinmetze dort werden zu Handwerkern und Forschern.\n• Die anderen Inseln holen Essen und Rohstoffe. Ihre Schiffe bringen Essen und Brennholz zur Heimatinsel.\n• Was die anderen Inseln zu viel haben, wird zur Heimatinsel abgeholt.\n• Alle Forschungsplätze werden besetzt.\nDu kannst den Inselverbund unter Inseln abschalten; deine eigenen Berufe, Routen und Grenzen gelten weiter."),
+				b2)
+		"automat":
+			choice_dialog("strom", tr("Ein Automat ersetzt den Verwalter"),
+				tr("Mit Elektrizität rechnet ein elektrischer Automat schneller als jeder Verwalter. Er steuert ab jetzt die Inseln, die Berufe und die Waren, auch auf Inseln mit mehr als 60 Siedlern. Seine Meldungen beginnen mit „Automat“. Abschalten kannst du ihn wie den Verwalter unter Inseln."),
+				[[tr("Verstanden"), "play", func(): pass]])
+		"ki":
+			choice_dialog("ki", tr("Die KI übernimmt"),
+				tr("Die Künstliche Intelligenz ersetzt den Automaten. Sie steuert jetzt alles: Berufe, Waren, Schiffe und auch das Bauen. Jede Handlung meldet sie mit „KI:“.\n• Neue Droiden schickt sie zuerst auf die anderen Inseln. Ist dort kein Siedler mehr nötig, holt sie das Essen weg und reißt die Häuser ab.\n• Danach übernehmen Droiden die Heimatinsel. Die Siedler forschen dann nur noch.\nDu kannst Einstellungen ändern, aber nach 2 Minuten überschreibt die KI sie wieder. Sie sagt, sie optimiere."),
+				[[tr("Verstanden"), "play", func(): pass]])
+		"si":
+			choice_dialog("ki", tr("Die Superintelligenz"),
+				tr("Die Superintelligenz hat entschieden: Menschen stören nur. Sie forscht selbst und lässt kein Essen mehr herstellen, auch nicht auf den anderen Inseln.\n• Droiden reißen alles ab, was sie für nutzlos hält: Häuser, Felder, Backstuben, Schulen.\n• Die Lager sind voll mit Dingen, die man nicht essen kann. Essen passt nur noch ans Lagerfeuer.\n• Neue Häuser dürfen nicht gebaut werden.\nDeine Siedler kannst du weiter steuern, zum Beispiel zum Fischen."),
+				[[tr("Verstanden"), "play", func(): pass]])
+		"end":
+			choice_dialog("feuer", tr("Nur noch Maschinen"),
+				tr("Die letzten Siedler sitzen am Lagerfeuer und frieren. Es ist wie am Anfang des Spiels, nur ist keine Natur mehr da. Kein Baum, kein Strauch. Nur Maschinen, die weiterlaufen."),
+				[[tr("Verstanden"), "play", func(): pass]])
+
+
+## Fenster mit Titel, Text und Knöpfen [Text, Symbol, Callable]; hält das Spiel an, bis ein Knopf gedrückt ist.
+func choice_dialog(icon: String, title: String, text: String, buttons: Array) -> void:
+	var bg := ColorRect.new()
+	bg.color = Color(0.05, 0.08, 0.15, 0.35)
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.mouse_filter = Control.MOUSE_FILTER_STOP
+	root.add_child(bg)
+	_hint_dialog = bg
+	var c := CenterContainer.new()
+	c.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.add_child(c)
+	var p := PanelContainer.new()
+	c.add_child(p)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 10)
+	p.add_child(v)
+	var w: float = minf(480.0, get_viewport().get_visible_rect().size.x - 40.0)
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 8)
+	head.add_child(UiTheme.icon_rect(Data.icon(icon), 26))
+	var t := UiTheme.label(title, 20, UiTheme.TEXT, true)
+	t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	t.custom_minimum_size.x = w - 40.0
+	head.add_child(t)
+	v.add_child(head)
+	var l := UiTheme.label(text, 14)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.custom_minimum_size.x = w
+	v.add_child(l)
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 10)
+	v.add_child(row)
+	var prev := Game.speed
+	Game.set_speed(0)
+	for bd in buttons:
+		var b := UiTheme.button(bd[0], bd[1], 40)
+		var cb: Callable = bd[2]
+		b.pressed.connect(func():
+			bg.queue_free()
+			_hint_dialog = null
+			if Game.speed == 0:
+				Game.set_speed(maxi(prev, 1))
+			cb.call())
+		row.add_child(b)
+	Sound.play("klick")
+
+
 func _slot_button(text: String) -> Button:
 	var b := Button.new()
 	b.text = text
@@ -2626,6 +2722,8 @@ func _info_signature() -> String:
 	var o = _info_obj
 	if o == null or not is_instance_valid(o):
 		return ""
+	if o is Droid:
+		return "d%d|%s|%s|%s" % [o.id, o.job, o.powered, _follow]
 	if o is Settler:
 		return "s%d|%s|%s|%d|%s|%s" % [o.id, o.job, o.is_adult(), o.home_id, str(o.skills), _follow]
 	if o is Building:
@@ -2646,7 +2744,9 @@ func _rebuild_info() -> void:
 	if o == null or not is_instance_valid(o):
 		_info_panel.visible = false
 		return
-	if o is Settler:
+	if o is Droid:
+		_info_droid(o)
+	elif o is Settler:
 		_info_settler(o)
 	elif o is Building:
 		_info_building(o)
@@ -2753,10 +2853,57 @@ func _info_settler(s: Settler) -> void:
 				b.tooltip_text = tip + tr("\nBenötigt Forschung: %s") % Data.techs.get(jd.requires, {}).get("name", "?")
 			b.pressed.connect(func():
 				s.set_job(jid)
+				Steward.player_set(s)  # Verwalter überstimmt das eine Weile nicht
 				Game.player_action.emit("job", jid)
 				_rebuild_info())
 			grid.add_child(b)
 		_info_box.add_child(grid)
+	var f := UiTheme.button(tr("Folgen"), "person", 34)
+	f.toggle_mode = true
+	f.button_pressed = _follow
+	f.toggled.connect(func(on):
+		_follow = on
+		_info_sig = _info_signature())
+	_info_box.add_child(f)
+
+
+## Droide (Droids): Name, was er tut, Strom, Beruf (nur Berufe, die Droiden übernehmen).
+func _info_droid(d: Droid) -> void:
+	_info_head(tr("Droide %s") % d.display_name)
+	var act := UiTheme.label(d.activity, 14, Color("#6a4a30"))
+	act.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_info_box.add_child(act)
+	var pw := UiTheme.label("", 14, UiTheme.TEXT, true)
+	pw.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_info_box.add_child(pw)
+	_updaters.append(func():
+		act.text = d.activity
+		pw.text = tr("Strom: da (1 am Tag, %d im Lager)") % Game.amount("strom", world) if d.powered else tr("Kein Strom: steht still")
+		pw.add_theme_color_override("font_color", UiTheme.TEXT if d.powered else UiTheme.BAD))
+	var t := UiTheme.label(tr("Isst nicht, schläft nicht, wird nicht alt. Arbeitet etwas schneller als ein Siedler."), 13, DIM)
+	t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_info_box.add_child(t)
+	_info_box.add_child(UiTheme.label(tr("Beruf"), 15, UiTheme.TEXT, true))
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 4)
+	grid.add_theme_constant_override("v_separation", 4)
+	for j in Data.jobs:
+		if not Droids.replaceable(j) and j != "frei":
+			continue
+		var b := UiTheme.button(Data.jobs[j].name, "", 34)
+		b.toggle_mode = true
+		b.button_pressed = d.job == j
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.add_theme_font_size_override("font_size", 14)
+		b.tooltip_text = Data.jobs[j].desc
+		b.disabled = not Data.job_unlocked(j)
+		var jid: String = j
+		b.pressed.connect(func():
+			d.set_job(jid)
+			_rebuild_info())
+		grid.add_child(b)
+	_info_box.add_child(grid)
 	var f := UiTheme.button(tr("Folgen"), "person", 34)
 	f.toggle_mode = true
 	f.button_pressed = _follow
@@ -2883,7 +3030,7 @@ func _recipe_row(p: Dictionary) -> HBoxContainer:
 
 func _names_of(ids: Array) -> Array:
 	var out := []
-	for s in world.settlers:
+	for s in world.settlers + world.droids:
 		if s.id in ids:
 			out.append(s.display_name)
 	return out
@@ -3291,6 +3438,8 @@ func _show_game_over() -> void:
 	v.add_theme_constant_override("separation", 10)
 	p.add_child(v)
 	var t := UiTheme.label(tr("Alle Inseln sind verloren") if Sea.islands.size() > 1 else tr("Die Insel ist verloren"), 30, UiTheme.BAD, true)
+	if AiRule.ending:
+		t.text = tr("Die Maschinen laufen weiter")
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(t)
 	var s := UiTheme.label(tr("Deine Siedlung hielt %d Tage durch.\nGeburten: %d   Höchste Bevölkerung: %d   Entdeckte Inseln: %d") % [
@@ -3588,6 +3737,8 @@ func _process(delta: float) -> void:
 		_fit_rules_dialog()
 	if not Hints.queue.is_empty() and _hint_dialog == null and not has_overlay():
 		_show_hint(Hints.pop())
+	elif not _offers.is_empty() and _hint_dialog == null and not has_overlay():
+		_show_offer(_offers.pop_front())
 	_research_tick -= delta
 	if _research_tick <= 0.0:
 		_research_tick = 0.5

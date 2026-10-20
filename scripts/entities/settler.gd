@@ -336,6 +336,8 @@ func _think() -> void:
 	_release()
 	var prev_kind := _stat_kind
 	_stat_kind = "needs"
+	if sleeping and AiRule.ending:
+		_wake_up()  # am Ende schläft niemand mehr, alle sitzen am Lagerfeuer
 	if sleeping and _sleep_time():
 		return
 	# Schwer krank: im Bett bleiben, nur zum Essen aufstehen
@@ -360,6 +362,12 @@ func _think() -> void:
 	# 2b. Nichts im Lager (oder Lager voll): Hungrige essen direkt am Strauch oder Ufer
 	if hunger < float(Data.bal("eat_below")) * 0.6 and Game.total_food(world) <= 0 and not Game.is_night():
 		if _plan_forage():
+			return
+	# 2c. Ende unter der Superintelligenz: die letzten Siedler sitzen frierend am Lagerfeuer
+	if AiRule.ending and is_adult():
+		var cf = AiRule.campfire(world)
+		if cf != null:
+			_plan_wander(1, tr("Sitzt am Lagerfeuer und friert"), cf.entrance_cell())
 			return
 	# 3. Schlafen (Schichtarbeit: jede Nacht arbeitet die Hälfte durch)
 	if _sleep_time():
@@ -693,7 +701,11 @@ func _plan_work() -> bool:
 			return _plan_free_gather()
 		"jaeger":
 			if Data.job_unlocked("jaeger"):
-				if _plan_destroy_den() or _plan_hunt() or _plan_gather(["beute"]):
+				if not world.lodges().is_empty():
+					# Jagdhütte (josh 2026-10-20): der Jäger jagt nur noch aus der Hütte ins Gehege
+					if _plan_lodge_meat() or _plan_lodge():
+						return true
+				elif _plan_destroy_den() or _plan_hunt() or _plan_gather(["beute"]):
 					return true
 			_stat_kind = "other"
 			return _plan_free_gather()
@@ -1016,6 +1028,10 @@ func _do_produce(b) -> void:
 			# Ein fertiges Schiff liegt sofort im Wasser (siehe Sea)
 			Game.add_stock(res, n, world)
 			continue
+		if res == "droide":
+			for i in n:
+				Droids.build(world, b)  # ein fertiger Droide läuft sofort los
+			continue
 		if first:
 			carry_res = res
 			carry_n = n
@@ -1132,6 +1148,8 @@ func _run_action(delta: float) -> void:
 			_run_hunt(a, delta)
 		"hide":
 			_run_hide(a, delta)
+		"lodge":
+			_run_lodge(a, delta)
 
 
 func _walk(delta: float, mult: float = 1.0) -> void:
@@ -1404,6 +1422,74 @@ func _run_hunt(a: Dictionary, delta: float) -> void:
 			_plan.pop_front()
 			return
 	_walk(delta, 1.1)
+
+
+## Jagdhütte: Fleisch aus dem Gehege holen, wenn dort welches liegt (die Tiere sind dann fort).
+func _plan_lodge_meat() -> bool:
+	for b in world.lodges():
+		var n = world.pen_meat(world.lodge_pen(b))
+		if n == null or not n.is_available() or (n.reserved_by != 0 and n.reserved_by != id):
+			continue
+		if Game.space_for("fleisch", world) <= 0:
+			return false
+		return _plan_gather(["beute"])
+	return false
+
+
+## Jagdhütte: hingehen, drinnen lauern und ein Tier im Gehege schießen. Die Hütte mit jagdbarem Wild
+## zuerst, sonst die nächste.
+func _plan_lodge() -> bool:
+	if health < 40.0 or Game.is_night() or mind.sick != "":
+		return false
+	var best = null
+	var best_d := INF
+	for b in world.lodges():
+		if world.lodge_pen(b) <= 0:
+			continue
+		var d: float = b.dist_sq(cell) + (0.0 if world.lodge_prey(b) != null else 100000.0)
+		if d < best_d:
+			best_d = d
+			best = b
+	if best == null:
+		return false
+	if world.find_path(cell, best.entrance_cell()).is_empty() and cell != best.entrance_cell():
+		return false
+	_plan.append({"a": "move", "cell": best.entrance_cell()})
+	_plan.append({"a": "lodge", "b": best})
+	activity = tr("Geht zur Jagdhütte")
+	return true
+
+
+func _run_lodge(a: Dictionary, delta: float) -> void:
+	var b = a.b
+	if not is_instance_valid(b) or not b.complete or world.lodge_pen(b) <= 0:
+		abort_plan()
+		return
+	if not a.get("started", false):
+		a.started = true
+		a.t = 0.0
+		a.aim = 0.0
+		_hiding = b
+		visible = false
+		_moving = false
+		_working = false
+		activity = tr("Lauert in der Jagdhütte")
+	a.t = float(a.t) + delta
+	var prey = world.lodge_prey(b)
+	if prey != null:
+		activity = tr("Zielt auf: %s") % prey.def.name
+		a.aim = float(a.aim) + delta * work_factor("jagd")
+		if float(a.aim) >= float(Data.bal("lodge_aim_secs", 4.0)):
+			world.lodge_shot(b, prey, self)
+			gain_xp("jagd", 0.6)
+			a.t = 999.0
+	else:
+		a.aim = 0.0
+	# Nach dem Schuss, bei Nacht oder nach langem Warten raus (Essen, Schlaf, dann wieder herein)
+	if float(a.t) >= float(Data.bal("lodge_wait_secs", 25.0)) or Game.is_night():
+		_hiding = null
+		visible = true
+		_plan.pop_front()
 
 
 func _run_hide(a: Dictionary, delta: float) -> void:

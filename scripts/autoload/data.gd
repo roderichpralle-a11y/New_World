@@ -64,6 +64,8 @@ const BUILDING_CELLS := {
 	"tablets": [51, 1], "office": [52, 1],  # Zelle 52 war frueher der Brunnen
 	"armory": [53, 1],  # Waffenschmiede (tools/gen_art_pirates.py)
 	"pigsty": [54, 1], "cowshed": [55, 1],  # Ställe (tools/gen_art_stalls.py)
+	"automaton": [56, 1], "droid_factory": [57, 1],  # Maschinen (tools/gen_art_machines.py)
+	"lodge": [58, 1],  # Jagdhütte (tools/gen_art_lodge.py)
 }
 ## Etappe 3 in objects2.png: name -> [x, y, w, h, frames]
 const OBJECT2_REGIONS := {
@@ -76,7 +78,7 @@ const OBJECT2_REGIONS := {
 	"ship_kogge": [0, 96, 48, 48, 2], "ship_fast": [96, 96, 48, 48, 2], "ship_galleon": [192, 96, 48, 48, 2],
 }
 ## Strassen, Deiche und Foerster in objects3.png (tools/gen_art_land.py): name -> [x, y, w, h, frames].
-## road0..15 und dike0..15: Maske der Nachbarn N=1 O=2 S=4 W=8.
+## road0..15, dike0..15 und fence0..15: Maske der Nachbarn N=1 O=2 S=4 W=8.
 var OBJECT3_REGIONS := _object3_regions()
 
 
@@ -85,6 +87,7 @@ static func _object3_regions() -> Dictionary:
 	for m in 16:
 		r["road%d" % m] = [m * 16, 0, 16, 16, 1]
 		r["dike%d" % m] = [m * 16, 16, 16, 16, 1]
+		r["fence%d" % m] = [m * 16, 48, 16, 16, 1]
 	return r
 
 
