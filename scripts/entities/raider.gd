@@ -183,6 +183,11 @@ func _walk_to(goal: Vector2i, delta: float) -> bool:
 	return false
 
 
+## Piraten steigen über Zäune: sie nutzen das Wegnetz der Siedler.
+func _path_to(c: Vector2i) -> PackedVector2Array:
+	return world.find_path(cell, c)
+
+
 func _valid_target(s) -> bool:
 	return s != null and is_instance_valid(s) and s.visible and world.settlers.has(s)
 
