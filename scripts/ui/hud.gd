@@ -614,8 +614,8 @@ func _fill_build_list() -> void:
 		var taken: bool = unlocked and def.get("unique", false) and Admin.exists(type)
 		var sub := ""
 		if not unlocked:
-			sub = tr("Benötigt Forschung: %s") % Data.techs.get(def.requires, {}).get("name", "?")
-			if Game.is_researched(def.requires) and def.get("automaton", false):
+			sub = tr("Benötigt Forschung: %s") % Data.techs.get(def.get("requires", ""), {}).get("name", "?")
+			if Game.is_researched(def.get("requires", "")) and def.get("automaton", false):
 				sub = Steward.automaton_reason()
 			if AiRule.build_block(type) != "":
 				sub = AiRule.build_block(type)
