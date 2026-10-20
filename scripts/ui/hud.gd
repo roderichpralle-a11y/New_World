@@ -163,6 +163,7 @@ func _chip(icon_name: String) -> Array:
 	return [h, l]
 
 
+var _island_room: float = 160.0  # Platz für den Inselnamen in der Statuszeile (aus _layout)
 var top_bar: PanelContainer  # Statuszeile oben (Zeiger der Einführung)
 var speed_bar: PanelContainer  # Geschwindigkeit oben rechts
 var menu_btn: Button
@@ -224,6 +225,8 @@ func _build_topbar() -> void:
 	sc.add_child(ClimateBadge.new())  # Klima: heißer Sommer / Wintervorhersage (auch schmal sichtbar)
 	h.add_child(sc)
 	_island_label = UiTheme.label("", 14, Color("#7a4a28"), true)
+	_island_label.clip_text = true  # feste Breite, langer Name im Tooltip
+	_island_label.mouse_filter = Control.MOUSE_FILTER_PASS
 	_island_label.visible = false
 	h.add_child(_island_label)
 	_food_label.get_parent().set_meta("is_food", true)
@@ -248,6 +251,32 @@ func _build_topbar() -> void:
 	top_alerts = TopAlerts.new()
 	root.add_child(top_alerts)
 	top_alerts.add_child(EventChip.new(self))  # angekündigte Ereignisse (Events)
+
+
+## Statuszeile mit fester Größe (josh 2026-10-20): jede Zahl bekommt die Breite ihres längsten möglichen
+## Textes, das Klima-Symbol behält seinen Platz. So ändert sich die Leiste nicht, wenn Zahlen wachsen.
+func _fix_top_widths(season_title: bool) -> void:
+	var fit := func(l: Label, samples: Array) -> void:
+		var f: Font = l.get_theme_font("font")
+		var fs: int = l.get_theme_font_size("font_size")
+		var w := 0.0
+		for t in samples:
+			w = maxf(w, f.get_string_size(str(t), HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x)
+		l.custom_minimum_size.x = ceilf(w) + 1.0
+	# Schmal (Handy hoch): Platz für die üblichen Größen, erst darüber wächst die Leiste
+	for id in _res_labels:
+		fit.call(_res_labels[id], ["999"] if _food_short else ["9999"])
+	fit.call(_food_label, ["999 (%s)" % (tr("%dT") % 9)] if _food_short else ["9999 (%s)" % (tr("%d Tage") % 99)])
+	fit.call(_pop_label, ["99/99"] if _food_short else ["999/999"])
+	fit.call(_day_label, [tr("Tag %d") % 99] if _food_short else [tr("Tag %d  %s") % [999, "23:59"]])
+	var seasons := []
+	for i in 4:
+		seasons.append(Seasons.season_name(i) + " 3/3")
+	if season_title:
+		for k in [["w", "winters"], ["s", "summers"]]:
+			for t in Seasons.cfg.get(k[1], {}):
+				seasons.append(Seasons.type_name(k[0], t) + " 3/3")
+	fit.call(_season_label, seasons)
 
 
 func _refresh_top() -> void:
@@ -282,8 +311,9 @@ func _refresh_top() -> void:
 	if _island_label:
 		var vs := get_viewport().get_visible_rect().size
 		# Auf schmalen Bildschirmen passt der Inselname nicht mehr in die Leiste
-		_island_label.visible = Sea.worlds.size() > 1 and vs.x >= 520
+		_island_label.visible = Sea.worlds.size() > 1 and vs.x >= 520 and _island_room >= 50.0
 		_island_label.text = Sea.island_name(world) if world and is_instance_valid(world) else ""
+		_island_label.tooltip_text = _island_label.text
 
 
 func _on_speed(s: int) -> void:
@@ -3343,6 +3373,17 @@ func _layout() -> void:
 		_refresh_top()
 	# Schmal: Oberleiste enger und ohne Uhrzeit, damit Jahreszeit und Klima-Symbol im Bild bleiben
 	_season_icon.get_parent().get_parent().add_theme_constant_override("separation", 4 if _food_short else 12)
+	_fix_top_widths(vs.x >= 1100.0)
+	# Inselname: so breit, wie neben der Geschwindigkeit Platz ist (fest je Bildschirmgröße)
+	_island_label.custom_minimum_size.x = 0
+	var isl_vis := _island_label.visible
+	_island_label.visible = false
+	var base := top_bar.get_combined_minimum_size().x
+	_island_label.visible = isl_vis
+	var right := vs.x - 6.0 if (portrait or vs.x < 760) else vs.x - sp.size.x - 12.0
+	_island_room = clampf(right - 6.0 - base - 12.0, 0.0, 160.0)
+	_island_label.custom_minimum_size.x = _island_room
+	_refresh_top()
 	if portrait or vs.x < 760:
 		sp.position = Vector2(vs.x - sp.size.x - 6, 54)
 		top_h = 100.0
@@ -3540,7 +3581,7 @@ func _process(delta: float) -> void:
 	_day_label.text = (tr("Tag %d") % Game.day()) if _food_short else (tr("Tag %d  %s") % [Game.day(), Game.clock_text()])
 	_day_icon.texture = Data.icon("mond" if Game.is_night() else "sonne")
 	_season_icon.texture = Seasons.icon()
-	_season_label.text = Seasons.short_text(get_viewport().get_visible_rect().size.x >= 900.0)  # Klima-Name nur mit Platz
+	_season_label.text = Seasons.short_text(get_viewport().get_visible_rect().size.x >= 1100.0)  # Klima-Name nur mit Platz
 	if _rules_dialog:
 		_fit_rules_dialog()
 	if not Hints.queue.is_empty() and _hint_dialog == null and not has_overlay():

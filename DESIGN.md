@@ -313,6 +313,11 @@ Zeitalterwechsel mit Wertung und Aufträge mit Wahl. Überblick und Zusammenspie
   `--panel=build|settlers|research|menu`, `--tuttest=1` spielt alles durch.
   Wer die Einführung zu Ende spielt (nicht überspringt), bekommt 2 Siedler und eine fertige Hütte
   (siehe „Kohle, Erfrieren und weitere Ergänzungen“).
+- **Statuszeile fest** (josh 2026-10-20): `Hud._fix_top_widths` gibt jeder Zahl die Breite ihres längsten
+  üblichen Textes (breit 9999 / 9999 (99 Tage) / 999/999 / Tag 999 23:59, schmal 999 / 999 (9T) / 99/99 /
+  Tag 99), die Jahreszeit die ihres längsten Namens; das Klima-Symbol bleibt unsichtbar an seinem Platz
+  (`ClimateBadge`, modulate). Klima-Namen in der Jahreszeit erst ab 1100 Pixeln. Der Inselname bekommt den
+  Platz bis zur Geschwindigkeit (höchstens 160, abgeschnitten, ganzer Name im Tooltip, unter 50 ausgeblendet).
 - **Nahrung in der Oberleiste**: Zahl der Nahrungsgüter und dahinter `Game.food_days()`, für wie viele
   Tage die Nahrung der angezeigten Insel reicht: Summe aus Menge mal Sättigung, geteilt durch die
   Siedler (Kinder zählen voll) und den Tagesbedarf `hunger_per_day` mit Jahreszeit und Kälte. Rot
