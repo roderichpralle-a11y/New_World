@@ -484,6 +484,19 @@ func _maybe_autotest() -> void:
 									# Testhilfe --buildpress=1: den Bauen-Knopf dieser Zeile drücken
 									for bt in row.find_children("*", "Button", true, false):
 										bt.pressed.emit()
+		if args.has("outfits"):  # Testhilfe: Berufskleidung, je Beruf ein Siedler (oben von vorn, unten von der Seite)
+			var jobs := ["frei", "handwerker", "bauer", "koch", "forscher", "jaeger", "steinmetz", "foerster"]
+			var c0: Vector2i = world.center + Vector2i(-8, -2)
+			for row in 3:
+				for i in jobs.size():
+					var st = world.spawn_settler({"name": "T", "sex": "m" if i % 2 else "f", "age": 30.0, "x": c0.x + i * 2, "y": c0.y + row * 2})
+					st.set_job(jobs[i])
+					st._dir = [0, 2, 1][row]
+					st._flip = false
+					st._animate(0.0)
+					st.set_process(false)
+			camera.zoom = Vector2(float(args.outfits), float(args.outfits))
+			camera.focus(world.cell_to_pos(c0 + Vector2i(7, 2)))
 		if args.has("shipcam") and not world._ship_nodes.is_empty():
 			var spn = world._ship_nodes.values()[0]
 			print("Schiffe im Bild: ", world._ship_nodes.size(), " Hafen ", world.harbor_cell(), " Schiff ", world.pos_to_cell(spn.position))

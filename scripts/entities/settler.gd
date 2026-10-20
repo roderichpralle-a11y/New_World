@@ -8,6 +8,17 @@ const SKIN := ["#f2c9a0", "#e0ac7e", "#c68a5e", "#9a6440", "#6e4630"]
 const HAIR := ["#3a2a22", "#6b4226", "#a8642e", "#d9a650", "#f0d890", "#2b2b38", "#b84a2e", "#8c8c94"]
 const SHIRT := ["#4f8fd6", "#d65f4f", "#58b06a", "#e0b040", "#9a68c8", "#e08a40", "#40b0b0", "#f0f0e8"]
 const PANTS := ["#5a4a7a", "#4a5a3a", "#6a4a3a", "#3a4a6a", "#7a6a5a"]
+## Berufskleidung (josh 2026-10-20): Farben für Hemd/Hose und Überlagerungen (assets/sprites/settler_<name>.png,
+## tools/gen_art_outfits.py). Nur Erwachsene; ohne Beruf die eigene Kleidung.
+const OUTFIT := {
+	"handwerker": {"shirt": "#4c72ae", "pants": "#3e5e96"},  # blauer Overall
+	"bauer": {"pants": "#7a5434", "over": ["cap"]},
+	"koch": {"pants": "#f2eee6", "over": ["chefhat"]},
+	"forscher": {"over": ["glasses"]},
+	"jaeger": {"over": ["hunthat", "rifle"]},
+	"steinmetz": {"over": ["apron"]},
+	"foerster": {"over": ["saw"]},
+}
 const DIR_DOWN := 0
 const DIR_UP := 1
 const DIR_SIDE := 2
@@ -148,6 +159,16 @@ func _build_visual() -> void:
 			s.modulate = Color(look.get(o[1], "#ffffff"))
 		_body.add_child(s)
 		_layers[o[0]] = s
+	for o in ["apron", "glasses", "cap", "chefhat", "hunthat", "saw", "rifle"]:  # Berufskleidung, unsichtbar bis _apply_outfit
+		var s := Sprite2D.new()
+		s.texture = sheet(o)
+		s.hframes = 4
+		s.vframes = 3
+		s.centered = false
+		s.offset = Vector2(-8, -22)
+		s.visible = false
+		_body.add_child(s)
+		_layers[o] = s
 	_tool = Sprite2D.new()
 	_tool.visible = false
 	_tool.position = Vector2(5, -8)
@@ -229,6 +250,20 @@ func best_job() -> String:
 			best_v = skill_level(sk)
 			best = map[sk]
 	return best
+
+
+var _outfit_job := "?"
+
+
+## Kleidung zum Beruf (OUTFIT): Hemd und Hose einfärben, Mützen, Brille, Schürze, Gewehr und Säge zeigen.
+func _apply_outfit() -> void:
+	_outfit_job = job + str(is_adult())
+	var o: Dictionary = OUTFIT.get(job, {}) if is_adult() else {}
+	_layers["shirt"].modulate = Color(o.get("shirt", look.get("shirt", "#ffffff")))
+	_layers["pants"].modulate = Color(o.get("pants", look.get("pants", "#ffffff")))
+	var over: Array = o.get("over", [])
+	for k in ["apron", "glasses", "cap", "chefhat", "hunthat", "saw", "rifle"]:
+		_layers[k].visible = k in over
 
 
 func set_job(j: String) -> void:
@@ -635,8 +670,64 @@ func _plan_leisure() -> bool:
 		if dest == null:
 			return false
 		_plan.append({"a": "move", "cell": dest})
+	if pick[1] == beach and beach != null and _plan_stroll(beach, pick[2]):
+		activity = tr("Freizeit: ") + pick[2]
+		return true
 	_plan.append({"a": "wait", "t": mind.break_length(), "rest": true, "act": pick[2]})
 	activity = tr("Freizeit: ") + pick[2]
+	return true
+
+
+## Spaziergang (josh 2026-10-20): langsam am Ufer entlang, Feld für Feld über den Sand am Wasser,
+## möglichst geradeaus weiter. Erholt wie eine Pause.
+func _plan_stroll(start: Vector2i, text: String) -> bool:
+	var shore := func(c: Vector2i) -> bool:
+		if world.terrain_at(c) != World.SAND or not world.is_walkable(c):
+			return false
+		for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			if world.is_water(c + d):
+				return true
+		return false
+	var cur := start
+	if not shore.call(cur):  # nächstes Feld direkt am Wasser suchen
+		var best_d := 999
+		for dy in range(-8, 9):
+			for dx in range(-8, 9):
+				var c := start + Vector2i(dx, dy)
+				if absi(dx) + absi(dy) < best_d and shore.call(c):
+					best_d = absi(dx) + absi(dy)
+					cur = c
+		if best_d == 999:
+			return false
+	var dir := Vector2i.ZERO
+	var seen := {cur: true}
+	var steps: Array = []
+	if cur != start:
+		steps.append(cur)
+	var want := int(mind.break_length() / 2.5) + 4
+	for i in want:
+		var best = null
+		var best_s := -99.0
+		for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1), Vector2i(1, 1), Vector2i(-1, -1), Vector2i(1, -1), Vector2i(-1, 1)]:
+			var c: Vector2i = cur + d
+			if seen.has(c) or not shore.call(c):
+				continue
+			var sc := Vector2(d).normalized().dot(Vector2(dir).normalized()) if dir != Vector2i.ZERO else 0.0
+			sc += _rng.randf() * 0.3
+			if sc > best_s:
+				best_s = sc
+				best = c
+		if best == null:
+			break
+		dir = best - cur
+		cur = best
+		seen[cur] = true
+		steps.append(cur)
+	if steps.size() < 4:
+		return false
+	for c in steps:
+		_plan.append({"a": "move", "cell": c, "stroll": true, "act": text})
+	_plan.append({"a": "wait", "t": 3.0, "rest": true, "act": text})
 	return true
 
 
@@ -792,6 +883,7 @@ func _do_harvest(node) -> void:
 		_do_deliver()
 	carry_res = res
 	carry_n += got
+	Admin.note_produced(res, got)  # Statistik
 	gain_xp(node.def.skill)
 	world.spawn_effect("chips_" + node.type, node.position + Vector2(0, -6))
 	# Weiterarbeiten, solange Platz und Zeit ist
@@ -852,6 +944,7 @@ func _do_field_harvest(field) -> void:
 		var n: int = field.harvest()
 		carry_res = field.farm_def().yield
 		carry_n = n
+		Admin.note_produced(carry_res, n)  # Statistik
 		gain_xp("nahrung", 2.0)
 		_plan_deliver_after()
 
@@ -1012,6 +1105,7 @@ func _do_produce(b) -> void:
 	var first := true
 	for res in outs:
 		var n := int(outs[res])
+		Admin.note_produced(res, n)  # Statistik
 		if Data.ships.has(res):
 			# Ein fertiges Schiff liegt sofort im Wasser (siehe Sea)
 			Game.add_stock(res, n, world)
@@ -1095,6 +1189,10 @@ func _run_action(delta: float) -> void:
 				_moving = false
 				cell = a.cell
 				_plan.pop_front()
+				return
+			if a.get("stroll", false):  # Spaziergang: langsam, erholt
+				mind.relax(delta / float(Data.bal("day_length")))
+				_walk(delta, float(Data.bal("stroll_speed", 0.4)))
 				return
 			_walk(delta, 1.3 if a.get("flee", false) or a.get("defend", false) else 1.0)
 		"arm":
@@ -1460,6 +1558,8 @@ func _face(v: Vector2) -> void:
 
 func _animate(delta: float) -> void:
 	_anim_t += delta
+	if _outfit_job != job + str(is_adult()):
+		_apply_outfit()
 	var frame := 0
 	if _moving:
 		frame = int(_anim_t * 8.0) % 4
@@ -1471,6 +1571,12 @@ func _animate(delta: float) -> void:
 	# Werkzeug schwingen
 	var battle: bool = _battle_tool != "" and not _plan.is_empty() and _plan[0].get("defend", false) and not _working
 	_tool.visible = (_working and _cur_tool != "" or battle) and not sleeping
+	if _layers["saw"].visible != (job == "foerster" and is_adult() and not _tool.visible):  # Säge in der Hand, außer beim Arbeiten
+		_layers["saw"].visible = not _layers["saw"].visible
+	if _layers["rifle"].visible:  # Gewehr auf dem Rücken: von vorn und von der Seite hinter dem Körper
+		var at: int = _body.get_child_count() - 1 if _dir == DIR_UP else 0
+		if _layers["rifle"].get_index() != at:
+			_body.move_child(_layers["rifle"], at)
 	if battle and _tool.visible:
 		# Waffe oder Werkzeug kampfbereit hochhalten, während er zum Piraten rennt
 		_tool.texture = Data.tool_tex(_battle_tool)

@@ -103,6 +103,7 @@ func setup(p_world: World, p_camera: GameCamera) -> void:
 	_build_slots_panel()
 	_score_panel = ExamView.build_score_panel(self)
 	_quest_panel = QuestView.build_panel(self)
+	_build_admin_panel()
 	_build_info_panel()
 	_sea_panel = SeaPanel.new()
 	root.add_child(_sea_panel)
@@ -226,7 +227,12 @@ func _build_topbar() -> void:
 	h.add_child(sc)
 	_island_label = UiTheme.label("", 14, Color("#7a4a28"), true)
 	_island_label.clip_text = true  # feste Breite, langer Name im Tooltip
-	_island_label.mouse_filter = Control.MOUSE_FILTER_PASS
+	_island_label.mouse_filter = Control.MOUSE_FILTER_STOP  # Tipp öffnet das Fenster Inseln (josh 2026-10-20)
+	_island_label.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	_island_label.gui_input.connect(func(ev):
+		if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
+			_open_sea()
+			_island_label.accept_event())
 	_island_label.visible = false
 	h.add_child(_island_label)
 	_food_label.get_parent().set_meta("is_food", true)
@@ -327,6 +333,9 @@ func _on_speed(s: int) -> void:
 const MENU_ICONS := ["bauen", "forschung", "siedler", "inseln", "menue", "verwalter"]
 const MENU_TEX := preload("res://assets/sprites/menu_icons.png")
 var _admin_btn: Button
+var _admin_panel: PanelContainer  # Fenster Verwalter (AdminInfo.fill_window)
+var _admin_box: VBoxContainer
+var _admin_ft: Dictionary
 
 
 func _menu_button(icon: String, tip: String) -> Button:
@@ -396,16 +405,46 @@ func _update_admin_button() -> void:
 		_layout()
 
 
+## Fenster Verwalter (josh 2026-10-20): wie alle Fenster, mit Reitern Verwalter, Schichten,
+## Nachtschicht, Überstunden und Statistik (AdminInfo.fill_window).
 func _open_admin() -> void:
 	var o = Admin.office()
-	if o == null:
-		toast(tr("Baue zuerst die Verwaltung (Bauen, Reiter Wissen). Dann findest du hier den Verwalter, Schichten und Überstunden."), "person")
-		return
-	if o.world != world:
+	if o != null and o.world != world:
 		Sea.switch_to(int(o.world.island_id))
-	for pnl in _panels():
-		pnl.visible = false
-	Game.select(o)
+	if not _admin_panel.visible:
+		_toggle(_admin_panel)
+	else:
+		_fill_admin()
+	_layout()
+
+
+func _build_admin_panel() -> void:
+	var r := _popup_panel(tr("Verwalter"), "menu:verwalter", "verwalter")
+	_admin_panel = r[0]
+	var v: VBoxContainer = r[1]
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.custom_minimum_size = Vector2(330, 300)
+	v.add_child(scroll)
+	var m := MarginContainer.new()  # Abstand rechts für die Bildlaufleiste
+	m.add_theme_constant_override("margin_right", 24)
+	m.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(m)
+	_admin_box = VBoxContainer.new()
+	_admin_box.add_theme_constant_override("separation", 6)
+	_admin_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	m.add_child(_admin_box)
+	_admin_ft = Win.footer(v)
+	_admin_panel.visibility_changed.connect(func():
+		if _admin_panel.visible:
+			_fill_admin())
+
+
+func _fill_admin() -> void:
+	for c in _admin_box.get_children():
+		_admin_box.remove_child(c)
+		c.queue_free()
+	AdminInfo.fill_window(self, Admin.office(), _admin_box, _fill_admin, _admin_ft)
 
 
 func _open_sea() -> void:
@@ -481,7 +520,7 @@ func _toggle(panel: Control) -> void:
 
 
 func _panels() -> Array:
-	return [_build_panel, _research_panel, _stock_panel, _settler_panel, _menu_panel, _help_panel, _notify_panel, _slots_panel, _sea_panel, _score_panel, _quest_panel, _trade_panel]
+	return [_build_panel, _research_panel, _stock_panel, _settler_panel, _menu_panel, _help_panel, _notify_panel, _slots_panel, _sea_panel, _score_panel, _quest_panel, _trade_panel, _admin_panel]
 
 
 ## Gemeinsamer Kopf aller Fenster (josh 2026-10-16): Symbol, Titel = Name des Knopfes, rechts das X.
@@ -496,7 +535,13 @@ func _popup_panel(title: String, icon: String = "", help_key: String = "") -> Ar
 	var head := HBoxContainer.new()
 	head.add_theme_constant_override("separation", 6)
 	if icon != "":
-		var ic := UiTheme.icon_rect(Data.icon(icon), 28)
+		var tex: Texture2D = null if icon.begins_with("menu:") else Data.icon(icon)
+		if icon.begins_with("menu:"):  # Bild des Knopfes unten (MENU_TEX)
+			var at := AtlasTexture.new()
+			at.atlas = MENU_TEX
+			at.region = Rect2(20 * MENU_ICONS.find(icon.substr(5)), 0, 20, 20)
+			tex = at
+		var ic := UiTheme.icon_rect(tex, 28)
 		ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		head.add_child(ic)
 	var t := UiTheme.label(title, 20, UiTheme.TEXT, true)
@@ -530,6 +575,7 @@ const MENU_HELP := {
 	"spielstaende": "Es gibt fünf Plätze. Im aktiven Spielstand speichert das Spiel von selbst. Hier kannst du einen Spielstand laden, hierhin speichern, ein neues Spiel beginnen sowie als Datei ausgeben und einlesen.",
 	"meldungen": "Hier schaltest du ein, welche Arten von Meldungen im Spiel erscheinen. „Alle an“ schaltet alle Arten wieder ein.",
 	"auftraege": "Hier stehen die offenen Aufträge mit Fortschritt und Belohnung.",
+	"verwalter": "Unter „Verwalter“ siehst du, wer die Verwaltung leitet, und schaltest die automatische Neuzuweisung freier Berufe. Unter „Schichten“ ordnest du für einen Beruf Schichtarbeit rund um die Uhr an, unter „Nachtschicht“ siehst du, wer nachts arbeitet, unter „Überstunden“ lässt du einen Beruf länger arbeiten.\n\nUnter „Statistik“ steht, wie ausgelastet jeder Beruf ist (Anteil der Zeit, in der die Leute in ihrem Beruf arbeiten) und wie viel von jeder Ware im letzten Jahr und im laufenden Jahr erzeugt wurde.",
 	"inseln": "Unter „Inseln“ siehst du, welche Waren auf welcher Insel liegen. Unter „Schiffe“ schickst du ein Schiff einmal los (Waren von einer Insel zur anderen) oder legst eine Route fest, die es immer wieder fährt. Rot heißt: dort fehlen Seeleute. Unter „Karte“ siehst du alle Inseln und suchst mit der Entdeckungsreise neue.",
 }
 var _menu_help: PanelContainer

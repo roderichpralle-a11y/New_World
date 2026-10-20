@@ -385,8 +385,52 @@ func _tick() -> void:
 		proposal.emit(job, text)
 
 
+# ---------------------------------------------------------------- Statistik (josh 2026-10-20)
+## Erzeugte Waren je Jahr (alle Inseln): {"<Jahr>": {Ware: Menge}}. Gezählt wird beim Sammeln, Ernten,
+## Jagen und in den Werkstätten (Settler), nicht beim Umladen, Handel oder Belohnungen.
+var produced: Dictionary = {}
+
+
+func note_produced(res: String, n: int) -> void:
+	if n <= 0 or res == "":
+		return
+	var key := str(Seasons.year())
+	if not produced.has(key):
+		produced[key] = {}
+		for k in produced.keys():  # nur die letzten 3 Jahre aufheben
+			if int(k) < Seasons.year() - 2:
+				produced.erase(k)
+	produced[key][res] = int(produced[key].get(res, 0)) + n
+
+
+## Erzeugte Menge je Ware im Jahr y (Seasons.year()).
+func produced_in(y: int) -> Dictionary:
+	return produced.get(str(y), {})
+
+
+## Auslastung je Beruf über alle Inseln: {Beruf: [Leute, mittlere Auslastung in % oder -1]}.
+func job_load() -> Dictionary:
+	var out := {}
+	for w in Sea.all_worlds():
+		for s in w.settlers:
+			if not s.is_adult() or s.job == "frei":
+				continue
+			if not out.has(s.job):
+				out[s.job] = [0, 0.0, 0]
+			out[s.job][0] += 1
+			var p: int = s.busy_percent()
+			if p >= 0:
+				out[s.job][1] += float(p)
+				out[s.job][2] += 1
+	var res := {}
+	for j in out:
+		res[j] = [int(out[j][0]), roundi(out[j][1] / out[j][2]) if int(out[j][2]) > 0 else -1]
+	return res
+
+
 # ---------------------------------------------------------------- Spielstand
 func _on_reset() -> void:
+	produced = {}
 	orders = {}
 	protest = {}
 	reported = {}
@@ -397,7 +441,7 @@ func _on_reset() -> void:
 
 
 func _on_save(d: Dictionary) -> void:
-	d["admin"] = {"orders": orders.duplicate(true), "protest": protest.duplicate(), "reported": reported.duplicate(), "auto": auto_reassign, "pending": pending_jobs.duplicate()}
+	d["admin"] = {"orders": orders.duplicate(true), "protest": protest.duplicate(), "reported": reported.duplicate(), "auto": auto_reassign, "pending": pending_jobs.duplicate(), "produced": produced.duplicate(true)}
 
 
 func _on_load(data: Dictionary, old_rules: int) -> void:
@@ -408,6 +452,13 @@ func _on_load(data: Dictionary, old_rules: int) -> void:
 	if not (e is Dictionary):
 		return
 	auto_reassign = bool(e.get("auto", false))
+	var pr = e.get("produced", {})
+	if pr is Dictionary:
+		for y in pr:
+			if pr[y] is Dictionary:
+				produced[str(y)] = {}
+				for r in pr[y]:
+					produced[str(y)][str(r)] = int(pr[y][r])
 	var pj = e.get("pending", [])
 	if pj is Array:
 		pending_jobs = pj.map(func(j): return str(j)).filter(func(j): return Data.jobs.has(j))
@@ -432,7 +483,9 @@ func autotest_setup(args: Dictionary, main) -> void:
 		await AdminTest.run(main)
 	if args.has("adminmeasure"):  # Ertrag: normal | ot | shift[,Tage]
 		await AdminTest.measure(main, str(args.adminmeasure))
-	if args.has("adminshot"):  # Bildschirmfoto: office | night | workshop | proposal (mit --shot)
+	if args.has("strolltest"):  # Spaziergang am Ufer (josh 2026-10-20)
+		await AdminTest.stroll(main)
+	if args.has("adminshot"):  # Bildschirmfoto: office | shifts | night | stats | workshop | proposal (mit --shot)
 		AdminTest.shot(main, str(args.adminshot))
 
 

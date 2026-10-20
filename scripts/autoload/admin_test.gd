@@ -235,7 +235,7 @@ static func run(main) -> void:
 	print("Verwaltung %s (%d Fehler)" % ["OK" if fails == 0 else "FEHLER", fails])
 
 
-## Bildschirmfoto-Hilfe --adminshot=office|night|workshop|proposal (night: Reiter Nachtschicht): Verwaltung, Verwalter und Sägegrube
+## Bildschirmfoto-Hilfe --adminshot=office|shifts|night|stats|workshop|proposal (Reiter des Fensters Verwalter): Verwaltung, Verwalter und Sägegrube
 ## mit Vertretung; danach Infofenster bzw. das Vorschlagsfenster.
 static func shot(main, kind: String) -> void:
 	var w = main.world
@@ -255,11 +255,14 @@ static func shot(main, kind: String) -> void:
 			b.adm = true
 			if kind == "workshop":
 				Game.select(b)
-		if b.type == "verwaltung" and kind in ["office", "night"]:
-			AdminInfo._tab = 2 if kind == "night" else 0
+		if b.type == "verwaltung" and kind in ["office", "night", "stats", "shifts"]:
+			AdminInfo._tab = {"night": 2, "stats": 4, "shifts": 1}.get(kind, 0)
 			for j in Data.jobs:
-				Admin.reported[j] = 1e9  # kein Vorschlagsfenster über dem Infofenster
-			Game.select(b)
+				Admin.reported[j] = 1e9  # kein Vorschlagsfenster über dem Fenster
+			if kind == "stats":
+				for id in ["holz", "stein", "beeren", "bretter", "fisch", "weizen"]:
+					Admin.note_produced(id, 40 + id.length() * 7)
+			main.hud._open_admin()
 	if kind == "proposal":
 		Admin.reported.clear()
 		Admin._tick()
@@ -322,3 +325,19 @@ static func measure(main, arg: String) -> void:
 					print("  %s %s %s Laune %.0f Kraft %.2f schläft=%s rest=%.0f: %s" % [Game.clock_text(), s.display_name, "Nacht" if Game.is_night() else "Tag",
 						s.mind.mood, s.mind.work_power(), s.sleeping, s.mind.rest, s.activity])
 	print("Verwaltung Messung %s: %d Bretter in %.1f Tagen (nachts %d) je 3 Stunden %s" % [mode, made, days, night, str(bins)])
+
+
+## Selbsttest --strolltest=1: Spaziergang am Strand geht Feld für Feld über Sand am Wasser, langsam.
+## Druckt "Spaziergang OK|FEHLER ...".
+static func stroll(main) -> void:
+	var w = main.world
+	var s = w.settlers[0]
+	var b = w.beach_near()
+	var ok := b != null
+	s._plan.clear()
+	ok = ok and s._plan_stroll(b, "test")
+	var moves: Array = s._plan.filter(func(a): return a.a == "move")
+	for a in moves:
+		ok = ok and a.get("stroll", false) and w.terrain_at(a.cell) == World.SAND
+	print("Spaziergang %s Schritte=%d" % ["OK" if ok and moves.size() >= 3 else "FEHLER", moves.size()])
+	main.get_tree().quit()

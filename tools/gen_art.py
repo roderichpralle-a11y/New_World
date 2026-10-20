@@ -799,6 +799,8 @@ def gen_settlers():
                     sheets[key].paste(im, (f * 16, di * 24))
     for k, im in sheets.items():
         im.save(os.path.join(OUT, f"settler_{k}.png"))
+    import gen_art_outfits  # Berufskleidung (josh 2026-10-20)
+    gen_art_outfits.gen_outfits()
 
 
 # ------------------------------------------------------------------ Werkzeuge

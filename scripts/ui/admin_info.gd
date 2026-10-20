@@ -45,23 +45,45 @@ static func _count(job: String, w) -> int:
 	return w.settlers.filter(func(s): return s.job == job and s.is_adult()).size()
 
 
-static var _tab := 0  # Reiter im Infofenster der Verwaltung: 0 Verwalter, 1 Schichten, 2 Nachtschicht, 3 Überstunden
+static var _tab := 0  # Reiter im Fenster Verwalter: 0 Verwalter, 1 Schichten, 2 Nachtschicht, 3 Überstunden, 4 Statistik
+static var _box: Container  # hierhin bauen die Reiter ihre Zeilen (Fenster Verwalter oder Infofenster)
+static var _rebuild: Callable  # baut das Fenster neu auf
 
 
 ## Infofenster der Verwaltung mit den Reitern Verwalter, Schichten, Nachtschicht und Überstunden
 ## (josh 2026-10-16).
 static func office_rows(hud, b) -> void:
-	if not b.complete:
-		return
-	var names := [Loc.t("Verwalter"), Loc.t("Schichten"), Loc.t("Nachtschicht"), Loc.t("Überstunden")]
-	hud._info_box.add_child(Win.tabs(names, _tab, func(i):
+	_box = hud._info_box
+	_rebuild = hud._rebuild_info
+	if b.complete:
+		var bt := UiTheme.button(Loc.t("Fenster Verwalter öffnen"), "person", 40)
+		bt.pressed.connect(hud._open_admin)
+		_box.add_child(bt)
+
+
+## Fenster Verwalter (josh 2026-10-20, einheitlich wie alle Fenster): Reiter Verwalter, Schichten,
+## Nachtschicht, Überstunden und Statistik. box: Inhalt, rebuild: baut ihn neu auf, ft: Win.footer.
+static func fill_window(hud, b, box: Container, rebuild: Callable, ft: Dictionary) -> void:
+	_box = box
+	_rebuild = rebuild
+	var names := [Loc.t("Verwalter"), Loc.t("Schichten"), Loc.t("Nachtschicht"), Loc.t("Überstunden"), Loc.t("Statistik")]
+	box.add_child(Win.tabs(names, _tab, func(i):
 		_tab = i
-		hud._rebuild_info()))
+		rebuild.call()))
+	var m = Admin.local_manager()
+	ft.left.text = Loc.t("Verwalter: %s") % m.display_name if m else Loc.t("Kein Verwalter")
+	Win.set_left2(ft, Sea.island_name(b.world) if b != null and Sea.settled_islands().size() > 1 else "")
+	if b == null and _tab < 4:
+		var l := UiTheme.label(Loc.t("Baue zuerst die Verwaltung (Bauen, Reiter Wissen). Dann findest du hier den Verwalter, Schichten und Überstunden."), 14, UiTheme.BAD)
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		box.add_child(l)
+		return
 	match _tab:
 		0: _manager_tab(hud, b)
 		1: _orders_tab(hud, b, "sh")
 		2: _night_tab(hud, b)
-		_: _orders_tab(hud, b, "ot")
+		3: _orders_tab(hud, b, "ot")
+		_: _stats_tab(hud, b)
 
 
 ## Nachtschicht: welche Berufe nachts arbeiten (Schichtarbeit), wie viele Leute und was es kostet.
@@ -81,12 +103,12 @@ static func _night_tab(hud, b) -> void:
 		var jid: String = job
 		var r := Win.row(null, Data.jobs[job].name, sub, {"button": Loc.t("Beenden"), "on_press": func():
 			Admin.set_shift(jid, false)
-			hud._rebuild_info()})
-		hud._info_box.add_child(r.box)
+			_rebuild.call()})
+		_box.add_child(r.box)
 	var l := UiTheme.label(Loc.t("In der Nacht brennt in diesen Werkstätten Licht, und die Nacht vergeht nicht schneller.") if any
 		else Loc.t("Niemand arbeitet nachts. Unter „Schichten“ lässt sich für einen Beruf Schichtarbeit rund um die Uhr anordnen."), 12, DIM)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	hud._info_box.add_child(l)
+	_box.add_child(l)
 
 
 static func _manager_tab(hud, b) -> void:
@@ -97,7 +119,7 @@ static func _manager_tab(hud, b) -> void:
 		head_text = Loc.t("Der Verwalter %s lebt auf einer anderen Insel (%s). Er arbeitet nur hier, auf der Insel der Verwaltung.") % [away.display_name, Sea.island_name(away.world)]
 	var head := UiTheme.label(head_text, 14, UiTheme.TEXT if m else UiTheme.BAD, true)
 	head.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	hud._info_box.add_child(head)
+	_box.add_child(head)
 	var cb := CheckBox.new()
 	cb.text = Loc.t("Automatische Neuzuweisung freier Berufe")
 	cb.focus_mode = Control.FOCUS_NONE
@@ -112,11 +134,11 @@ static func _manager_tab(hud, b) -> void:
 	if not Admin.auto_unlocked():
 		cb.disabled = true
 		cb.text += " " + Loc.t("(ab dem Mittelalter)")
-	hud._info_box.add_child(cb)
+	_box.add_child(cb)
 	if Admin.auto_on() and not Admin.pending_jobs.is_empty():
 		var wait := UiTheme.label(Loc.t("Wartet auf das nächste erwachsene Kind: %s") % ", ".join(Admin.pending_jobs.map(func(j): return Admin._name(j))), 13, UiTheme.TEXT, true)
 		wait.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		hud._info_box.add_child(wait)
+		_box.add_child(wait)
 
 
 ## Eine Zeile je Beruf mit einem Schalter: kind "sh" Schichtarbeit, "ot" Überstunden.
@@ -125,47 +147,71 @@ static func _orders_tab(hud, b, kind: String) -> void:
 	for e in Admin.shortages():
 		short[e[0]] = e
 	for job in _jobs(b.world):
-		var t := "%s (%d)" % [Data.jobs[job].name, _count(job, b.world)]
-		var col := UiTheme.TEXT
+		var sub := Loc.t("Siedler: %d") % _count(job, b.world)
+		var col := DIM
 		if short.has(job):
-			t += "  " + Loc.t("fehlen: %d") % (int(short[job][1]) - int(short[job][2]))
+			sub += " · " + Loc.t("fehlen: %d") % (int(short[job][1]) - int(short[job][2]))
 			col = UiTheme.BAD
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 6)
-		hud._info_box.add_child(row)
-		var nl := UiTheme.label(t, 14, col, true)
-		nl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		nl.custom_minimum_size.x = 120
-		row.add_child(nl)
-		var on: bool = Admin.ordered(job, kind)
-		var bt := UiTheme.button(Loc.t("an") if on else Loc.t("aus"), "", 32)
-		bt.custom_minimum_size.x = 70
-		bt.add_theme_font_size_override("font_size", 13)
-		var jid: String = job
 		if kind == "ot":
+			if Admin.ordered(job, "ot"):
+				var left := Seasons.year_days() * float(Admin.cfg.get("overtime_years", 1.0)) - (Game.time_days - float(Admin.orders[job].since))
+				sub += "\n" + Loc.t("Überstunden noch höchstens %d Tage.") % maxi(0, ceili(left))
 			if Admin.protesting(job):
-				bt.disabled = true
-				bt.tooltip_text = Loc.t("Protest gegen zu lange Überstunden")
-			bt.pressed.connect(func():
+				sub += "\n" + Loc.t("Protest gegen zu lange Überstunden: noch %d Tage.") % maxi(1, ceili(float(Admin.protest[job]) - Game.time_days))
+				col = UiTheme.BAD
+		var on: bool = Admin.ordered(job, kind)
+		var jid: String = job
+		var press := func():
+			if kind == "ot":
 				var err := Admin.set_overtime(jid, not Admin.ordered(jid, "ot"))
 				if err != "":
 					hud.toast(err, "wissen")
-				hud._rebuild_info())
-		else:
-			bt.pressed.connect(func():
+			else:
 				Admin.set_shift(jid, not Admin.ordered(jid, "sh"))
-				hud._rebuild_info())
-		row.add_child(bt)
-		var note := ""
-		if kind == "ot":
-			if on:
-				var left := Seasons.year_days() * float(Admin.cfg.get("overtime_years", 1.0)) - (Game.time_days - float(Admin.orders[job].since))
-				note = Loc.t("Überstunden noch höchstens %d Tage.") % maxi(0, ceili(left))
-			if Admin.protesting(job):
-				note = Loc.t("Protest gegen zu lange Überstunden: noch %d Tage.") % maxi(1, ceili(float(Admin.protest[job]) - Game.time_days))
-		if note != "":
-			hud._info_box.add_child(UiTheme.label(note, 12, DIM))
+			_rebuild.call()
+		var r := Win.row(Data.icon("person"), Data.jobs[job].name, sub,
+			{"sub_color": col, "button": Loc.t("an") if on else Loc.t("aus"), "button_off": not on, "on_press": press, "icon_px": 28, "hi": on})
+		if kind == "ot" and Admin.protesting(job):
+			r.button.disabled = true
+			r.button.tooltip_text = Loc.t("Protest gegen zu lange Überstunden")
+		_box.add_child(r.box)
+
+
+## Statistik (josh 2026-10-20): Auslastung je Beruf (alle Inseln) und was im letzten und im laufenden
+## Jahr erzeugt wurde.
+static func _stats_tab(_hud, _b) -> void:
+	_box.add_child(UiTheme.label(Loc.t("Auslastung der Berufe"), 15, UiTheme.TEXT, true))
+	var load := Admin.job_load()
+	var jobs := load.keys()
+	jobs.sort_custom(func(a, c): return int(load[a][1]) > int(load[c][1]))
+	if jobs.is_empty():
+		_box.add_child(UiTheme.label(Loc.t("Noch hat niemand einen Beruf."), 13, DIM))
+	for job in jobs:
+		if not Data.jobs.has(job):
+			continue
+		var p: int = load[job][1]
+		var r := Win.row(Data.icon("person"), Data.jobs[job].name,
+			Loc.t("Siedler: %d") % int(load[job][0]), {"icon_px": 28,
+			"value": ("%d %%" % p) if p >= 0 else "–",
+			"value_color": UiTheme.GOOD if p >= 70 else (UiTheme.ACCENT if p >= 40 else UiTheme.BAD)})
+		r.box.tooltip_text = Loc.t("Anteil der Zeit, in der die Leute in ihrem Beruf arbeiten (statt auszuhelfen oder nichts zu tun).")
+		_box.add_child(r.box)
+	var y := Seasons.year()
+	var last := Admin.produced_in(y - 1)
+	var now := Admin.produced_in(y)
+	var hd := UiTheme.label(Loc.t("Erzeugte Waren: Jahr %d · bisher Jahr %d") % [y - 1, y] if y > 1 else Loc.t("Erzeugte Waren im Jahr %d (bisher)") % y, 15, UiTheme.TEXT, true)
+	hd.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_box.add_child(hd)
+	var goods := []
+	for id in Data.sorted_resource_ids():
+		if int(last.get(id, 0)) > 0 or int(now.get(id, 0)) > 0:
+			goods.append(id)
+	if goods.is_empty():
+		_box.add_child(UiTheme.label(Loc.t("Noch nichts gezählt. Gezählt wird, was gesammelt, geerntet, gejagt und in Werkstätten hergestellt wird."), 13, DIM))
+	for id in goods:
+		var v := "%d" % int(last.get(id, 0)) if y > 1 else ""
+		v += ("  ·  " if v != "" else "") + "%d" % int(now.get(id, 0))
+		_box.add_child(Win.row(Data.res_icon(id), Data.resource_name(id), "", {"icon_px": 24, "value": v}).box)
 
 
 ## Der Verwalter schlägt Überstunden oder Schichtarbeit vor (Fenster mit drei Knöpfen).
@@ -203,7 +249,7 @@ static func show_proposal(hud, job: String, text: String) -> void:
 		if is_instance_valid(bg):
 			bg.queue_free()
 		_dialog = null
-		hud._rebuild_info()
+		_rebuild.call()
 	var ob := UiTheme.button(Loc.t("Überstunden"), "", 40)
 	ob.disabled = Admin.ordered(job, "ot") or Admin.protesting(job)
 	ob.pressed.connect(func():
