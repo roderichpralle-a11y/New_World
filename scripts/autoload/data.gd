@@ -67,6 +67,12 @@ const BUILDING_CELLS := {
 	"automaton": [56, 1], "droid_factory": [57, 1],  # Maschinen (tools/gen_art_machines.py)
 	"lodge": [58, 1],  # Jagdhütte (tools/gen_art_lodge.py)
 	"printshop": [59, 1],  # Druckerei (tools/gen_art_reading.py)
+	# Schmuck (tools/gen_art_decor.py)
+	"flowerbed_red": [60, 1], "flowerbed_yellow": [61, 1], "flowerbed_blue": [62, 1], "bench": [63, 1],
+	"menhir": [64, 1], "flagpole": [65, 4], "statue_stone": [69, 1], "flower_tub": [70, 1],
+	"fountain": [71, 4], "pond": [75, 1], "park": [76, 1], "park_tree": [77, 1], "rose_arch": [78, 1],
+	"sundial": [79, 1], "lantern": [80, 1], "pavilion": [81, 1], "equestrian": [82, 1], "obelisk": [83, 1],
+	"statue_bronze": [84, 1], "street_lamp": [85, 1], "hologram": [86, 4],
 }
 ## Etappe 3 in objects2.png: name -> [x, y, w, h, frames]
 const OBJECT2_REGIONS := {
@@ -79,7 +85,7 @@ const OBJECT2_REGIONS := {
 	"ship_kogge": [0, 96, 48, 48, 2], "ship_fast": [96, 96, 48, 48, 2], "ship_galleon": [192, 96, 48, 48, 2],
 }
 ## Strassen, Deiche und Foerster in objects3.png (tools/gen_art_land.py): name -> [x, y, w, h, frames].
-## road0..15, dike0..15 und fence0..15: Maske der Nachbarn N=1 O=2 S=4 W=8.
+## road0..15, dike0..15, fence0..15, gravel0..15, bricks0..15, hedge0..15: Maske der Nachbarn N=1 O=2 S=4 W=8.
 var OBJECT3_REGIONS := _object3_regions()
 
 
@@ -89,6 +95,9 @@ static func _object3_regions() -> Dictionary:
 		r["road%d" % m] = [m * 16, 0, 16, 16, 1]
 		r["dike%d" % m] = [m * 16, 16, 16, 16, 1]
 		r["fence%d" % m] = [m * 16, 48, 16, 16, 1]
+		r["gravel%d" % m] = [m * 16, 64, 16, 16, 1]  # Schmuck: Kiesweg, Ziegelweg, Hecke (gen_art_decor.py)
+		r["bricks%d" % m] = [m * 16, 80, 16, 16, 1]
+		r["hedge%d" % m] = [m * 16, 96, 16, 16, 1]
 	return r
 
 
@@ -282,6 +291,17 @@ func building_tex(type: String) -> AtlasTexture:
 	var def: Dictionary = buildings.get(type, {})
 	if def.has("farm"):
 		return object_tex("%s3" % def.farm.get("tiles", "field"))
+	if def.has("icon_size"):
+		# Kleiner Schmuck in einer 64er-Zelle: für Listen nur das Quadrat unten mittig zeigen
+		var key := "b:" + type
+		if not _cache.has(key):
+			var full := object_tex(def.get("sprite", "hut"))
+			var sz := float(def.icon_size)
+			var at := AtlasTexture.new()
+			at.atlas = full.atlas
+			at.region = Rect2(full.region.position + Vector2(32.0 - sz / 2.0, 64.0 - sz), Vector2(sz, sz))
+			_cache[key] = at
+		return _cache[key]
 	return object_tex(def.get("sprite", "hut"))
 
 

@@ -7,6 +7,8 @@ Ausgabe: assets/sprites/objects3.png, Regionen in Data.OBJECT3_REGIONS:
   Zeile y=16: dike0..dike15  Deichkacheln 16x16, Maske wie oben (Nachbar ist Deich oder Land)
   Zeile y=32: plant_mark (Pflanzloch mit Pflock), clear_mark (rot-weisses Band: wird gerodet)
   Zeile y=48: fence0..fence15 Holzzaun 16x16, Maske wie oben (Nachbar ist auch Zaun; josh 2026-10-20)
+  Zeile y=64, 80, 96: gravel0..15 (Kiesweg), bricks0..15 (Ziegelweg), hedge0..15 (Hecke), aus
+              tools/gen_art_decor.py (Schmuck, josh 2026-10-20)
 Die Kachel liegt mittig auf der Zelle (Bodengebaeude, siehe Building.refresh).
 """
 import os
@@ -210,11 +212,15 @@ def fence(mask):
 
 
 def gen_objects3():
-    atlas = new(256, 64)
+    import gen_art_decor
+    atlas = new(256, 112)
     for m in range(16):
         atlas.paste(road(m), (m * 16, 0))
         atlas.paste(dike(m), (m * 16, 16))
         atlas.paste(fence(m), (m * 16, 48))
+        atlas.paste(gen_art_decor.gravel(m), (m * 16, 64))
+        atlas.paste(gen_art_decor.bricks(m), (m * 16, 80))
+        atlas.paste(gen_art_decor.hedge(m), (m * 16, 96))
     atlas.paste(plant_mark(), (0, 32))
     atlas.paste(clear_mark(), (16, 32))
     atlas.save(os.path.join(OUT, "objects3.png"))

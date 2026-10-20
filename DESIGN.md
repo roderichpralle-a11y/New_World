@@ -1580,6 +1580,69 @@ Bilder in `assets/sprites/objects3.png` (`tools/gen_art_land.py`, `Data.OBJECT3_
   `reading_child_learn` (1,3) mal so schnell (`_learn_as_child`).
 - **Test** `--readtest=1` (`read_test.gd`), Ausgabe `Lesen OK`. Bild: `--readtest=shot`.
 
+## Schmuck (josh 2026-10-20)
+
+Wunsch: „Führe noch mehr Dinge zum Schmücken ein. Brunnen, Statuen, bunte Pflanzen, andere Wege, Parkanlagen,
+einen Fahnenmast und noch 10 weitere Sachen, nach und nach freigeschaltet.“
+- **Bau-Reiter „Schmuck“** (`Hud.BUILD_CATS`, Kategorie `schmuck`, Symbol `schmuck`). Auf schmalen Bildschirmen
+  (< 600 px) werden die acht Reiter schmaler, damit sie in eine Zeile passen. 23 Stücke in `buildings.json`,
+  freigeschaltet über Forschungen von der Steinzeit bis zum Informationszeitalter:
+
+  | Stück | Forschung | Kosten | Schönheit |
+  |---|---|---|---|
+  | Kiesweg (`kiesweg`, Weg 1,2x) | Steinwerkzeuge | 2 Stein | – |
+  | Menhir | Steinwerkzeuge | 8 Stein | 1,5 |
+  | Rotes / Gelbes Blumenbeet | Gartenbau | 2 Holz | 1 |
+  | Hecke (`hecke`, hält Tiere ab) | Gartenbau | 2 Holz | 0,5 |
+  | Holzbank (Freizeit: sitzen) | Holzbearbeitung | 4 Holz | 1 |
+  | Fahnenmast (Fahne weht, 4 Bilder) | Zimmerei | 4 Holz, 4 Bretter | 1,5 |
+  | Steinstatue | Steinbruch | 16 Stein | 3 |
+  | Blumenkübel | Töpferei | 4 Lehm, 1 Holz | 1 |
+  | Ziegelweg (`ziegelweg`, Weg 1,3x) | Maurerei | 3 Ziegel | – |
+  | Springbrunnen (2x2, Wasser bewegt, 4 Bilder) | Maurerei | 16 Stein, 10 Ziegel | 4 |
+  | Blaues Blumenbeet | Bewässerung | 2 Holz, 1 Lehm | 1 |
+  | Seerosenteich (2x2) | Bewässerung | 6 Stein, 6 Lehm | 3 |
+  | Parkanlage (3x3, begehbar; Freizeit: spazieren) | Heilkunde | 10 Holz, 6 Stein | 5 |
+  | Rosenbogen | Schmiedekunst | 4 Holz, 2 Eisen | 2 |
+  | Sonnenuhr | Gelehrsamkeit | 10 Stein, 4 Ziegel | 2 |
+  | Laterne (leuchtet nachts) | Eisenwerkzeuge | 3 Eisen, 2 Bretter | 1 |
+  | Pavillon (2x2; Freizeit: sitzen) | Baumeisterkunst | 16 Bretter, 10 Ziegel, 2 Werkzeug | 4 |
+  | Reiterdenkmal (2x2) | Befestigung | 24 Stein, 10 Eisen | 5 |
+  | Obelisk | Astronomie | 24 Stein, 2 Gold | 4 |
+  | Bronzestatue | Universität | 12 Eisen, 8 Stein | 4 |
+  | Straßenlaterne (elektrisch, leuchtet) | Elektrizität | 4 Stahl, 2 Glas | 1,5 |
+  | Hologramm-Statue (flimmert, 4 Bilder) | Computer | 4 Stahl, 6 Glas, 6 Elektronik | 6 |
+
+  Der Springbrunnen heißt `springbrunnen`, weil `brunnen` der entfernte alte Brunnen ist (`Retired`).
+  Aufträge bieten keine Baupläne für Schmuck an (`Quests.plan_choices`), Brand und Sturmflut treffen ihn nicht
+  (`Events._damage_candidates`).
+- **Schlüssel in buildings.json:** `decor` (Schönheit), `flat` (kein Schatten), `anim` (Bilder je Sekunde, läuft
+  immer, `Building._process`), `icon_size` (Ausschnitt unten mittig fürs Bild in Listen, `Data.building_tex`),
+  `light_y` (Höhe der Lampe), `leisure` (`park`, `bench`, `pavilion`), `props` (eigene Bilder auf einzelnen
+  Feldern, y-sortiert in `entities`; die Felder sind gesperrt, `Building.blocks_cell`), `path_speed`,
+  `animal_wall`. Schmuck hat keine Tür, darf dicht an dicht stehen, aber nicht auf die Tür eines anderen
+  Gebäudes (`World.can_place`). Als Baustelle zeigt er sein eigenes Bild halb durchsichtig. Die Parkanlage ist
+  ein Bodengebäude mit einem Bild über die ganze Fläche (`Building._flat_sprite`), die zwei Zierbäume sind `props`.
+- **Wege:** `World.path_speed(c)`: Straße `road_speed` (1,5), sonst `path_speed` des fertigen Wegs (höchstens
+  `road_speed`), Gras 1. Settler._walk, die Wegkosten (`_grass_cost() / path_speed`) und `travel_time` rechnen
+  damit. Kies- und Ziegelweg sind Kachel-Gebäude wie die Straße (`gravel0..15`, `bricks0..15`), die Hecke wie der
+  Zaun (`hedge0..15`, `fence_at` zählt `animal_wall` mit, auch für Gehege). Wege dürfen vor einer Tür liegen.
+- **Laune:** `World.decor_near(Haus)` = Summe `decor` fertiger Stücke, deren nächstes Feld höchstens
+  `decor_radius` (6) Felder von der Mitte des Hauses liegt; gemerkt je Haus, neu nach Bau, Fertigstellung,
+  Abriss, Verschieben (`decor_dirty`). `World.decor_mood` = `decor_mood_per` (2) mal Wurzel der Summe,
+  höchstens `decor_mood_max` (8). SettlerMind zeigt die Zeile „Wohnt in schöner Umgebung“.
+- **Freizeit** (`Settler._plan_leisure`, `_near_spot`, `_plan_decor_leisure`): nächster Park, nächste Bank,
+  nächster Pavillon in `leisure_spot_radius` (30) Feldern. Park (Gewicht 2,5): ins Grün, dann ein paar Felder
+  langsam (`park_walk_speed` 0,45, Schritt `move` mit `speed`) mit Pausen. Bank und Pavillon (2,0): zur Tür, dann
+  Pausenschritt mit `sit` (Platz auf dem Bild, der Zweite rückt daneben), der Körper sinkt 2 Pixel, danach steht
+  er wieder auf seinem Feld.
+- **Bilder:** `tools/gen_art_decor.py` (aus gen_art.py): buildings.png Zellen 60..89 (Atlas jetzt 512x768),
+  objects3.png Zeilen y=64/80/96 (jetzt 256x112), Symbol `schmuck`.
+- **Test** `--decortest=1` (`scripts/world/decor_test.gd`): Freischalten, Laune mit Obergrenze und Abriss,
+  Tempo und Wegsuche, Hecke, Park und Bank in der Freizeit, Sitzen, wehende Fahne, Tür frei, Spielstand.
+  Ausgabe `Schmuck OK`. Bild: `--decorshot=1` (Dorf mit allem Schmuck, `--seed=11`), Bau-Reiter:
+  `--panel=build --cat=schmuck`.
+
 ## Testen
 
 ```
@@ -1609,6 +1672,7 @@ godot --headless --fixed-fps 60 -- --autotest=20 --scale=10 --talenttest=1  # Ta
 godot --headless --fixed-fps 60 -- --autotest=30 --scale=10 --admintest=1  # Verwaltung, Vertretung, Überstunden, Schicht (Bild: --adminshot=office|workshop|proposal)
 godot --headless --fixed-fps 60 -- --autotest=200 --scale=10 --landtest=1 --noevents=1  # Straßen, Deiche, Neuland, Förster (Bild: --landshot=road|dike)
 godot --headless --fixed-fps 60 -- --autotest=60 --scale=10 --protestvideo=1  # Protest-Video
+godot --headless -- --autotest=150 --decortest=1  # Schmuck (Bild: --decorshot=1 --seed=11)
 godot --headless --fixed-fps 60 -- --autotest=40 --scale=10 --fixture=sea.json --oncetest=1  # Einmal-Route hin und zurück
 godot --headless --fixed-fps 60 -- --autotest=40 --scale=10 --fixture=sea.json --oncetest=trip  # Einmal schicken, Austausch-Halt
 godot --headless --fixed-fps 60 -- --autotest=30 --scale=10 --seed=7 --basictrade=1  # Händler mit einfachen Waren

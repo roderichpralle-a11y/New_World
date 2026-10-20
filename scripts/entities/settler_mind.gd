@@ -404,6 +404,9 @@ func _update_mood(days: float) -> void:
 		var need: Array = HouseNeeds.mood_reason(home, c)  # Bedürfnisstufen (nur gemerkte Werte)
 		if not need.is_empty():
 			r.append(need)
+		var dm: float = s.world.decor_mood(home)  # Schmuck in der Nähe (World.decor_near, gemerkt)
+		if dm > 0.0:
+			r.append([tr("Wohnt in schöner Umgebung"), dm])
 	# Freizeit
 	if leisure_share() > 0.0:
 		if rest < 25.0:

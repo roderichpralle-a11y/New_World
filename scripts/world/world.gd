@@ -327,7 +327,7 @@ func set_terrain(c: Vector2i, t: int) -> void:
 	var solid := false
 	if node_at.has(c) and node_at[c].is_solid():
 		solid = true
-	if building_at.has(c) and not building_at[c].is_ground():
+	if building_at.has(c) and building_at[c].blocks_cell(c):
 		solid = true
 	_set_solid(c, solid)
 	for y in range(c.y - 1, c.y + 1):
@@ -365,7 +365,7 @@ func _grass_cost() -> float:
 ## Wegkosten der Zelle neu setzen (nach Bau oder Abriss einer Straße).
 func _update_weight(c: Vector2i) -> void:
 	if is_inside(c):
-		var w := 1.0 if road_at(c) else _grass_cost()
+		var w := _grass_cost() / path_speed(c)  # Straße 1, Kiesweg und Ziegelweg dazwischen (Schmuck)
 		if _danger_cells.has(c):
 			w *= float(Data.bal("animal_avoid_cost", 6.0))
 		astar.set_point_weight_scale(c, w)
@@ -429,10 +429,72 @@ func road_at(c: Vector2i) -> bool:
 	return b != null and b.complete and b.def.get("tile", "") == "road"
 
 
-## Fertiger Zaun auf der Zelle (Tiere kommen nicht hindurch, Siedler steigen darüber)?
+## Tempo auf dem Feld: fertige Straße road_speed, Kies- und Ziegelweg ihr "path_speed" (Schmuck), sonst 1.
+## Nie über road_speed, sonst wäre die Schätzung der Wegsuche zu hoch.
+func path_speed(c: Vector2i) -> float:
+	var b = building_at.get(c)
+	if b == null or not b.complete:
+		return 1.0
+	var fast := float(Data.bal("road_speed", 1.5))
+	if b.def.has("path_speed"):
+		return clampf(float(b.def.path_speed), 1.0, maxf(1.0, fast))
+	return fast if b.def.get("tile", "") == "road" else 1.0
+
+
+## Fertiger Zaun (oder Hecke, "animal_wall") auf der Zelle (Tiere kommen nicht hindurch, Siedler steigen darüber)?
 func fence_at(c: Vector2i) -> bool:
 	var b = building_at.get(c)
-	return b != null and b.complete and b.def.get("tile", "") == "fence"
+	return b != null and b.complete and (b.def.get("tile", "") == "fence" or b.def.get("animal_wall", false))
+
+
+## Schmuck (josh 2026-10-20): Summe der Schönheit ("decor") fertiger Schmuckstücke höchstens
+## balance.decor_radius Felder um das Gebäude. Liste und Ergebnis je Haus werden gemerkt und erst nach Bau,
+## Abriss, Verschieben oder Fertigstellung neu gerechnet (decor_dirty).
+var _decor_list: Array = []  # [[Gebäude, Wert]]
+var _decor_gen := 0
+var _decor_built := -1
+var _decor_cache: Dictionary = {}  # Haus-ID -> [Stand, Wert]
+
+
+func decor_dirty() -> void:
+	_decor_gen += 1
+
+
+func decor_near(home) -> float:
+	if home == null:
+		return 0.0
+	var key: int = _decor_gen * 100003 + buildings.size()
+	if _decor_built != key:
+		_decor_built = key
+		_decor_cache.clear()
+		_decor_list.clear()
+		for b in buildings:
+			if b.complete and b.def.has("decor"):
+				_decor_list.append([b, float(b.def.decor)])
+	var hit = _decor_cache.get(home.id)
+	if hit != null:
+		return hit
+	var r := float(Data.bal("decor_radius", 6))
+	var center: Vector2i = home.cell + home.size / 2
+	var sum := 0.0
+	for e in _decor_list:
+		if is_instance_valid(e[0]) and e[0].dist_sq(center) <= r * r:
+			sum += float(e[1])
+	_decor_cache[home.id] = sum
+	return sum
+
+
+## Laune durch schöne Umgebung: per * Wurzel(Summe), höchstens max (balance decor_mood_per, decor_mood_max).
+func decor_mood(home) -> float:
+	var v := decor_near(home)
+	if v <= 0.0:
+		return 0.0
+	return minf(float(Data.bal("decor_mood_max", 8.0)), float(Data.bal("decor_mood_per", 2.0)) * sqrt(v))
+
+
+## Fertige Freizeitorte einer Art (buildings.json "leisure": park, bench, pavilion).
+func leisure_spots(kind: String) -> Array:
+	return buildings.filter(func(b): return b.complete and b.def.get("leisure", "") == kind)
 
 
 ## Nachbarmaske für Straßen- und Deichkacheln (N=1, O=2, S=4, W=8). Deiche verbinden sich auch mit Land.
@@ -562,7 +624,7 @@ func _update_pens() -> void:
 	var n := 0
 	var dirs := [Vector2i(0, -1), Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 0)]
 	for b in buildings:
-		if not b.complete or b.def.get("tile", "") != "fence":
+		if not fence_at(b.cell):
 			continue
 		for d in dirs:
 			var start: Vector2i = b.cell + d
@@ -645,8 +707,10 @@ func place_building(type: String, c: Vector2i, complete: bool, bid: int = 0) -> 
 	buildings.append(b)
 	for cc in b.cells():
 		building_at[cc] = b
-		if not b.is_ground():
+		if b.blocks_cell(cc):
 			_set_solid(cc, true)
+	if b.is_decor():
+		decor_dirty()
 	if complete and b.housing() > 0:
 		assign_homes()
 	if b.def.has("tile"):
@@ -670,14 +734,22 @@ func can_place(type: String, c: Vector2i, ignore = null) -> bool:
 				return false
 	if def.get("water_ok", false) and not Land.dike_allowed(self, c):  # Deich: an Land oder an einem Deich
 		return false
+	if def.has("decor") and not def.get("ground", false):
+		# Schmuck versperrt keine Tür eines anderen Gebäudes
+		var rc := Rect2i(c, Vector2i(int(def.size[0]), int(def.size[1])))
+		for o in buildings:
+			if o != ignore and not o.is_ground() and not o.is_decor() and rc.has_point(o.entrance_cell()):
+				return false
 	# Eingang muss frei sein; eine Straße vor der Tür ist erlaubt (josh 2026-10-16)
 	if not def.get("ground", false):
 		var e := c + Vector2i(int(def.size[0]) / 2, int(def.size[1]))
 		var own: bool = ignore != null and building_at.get(e) == ignore
-		var road: bool = building_at.has(e) and building_at[e].def.get("tile", "") == "road"
-		if building_at.has(e) and not own and not road:
+		var road: bool = building_at.has(e) and (building_at[e].def.get("tile", "") == "road" or building_at[e].def.has("path_speed"))
+		if def.has("decor"):
+			pass  # Schmuck hat keine Tür und darf dicht an dicht stehen
+		elif building_at.has(e) and not own and not road:
 			return false
-		if not own and not is_walkable(e):
+		elif not own and not is_walkable(e):
 			return false
 		if own and (not is_inside(e) or is_water(e) or (node_at.has(e) and node_at[e].is_solid())):
 			return false
@@ -694,6 +766,8 @@ func can_place(type: String, c: Vector2i, ignore = null) -> bool:
 
 
 func on_building_completed(b: Building) -> void:
+	if b.is_decor():
+		decor_dirty()
 	if b.def.has("tile"):
 		Land.on_completed(self, b)  # Straße, Deich, Setzling: eigene Folgen, keine Meldung
 		return
@@ -731,6 +805,8 @@ func demolish(b: Building) -> void:
 		if d._reserved == b or d._incoming.any(func(i): return i[0] == b):
 			d.abort_plan()
 	buildings.erase(b)
+	if b.is_decor():
+		decor_dirty()
 	for cc in b.cells():
 		building_at.erase(cc)
 		_set_solid(cc, node_at.has(cc) and node_at[cc].is_solid())
@@ -807,12 +883,11 @@ func travel_time(from: Vector2i, b) -> float:
 		astar.set_point_solid(to, true)
 	if pts.is_empty():
 		return INF
-	var fast := float(Data.bal("road_speed", 1.5))
 	var t := 0.0
 	var prev := from
 	for i in range(1, pts.size()):
 		var c := Vector2i((pts[i] / T).floor())
-		t += Vector2(c - prev).length() / (fast if road_at(prev) else 1.0)
+		t += Vector2(c - prev).length() / path_speed(prev)
 		prev = c
 	return t
 
@@ -967,8 +1042,11 @@ func move_building(b: Building, c: Vector2i) -> bool:
 	b.position = b.foot_pos()
 	for cc in b.cells():
 		building_at[cc] = b
-		if not b.is_ground():
+		if b.blocks_cell(cc):
 			_set_solid(cc, true)
+	if b.is_decor():
+		decor_dirty()
+		b.refresh()  # Bilder auf einzelnen Feldern (Park) ziehen mit
 	_unreachable.erase(b)
 	var door := cell_to_pos(b.entrance_cell())
 	for s in settlers:
@@ -1421,7 +1499,7 @@ func start_placement(type: String, at_pos: Vector2) -> void:
 	var sz := Vector2i(int(def.size[0]), int(def.size[1]))
 	_ghost_cell = pos_to_cell(at_pos) - sz / 2
 	var tex: AtlasTexture
-	if def.get("ground", false):
+	if def.get("ground", false) and (def.has("tile") or not def.has("decor")):
 		_ghost_sprite.visible = false
 	else:
 		tex = Data.object_tex(def.sprite)
@@ -1480,7 +1558,7 @@ func _draw_ghost() -> void:
 		for x in sz.x:
 			_ghost.draw_rect(Rect2(origin + Vector2(x * T, y * T) + Vector2(1, 1), Vector2(T - 2, T - 2)), col)
 	_ghost.draw_rect(Rect2(origin, Vector2(sz) * T), Color(1, 1, 1, 0.8), false, 1.0)
-	if not def.get("ground", false):
+	if not def.get("ground", false) and not def.has("decor"):
 		_ghost.draw_rect(Rect2(Vector2(-4, 4), Vector2(8, 8)), Color(1, 1, 0.6, 0.6), false, 1.0)
 
 

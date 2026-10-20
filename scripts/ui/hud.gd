@@ -587,7 +587,7 @@ func _show_menu_help_box() -> void:
 # ================================================================== Bau-Menue
 const BUILD_CATS := [["wohnen", "Wohnen", "haus"], ["nahrung", "Nahrung", "nahrung"],
 	["handwerk", "Handwerk", "hammer"], ["lager", "Lager", "kiste"], ["wissen", "Wissen", "wissen"],
-	["see", "Seefahrt und Schutz", "boot"], ["land", "Land und Wege", "weg"]]
+	["see", "Seefahrt und Schutz", "boot"], ["land", "Land und Wege", "weg"], ["schmuck", "Schmuck", "schmuck"]]
 
 
 func _build_build_panel() -> void:
@@ -605,6 +605,12 @@ func _build_build_panel() -> void:
 	var tabs := Win.tabs(names, 0, func(i):
 		_build_cat = BUILD_CATS[i][0]
 		_fill_build_list(), icons)
+	if get_viewport().get_visible_rect().size.x < 600.0:
+		# Handy: acht Reiter passen nur schmaler in eine Zeile (Schmuck, josh 2026-10-20)
+		tabs.add_theme_constant_override("h_separation", 2)
+		for b in tabs.get_children():
+			b.custom_minimum_size = Vector2(38, 40)
+			b.add_theme_constant_override("icon_max_width", 24)
 	v.add_child(tabs)
 	for k in BUILD_CATS.size():
 		_build_tabs.append([tabs.get_child(k), BUILD_CATS[k][0]])

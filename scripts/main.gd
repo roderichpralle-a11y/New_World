@@ -219,6 +219,10 @@ func _maybe_autotest() -> void:
 			ReadTest.shot(self)
 		else:
 			await ReadTest.run(self)
+	if args.has("decortest"):  # Schmuck (scripts/world/decor_test.gd)
+		await DecorTest.run(self)
+	if args.has("decorshot"):
+		DecorTest.shot(self, str(args.decorshot))
 	if args.has("pentest"):  # Zaun, Gehege, Jagdhütte (scripts/world/pen_test.gd)
 		if str(args.pentest) == "shot":
 			PenTest.shot(self)

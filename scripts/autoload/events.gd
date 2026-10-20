@@ -650,12 +650,12 @@ func _rats(w, ev: Dictionary) -> String:
 
 # ---------------------------------------------------------------- Brand und Sturmflut
 ## Gebäude, die Feuer oder Flut beschädigen können: fertig, kein Feld, kein Lager, kein Hafen, nicht am
-## Ufer gebaut (coast), ohne besondere Wirkung, kein Lagerfeuer (no_damage).
+## Ufer gebaut (coast), ohne besondere Wirkung, kein Lagerfeuer (no_damage), kein Schmuck.
 func _damage_candidates(w) -> Array:
 	var no: Array = _c("no_damage", [])
 	return w.buildings.filter(func(b): return b.complete and not b.is_ground() and not b.type in no \
 		and int(b.def.get("storage", 0)) <= 0 and not b.def.has("harbor") and not b.def.get("coast", false) \
-		and not b.def.has("effects"))
+		and not b.def.has("effects") and not b.def.has("decor"))
 
 
 ## Liegt das Gebäude höchstens r Felder vom Wasser?
