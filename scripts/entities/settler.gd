@@ -672,6 +672,15 @@ func _plan_leisure() -> bool:
 		if b.complete and b.def.get("base", b.type) in ["bibliothek", "schreibstube"] and b.def.has("research"):
 			opts.append([mind.trait_value("iq") * 0.4, b.entrance_cell(), tr("Liest in: %s") % b.def.name, false])
 			break
+	# Schmuck (josh 2026-10-20): langsam durch den Park gehen, auf einer Bank oder im Pavillon sitzen
+	var park = _near_spot("park")
+	if park != null:
+		opts.append([2.5, park.cell + Vector2i(1, 1), tr("Spaziert durch den Park"), false, "", "park", park])
+	for kind in ["bench", "pavilion"]:
+		var seat = _near_spot(kind)
+		if seat != null:
+			var txt := tr("Sitzt auf der Bank") if kind == "bench" else tr("Sitzt im Pavillon")
+			opts.append([2.0, seat.cell, txt, false, "", kind, seat])
 	if opts.is_empty():
 		return false
 	var total := 0.0
@@ -684,6 +693,8 @@ func _plan_leisure() -> bool:
 		if x <= 0.0:
 			pick = o
 			break
+	if pick.size() > 5:
+		return _plan_decor_leisure(pick[5], pick[6], pick[2])
 	if pick[3]:
 		if not _push_move_to([pick[1]], true):
 			return false
@@ -696,7 +707,7 @@ func _plan_leisure() -> bool:
 		activity = tr("Freizeit: ") + pick[2]
 		return true
 	var rest := {"a": "wait", "t": mind.break_length(), "rest": true, "act": pick[2]}
-	if pick.size() > 4:
+	if pick.size() > 4 and pick[4] != "":
 		rest["read"] = pick[4]
 	_plan.append(rest)
 	activity = tr("Freizeit: ") + pick[2]
@@ -753,6 +764,52 @@ func _plan_stroll(start: Vector2i, text: String) -> bool:
 	for c in steps:
 		_plan.append({"a": "move", "cell": c, "stroll": true, "act": text})
 	_plan.append({"a": "wait", "t": 3.0, "rest": true, "act": text})
+	return true
+
+
+## Nächster fertiger Freizeitort dieser Art (Park, Bank, Pavillon) in leisure_spot_radius Feldern, sonst null.
+func _near_spot(kind: String):
+	var best = null
+	var r := float(Data.bal("leisure_spot_radius", 30))
+	var best_d := r * r
+	for b in world.leisure_spots(kind):
+		var d: float = b.dist_sq(cell)
+		if d < best_d and float(world._unreachable.get(b, 0.0)) <= Game.time_days:
+			best_d = d
+			best = b
+	return best
+
+
+## Freizeit am Schmuck: im Park ein paar Felder langsam spazieren und stehen bleiben, auf der Bank oder im
+## Pavillon sitzen (Pausenschritt mit "sit": Platz auf dem Bild, Settler._run setzt ihn dorthin).
+func _plan_decor_leisure(kind: String, b, text: String) -> bool:
+	var t := mind.break_length()
+	if kind == "park":
+		var free: Array = b.cells().filter(func(c): return world.is_walkable(c))
+		if free.is_empty():
+			return false
+		free.shuffle()
+		if world.find_approach(cell, [free[0]], false) == null:
+			world.mark_unreachable(b)
+			return false
+		_plan.append({"a": "move", "cell": free[0]})
+		var steps := mini(4, free.size())
+		for i in steps:
+			_plan.append({"a": "wait", "t": t / float(steps + 1), "rest": true, "act": text})
+			_plan.append({"a": "move", "cell": free[(i + 1) % free.size()], "speed": float(Data.bal("park_walk_speed", 0.45))})
+		_plan.append({"a": "wait", "t": t / float(steps + 1), "rest": true, "act": text})
+	else:
+		var dest = world.find_approach(cell, [b.entrance_cell()], false)
+		if dest == null:
+			dest = world.find_approach(cell, b.cells(), true)
+		if dest == null:
+			world.mark_unreachable(b)
+			return false
+		_plan.append({"a": "move", "cell": dest})
+		var others: int = world.settlers.filter(func(o): return o != self and not o._plan.is_empty() and o._plan[0].get("sit_b", -1) == b.id).size()
+		var seat: Vector2 = b.position + (Vector2(-4 + 8 * (others % 2), 1) if kind == "bench" else Vector2(-6 + 6 * (others % 3), -9))
+		_plan.append({"a": "wait", "t": t, "rest": true, "act": text, "sit": seat, "sit_b": b.id})
+	activity = tr("Freizeit: ") + text
 	return true
 
 
@@ -1227,7 +1284,7 @@ func _run_action(delta: float) -> void:
 				mind.relax(delta / float(Data.bal("day_length")))
 				_walk(delta, float(Data.bal("stroll_speed", 0.4)))
 				return
-			_walk(delta, 1.3 if a.get("flee", false) or a.get("defend", false) else 1.0)
+			_walk(delta, 1.3 if a.get("flee", false) or a.get("defend", false) else float(a.get("speed", 1.0)))
 		"arm":
 			Events.arm(self)  # Waffe aus dem Lager, wenn noch eine da ist
 			_battle_tool = _fight_tool()
@@ -1255,10 +1312,15 @@ func _run_action(delta: float) -> void:
 				if not a.get("started", false):
 					a.started = true
 					activity = tr("Freizeit: ") + String(a.get("act", tr("Ruht sich aus")))
+					if a.has("sit"):  # Bank oder Pavillon (Schmuck): Platz nehmen, nach vorn schauen
+						position = a.sit
+						_face(Vector2(0, 1))
 				mind.relax(delta / float(Data.bal("day_length")))
 			a.t = float(a.t) - delta
 			if a.t <= 0.0:
 				_plan.pop_front()
+				if a.has("sit"):
+					position = world.cell_to_pos(cell)
 		"hunt":
 			_run_hunt(a, delta)
 		"hide":
@@ -1273,8 +1335,7 @@ func _walk(delta: float, mult: float = 1.0) -> void:
 	var target: Vector2 = _path[_path_i]
 	var spd := float(Data.bal("walk_speed")) * Game.eff("walk") * (1.0 if is_adult() else 0.85) * mult
 	spd *= Seasons.walk_mult()  # Schnee
-	if world.road_at(cell):
-		spd *= float(Data.bal("road_speed", 1.5))  # Straße
+	spd *= world.path_speed(cell)  # Straße, Kiesweg, Ziegelweg
 	if hunger <= 0.0:
 		spd *= 0.6
 	if mind.sick != "":
@@ -1708,7 +1769,8 @@ func _animate(delta: float) -> void:
 		_tool.z_index = -1 if _dir == DIR_UP else 0
 		_body.position.y = -abs(swing) * 0.8 if not sleeping else _body.position.y
 	elif not sleeping:
-		_body.position.y = 0
+		var sitting: bool = not _plan.is_empty() and _plan[0].a == "wait" and _plan[0].has("sit") and not _moving
+		_body.position.y = 2 if sitting else 0
 	_hurt -= delta
 	_body.modulate = Color(1, 0.5, 0.5) if _hurt > 0.0 else Color.WHITE
 	_carry_icon.visible = carry_n > 0 and not sleeping

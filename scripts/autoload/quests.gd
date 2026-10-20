@@ -624,7 +624,7 @@ func plan_choices(exclude_tech: String = "") -> Array:
 		var d: Dictionary = Data.buildings[type]
 		if not d.get("buildable", false) or Game.is_unlocked(type) or type in plans:
 			continue
-		if d.get("category", "") == "see" or d.has("harbor") or d.has("effects"):
+		if d.get("category", "") in ["see", "schmuck"] or d.has("harbor") or d.has("effects"):
 			continue
 		var req := str(d.get("requires", ""))
 		if not Data.techs.has(req) or not Game.tech_state(req) in ["available", "current"]:
