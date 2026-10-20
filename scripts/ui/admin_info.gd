@@ -102,6 +102,7 @@ static func _manager_tab(hud, b) -> void:
 	cb.text = Loc.t("Automatische Neuzuweisung freier Berufe")
 	cb.focus_mode = Control.FOCUS_NONE
 	cb.custom_minimum_size.y = 40
+	cb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART  # langer Text bricht um, statt das Infofenster aus dem Bild zu schieben
 	cb.add_theme_font_size_override("font_size", 14)
 	cb.tooltip_text = Loc.t("Stirbt ein Siedler mit Beruf, auch der Verwalter, bekommt automatisch ein freier Siedler diesen Beruf. Gibt es keinen, lernt ihn das nächste Kind, das erwachsen wird.")
 	cb.button_pressed = Admin.auto_reassign

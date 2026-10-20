@@ -472,6 +472,31 @@ func _depart(sh: Dictionary, to_id: int, kind: String, passengers: Array = [], d
 	islands_changed.emit()
 
 
+## Platz für eine Ware im Lager einer Insel (Lagergrenze und freier Raum, Game.space_for), abzüglich
+## der Ware, die andere Schiffe schon dorthin bringen (josh 2026-10-20: geladen wird nur, was am Ziel
+## auch abgeladen werden kann).
+func dest_room(id: String, island_id: int, sh: Dictionary = {}) -> int:
+	var w = worlds.get(island_id)
+	if w == null or not is_instance_valid(w):
+		return 0
+	var n := Game.space_for(id, w)
+	for v in voyages:
+		var other := ship_by_id(int(v.get("ship", -1)))
+		if int(v.to) == island_id and not other.is_empty() and int(other.id) != int(sh.get("id", -1)):
+			n -= int(other.cargo.get(id, 0))
+	return maxi(0, n)
+
+
+## Halt, an dem diese Ware nach dem Halt `leg` wieder abgeladen wird (-1 = keiner).
+func _drop_stop(sh: Dictionary, leg: int, id: String) -> int:
+	var k: int = sh.route.size()
+	for i in range(1, k):
+		var st: Dictionary = sh.route[(leg + i) % k]
+		if (stop_drop_all(st) and not st.get("load", {}).has(id)) or int(st.get("drop", {}).get(id, 0)) > 0:
+			return int(st.island)
+	return -1
+
+
 ## Laedt Waren der Insel ins Schiff, so viel passt. Gibt die geladene Menge je Ware zurueck.
 func load_goods(sh: Dictionary, goods: Dictionary) -> Dictionary:
 	var w = worlds.get(int(sh.at))
@@ -611,14 +636,22 @@ func _route_step(sh: Dictionary, w) -> void:
 		# sonst nur die eingestellten Mengen abladen (Zwischenhalt mit Austausch)
 		var moved := unload_goods(sh, load.keys()) if drop_all else unload_some(sh, stop.get("drop", {}))
 		var want := {}
+		var capped := []
 		for id in load:
 			want[id] = max(0, int(load[id]) - (int(sh.cargo.get(id, 0)) if drop_all else 0))
+			# Nur laden, was am Ziel ins Lager passt (Lagergrenze dort, freier Platz)
+			var to := _drop_stop(sh, int(sh.leg), id)
+			if to >= 0 and to != target:
+				var room := dest_room(id, to, sh) - int(sh.cargo.get(id, 0))
+				if room < int(want[id]):
+					want[id] = maxi(0, room)
+					capped.append(Data.resource_name(id))
 		var got := load_goods(sh, want)
 		for id in got:
 			moved[id] = int(moved.get(id, 0)) + int(got[id])
 		sh.state = "load"
 		sh.until = Game.time_days + _handling_days(w, moved)
-		sh.note = ""
+		sh.note = tr("lädt weniger %s: am Ziel ist nicht mehr Platz") % ", ".join(PackedStringArray(capped)) if not capped.is_empty() else ""
 		return
 	if not can_visit(sh.type, target):
 		sh.note = tr("%s hat keinen passenden Hafen") % meta(target).get("name", "?")
@@ -1009,6 +1042,8 @@ func autotest_setup(args: Dictionary, main) -> void:
 	if args.has("oncetest"):
 		if str(args.oncetest) == "trip":
 			await RouteTest.trip_test(main)
+		elif str(args.oncetest) == "room":
+			await RouteTest.room_test(main)
 		elif str(args.oncetest) == "werft":
 			await RouteTest.yard_test(main)
 		elif str(args.oncetest) == "werftshot":
@@ -1050,6 +1085,12 @@ func start_trip(sh: Dictionary, from_id: int, to_id: int, goods: Dictionary) -> 
 			ld[id] = int(goods[id])
 	if ld.is_empty():
 		return tr("Wähle eine Ware und eine Menge.")
+	for id in ld.keys():
+		ld[id] = mini(int(ld[id]), dest_room(id, to_id, sh))
+		if int(ld[id]) <= 0:
+			ld.erase(id)
+	if ld.is_empty():
+		return tr("Auf %s ist im Lager kein Platz für diese Waren.") % meta(to_id).get("name", "?")
 	sh.route = [{"island": from_id, "load": ld, "drop_all": false, "drop": {}},
 		{"island": to_id, "load": {}, "drop_all": true, "drop": {}}]
 	sh["trip"] = true
@@ -1062,17 +1103,36 @@ func start_trip(sh: Dictionary, from_id: int, to_id: int, goods: Dictionary) -> 
 
 
 func _trip_end(sh: Dictionary, w, arrived: bool = true) -> void:
+	# Konnte nicht alles abgeladen werden (Lager am Ziel voll), bringt das Schiff den Rest zurück
+	# zur Ausgangsinsel (josh 2026-10-20). Auch dort kein Platz: der Rest bleibt an Bord.
+	if arrived and not sh.cargo.is_empty() and not sh.get("returning", false) and sh.route.size() >= 2:
+		var home := int(sh.route[0].island)
+		if home != int(w.island_id) and meta(home).get("state", "") == "settled":
+			Game.notify_at(w, tr("Auf %s ist kein Platz für %s. Die %s bringt es zurück nach %s.") % [
+				island_name(w), goods_text(sh.cargo), sh.name, meta(home).get("name", "?")], "anker", "see")
+			sh.route = [{"island": int(w.island_id), "load": {}, "drop_all": false, "drop": {}},
+				{"island": home, "load": {}, "drop_all": true, "drop": {}}]
+			sh["returning"] = true
+			sh.leg = 0
+			sh.note = tr("bringt die Ladung zurück")
+			islands_changed.emit()
+			return
+	var returned: bool = sh.get("returning", false)
+	sh.erase("returning")
 	sh["trip"] = false
 	sh.route = []
 	sh.leg = 0
 	sh.paused = false
-	if arrived:
+	if arrived and returned:
+		Game.notify_at(w, tr("Die %s hat die Ladung zurück nach %s gebracht und ist wieder frei.") % [sh.name, island_name(w)], "anker", "see")
+	elif arrived:
 		Game.notify_at(w, tr("Die %s hat ihre Ladung nach %s gebracht und ist wieder frei.") % [sh.name, island_name(w)], "anker", "see")
 	islands_changed.emit()
 
 
 ## Einmal-Fahrt abbrechen: auf See fährt das Schiff noch ans Ziel und lädt dort alles ab (Einzelfahrt).
 func cancel_trip(sh: Dictionary) -> void:
+	sh.erase("returning")
 	sh["trip"] = false
 	sh.route = []
 	sh.leg = 0

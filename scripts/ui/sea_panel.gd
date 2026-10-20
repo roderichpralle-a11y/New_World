@@ -1131,6 +1131,12 @@ func _fill_trip() -> void:
 	# 2. Waren
 	_details.add_child(_step_head("2", tr("Lade ein")))
 	var w = Sea.worlds.get(_trip_from)
+	# Nur so viel, wie im Lager der Zielinsel Platz hat (Lagergrenze dort, josh 2026-10-20)
+	if _trip_to >= 0:
+		for id in _trip_goods.keys():
+			_trip_goods[id] = mini(int(_trip_goods[id]), Sea.dest_room(id, _trip_to, sh))
+			if int(_trip_goods[id]) <= 0:
+				_trip_goods.erase(id)
 	var summary := _wrap("", 14)
 	var info := _hint("")
 	var upd := func():
@@ -1141,6 +1147,7 @@ func _fill_trip() -> void:
 		var from_name: String = Sea.meta(_trip_from).get("name", "?")
 		var what := Sea.goods_text(_trip_goods) if not _trip_goods.is_empty() else tr("nichts")
 		summary.text = tr("Die %s fährt nach %s, lädt %s und bringt es nach %s. Dort lädt sie alles ab und ist wieder frei.") % [sh.name, from_name, what, to_name]
+		summary.text += " " + tr("Geladen wird nur, was dort ins Lager passt; ist bei der Ankunft doch kein Platz, bringt sie den Rest zurück.")
 		var days := 0.0
 		if _trip_to >= 0:
 			days = Sea.voyage_days(_trip_from, _trip_to, sh.type)
@@ -1160,12 +1167,17 @@ func _fill_trip() -> void:
 				if k != rid:
 					used += int(_trip_goods[k]) * Data.good_size(k)
 			n = clamp(n, 0, min(Game.amount(rid, w), (int(sd.cargo) - used) / max(1, Data.good_size(rid))))
+			if _trip_to >= 0:
+				n = mini(n, Sea.dest_room(rid, _trip_to, sh))
 			if n <= 0:
 				_trip_goods.erase(rid)
 			else:
 				_trip_goods[rid] = n
 			upd.call()
-		_details.add_child(_goods_row(id, tr("dort %d") % Game.amount(id, w), get_n, set_n, 10))
+		var note := tr("dort %d") % Game.amount(id, w)
+		if _trip_to >= 0:
+			note += "\n" + tr("Ziel: Platz %d") % Sea.dest_room(id, _trip_to, sh)
+		_details.add_child(_goods_row(id, note, get_n, set_n, 10))
 	if not any:
 		_details.add_child(_hint(tr("Auf %s liegt nichts im Lager.") % Sea.meta(_trip_from).get("name", "?")))
 	# 3. Zielinsel

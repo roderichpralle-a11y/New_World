@@ -168,7 +168,13 @@ Zeitalterwechsel mit Wertung und Aufträge mit Wahl. Überblick und Zusammenspie
   schon dort, lädt es gleich), 2 Lade ein (Mengen aus dem Lager dort), 3 Bringe es nach; das Schiff hat
   `trip = true` und eine Route aus zwei Halten (`drop_all` false am Ladehalt), lädt am Ziel alles ab, dann
   `_trip_end`: Route leer, frei, Meldung. „Fahrt abbrechen“ (`Sea.cancel_trip`) leert die Route; ein Schiff
-  auf See lädt dann am Ziel alles ab (Einzelfahrt). *Route* (`ship`-Ansicht): Kette A, Zwischenhalte, B,
+  auf See lädt dann am Ziel alles ab (Einzelfahrt). **Platz am Ziel (josh 2026-10-20):** geladen wird nur, was
+  im Lager der Zielinsel Platz hat (`Sea.dest_room`: `Game.space_for` mit der Lagergrenze dort, minus Ladung
+  anderer Schiffe auf dem Weg dorthin); Einmal schicken begrenzt die Mengen schon im Fenster („Ziel: Platz N“),
+  Routen begrenzen beim Laden auf den Halt, an dem die Ware wieder abgeladen wird (`_drop_stop`). Passt bei
+  der Ankunft doch nicht alles, fährt das Schiff einer Einmal-Fahrt mit dem Rest zurück zur Ladeinsel
+  (`returning`, `_trip_end`); bei Routen bleibt der Rest an Bord und wird am nächsten Abladehalt abgeladen.
+  Test: `--oncetest=room`. *Route* (`ship`-Ansicht): Kette A, Zwischenhalte, B,
   „↺ zurück zu A“; neue Route A = Liegeinsel, B = nächste Insel, angehalten bis „Route starten“. Jeder Halt
   (`stop`-Ansicht): Insel, „Alles abladen“ (`drop_all`, Standard und alte Halte ohne Schlüssel,
   `Sea.stop_drop_all`; lädt bis zur Menge auf) oder „Nur bestimmte Waren“ (`drop`: nur diese Mengen ab,

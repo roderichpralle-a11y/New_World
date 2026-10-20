@@ -1974,5 +1974,12 @@
  "Ein Kind arbeitet noch nicht. Erst wenn es erwachsen ist, gibst du ihm im Menü Siedler einen Beruf.": "A child does not work yet. Only once it is grown up can you give it a job in the Settlers menu.",
  "Siedler können sterben.": "Settlers can die.",
  "Sie sterben an Alter, Kälte, Verletzungen, Krankheiten und Hunger. Sorge für genug Nahrung und für genug Holz, damit es im Herbst und Winter warm bleibt. Stirbt ein Siedler, besetze seinen Beruf neu.": "They die of old age, cold, injuries, illness and hunger. Keep enough food and enough wood so it stays warm in autumn and winter. When a settler dies, fill their job again.",
- "Zwei Siedler sind auf der Insel gelandet. Sammelt Beeren, fällt Holz und baut Hütten, damit Kinder kommen. Im Herbst und Winter wird geheizt: Im Winter braucht jeder Siedler etwa 1 Holz am Tag. Am Lagerfeuer könnt ihr Steinwerkzeuge, Flechtkörbe und die Schrift erforschen.": "Two settlers have landed on the island. Gather berries, cut wood and build huts so children come. In autumn and winter you heat: in winter each settler needs about 1 wood a day. At the campfire you can research stone tools, woven baskets and writing."
+ "Zwei Siedler sind auf der Insel gelandet. Sammelt Beeren, fällt Holz und baut Hütten, damit Kinder kommen. Im Herbst und Winter wird geheizt: Im Winter braucht jeder Siedler etwa 1 Holz am Tag. Am Lagerfeuer könnt ihr Steinwerkzeuge, Flechtkörbe und die Schrift erforschen.": "Two settlers have landed on the island. Gather berries, cut wood and build huts so children come. In autumn and winter you heat: in winter each settler needs about 1 wood a day. At the campfire you can research stone tools, woven baskets and writing.",
+ "lädt weniger %s: am Ziel ist nicht mehr Platz": "loading less %s: no more room at the destination",
+ "Auf %s ist im Lager kein Platz für diese Waren.": "The storage on %s has no room for these goods.",
+ "Auf %s ist kein Platz für %s. Die %s bringt es zurück nach %s.": "There is no room on %s for %s. The %s takes it back to %s.",
+ "bringt die Ladung zurück": "taking the cargo back",
+ "Die %s hat die Ladung zurück nach %s gebracht und ist wieder frei.": "The %s has brought the cargo back to %s and is free again.",
+ "Geladen wird nur, was dort ins Lager passt; ist bei der Ankunft doch kein Platz, bringt sie den Rest zurück.": "Only what fits into the storage there is loaded; if there is no room on arrival after all, she brings the rest back.",
+ "Ziel: Platz %d": "Destination: room %d"
 }
