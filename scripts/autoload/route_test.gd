@@ -243,3 +243,66 @@ static func yard_test(main, shot: bool = false) -> void:
 		nb.ship_queue = ["kogge"]
 		var why: String = nb.prod_blocker()
 		print("Werft ", _okf(nb.yard_level() == 2 and not why.contains("Stufe") and not why.contains("level")), " Stufe 2 baut Koggen (sonst: %s)" % why)
+
+
+## --oncetest=room mit --fixture=<sea.json> (josh 2026-10-20): geladen wird nur, was im Lager der Zielinsel
+## Platz hat (Lagergrenze), und was dort doch nicht abgeladen werden kann, bringt das Schiff zurück.
+## Druckt „Platz OK/FEHLER“.
+static func room_test(main) -> void:
+	var w0 = Sea.worlds.get(0)
+	var w1 = Sea.worlds.get(1)
+	if w0 == null or w1 == null:
+		print("Platz FEHLER: braucht zwei besiedelte Inseln (--fixture=sea.json)")
+		return
+	Data.balance["base_storage"] = 4000
+	var sh := {}
+	for s in Sea.idle_ships(0):
+		if s.route.is_empty():
+			sh = s
+			break
+	if sh.is_empty():
+		print("Platz FEHLER: kein freies Schiff auf Insel 0")
+		return
+	Sea.fill_crew(sh)
+	if Sea.crew_missing(sh) > 0:
+		Sea.hire_sailor(sh)
+	var id := "stein"
+	Game.add_stock(id, 40, w0)
+	var s1 := Game.amount(id, w1)
+	# 1. Lagergrenze am Ziel: nur 6 Stein haben dort Platz, bestellt sind 20
+	Game.set_limit(id, s1 + 6, w1)
+	var err := Sea.start_trip(sh, 0, 1, {id: 20})
+	var ld := int(sh.route[0].load.get(id, 0)) if err == "" else -1
+	print("Platz ", _okf(err == "" and ld == 6), " Einmal schicken: 20 bestellt, am Ziel Platz für 6 -> lädt %d (%s)" % [ld, err])
+	# 2. Unterwegs wird die Grenze gesenkt: nur 2 passen, 4 fahren zurück
+	var s0 := Game.amount(id, w0)
+	var t0 := Game.time_days
+	var lowered := false
+	var told := false
+	while Game.time_days - t0 < 8.0:
+		await _wait(main, 0.1)
+		if not lowered and sh.state == "sea" and int(sh.cargo.get(id, 0)) > 0:
+			lowered = true
+			Game.set_limit(id, Game.amount(id, w1) + 2, w1)
+		if sh.get("returning", false):
+			told = true
+		if lowered and not Sea.is_trip(sh) and sh.state == "dock":
+			break
+	var got1 := Game.amount(id, w1) - s1
+	var back := Game.amount(id, w0) - (s0 - 6)
+	print("Platz ", _okf(told and got1 == 2 and back == 4 and sh.cargo.is_empty() and int(sh.at) == 0),
+		" voll am Ziel: abgeladen %d, zurückgebracht %d, Schiff auf Insel %d, Ladung %s" % [got1, back, int(sh.at), Sea.goods_text(sh.cargo)])
+	# 3. Regelmäßige Route: lädt nur, was am Ziel Platz hat
+	Game.set_limit(id, Game.amount(id, w1) + 3, w1)
+	sh.route = [{"island": 0, "load": {id: 15}, "drop_all": true, "drop": {}}, {"island": 1, "load": {}, "drop_all": true, "drop": {}}]
+	sh.leg = 0
+	sh.paused = false
+	var c := -1
+	t0 = Game.time_days
+	while Game.time_days - t0 < 3.0:
+		await _wait(main, 0.1)
+		if sh.state == "sea":
+			c = int(sh.cargo.get(id, 0))
+			break
+	print("Platz ", _okf(c == 3), " Route: 15 eingestellt, am Ziel Platz für 3 -> lädt %d (%s)" % [c, sh.note])
+	sh.paused = true

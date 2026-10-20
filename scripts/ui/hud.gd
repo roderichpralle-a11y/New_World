@@ -3426,8 +3426,10 @@ func _layout() -> void:
 		_info_panel.size = Vector2(vs.x - 12, min(vs.y * 0.45, 420))
 		_info_panel.position = Vector2(6, vs.y - _info_panel.size.y - bottom_space)
 	else:
-		_info_panel.size = Vector2(310, vs.y - top_h - bottom_space - 6)
-		_info_panel.position = Vector2(vs.x - 316, top_h + 6)
+		# Breiter Inhalt macht das Fenster breiter: dann rückt es nach links, statt rechts aus dem Bild zu ragen
+		var iw: float = clampf(_info_panel.get_combined_minimum_size().x, 310.0, vs.x - 12.0)
+		_info_panel.size = Vector2(iw, vs.y - top_h - bottom_space - 6)
+		_info_panel.position = Vector2(vs.x - iw - 6, top_h + 6)
 
 
 ## Prüft nach dem Layout die echte Höhe jedes offenen Fensters. Die Rechnung in _layout und den

@@ -398,6 +398,12 @@ func _maybe_autotest() -> void:
 							"trip":
 								sp2._open_trip(int(Sea.ships[0].id))
 								sp2._trip_goods = {"holz": 20}
+								if args.has("tripto"):
+									Data.balance["base_storage"] = 4000  # Bild: genug Lagerplatz auf allen Inseln
+								for m in Sea.settled_islands():
+									if int(m.id) != sp2._trip_from and args.has("tripto"):
+										sp2._trip_to = int(m.id)
+										Game.set_limit("holz", Game.amount("holz", Sea.worlds.get(int(m.id))) + 12, Sea.worlds.get(int(m.id)))
 								sp2.refresh()
 							"map":
 								sp2._go("island")
