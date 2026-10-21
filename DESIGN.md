@@ -83,7 +83,8 @@ Zeitalterwechsel mit Wertung und Aufträge mit Wahl. Überblick und Zusammenspie
   zählen einmal je Art, solange eines fertig auf irgendeiner Insel steht (`Game.refresh_effects`).
 - **Freischalten**: Gebäude mit `requires: <forschung>` sind vorher im Bau-Menü gesperrt.
 - **Werkstätten** (`production` {job, inputs, outputs, time, skill, verb, tool?, smoke?}):
-  `job` ist `kueche` (Beruf Koch), `handwerk` (Handwerker) oder `stein` (Steinmetz,
+  `job` ist `kueche` (Beruf Koch), `handwerk` (Handwerker), `stall` (Bauer: Hühnerhof, Schweinestall, Kuhstall;
+  den Hühnerhof versorgt seit josh 2026-10-21 der Bauer statt des Kochs) oder `stein` (Steinmetz,
   über Ziel `prod:stein`). Ein Arbeiter nimmt die Zutaten aus dem Lager, arbeitet
   `time / Tempo` Sekunden und trägt die erste Ware zum Lager (weitere direkt ins Lager).
   Gewählt wird die Werkstatt mit der knappsten Ware. Werkstätten lassen sich anhalten.

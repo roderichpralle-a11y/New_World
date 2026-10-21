@@ -1,7 +1,8 @@
 class_name StallTest
 extends RefCounted
 ## Selbsttest --stalltest=1 (josh 2026-10-12): Schweinestall und Kuhstall ab Bergbau, ein Bauer füttert und
-## melkt (Werkstattart "stall"), aus Getreide werden Fleisch und Milch. Druckt "Stall OK/FEHLER".
+## melkt (Werkstattart "stall"), aus Getreide werden Fleisch und Milch; seit 2026-10-21 versorgt er auch den
+## Hühnerhof (Eier). Druckt "Stall OK/FEHLER".
 
 static var fails := 0
 
@@ -16,12 +17,13 @@ static func run(main) -> void:
 	fails = 0
 	var w = main.world
 	_ok(not Game.is_unlocked("schweinestall") and not Game.is_unlocked("kuhstall"), "ohne Bergbau keine Ställe")
-	for t in ["steinwerkzeuge", "steinbruch", "toepferei", "koehlerei", "zimmerei", "bergbau"]:
+	for t in ["steinwerkzeuge", "steinbruch", "toepferei", "koehlerei", "zimmerei", "bergbau", "gartenbau", "tierhaltung"]:
 		if not t in Game.research.done:
 			Game.research.done.append(t)
 	Game.refresh_effects()
 	_ok(Game.is_unlocked("schweinestall") and Game.is_unlocked("kuhstall"), "mit Bergbau: Schweinestall und Kuhstall")
-	_ok(main._place_on(w, "schweinestall") and main._place_on(w, "kuhstall"), "Ställe gebaut")
+	_ok(str(Data.buildings.huehnerhof.production.job) == "stall", "den Hühnerhof versorgt der Bauer (josh 2026-10-21)")
+	_ok(main._place_on(w, "schweinestall") and main._place_on(w, "kuhstall") and main._place_on(w, "huehnerhof"), "Ställe und Hühnerhof gebaut")
 	var farmer = null
 	for s in w.settlers:
 		if s.is_adult():
@@ -38,15 +40,15 @@ static func run(main) -> void:
 	var seen := {}
 	var made := {}
 	var t0 := Game.time_days
-	while Game.time_days < t0 + 1.0 and (int(made.get("fleisch", 0)) <= 0 or int(made.get("milch", 0)) <= 0):
+	while Game.time_days < t0 + 1.5 and (int(made.get("fleisch", 0)) <= 0 or int(made.get("milch", 0)) <= 0 or int(made.get("eier", 0)) <= 0):
 		await main.get_tree().create_timer(0.25, true, false, true).timeout
 		if Game.amount("weizen", w) < 6:
 			Game.add_stock("weizen", 10, w)
-		for id in ["fleisch", "milch"]:  # abräumen, damit das kleine Lager nicht vollläuft
+		for id in ["fleisch", "milch", "eier"]:  # abräumen, damit das kleine Lager nicht vollläuft
 			if Game.amount(id, w) > 0:
 				made[id] = int(made.get(id, 0)) + Game.take_stock(id, Game.amount(id, w), w)
 		seen[farmer.activity] = true
-	_ok(int(made.get("fleisch", 0)) > 0 and int(made.get("milch", 0)) > 0, "der Bauer macht aus Getreide %s in %.2f Tagen" % [made, Game.time_days - t0])
+	_ok(int(made.get("fleisch", 0)) > 0 and int(made.get("milch", 0)) > 0 and int(made.get("eier", 0)) > 0, "der Bauer macht aus Getreide %s in %.2f Tagen" % [made, Game.time_days - t0])
 	print("Stall: Tätigkeiten des Bauern ", seen.keys())
 	var milk: Dictionary = Data.resources.get("milch", {})
 	var meat: Dictionary = Data.resources.get("fleisch", {})

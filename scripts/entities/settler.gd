@@ -781,7 +781,7 @@ func _plan_work() -> bool:
 		"bauer":
 			if _plan_farm():
 				return true
-			if _plan_production("stall"):  # Schweinestall und Kuhstall (josh 2026-10-12)
+			if _plan_production("stall"):  # Hühnerhof, Schweinestall und Kuhstall (josh 2026-10-12, Hühnerhof 2026-10-21)
 				return true
 			_stat_kind = "other"
 			return _plan_gather(["busch", "palme", "pilzkreis"])
