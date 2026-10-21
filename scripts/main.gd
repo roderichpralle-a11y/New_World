@@ -484,6 +484,8 @@ func _maybe_autotest() -> void:
 									# Testhilfe --buildpress=1: den Bauen-Knopf dieser Zeile drücken
 									for bt in row.find_children("*", "Button", true, false):
 										bt.pressed.emit()
+		if args.has("scrolltest"):  # Testhilfe: Mausrad und Ziehen in offenen Listen (admin | info)
+			await _scroll_test(str(args.scrolltest))
 		if args.has("outfits"):  # Testhilfe: Berufskleidung, je Beruf ein Siedler (oben von vorn, unten von der Seite)
 			var jobs := ["frei", "handwerker", "bauer", "koch", "forscher", "jaeger", "steinmetz", "foerster"]
 			var c0: Vector2i = world.center + Vector2i(-8, -2)
@@ -491,6 +493,7 @@ func _maybe_autotest() -> void:
 				for i in jobs.size():
 					var st = world.spawn_settler({"name": "T", "sex": "m" if i % 2 else "f", "age": 30.0, "x": c0.x + i * 2, "y": c0.y + row * 2})
 					st.set_job(jobs[i])
+					st._stat_kind = "job"  # Arbeitskleidung nur bei der Arbeit
 					st._dir = [0, 2, 1][row]
 					st._flip = false
 					st._animate(0.0)
@@ -1155,3 +1158,59 @@ func _lang_check() -> void:
 		for pnl in hud._panels():
 			pnl.visible = false
 	print("Sprachpruefung: %d deutsche Texte sichtbar" % seen.size())
+
+
+## Testhilfe --scrolltest=admin|info: öffnet das Fenster, schickt Mausrad und ein Ziehen mit der Maus
+## (wie ein Finger mit emulate_mouse_from_touch) in die Liste und druckt, ob sie gerollt hat.
+func _scroll_test(kind: String) -> void:
+	if kind == "admin":
+		AdminInfo._tab = 4
+		for i in 40:
+			Admin.note_produced(Data.sorted_resource_ids()[i % Data.sorted_resource_ids().size()], 5)
+		hud._open_admin()
+	else:
+		Game.select(world.settlers[0])
+	for i in 10:
+		await get_tree().process_frame
+	var pnl: Control = hud._admin_panel if kind == "admin" else hud._info_panel
+	var sc: ScrollContainer = hud._biggest_scroller(pnl)
+	var inner: Control = sc.get_child(0)
+	print("Rolltest %s: Inhalt %d, sichtbar %d" % [kind, int(inner.get_combined_minimum_size().y), int(sc.size.y)])
+	var at: Vector2 = get_viewport().get_final_transform() * (sc.get_global_transform_with_canvas() * (sc.size / 2.0))  # Fensterpixel
+	for i in 3:
+		var w := InputEventMouseButton.new()
+		w.button_index = MOUSE_BUTTON_WHEEL_DOWN
+		w.pressed = true
+		w.position = at
+		w.global_position = at
+		w.factor = 1.0
+		Input.parse_input_event(w)
+		await get_tree().process_frame
+	await get_tree().process_frame
+	var after_wheel := sc.scroll_vertical
+	sc.scroll_vertical = 0
+	await get_tree().process_frame
+	var p := InputEventMouseButton.new()
+	p.button_index = MOUSE_BUTTON_LEFT
+	p.pressed = true
+	p.position = at
+	p.global_position = at
+	Input.parse_input_event(p)
+	await get_tree().process_frame
+	for i in 10:
+		var m := InputEventMouseMotion.new()
+		m.position = at - Vector2(0, 12 * (i + 1)) * get_viewport().get_final_transform().get_scale().y
+		m.global_position = m.position
+		m.relative = Vector2(0, -12)
+		m.button_mask = MOUSE_BUTTON_MASK_LEFT
+		Input.parse_input_event(m)
+		await get_tree().process_frame
+	var r := InputEventMouseButton.new()
+	r.button_index = MOUSE_BUTTON_LEFT
+	r.pressed = false
+	r.position = at - Vector2(0, 120)
+	r.global_position = r.position
+	Input.parse_input_event(r)
+	await get_tree().process_frame
+	print("Rolltest %s: Mausrad %d, Ziehen %d, Fenster offen %s" % [kind, after_wheel, sc.scroll_vertical, pnl.visible])
+	get_tree().quit()

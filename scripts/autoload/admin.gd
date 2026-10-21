@@ -391,7 +391,7 @@ func _tick() -> void:
 var produced: Dictionary = {}
 
 
-func note_produced(res: String, n: int) -> void:
+func note_produced(res: String, n: int, w = null) -> void:
 	if n <= 0 or res == "":
 		return
 	var key := str(Seasons.year())
@@ -400,31 +400,45 @@ func note_produced(res: String, n: int) -> void:
 		for k in produced.keys():  # nur die letzten 3 Jahre aufheben
 			if int(k) < Seasons.year() - 2:
 				produced.erase(k)
-	produced[key][res] = int(produced[key].get(res, 0)) + n
+	var isl := _isl(w)
+	if not produced[key].has(isl):
+		produced[key][isl] = {}
+	produced[key][isl][res] = int(produced[key][isl].get(res, 0)) + n
 
 
-## Erzeugte Menge je Ware im Jahr y (Seasons.year()).
-func produced_in(y: int) -> Dictionary:
-	return produced.get(str(y), {})
+static func _isl(w) -> String:
+	if w == null or not is_instance_valid(w):
+		w = Sea.main_world()
+	return str(w.island_id) if w else "0"
 
 
-## Auslastung je Beruf über alle Inseln: {Beruf: [Leute, mittlere Auslastung in % oder -1]}.
-func job_load() -> Dictionary:
+## Erzeugte Menge je Ware im Jahr y (Seasons.year()) auf der Insel w (null: Hauptinsel).
+func produced_in(y: int, w = null) -> Dictionary:
+	return produced.get(str(y), {}).get(_isl(w), {})
+
+
+## Auslastung je Beruf auf der Insel w (null: alle Inseln): {job: [Leute, im Beruf %, hilft aus %, nichts zu tun %]},
+## Anteile -1 solange zu wenig gemessen ist (Settler.busy_shares).
+func job_load(w = null) -> Dictionary:
 	var out := {}
-	for w in Sea.all_worlds():
-		for s in w.settlers:
+	for wo in ([w] if w != null else Sea.all_worlds()):
+		for s in wo.settlers:
 			if not s.is_adult() or s.job == "frei":
 				continue
 			if not out.has(s.job):
-				out[s.job] = [0, 0.0, 0]
+				out[s.job] = [0, 0.0, 0.0, 0.0, 0]
 			out[s.job][0] += 1
-			var p: int = s.busy_percent()
-			if p >= 0:
-				out[s.job][1] += float(p)
-				out[s.job][2] += 1
+			var sh: Array = s.busy_shares()
+			if not sh.is_empty():
+				for i in 3:
+					out[s.job][i + 1] += float(sh[i])
+				out[s.job][4] += 1
 	var res := {}
 	for j in out:
-		res[j] = [int(out[j][0]), roundi(out[j][1] / out[j][2]) if int(out[j][2]) > 0 else -1]
+		var n := int(out[j][4])
+		res[j] = [int(out[j][0])]
+		for i in 3:
+			res[j].append(roundi(out[j][i + 1] / n) if n > 0 else -1)
 	return res
 
 
@@ -457,8 +471,16 @@ func _on_load(data: Dictionary, old_rules: int) -> void:
 		for y in pr:
 			if pr[y] is Dictionary:
 				produced[str(y)] = {}
-				for r in pr[y]:
-					produced[str(y)][str(r)] = int(pr[y][r])
+				for k in pr[y]:
+					if pr[y][k] is Dictionary:  # je Insel (seit 1.0.85)
+						produced[str(y)][str(k)] = {}
+						for r in pr[y][k]:
+							produced[str(y)][str(k)][str(r)] = int(pr[y][k][r])
+					else:  # 1.0.84 zählte alle Inseln zusammen: der Hauptinsel zuschreiben
+						var m := _isl(null)
+						if not produced[str(y)].has(m):
+							produced[str(y)][m] = {}
+						produced[str(y)][m][str(k)] = int(pr[y][k])
 	var pj = e.get("pending", [])
 	if pj is Array:
 		pending_jobs = pj.map(func(j): return str(j)).filter(func(j): return Data.jobs.has(j))

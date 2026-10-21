@@ -3,10 +3,10 @@
 
 Aufruf aus gen_art.py (oder allein). Erzeugt Überlagerungen im Raster der Siedler-Bögen
 (16x24 je Bild, Spalten = 4 Lauf-Bilder, Zeilen = unten, oben, seitlich), in festen Farben:
-  settler_cap.png       braune Schirmmütze (Bauer)
+  settler_cap.png       gelbe Schirmmütze (Bauer, josh 2026-10-21)
   settler_chefhat.png   weiße Kochmütze (Koch)
   settler_hunthat.png   grüner Hut mit Feder (Jäger)
-  settler_glasses.png   Brille (Forscher)
+  settler_glasses.png   Brille (nicht mehr benutzt; Forscher tragen seit 2026-10-21 ein weißes Hemd)
   settler_apron.png     graue Schürze (Steinmetz)
   settler_rifle.png     Gewehr auf dem Rücken (Jäger)
   settler_saw.png       Motorsäge in der Hand (Förster)
@@ -17,6 +17,7 @@ import os
 from gen_art import new, put, OUT, OUTLINE
 
 BROWN = [(86, 56, 34), (120, 82, 50), (150, 108, 68)]
+YELLOW = [(184, 140, 30), (228, 190, 52), (248, 222, 104)]
 WHITE = [(176, 172, 168), (222, 220, 214), (250, 249, 244)]
 GREEN = [(48, 78, 40), (70, 108, 54), (96, 138, 72)]
 GREY = [(96, 96, 104), (128, 128, 136), (156, 156, 164)]
@@ -36,7 +37,7 @@ def cap(d):
             px[(4, y)] = OUTLINE
             px[(11, y)] = OUTLINE
             for x in range(5, 11):
-                px[(x, y)] = BROWN[1] if y < 5 else BROWN[0]
+                px[(x, y)] = YELLOW[1] if y < 5 else YELLOW[0]
         return px
     x0, x1 = (4, 11) if d == "down" else (4, 10)
     for x in range(x0 + 1, x1):
@@ -45,16 +46,16 @@ def cap(d):
         px[(x0, y)] = OUTLINE
         px[(x1, y)] = OUTLINE
         for x in range(x0 + 1, x1):
-            px[(x, y)] = BROWN[2] if y == 3 and x < x0 + 3 else BROWN[1]
-    px[(x0 + 3, 4)] = BROWN[0]  # Knopf/Naht
+            px[(x, y)] = YELLOW[2] if y == 3 and x < x0 + 3 else YELLOW[1]
+    px[(x0 + 3, 4)] = YELLOW[0]  # Knopf/Naht
     if d == "down":
         for x in range(4, 12):
-            px[(x, 6)] = BROWN[0]  # Schirm nach vorn
+            px[(x, 6)] = YELLOW[0]  # Schirm nach vorn
         px[(3, 6)] = OUTLINE
         px[(12, 6)] = OUTLINE
     else:
         for x in range(10, 14):
-            px[(x, 6)] = BROWN[0]
+            px[(x, 6)] = YELLOW[0]
         px[(14, 6)] = OUTLINE
     return px
 
