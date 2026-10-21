@@ -179,39 +179,69 @@ static func _orders_tab(hud, b, kind: String) -> void:
 
 ## Statistik (josh 2026-10-20): Auslastung je Beruf (alle Inseln) und was im letzten und im laufenden
 ## Jahr erzeugt wurde.
-static func _stats_tab(_hud, _b) -> void:
+static func _stats_tab(_hud, b) -> void:
+	var w = b.world if b != null else Game.world
+	if Sea.settled_islands().size() > 1:
+		var il := UiTheme.label(Loc.t("Zahlen für die Insel %s.") % Sea.island_name(w), 13, DIM)
+		il.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_box.add_child(il)
 	_box.add_child(UiTheme.label(Loc.t("Auslastung der Berufe"), 15, UiTheme.TEXT, true))
-	var load := Admin.job_load()
+	var load := Admin.job_load(w)
 	var jobs := load.keys()
-	jobs.sort_custom(func(a, c): return int(load[a][1]) > int(load[c][1]))
+	jobs.sort_custom(func(x, c): return int(load[x][1]) > int(load[c][1]))
 	if jobs.is_empty():
 		_box.add_child(UiTheme.label(Loc.t("Noch hat niemand einen Beruf."), 13, DIM))
 	for job in jobs:
 		if not Data.jobs.has(job):
 			continue
-		var p: int = load[job][1]
-		var r := Win.row(Data.icon("person"), Data.jobs[job].name,
-			Loc.t("Siedler: %d") % int(load[job][0]), {"icon_px": 28,
+		var l: Array = load[job]
+		var p: int = l[1]
+		var sub := Loc.t("Siedler: %d") % int(l[0])
+		if p >= 0:
+			sub += " · " + Loc.t("hilft aus %d %%, nichts zu tun %d %%") % [int(l[2]), int(l[3])]
+		else:
+			sub += " · " + Loc.t("wird noch gemessen")
+		var r := Win.row(Data.icon("person"), Data.jobs[job].name, sub, {"icon_px": 28,
 			"value": ("%d %%" % p) if p >= 0 else "–",
-			"value_color": UiTheme.GOOD if p >= 70 else (UiTheme.ACCENT if p >= 40 else UiTheme.BAD)})
-		r.box.tooltip_text = Loc.t("Anteil der Zeit, in der die Leute in ihrem Beruf arbeiten (statt auszuhelfen oder nichts zu tun).")
+			"value_color": DIM if p < 0 else (UiTheme.GOOD if p >= 70 else (UiTheme.ACCENT if p >= 40 else UiTheme.BAD))})
 		_box.add_child(r.box)
+	var hint := UiTheme.label(Loc.t("Die große Zahl ist der Anteil der Arbeitszeit im eigenen Beruf. Essen, Schlafen und Freizeit zählen nicht mit."), 12, DIM)
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_box.add_child(hint)
 	var y := Seasons.year()
-	var last := Admin.produced_in(y - 1)
-	var now := Admin.produced_in(y)
-	var hd := UiTheme.label(Loc.t("Erzeugte Waren: Jahr %d · bisher Jahr %d") % [y - 1, y] if y > 1 else Loc.t("Erzeugte Waren im Jahr %d (bisher)") % y, 15, UiTheme.TEXT, true)
-	hd.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_box.add_child(hd)
+	var last := Admin.produced_in(y - 1, w)
+	var now := Admin.produced_in(y, w)
+	_box.add_child(UiTheme.label(Loc.t("Erzeugte Waren"), 15, UiTheme.TEXT, true))
 	var goods := []
 	for id in Data.sorted_resource_ids():
 		if int(last.get(id, 0)) > 0 or int(now.get(id, 0)) > 0:
 			goods.append(id)
 	if goods.is_empty():
-		_box.add_child(UiTheme.label(Loc.t("Noch nichts gezählt. Gezählt wird, was gesammelt, geerntet, gejagt und in Werkstätten hergestellt wird."), 13, DIM))
+		var e := UiTheme.label(Loc.t("Noch nichts gezählt. Gezählt wird, was gesammelt, geerntet, gejagt und in Werkstätten hergestellt wird."), 13, DIM)
+		e.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_box.add_child(e)
+		return
+	# Kopfzeile mit zwei Spalten: Vorjahr und laufendes Jahr
+	var head := Win.row(null, "", "", {})
+	head.box.self_modulate = Color(1, 1, 1, 0)
+	_cols(head.h, Loc.t("Jahr %d") % (y - 1) if y > 1 else "", Loc.t("Jahr %d bisher") % y, DIM)
+	_box.add_child(head.box)
 	for id in goods:
-		var v := "%d" % int(last.get(id, 0)) if y > 1 else ""
-		v += ("  ·  " if v != "" else "") + "%d" % int(now.get(id, 0))
-		_box.add_child(Win.row(Data.res_icon(id), Data.resource_name(id), "", {"icon_px": 24, "value": v}).box)
+		var r := Win.row(Data.res_icon(id), Data.resource_name(id), "", {"icon_px": 24})
+		_cols(r.h, str(int(last.get(id, 0))) if y > 1 else "", str(int(now.get(id, 0))), UiTheme.TEXT)
+		_box.add_child(r.box)
+	var note := UiTheme.label(Loc.t("Gezählt wird seit dem Update vom 20. Oktober, was auf dieser Insel gesammelt, geerntet, gejagt und in Werkstätten hergestellt wird, nicht was Schiffe bringen oder Händler verkaufen. Ein Jahr hat vier Jahreszeiten."), 12, DIM)
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_box.add_child(note)
+
+
+## Zwei rechtsbündige Zahlenspalten fester Breite am Ende einer Zeile.
+static func _cols(h: Container, a: String, c: String, col: Color) -> void:
+	for t in [a, c]:
+		var l := UiTheme.label(t, 14 if col == UiTheme.TEXT else 12, col, col == UiTheme.TEXT)
+		l.custom_minimum_size.x = 84
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		h.add_child(l)
 
 
 ## Der Verwalter schlägt Überstunden oder Schichtarbeit vor (Fenster mit drei Knöpfen).

@@ -489,9 +489,65 @@ func user_just_acted() -> bool:
 	return Time.get_ticks_msec() - _last_tap_ms < 1500
 
 
+## Listen mit dem Finger oder gedrückter Maus ziehen (josh 2026-10-21: Statistik, Verwalter und Infofenster
+## rollten am iPhone nicht). Ab drag_px Pixeln Bewegung rollt die Liste unter dem Finger mit; das Loslassen
+## danach löst keinen Knopf aus. Der Stand wird absolut gesetzt, so rollt es nie doppelt, auch wenn Godot
+## selbst mitrollt.
+const DRAG_PX := 10.0
+var _drag_sc: ScrollContainer = null
+var _drag_from := Vector2.ZERO
+var _drag_start := 0
+var _dragging := false
+
+
+func _drag_scroll(ev: InputEvent) -> bool:
+	if ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT:
+		if ev.pressed:
+			_drag_sc = _scroll_at(ev.position)
+			_drag_from = ev.position
+			_drag_start = _drag_sc.scroll_vertical if _drag_sc else 0
+			_dragging = false
+			return false
+		var was := _dragging
+		_drag_sc = null
+		_dragging = false
+		return was
+	if ev is InputEventMouseMotion and _drag_sc != null and is_instance_valid(_drag_sc) and (ev.button_mask & MOUSE_BUTTON_MASK_LEFT):
+		var dy: float = ev.position.y - _drag_from.y
+		if not _dragging and absf(dy) >= DRAG_PX:
+			_dragging = true
+		if _dragging:
+			_drag_sc.scroll_vertical = _drag_start - int(dy)
+			return true
+	return false
+
+
+## Die innerste rollbare Liste unter dem Punkt in einem offenen Fenster oder im Infofenster, sonst null.
+func _scroll_at(pos: Vector2) -> ScrollContainer:
+	var best: ScrollContainer = null
+	for pnl in _panels() + [_info_panel]:
+		if pnl != null and pnl.visible and pnl.get_global_rect().has_point(pos):
+			best = _inner_scroll(pnl, pos, best)
+	return best
+
+
+func _inner_scroll(n: Node, pos: Vector2, best: ScrollContainer) -> ScrollContainer:
+	for c in n.get_children():
+		if not (c is Control) or not c.is_visible_in_tree() or not c.get_global_rect().has_point(pos):
+			continue
+		if c is ScrollContainer and c.vertical_scroll_mode != ScrollContainer.SCROLL_MODE_DISABLED \
+				and c.get_child_count() > 0 and c.get_child(0).get_combined_minimum_size().y > c.size.y + 1.0:
+			best = c
+		best = _inner_scroll(c, pos, best)
+	return best
+
+
 func _input(ev: InputEvent) -> void:
 	if ev is InputEventMouseButton and ev.pressed:
 		_last_tap_ms = Time.get_ticks_msec()
+	if _drag_scroll(ev):
+		get_viewport().set_input_as_handled()
+		return
 	if not (ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT):
 		return
 	if has_overlay() or _panels().all(func(pn): return pn == null or not pn.visible):
@@ -2673,7 +2729,10 @@ func _info_signature() -> String:
 	if o == null or not is_instance_valid(o):
 		return ""
 	if o is Settler:
-		return "s%d|%s|%s|%d|%s|%s" % [o.id, o.job, o.is_adult(), o.home_id, str(o.skills), _follow]
+		var lv := []  # nur ganze Stufen: die Erfahrung wächst ständig und hätte das Fenster alle 0,5 s neu gebaut
+		for k in o.skills:
+			lv.append(int(o.skills[k]))
+		return "s%d|%s|%s|%d|%s|%s" % [o.id, o.job, o.is_adult(), o.home_id, str(lv), _follow]
 	if o is Building:
 		return "b%d|%s|%s|%s|%d|%d|%s|%s|%s|%s" % [o.id, o.complete, o.farm_state, str(o.delivered), int(o.build_fraction() * 50),
 			int((Game.time_days - o.farm_time) * 20), str(o.occupants), o.paused, o.is_active(), o.prod_blocker()] + "|%d" % Seasons.season()
@@ -2684,10 +2743,21 @@ func _info_signature() -> String:
 	return ""
 
 
+var _info_scroll_obj = null
+
+
 func _rebuild_info() -> void:
 	_info_sig = _info_signature()
 	_updaters.clear()
+	# Beim Neubau desselben Fensters bleibt die Liste, wo sie war (josh 2026-10-21: rollte sonst zurück nach oben)
+	var isc: ScrollContainer = _info_panel.get_child(0)
+	var keep := isc.scroll_vertical if is_same(_info_scroll_obj, _info_obj) else 0
+	_info_scroll_obj = _info_obj
 	_clear_info()
+	if keep > 0:
+		(func():
+			await get_tree().process_frame
+			isc.scroll_vertical = keep).call()
 	var o = _info_obj
 	if o == null or not is_instance_valid(o):
 		_info_panel.visible = false

@@ -1887,7 +1887,7 @@ func on_animal_killed(a: Animal, by) -> void:
 		n.regrow_at = Game.time_days + float(n.def.get("decay_days", 2.0))
 		n.refresh()
 	var f := Game.add_stock("felle", int(a.def.get("felle", 1)), self)
-	Admin.note_produced("felle", f)
+	Admin.note_produced("felle", f, self)
 	if f > 0:
 		float_text(a.position + Vector2(0, -20), "+%d" % f, "felle")
 	spawn_effect("blood", a.position + Vector2(0, -6))

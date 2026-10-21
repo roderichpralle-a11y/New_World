@@ -9,12 +9,13 @@ const HAIR := ["#3a2a22", "#6b4226", "#a8642e", "#d9a650", "#f0d890", "#2b2b38",
 const SHIRT := ["#4f8fd6", "#d65f4f", "#58b06a", "#e0b040", "#9a68c8", "#e08a40", "#40b0b0", "#f0f0e8"]
 const PANTS := ["#5a4a7a", "#4a5a3a", "#6a4a3a", "#3a4a6a", "#7a6a5a"]
 ## Berufskleidung (josh 2026-10-20): Farben für Hemd/Hose und Überlagerungen (assets/sprites/settler_<name>.png,
-## tools/gen_art_outfits.py). Nur Erwachsene; ohne Beruf die eigene Kleidung.
+## tools/gen_art_outfits.py). Nur Erwachsene und nur während der Arbeit (josh 2026-10-21); in der Freizeit,
+## beim Essen, Schlafen und ohne Arbeit die eigene Kleidung.
 const OUTFIT := {
 	"handwerker": {"shirt": "#4c72ae", "pants": "#3e5e96"},  # blauer Overall
 	"bauer": {"pants": "#7a5434", "over": ["cap"]},
 	"koch": {"pants": "#f2eee6", "over": ["chefhat"]},
-	"forscher": {"over": ["glasses"]},
+	"forscher": {"shirt": "#f2f0ea"},  # weißes Hemd (josh 2026-10-21, statt Brille)
 	"jaeger": {"over": ["hunthat", "rifle"]},
 	"steinmetz": {"over": ["apron"]},
 	"foerster": {"over": ["saw"]},
@@ -257,13 +258,22 @@ var _outfit_job := "?"
 
 ## Kleidung zum Beruf (OUTFIT): Hemd und Hose einfärben, Mützen, Brille, Schürze, Gewehr und Säge zeigen.
 func _apply_outfit() -> void:
-	_outfit_job = job + str(is_adult())
-	var o: Dictionary = OUTFIT.get(job, {}) if is_adult() else {}
+	_outfit_job = _outfit_key()
+	var o: Dictionary = OUTFIT.get(job, {}) if _at_work() else {}
 	_layers["shirt"].modulate = Color(o.get("shirt", look.get("shirt", "#ffffff")))
 	_layers["pants"].modulate = Color(o.get("pants", look.get("pants", "#ffffff")))
 	var over: Array = o.get("over", [])
 	for k in ["apron", "glasses", "cap", "chefhat", "hunthat", "saw", "rifle"]:
 		_layers[k].visible = k in over
+
+
+## Arbeitet gerade (im Beruf oder als Helfer), nicht beim Essen, Schlafen, in der Freizeit oder ohne Arbeit.
+func _at_work() -> bool:
+	return is_adult() and not sleeping and _stat_kind in ["job", "other"]
+
+
+func _outfit_key() -> String:
+	return job + str(_at_work())
 
 
 func set_job(j: String) -> void:
@@ -312,10 +322,18 @@ func _count_busy(days: float) -> void:
 ## Anteil der eigenen Arbeit an der Tageszeit (ohne Essen, Freizeit, Krankheit) in Prozent,
 ## -1 solange zu wenig gemessen ist.
 func busy_percent() -> int:
+	var sh := busy_shares()
+	return -1 if sh.is_empty() else roundi(sh[0])
+
+
+## Anteile der Tageszeit (ohne Essen, Freizeit, Schlaf, Krankheit) in Prozent: [im Beruf, hilft aus, nichts zu tun];
+## leer, solange zu wenig gemessen ist.
+func busy_shares() -> Array:
 	var day := float(busy.get("job", 0.0)) + float(busy.get("other", 0.0)) + float(busy.get("idle", 0.0))
 	if day < 0.1:
-		return -1
-	return int(round(float(busy.get("job", 0.0)) / day * 100.0))
+		return []
+	return [float(busy.get("job", 0.0)) / day * 100.0, float(busy.get("other", 0.0)) / day * 100.0,
+		float(busy.get("idle", 0.0)) / day * 100.0]
 
 
 func _needs(days: float) -> void:
@@ -883,7 +901,7 @@ func _do_harvest(node) -> void:
 		_do_deliver()
 	carry_res = res
 	carry_n += got
-	Admin.note_produced(res, got)  # Statistik
+	Admin.note_produced(res, got, world)  # Statistik
 	gain_xp(node.def.skill)
 	world.spawn_effect("chips_" + node.type, node.position + Vector2(0, -6))
 	# Weiterarbeiten, solange Platz und Zeit ist
@@ -944,7 +962,7 @@ func _do_field_harvest(field) -> void:
 		var n: int = field.harvest()
 		carry_res = field.farm_def().yield
 		carry_n = n
-		Admin.note_produced(carry_res, n)  # Statistik
+		Admin.note_produced(carry_res, n, world)  # Statistik
 		gain_xp("nahrung", 2.0)
 		_plan_deliver_after()
 
@@ -1105,7 +1123,7 @@ func _do_produce(b) -> void:
 	var first := true
 	for res in outs:
 		var n := int(outs[res])
-		Admin.note_produced(res, n)  # Statistik
+		Admin.note_produced(res, n, world)  # Statistik
 		if Data.ships.has(res):
 			# Ein fertiges Schiff liegt sofort im Wasser (siehe Sea)
 			Game.add_stock(res, n, world)
@@ -1447,6 +1465,7 @@ func _do_destroy_den(n) -> void:
 	world.spawn_effect("chips_" + n.type, n.position + Vector2(0, -6))
 	Sound.play_at("axt", world, n.position)
 	var f := Game.add_stock("felle", 1, world)
+	Admin.note_produced("felle", f, world)  # Statistik
 	if f > 0:
 		world.float_text(n.position + Vector2(0, -20), "+%d" % f, "felle")
 	if n.amount <= 0:
@@ -1558,7 +1577,7 @@ func _face(v: Vector2) -> void:
 
 func _animate(delta: float) -> void:
 	_anim_t += delta
-	if _outfit_job != job + str(is_adult()):
+	if _outfit_job != _outfit_key():
 		_apply_outfit()
 	var frame := 0
 	if _moving:
@@ -1571,7 +1590,7 @@ func _animate(delta: float) -> void:
 	# Werkzeug schwingen
 	var battle: bool = _battle_tool != "" and not _plan.is_empty() and _plan[0].get("defend", false) and not _working
 	_tool.visible = (_working and _cur_tool != "" or battle) and not sleeping
-	if _layers["saw"].visible != (job == "foerster" and is_adult() and not _tool.visible):  # Säge in der Hand, außer beim Arbeiten
+	if _layers["saw"].visible != (job == "foerster" and _at_work() and not _tool.visible):  # Säge in der Hand, außer beim Arbeiten
 		_layers["saw"].visible = not _layers["saw"].visible
 	if _layers["rifle"].visible:  # Gewehr auf dem Rücken: von vorn und von der Seite hinter dem Körper
 		var at: int = _body.get_child_count() - 1 if _dir == DIR_UP else 0

@@ -1992,5 +1992,13 @@
  "Erzeugte Waren im Jahr %d (bisher)": "Goods produced in year %d (so far)",
  "Noch nichts gezählt. Gezählt wird, was gesammelt, geerntet, gejagt und in Werkstätten hergestellt wird.": "Nothing counted yet. Counted is everything gathered, harvested, hunted and made in workshops.",
  "Unter „Verwalter“ siehst du, wer die Verwaltung leitet, und schaltest die automatische Neuzuweisung freier Berufe. Unter „Schichten“ ordnest du für einen Beruf Schichtarbeit rund um die Uhr an, unter „Nachtschicht“ siehst du, wer nachts arbeitet, unter „Überstunden“ lässt du einen Beruf länger arbeiten.\n\nUnter „Statistik“ steht, wie ausgelastet jeder Beruf ist (Anteil der Zeit, in der die Leute in ihrem Beruf arbeiten) und wie viel von jeder Ware im letzten Jahr und im laufenden Jahr erzeugt wurde.": "Under “Administrator” you see who runs the administration and switch automatic reassignment of free jobs. Under “Shifts” you order round-the-clock shift work for a job, under “Night shift” you see who works at night, under “Overtime” you let a job work longer.\n\nUnder “Statistics” you see how busy each job is (share of time people spend working in their job) and how much of each good was produced last year and this year.",
- "Siedler: %d": "Settlers: %d"
+ "Siedler: %d": "Settlers: %d",
+ "Zahlen für die Insel %s.": "Figures for the island %s.",
+ "hilft aus %d %%, nichts zu tun %d %%": "helping out %d %%, idle %d %%",
+ "wird noch gemessen": "still being measured",
+ "Die große Zahl ist der Anteil der Arbeitszeit im eigenen Beruf. Essen, Schlafen und Freizeit zählen nicht mit.": "The big number is the share of working time spent in their own job. Eating, sleeping and leisure don't count.",
+ "Erzeugte Waren": "Goods produced",
+ "Jahr %d": "Year %d",
+ "Jahr %d bisher": "Year %d so far",
+ "Gezählt wird seit dem Update vom 20. Oktober, was auf dieser Insel gesammelt, geerntet, gejagt und in Werkstätten hergestellt wird, nicht was Schiffe bringen oder Händler verkaufen. Ein Jahr hat vier Jahreszeiten.": "Counted since the update of October 20: what is gathered, harvested, hunted and made in workshops on this island, not what ships bring or traders sell. A year has four seasons."
 }
