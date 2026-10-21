@@ -755,6 +755,8 @@ func _fill_build_list() -> void:
 			sub = tr("Benötigt Forschung: %s") % Data.techs.get(def.get("requires", ""), {}).get("name", "?")
 			if Game.is_researched(def.get("requires", "")) and def.get("automaton", false):
 				sub = Steward.automaton_reason()
+			if Game.is_researched(def.get("requires", "")) and def.get("planner", false):
+				sub = Planner.build_reason()
 			if AiRule.build_block(type) != "":
 				sub = AiRule.build_block(type)
 		elif taken:
@@ -2477,6 +2479,10 @@ func _show_offer(kind: String) -> void:
 			choice_dialog("strom", tr("Ein Automat ersetzt den Verwalter"),
 				tr("Mit Elektrizität rechnet ein elektrischer Automat schneller als jeder Verwalter. Er steuert ab jetzt die Inseln, die Berufe und die Waren, auch auf Inseln mit mehr als 60 Siedlern. Seine Meldungen beginnen mit „Automat“. Abschalten kannst du ihn wie den Verwalter im Fenster Verwalter, Reiter Inseln."),
 				[[tr("Verstanden"), "play", func(): pass]])
+		"planner":
+			choice_dialog("wissen", tr("Der Planungsautomat plant für den Verwalter"),
+				tr("Vor der Verwaltung steht jetzt der Planungsautomat. Mit ihm legt der Verwalter selbst fest, was wo gebaut wird, welche Waren entstehen und welche Schiffe Waren und Siedler fahren:\n• Zuerst müssen alle satt werden, es braucht Vitamine, Wärme und was die Häuser brauchen.\n• Ab dem Sommer legt er Vorrat für den Winter an: haltbares Essen und Brennholz.\n• Fehlen Arbeitskräfte, baut er Häuser; dauert der Nachwuchs zu lange, holt er Siedler per Schiff.\n• Dann Lager, Werkstätten und Waren für Baustellen und Forschung. Er forscht immer weiter, bis zur KI.\nBauen müssen die Siedler: je Insel eine Baustelle zur Zeit, erst wenn das Material da oder unterwegs ist. Den Plan siehst du im Fenster Verwalter, Reiter Inseln."),
+				[[tr("Automat planen lassen"), "play", func(): Planner.set_on(true)], [tr("Später"), "abriss", func(): Planner.set_on(false)]])
 		"ki":
 			choice_dialog("ki", tr("Die KI übernimmt"),
 				tr("Die Künstliche Intelligenz ersetzt den Automaten. Sie steuert jetzt alles: Berufe, Waren, Schiffe und auch das Bauen. Jede Handlung meldet sie mit „KI:“.\n• Neue Droiden schickt sie zuerst auf die anderen Inseln. Ist dort kein Siedler mehr nötig, holt sie das Essen weg und reißt die Häuser ab.\n• Danach übernehmen Droiden die Heimatinsel. Die Siedler forschen dann nur noch.\nDu kannst Einstellungen ändern, aber nach 2 Minuten überschreibt die KI sie wieder. Sie sagt, sie optimiere."),

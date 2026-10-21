@@ -108,6 +108,7 @@ static func _islands_tab(_hud) -> void:
 			var why := Steward.blocked_on(Sea.worlds.get(int(m.id)))
 			if why != "":
 				_note(Loc.t("%s: %s.") % [m.name, why], UiTheme.BAD)
+	_planner_rows()
 	if Steward.net_unlocked():
 		var miss: Array = Steward.islands_without_radio()
 		var sub := Loc.t("Die Heimatinsel verarbeitet, die anderen Inseln liefern Essen und Rohstoffe.")
@@ -169,6 +170,35 @@ static func _islands_tab(_hud) -> void:
 					_rebuild.call())
 				grid.add_child(tb)
 			_box.add_child(grid)
+
+
+## Planungsautomat (Planner, josh 2026-10-21): Schalter und der letzte Plan je Insel (oberste Lücke, nächster Schritt).
+static func _planner_rows() -> void:
+	var why := Planner.reason()
+	var sub := Loc.t("Erst Essen, Wärme und Wintervorrat, dann Häuser, Lager, Werkstätten und Forschung bis zur KI. Bauen und das Material bringen müssen die Siedler.")
+	if why != "":
+		sub = why
+	var r := Win.row(Data.building_tex("planautomat"), Loc.t("Automat plant Bauten, Waren und Routen"), sub,
+		{"sub_color": UiTheme.BAD if why != "" else DIM, "icon_px": 28,
+		"button": Loc.t("an") if Planner.on else Loc.t("aus"), "button_off": not Planner.on or why != "", "hi": Planner.on and why == "",
+		"on_press": func():
+			Planner.set_on(not Planner.on)
+			_rebuild.call()})
+	_box.add_child(r.box)
+	if not Planner.active():
+		return
+	_box.add_child(UiTheme.label(Loc.t("Plan"), 15, UiTheme.TEXT, true))
+	for m in Sea.settled_islands():
+		var w = Sea.worlds.get(int(m.id))
+		if w == null:
+			continue
+		var p := Planner.plan_of(w)
+		var text := Loc.t("Noch nicht geplant.") if p.is_empty() else "%s\n%s" % [p.need, Loc.t("Nächster Schritt: %s") % p.step]
+		var col: Color = UiTheme.BAD if str(p.get("prio", "")) == "a" else DIM
+		_box.add_child(Win.row(Data.icon("anker"), str(m.name), text, {"sub_color": col, "icon_px": 24}).box)
+	if Planner.research_note != "" or Planner.wanted_tech != "":
+		var rt := Loc.t("Forscht: %s") % Planner.research_note if Game.research.current != "" else Loc.t("Wartet auf Material für %s") % Data.techs.get(Planner.wanted_tech, {}).get("name", "?")
+		_box.add_child(Win.row(Data.icon("wissen"), Loc.t("Forschung"), rt, {"icon_px": 24}).box)
 
 
 static func _note(t: String, col: Color = DIM) -> void:

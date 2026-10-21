@@ -725,6 +725,8 @@ func can_place(type: String, c: Vector2i, ignore = null) -> bool:
 	var def: Dictionary = Data.buildings[type]
 	if def.get("unique", false) and Admin.exists(type, ignore):  # z. B. Verwaltung: nur eine im Spiel
 		return false
+	if def.get("planner", false) and not Planner.near_office(self, c, def.size):  # Planungsautomat: direkt vor der Verwaltung
+		return false
 	for y in int(def.size[1]):
 		for x in int(def.size[0]):
 			var cc := c + Vector2i(x, y)

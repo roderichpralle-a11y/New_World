@@ -998,6 +998,8 @@ func is_unlocked(building_type: String) -> bool:
 		return false  # Superintelligenz: keine Häuser
 	if Data.buildings.get(building_type, {}).get("automaton", false) and Steward.automaton_reason() != "":
 		return false  # Rechenautomat: ab 2 Inseln, einer Insel mit über 60 Siedlern und der Renaissance
+	if Data.buildings.get(building_type, {}).get("planner", false) and Planner.build_reason() != "":
+		return false  # Planungsautomat: ab der Industrialisierung und vor einer fertigen Verwaltung
 	# Bauplan aus einem Auftrag: baubar auch ohne die Forschung
 	return is_researched(Data.buildings.get(building_type, {}).get("requires", "")) or Quests.has_plan(building_type)
 

@@ -5,6 +5,7 @@ Wird aus gen_art.py aufgerufen:
   automaton()      Rechenautomat (3x2), Zelle 56 in buildings.png ("automaton", Data.BUILDING_CELLS)
   droid_factory()  Droidenfabrik (3x2), Zelle 57 ("droid_factory")
   radio()          Rundfunkanstalt (2x2), Zelle 90 ("radio"; josh 2026-10-21)
+  plan_automaton() Planungsautomat (2x1), Zelle 91 ("plan_automaton"; josh 2026-10-21)
 """
 from gen_art import new, put, add_outline, STONE, IRON, DARK, GLOW, SLATE, BRICK, ground_line, stone_wall, tile_roof
 
@@ -250,5 +251,75 @@ def radio():
     for x in range(38, 44):
         put(img, x, 34 + (x - 38) // 3, DARK)
     ground_line(img, 6, 58)
+    add_outline(img)
+    return img
+
+
+def plan_automaton():
+    """Planungsautomat (Industrialisierung): schmaler Stahlschrank auf einem Steinsockel vor der Verwaltung,
+    oben ein Messingschild mit Zahnrad, eine gruene Bildroehre mit einem kleinen Bauplan, Lampen, ein
+    Hebel an der Seite, unten kommt ein Lochstreifen mit dem Plan heraus; auf dem Dach ein Dampfrohr."""
+    img = new(64, 64)
+    stone_wall(img, 20, 52, 24, 7)
+    # Schrank
+    for y in range(18, 52):
+        for x in range(22, 42):
+            c = STEEL[2] if (x + y) % 9 else STEEL[1]
+            if x in (22, 41) or y in (18, 51):
+                c = STEEL[0]
+            elif x == 23:
+                c = STEEL[3]
+            put(img, x, y, c)
+    # Messingschild mit Zahnrad oben
+    for y in range(12, 18):
+        for x in range(24, 40):
+            put(img, x, y, BRASS[2] if y > 12 else BRASS[3])
+    for x in range(24, 40):
+        put(img, x, 17, BRASS[0])
+    _gear(img, 31, 14, 2, BRASS)
+    # Dampfrohr mit Woelkchen
+    for y in range(6, 12):
+        put(img, 37, y, IRON[1])
+        put(img, 38, y, IRON[2])
+    for (x, y) in ((39, 4), (40, 3), (41, 3), (40, 2), (38, 4), (42, 2)):
+        put(img, x, y, (230, 234, 240))
+    # Bildroehre mit Bauplan (gruen)
+    for y in range(21, 33):
+        for x in range(25, 39):
+            put(img, x, y, (26, 60, 40))
+    for y in range(22, 32):
+        for x in range(26, 38):
+            if (x - 26) % 4 == 0 or (y - 22) % 4 == 0:
+                put(img, x, y, (60, 150, 90))
+    for (x0, y0) in ((27, 23), (31, 26), (35, 23)):  # drei Haeuschen im Plan
+        for (dx, dy) in ((0, 1), (1, 0), (2, 1), (0, 2), (2, 2), (1, 2)):
+            put(img, x0 + dx, y0 + dy, (150, 250, 170))
+    for x in range(27, 38):  # Weg im Plan
+        put(img, x, 30, (230, 250, 200))
+    # Lampenreihe
+    for i, col in enumerate(((230, 60, 50), (250, 200, 60), (90, 220, 120), LED)):
+        put(img, 26 + i * 4, 35, col)
+        put(img, 27 + i * 4, 35, col)
+    # Tasten
+    for y in (38, 41):
+        for x in range(26, 38, 3):
+            put(img, x, y, BRASS[2])
+            put(img, x + 1, y, BRASS[1])
+    # Schlitz mit Lochstreifen, der vorn herunterhaengt
+    for x in range(27, 37):
+        put(img, x, 45, DARK)
+    for y in range(46, 55):
+        for x in range(29, 34):
+            c = (240, 230, 200)
+            if x in (30, 32) and y % 2 == 0:
+                c = DARK
+            put(img, x, y, c)
+    # Hebel rechts
+    for y in range(28, 40):
+        put(img, 43, y, IRON[2])
+    put(img, 44, 27, (200, 50, 40))
+    put(img, 43, 27, (230, 80, 60))
+    put(img, 44, 28, (200, 50, 40))
+    ground_line(img, 18, 46)
     add_outline(img)
     return img

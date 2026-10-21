@@ -361,6 +361,47 @@ verteilt; Handwerker und Köche nur bis zu den Plätzen der Werkstätten, die ei
 dafür Leute auch aus anderen Berufen (aus Nahrungsberufen nur ab 4 Tagen Essen); Aufgaben-Berufe sind nie
 überzählig, auch nicht im Inselverbund. Die Zeile zeigt „Beruf ist/Ziel“. Test `--stewardtest=task`, Bild
 `--stewardtest=taskshot`.
+**Planungsautomat** (josh 2026-10-21, Testversion /neu/, `scripts/autoload/planner.gd` Autoload `Planner`): ab der
+Industrialisierung plant der Verwalter mit einem Automaten selbst, was wo gebaut wird, welche Waren entstehen, welche
+Schiffe Waren und Siedler fahren, und teilt Berufe zu. Gebäude `planautomat` (2x1, Bild `plan_automaton` Zelle 91 aus
+tools/gen_art_machines.py, Forschung Dampfmaschine, `"unique"`, `"planner": true`): baubar erst ab `Game.current_age()`
+4 und mit fertiger Verwaltung (`Planner.build_reason`, `Game.is_unlocked`, Bauen-Fenster nennt, was fehlt) und nur
+höchstens `OFFICE_DIST` 3 Felder neben der Verwaltung (`Planner.near_office` in `World.can_place`). Er plant, solange
+er steht, `Steward.on`, der Schalter `Planner.on` (Standard an; Fenster Verwalter, Reiter Inseln, Zeile „Automat plant
+Bauten, Waren und Routen“ mit dem Grund, wenn es nicht geht: `Planner.reason`) an ist und nicht `AiRule.ki()` (dann
+übernimmt die KI). Beim ersten Mal das Fenster „Der Planungsautomat plant für den Verwalter“ (`Steward.offer("planner")`).
+Alle `TICK_DAYS` 0,5 Tage je Insel genau ein Schritt (`Planner.decide`), die erste Lücke in fester Rangfolge gewinnt:
+a. Bedürfnisse: Essen unter 3 Tagen (unter 2 Tagen Essen per Schiff von einer Insel mit über 6 Tagen, sonst Nahrungsberuf,
+sonst Obstgarten/Feld/Gewächshaus bis 1 + Siedler/5 Höfe), Vitamine der Siedler im Mittel unter 45 (Obstgarten,
+Sammler), Brennstoff in Herbst und Winter unter 2 Tagen, unerfüllte Bedürfnisse der Häuser (Ware herstellen oder holen,
+Schule bauen); b. Wintervorrat ab Sommer: haltbares Essen (`durable_days`, Waren außerhalb von `perishable`) für
+1,3 Winter nach der Vorhersage (Räucherei, Konservenfabrik, Mühle und Bäckerei bauen oder besetzen, Fischer) und
+Brennstoff für den Winter (`winter_fuel_goal`, Lagergrenze Holz anheben, Holz holen, Holzfäller); c. Wohnen: fehlen
+Arbeitskräfte (`workers_wanted`: niemand frei und eine Werkstatt steht still, Engpass der Verwaltung, Hauptaufgabe,
+Baustelle ohne Baumeister) und höchstens ein freies Bett, baut er das Haus mit den meisten Betten, dessen Material es
+auf den Inseln gibt (`best_house`); wächst die Insel `STALL_DAYS` 3 Tage nicht, holt ein freies Schiff bis zu 3 freie
+Siedler von einer Insel mit mindestens 2 Freien (`Sea.send_settlers`); bei vollen Betten und über 6 Tagen Essen
+auch ohne Not ein Haus mehr (Nachwuchs); d. Lager über 85 % voll: Großes Lager oder Lager; e. Warenketten (`demand`):
+was offene Baustellen, die Forschung (Kosten der laufenden oder gewünschten, Schriften) und die Hauptaufgabe brauchen,
+holt er per Schiff von einer Insel, die genug übrig hat (behält `KEEP_SEND` 20 und den eigenen Bedarf), besetzt oder
+startet die Werkstatt (eine fehlende Zutat eine Stufe tiefer), besetzt den Rohstoff-Beruf oder baut die Werkstatt;
+danach freie Forschungsplätze. f. Forschung (einmal je Runde, nicht solange die Heimatinsel bei a steht): forscht
+nichts, startet er aus `tech_order` (zuerst die Vorstufen der KI, `ki_path`, dann die wenigsten Punkte) die erste
+bezahlbare, die der gewünschten nichts wegnimmt; fehlt Material, bleibt sie als `wanted_tech` Bedarf für e.
+Umsetzen müssen es die Siedler (`_build`): je Insel höchstens eine Baustelle zur Zeit (sonst liefert er der laufenden
+das Material und einen Baumeister), gebaut wird erst, wenn das Material im Lager liegt oder unterwegs ist
+(`missing_cost`, `Steward.incoming`); sonst bestellt er es per Schiff (`Steward._send`, gemerkt in `orders`) oder lässt
+es herstellen. Nach dem Platzieren sorgt `_ensure_builder` für einen Baumeister. Bauplatz (`spot`): nahe der Mitte der
+Gebäude, mit einem Feld Abstand ringsum (`AiRule._roomy`), nah an Straßen, nicht 3 Felder vor dem Hafen. Berufe über
+`Steward._take_worker` (Freie, dann Überzählige; Spielersperren gelten), danach 1 Tag gesperrt. Jede Entscheidung als
+Meldung „Automat: Schritt (Lücke)“ (Art „verwaltung“, gleiche höchstens alle 2 Tage); im Reiter Inseln unter „Plan“ je
+Insel Lücke und nächster Schritt (rot bei Bedürfnissen), dazu die Forschung. Routen fährt er als Einmal-Fahrten des
+Verwalters (keine eigenen Mindest-/Höchststände; die Fahrten laufen auch ohne Rundfunkanstalt). Spielstand `planner`
+{on, offered, plans, orders, wanted, note, built, started, sent, grow}; alte Spielstände: an, Angebot kommt. Test
+`--fixture=<sea.json> --plannertest=1` („Planer OK/FEHLER …“, am Ende „Planer OK (N Fehler)“), Messung
+`--plannermeasure=<Tage>[,off]` (2026-10-21, sea.json, 12 Tage ab Sommer: an 16 → 25 Siedler, 11 → 27 Gebäude,
+16 Bauten, 1 Forschung gestartet; aus 16 → 16 Siedler, 11 → 11 Gebäude; Essen-Tage im Mittel 16,2 gegen 16,9, beide
+ohne Tote), Bild `--plannershot=1`.
 
 **Einheitliche Fenster (josh 2026-10-16, Variante A):** Jedes Fenster aus `Hud._popup_panel(titel, symbol)` hat denselben Kopf: Symbol, Titel (genau der Name des Knopfes, der es öffnet), rechts das X. Kein Hinweistext unter dem Titel; was man wissen muss, steht im Fenster selbst oder als Tooltip. Ein Tipp außerhalb aller Fenster (nicht auf die Leisten oben und unten, nicht aufs Infofenster) schließt sie (`Hud._input`) und löst nichts auf der Karte aus. Namen: Fenster „Vorräte“ (früher Lager; das Gebäude heißt weiter Lager), Fenster „Inseln“ (früher Seekarte) mit Reiter „Karte“ und Knopf „Entdeckungsreise“ (früher „Neue Insel suchen“). Menü > Wertung entfällt (das Fenster `_score_panel` und die Punkte bleiben im Code). Siedlerfenster (ohne Reiter Alle/Erwachsene/Kinder, nur Filter Beruf und Insel, josh 2026-10-19): zwei Listen übereinander, oben „Mit Beruf“, unten „Frei“ (freie Erwachsene und Kinder); der Berufe-Filter gilt nur für „Mit Beruf“, „Frei“ zeigt immer alle Freien (josh 2026-10-20, Test `--panel=settlers --jobfree=1`); Insel-Filter und Sortierung gelten für beide; auf dem Handy quer entfallen Zähler und Spaltenköpfe (`_size_settler_panel`, `tight`). Gesperrte Gebäude im Bauen-Fenster zeigen statt der Kosten den kleinen Knopf „Forsch.“ (öffnet die Forschung). Fenster Verwalter (josh 2026-10-20: einheitlich wie alle Fenster, `Hud._admin_panel`, `AdminInfo.fill_window`, Fuß mit dem Namen des Verwalters; das Infofenster des Gebäudes hat nur noch den Knopf „Fenster Verwalter öffnen“; Test `--adminshot=office|shifts|night|stats`): Reiter Verwalter, Schichten, Nachtschicht, Überstunden (Zeilen `Win.row` mit Schalter an/aus) und Statistik (josh 2026-10-21 nachgeprüft: zählt jetzt je Insel, die Insel der Verwaltung oder die gezeigte): Auslastung je Beruf (`Admin.job_load(w)`, Mittel von `Settler.busy_shares`: im Beruf als große Zahl, darunter „hilft aus“ und „nichts zu tun“) und erzeugte Waren in zwei beschrifteten Spalten „Jahr N“ und „Jahr N+1 bisher“ (`Admin.note_produced(res, n, world)` beim Sammeln, Ernten, Feldernten, Jagen und Bau-Ausräumen (Felle) und in Werkstätten; `Admin.produced[jahr][insel][ware]`, die letzten 3 Jahre, gespeichert unter `admin.produced`; Spielstände von 1.0.84 zählten alle Inseln zusammen und werden der Hauptinsel zugeschrieben). Ohne Verwaltung zeigen die ersten vier Reiter einen Hinweis, die Statistik geht immer. Ein Tipp auf den Inselnamen oben öffnet das Fenster Inseln (josh 2026-10-20). Reiter Verwalter Reiter Verwalter zeigt den Verwalter und den Schalter „Automatische Neuzuweisung freier Berufe“ (`Admin.auto_reassign`, gespeichert unter `admin.auto`): stirbt ein Siedler mit Beruf auf der Insel der Verwaltung, übernimmt ein freier Erwachsener (einer mit passendem Talent zuerst) den Beruf. Erst ab dem Mittelalter (`Admin.AUTO_AGE` 2, `Admin.auto_unlocked()`, vorher ist der Schalter ausgegraut; josh 2026-10-16). Gibt es keinen freien Erwachsenen, kommt der Beruf in `Admin.pending_jobs` (gespeichert unter `admin.pending`), und das nächste Kind, das erwachsen wird, lernt ihn (`Admin.on_grown_up` aus `Settler._needs`); das Fenster zeigt die wartenden Berufe. Stirbt der Verwalter selbst, wird sein Posten genauso neu besetzt (josh 2026-10-17; `Admin._covers` lässt den Verwalterposten auch ohne lebenden Verwalter zu, solange die Verwaltung auf der Insel steht). Entwurfsbilder: /mnt/project-files/konzept/.
 
@@ -1705,6 +1746,8 @@ godot --headless --fixed-fps 60 -- --autotest=30 --scale=10 --admintest=1  # Ver
 godot --headless --fixed-fps 60 -- --autotest=200 --scale=10 --landtest=1 --noevents=1  # Straßen, Deiche, Neuland, Förster (Bild: --landshot=road|dike)
 godot --headless --fixed-fps 60 -- --autotest=60 --scale=10 --protestvideo=1  # Protest-Video
 godot --headless -- --autotest=150 --decortest=1  # Schmuck (Bild: --decorshot=1 --seed=11)
+godot --headless --fixed-fps 60 -- --autotest=40 --scale=10 --fixture=sea.json --plannertest=1  # Planungsautomat (Bild: --plannershot=1)
+godot --headless --fixed-fps 60 -- --autotest=400 --scale=10 --fixture=sea.json --plannermeasure=12[,off]  # Planer an/aus messen
 godot --headless --fixed-fps 60 -- --autotest=40 --scale=10 --fixture=sea.json --oncetest=1  # Einmal-Route hin und zurück
 godot --headless --fixed-fps 60 -- --autotest=40 --scale=10 --fixture=sea.json --oncetest=trip  # Einmal schicken, Austausch-Halt
 godot --headless --fixed-fps 60 -- --autotest=30 --scale=10 --seed=7 --basictrade=1  # Händler mit einfachen Waren

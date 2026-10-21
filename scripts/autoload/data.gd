@@ -74,6 +74,7 @@ const BUILDING_CELLS := {
 	"sundial": [79, 1], "lantern": [80, 1], "pavilion": [81, 1], "equestrian": [82, 1], "obelisk": [83, 1],
 	"statue_bronze": [84, 1], "street_lamp": [85, 1], "hologram": [86, 4],
 	"radio": [90, 1],  # Rundfunkanstalt (tools/gen_art_machines.py, josh 2026-10-21)
+	"plan_automaton": [91, 1],  # Planungsautomat (tools/gen_art_machines.py, josh 2026-10-21)
 }
 ## Etappe 3 in objects2.png: name -> [x, y, w, h, frames]
 const OBJECT2_REGIONS := {

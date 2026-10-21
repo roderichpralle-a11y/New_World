@@ -176,6 +176,10 @@
   "name": "Neu: Universität",
   "text": "In der Universität forschen vier Forscher dreieinhalbmal so schnell wie in der Schreibstube. Sie braucht Papier, Glas und Ziegel."
  },
+ "tech_dampfmaschine": {
+  "name": "Neu: Planungsautomat",
+  "text": "Stellt den Planungsautomaten direkt vor die Verwaltung. Dann plant der Verwalter selbst: erst Essen und Wärme, dann Vorrat für den Winter, Häuser, Lager und Werkstätten, und er forscht immer weiter. Bauen und das Material bringen müssen die Siedler."
+ },
  "tech_stahl": {
   "name": "Neu: Stahlwerk",
   "text": "Das Stahlwerk macht aus Eisen und viel Kohle Stahl. Stahl braucht ihr für Fabriken, Mietshäuser und die Eisenbahn. Auf Felseninseln arbeitet es schneller."
