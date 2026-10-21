@@ -156,6 +156,8 @@ func progress(g: Dictionary) -> Array:
 	match c.get("type", ""):
 		"selected_settler":
 			return [1 if Game.selected is Settler else 0, 1]
+		"no_panel":  # zurück zum Hauptbildschirm: kein Fenster offen
+			return [0 if _panel_open() else 1, 1]
 		"action":
 			for a in _actions:
 				if a[0] == c.get("kind") and (what == "" or a[1] == what):
@@ -402,11 +404,16 @@ func _set_bubble(on: bool) -> void:
 
 
 ## Aktionsknopf einer Listenzeile (Win.row: der letzte Knopf rechts), sonst die Zeile selbst.
+## Der Knopf, der baut oder forscht (Hammer, Dreieck): der vorletzte, ganz rechts steht das „i“
+## (josh 2026-10-21: der Pfeil stand unter dem „i“ statt unter dem Hammer).
 func _row_button(row: Control) -> Control:
 	var h = row.get_child(0) if row.get_child_count() > 0 else null
-	if h != null and h.get_child_count() > 0 and h.get_child(-1) is Button:
-		return h.get_child(-1)
-	return row
+	if h == null or h.get_child_count() == 0:
+		return row
+	var n: int = h.get_child_count()
+	if n >= 2 and h.get_child(n - 2) is Button and h.get_child(n - 1) is Button:
+		return h.get_child(n - 2)
+	return h.get_child(n - 1) if h.get_child(n - 1) is Button else row
 
 
 ## Wohin der Zeiger zeigt: ein Control, eine Bildschirmposition oder nichts.
@@ -451,6 +458,23 @@ func _pointer_target(g: Dictionary):
 			return hud._speed_btns[2][0]
 		"top":
 			return _closed_or(hud.top_bar)
+		"top_holz", "top_stein":  # je ein Symbol der Statuszeile (josh 2026-10-21)
+			return _closed_or(hud._res_labels[pt.substr(4)].get_parent().get_child(0))
+		"top_food":
+			return _closed_or(hud._food_label.get_parent().get_child(0))
+		"top_pop":
+			return _closed_or(hud._pop_label.get_parent().get_child(0))
+		"top_day":
+			return _closed_or(hud._day_icon)
+		"top_season":
+			return _closed_or(hud._season_icon)
+		"close":  # das X des offenen Fensters
+			for p in hud._panels():
+				if p.visible:
+					var head: Node = p.get_child(0).get_child(0) if p.get_child_count() > 0 and p.get_child(0).get_child_count() > 0 else null
+					if head is HBoxContainer and head.get_child_count() > 0:
+						return head.get_child(head.get_child_count() - 1)
+			return null
 		"speeds":
 			return _closed_or(hud.speed_bar)
 		"bottom":
@@ -491,6 +515,13 @@ func _pointer_target(g: Dictionary):
 			return _closed_or(hud.settler_btn)
 		"age_tabs":
 			return _children_rect(hud._research_tabs) if hud._research_panel.visible else null
+		"age_tab":  # der erste Reiter (Steinzeit, das Bild mit dem Hammer)
+			if not hud._research_panel.visible:
+				return null
+			for c in hud._research_tabs.get_children():
+				if c is Control and c.visible:
+					return c
+			return null
 		"tech_row", "tech_btn":
 			if not hud._research_panel.visible:
 				return _closed_or(hud._research_btn)

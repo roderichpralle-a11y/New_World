@@ -145,7 +145,7 @@ func reset_state(new_seed: int) -> void:
 	stats = {"births": 0, "deaths": 0, "max_pop": 0, "starved": 0, "starve_day": time_days}
 	lineage = {}
 	research = {"current": "", "progress": {}, "done": [], "paid": []}
-	goals = {"tut": 0, "ms": 0, "tv": 4}
+	goals = {"tut": 0, "ms": 0, "tv": 5}
 	rules = RULES
 	rules_old = RULES
 	rules_day = time_days
@@ -1450,7 +1450,11 @@ func apply_save_header(d: Dictionary) -> void:
 		# (die alte hatte 10 Schritte; fertig bleibt fertig)
 		if tv < 4:
 			tut = 0 if tut < 10 else 999
-		goals = {"tut": tut, "ms": int(g.get("ms", 0)), "hide": str(g.get("hide", "")), "tv": 4,
+		# Seit tv 5 (josh 2026-10-21): 26 Schritte, Statuszeile Symbol für Symbol, Hüttenbau neu geführt;
+		# eine angefangene Einführung beginnt neu
+		if tv < 5:
+			tut = 0 if tut < 21 else 999
+		goals = {"tut": tut, "ms": int(g.get("ms", 0)), "hide": str(g.get("hide", "")), "tv": 5,
 			"gift": str(g.get("gift", ""))}
 	else:
 		goals = {"tut": 999, "ms": 0, "catchup": true}

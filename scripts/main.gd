@@ -789,7 +789,11 @@ func _autotest_tutorial() -> void:
 			world.settlers[1].set_job("baumeister")
 		"t_researcher":
 			world.settlers[1].set_job("forscher")
-		"t_hut":
+		"t_hut_pick":
+			Game.player_action.emit("place", "huette")
+		"t_settlers_open2":
+			Game.player_action.emit("panel", "siedler")
+		"t_hut_place":
 			for rad in range(3, 12):
 				for dy in range(-rad, rad + 1):
 					for dx in range(-rad, rad + 1):
@@ -799,9 +803,9 @@ func _autotest_tutorial() -> void:
 							world.move_placement(world.cell_to_pos(cc))
 							print("   platziert: ", world.confirm_placement())
 							return
-		"t_flecht":
+		"t_row":
 			Game.start_research("flechtkoerbe")
-		"t_speed":
+		"t_hut_done":
 			Game.set_speed(3)
 			Engine.time_scale = 10.0
 		_:

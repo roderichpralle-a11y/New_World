@@ -424,26 +424,30 @@ ohne Tote), Bild `--plannershot=1`.
   angelegte Busse bleiben dort stumm), Lautstärken im Menü, gespeichert in `user://settings.cfg`.
   Alle Klänge erzeugt `tools/gen_audio.py` (Ausgabe `assets/audio/`). Gebäude können mit
   `sound` einen eigenen Werkstatt-Klang haben, Tiere mit `sound` ihren Ruf.
-- **Einführung und Ziele** (`data/goals.json`, `scripts/ui/goal_card.gd`): seit `goals.tv` = 4
-  (josh 2026-10-19) 21 Schritte: Statuszeile, Geschwindigkeit, Menüknöpfe unten, Baumenü, Baumeister,
-  Menü Siedler, Baumeister setzen, Hütte bauen, schneller stellen, Forschung und Zeitalter, die Zeile
-  Flechtkörbe (schenkt 12 Holz, `gift`, einmal je Schritt über `goals.gift`), Flechtkörbe starten
-  (Prüfart `tech_started`), Forscher, Menü mit Reitern, Kinder, Tod. Erklär-Schritte haben den Knopf
+- **Einführung und Ziele** (`data/goals.json`, `scripts/ui/goal_card.gd`): seit `goals.tv` = 5
+  (josh 2026-10-21) 26 Schritte: die Statuszeile Symbol für Symbol (Holz, Steine, Nahrung, Siedler, Tag,
+  Jahreszeit; Zeiger `top_holz` … `top_season`), Geschwindigkeit, dann der Hüttenbau: Baumenü öffnen,
+  Baumenü, Hütte wählen (Prüfart `action`/`place`, `Hud` meldet den Hammer), Hütte setzen, Baumeister
+  nötig, Menü Siedler öffnen, Menü Siedler, Baumeister setzen, warten bis die Hütte steht; dann Forschung
+  öffnen, Zeitalter (Zeiger `age_tab`: der erste Reiter), Flechtkörbe starten (Pflicht, ohne Weiter, schenkt
+  12 Holz über `gift`), Forschung schließen (Prüfart `no_panel`, Zeiger `close` = das X), Menü Siedler
+  öffnen, Forscher, Menü mit Reitern, Kinder, Tod. Erklär-Schritte haben den Knopf
   Weiter (Prüfung `action`/`next`). Der Zeigerpfeil zeigt auf Knöpfe oder Teile offener Fenster
-  (`point`, siehe `_pointer_target`); die Karte steht dabei als Sprechblase daneben und über den Fenstern
+  (`point`, siehe `_pointer_target`; in Zeilen auf den Hammer oder das Dreieck, nicht auf das „i“, siehe
+  `_row_button`); die Karte steht dabei als Sprechblase daneben und über den Fenstern
   (`GoalCard.bubble`, dann setzt `hud._layout` sie nicht), Listen rollen einmal je Schritt zum Ziel.
   Neue Spiele starten mit 16 Holz (eine Hütte). Danach feste Ziele mit Belohnungen und endlos erzeugte
   Ziele (Bevölkerung, Inseln, Geburten). Zustand `Game.goals {tut, ms, hide, tv, gift}` im Spielstand;
   Spielstände ohne `goals` überspringen die Einführung und holen erreichte Ziele still nach; Spielstände
-  mit `tv` unter 4 beginnen eine angefangene Einführung neu (erledigte Schritte gehen von selbst
+  mit `tv` unter 5 beginnen eine angefangene Einführung neu (erledigte Schritte gehen von selbst
   weiter), eine fertige bleibt fertig. `Game.player_action(kind, what)` meldet Spieleraktionen
   (`panel` mit bauen/forschung/siedler/menue, `job`, `next`). Statistik `kills` zählt erlegte Tiere.
   Das X auf der Zielkarte blendet das aktuelle Ziel aus (`goals.hide` = Ziel-ID), das nächste erscheint
   wieder. Prüfart `job`: Siedler mit Beruf `what`, alle Inseln. Testhilfe `--tut=N` (Schritt) mit
   `--panel=build|settlers|research|menu`, `--tuttest=1` spielt alles durch.
   Jeder Schritt mit Tat bringt etwas (josh 2026-10-21, Variante B, „reward“ in goals.json, steht als
-  „Belohnung: …“ unter der Erklärung): Baumeister 20 Holz, Hütte bauen 30 Beeren, schneller stellen
-  12 Steine, Hütte fertig 1 Siedler, Flechtkörbe starten 1 Siedler, Forscher: Flechtkörbe sofort fertig.
+  „Belohnung: …“ unter der Erklärung): Baumeister 20 Holz, Hütte setzen 30 Beeren und 12 Steine,
+  Hütte fertig 1 Siedler, Flechtkörbe starten 1 Siedler, Forscher: Flechtkörbe sofort fertig.
   Wer die Einführung zu Ende spielt (nicht überspringt), bekommt 2 Siedler, eine fertige Hütte, ein fertiges
   Lagerhaus sowie Steinwerkzeuge und Schrift (`Extras.TUT_FINAL`, siehe „Kohle, Erfrieren und weitere
   Ergänzungen“). Am Ende stehen so 6 Siedler, 3 Hütten und ein Lagerhaus. Die Einführung erscheint auch,

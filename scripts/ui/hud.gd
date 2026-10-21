@@ -827,7 +827,8 @@ func _fill_build_list() -> void:
 				return
 			_build_panel.visible = false
 			Game.select(null)
-			world.start_placement(tp, camera.position))
+			world.start_placement(tp, camera.position)
+			Game.player_action.emit("place", tp))
 		_build_list.add_child(box)
 	for b in locked_rows:
 		_build_list.add_child(b)
