@@ -2606,7 +2606,7 @@ Im Entwicklungsbaum wählst du, was deine Siedler als Nächstes lernen. Forscher
 Glas, Papier, Stahl, Maschinen, Strom und Elektronik entstehen in neuen Werkstätten. Kraftwerk, Solarpark und Fusionsreaktor liefern Strom, den Elektronikwerk und KI-Zentrum brauchen. Mietshäuser und Wohnblöcke bieten viel Wohnraum, Gewächshäuser tragen auch im Winter. Steht ein KI-Zentrum, verteilt die künstliche Intelligenz freie Siedler auf die Berufe, die gerade fehlen. Die Zukunftsstadt ist das Ziel aller Zeitalter.
 
 [b]Werkstätten[/b]
-Sägegrube, Mühle, Bäckerei, Ziegelei und Co. verwandeln Rohstoffe in bessere Waren. Köche arbeiten in Mühle, Bäckerei, Räucherei und Hühnerhof, Handwerker in den Werkstätten, Steinmetze in Steinbruch, Lehmgrube und Mine. Tippe oben auf die Vorräte, um alle Waren zu sehen.
+Sägegrube, Mühle, Bäckerei, Ziegelei und Co. verwandeln Rohstoffe in bessere Waren. Köche arbeiten in Mühle, Bäckerei und Räucherei, Bauern auf den Feldern und bei den Tieren, Handwerker in den Werkstätten, Steinmetze in Steinbruch, Lehmgrube und Mine. Tippe oben auf die Vorräte, um alle Waren zu sehen.
 
 [b]Lager[/b]
 Jedes Lager hat Stauraum: das Lagerfeuer 200, ein Lagerhaus 400, ein Großes Lager 1000. Große Waren brauchen mehr Raum als kleine, ein Brett 3, Holz und Stein 2, Beeren 1. Tippe oben auf die Vorräte oder im Lager auf "Lager einstellen" und lege mit − und + fest, wie viel von jeder Ware gelagert wird. Diese Menge ist dann für die Ware reserviert. Waren auf "frei" teilen sich den restlichen Raum. Ist für eine Ware kein Platz mehr, sammeln die Siedler sie nicht mehr. Hast du zu viel von einer Ware, kannst du den Überschuss wegwerfen; er ist dann verloren.
