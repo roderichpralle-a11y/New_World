@@ -187,7 +187,10 @@ func _advance(g: Dictionary, silent: bool) -> void:
 	if was_tut:
 		if not in_tutorial():
 			hud.toast(tr("Einführung geschafft! Jetzt warten Ziele mit Belohnungen auf dich."), "ziel")
-			Extras.tutorial_reward(Game.world)  # 2 Siedler und eine fertige Hütte
+			Extras.tutorial_reward(Game.world)  # 2 Siedler, Hütte, Lagerhaus und zwei Forschungen
+		var got := Extras.tutorial_step_reward(Game.world, g.get("reward", {}))
+		if got != "":
+			hud.toast(tr("Geschafft! Belohnung: %s.") % got, "ziel")
 	else:
 		var parts := []
 		for res in g.get("reward", {}):
@@ -288,6 +291,11 @@ func _check() -> void:
 		_head.text = (tr("Einführung %d/%d") % [int(Game.goals.tut) + 1, tut_n]) if t else (tr("Prüfung") if is_exam(g) else tr("Ziel"))
 		_text.text = g.text
 		_hint.text = g.get("hint", "")
+		if t:  # was der Schritt bringt; der letzte zeigt die Belohnung für die ganze Einführung
+			var last := int(Game.goals.tut) == tut_n - 1
+			var rw: Dictionary = g.get("reward", Extras.TUT_FINAL if last else {})
+			if not rw.is_empty():
+				_hint.text += "\n" + tr("Belohnung: %s.") % Extras.tutorial_reward_text(rw)
 		# In der Einfuehrung ist die Erklaerung immer offen
 		_hint.visible = t and _hint.text != ""
 		_skip.visible = t

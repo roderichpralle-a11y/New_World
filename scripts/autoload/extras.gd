@@ -214,21 +214,67 @@ func _on_load(d: Dictionary, old_rules: int) -> void:
 
 
 # ---------------------------------------------------------------- Belohnung der Einführung
-## Einführung zu Ende gespielt (nicht übersprungen): 2 Siedler (ein Paar, mit niemandem verwandt) und
-## eine fertige Hütte nah am Lagerfeuer. Ruft GoalCard._advance einmal auf.
+## Einführung zu Ende gespielt (nicht übersprungen, josh 2026-10-21 Variante B): 2 Siedler, eine fertige
+## Hütte und ein fertiges Lagerhaus nah am Lagerfeuer, dazu Steinwerkzeuge und Schrift erforscht.
+## Mit den Belohnungen der Schritte (TUT_FINAL) sind es etwa 6 Siedler und 3 Hütten. Ruft GoalCard._advance einmal auf.
+const TUT_FINAL := {"settlers": 2, "buildings": ["huette", "lager"], "techs": ["steinwerkzeuge", "schrift"]}
+
+
 static func tutorial_reward(w) -> void:
 	if w == null or not is_instance_valid(w):
 		return
-	var cell = hut_spot(w)
-	var hut_txt := Loc.t("eine fertige Hütte am Lagerfeuer")
-	if cell != null:
-		w.place_building("huette", cell, true)
-	else:  # kein Platz: das Holz für eine Hütte
-		var n := int(Data.buildings["huette"].get("cost", {}).get("holz", 16))
-		Game.give_goods(w, "holz", n)
-		hut_txt = Loc.t("%d Holz für eine Hütte") % n
-	var got := Game.grant_reward(w, {"settlers": 2})
-	Game.notify_at(w, Loc.t("Belohnung für die Einführung: %s und %s.") % [got, hut_txt], "person", "siedler")
+	var got := tutorial_step_reward(w, TUT_FINAL)
+	Game.notify_at(w, Loc.t("Belohnung für die Einführung: %s.") % got, "person", "siedler")
+
+
+## Belohnung eines Schritts der Einführung (goals.json "reward"): Waren, "settlers", fertige "buildings"
+## (fehlt der Platz: ihre Baukosten) und sofort fertige "techs". Gibt den Text für die Meldung zurück.
+static func tutorial_step_reward(w, r: Dictionary) -> String:
+	if w == null or not is_instance_valid(w) or r.is_empty():
+		return ""
+	var parts := []
+	for type in r.get("buildings", []):
+		var cell = free_spot(w, type)
+		if cell != null:
+			w.place_building(type, cell, true)
+			parts.append(Loc.t("fertig gebaut: %s") % Data.buildings[type].name)
+		else:  # kein Platz: die Baukosten
+			var cost: Dictionary = Data.buildings[type].get("cost", {})
+			for res in cost:
+				Game.give_goods(w, res, int(cost[res]))
+			parts.append(Loc.t("das Material für %s") % Data.buildings[type].name)
+	var plain := {}
+	for k in r:
+		if str(k) == "settlers" or Data.resources.has(str(k)):
+			plain[k] = r[k]
+	if not plain.is_empty():
+		var txt := Game.grant_reward(w, plain)
+		if txt != "":
+			parts.append(txt)
+	for t in r.get("techs", []):
+		if Data.techs.has(t) and not Game.is_researched(t):
+			Game.grant_tech(t)
+			parts.append(Loc.t("erforscht: %s") % Data.techs[t].name)
+	return ", ".join(parts)
+
+
+## Was ein Schritt der Einführung bringt, als Text für die Zielkarte (ohne etwas zu geben).
+static func tutorial_reward_text(r: Dictionary) -> String:
+	var parts := []
+	var n := int(r.get("settlers", 0))
+	if n == 1:
+		parts.append(Loc.t("1 neuer Siedler"))
+	elif n > 1:
+		parts.append(Loc.t("%d neue Siedler") % n)
+	for k in r:
+		if Data.resources.has(str(k)):
+			parts.append("%d %s" % [int(r[k]), Data.resource_name(str(k))])
+	for type in r.get("buildings", []):
+		parts.append(Loc.t("fertig gebaut: %s") % Data.buildings[type].name)
+	for t in r.get("techs", []):
+		if Data.techs.has(t):
+			parts.append(Loc.t("erforscht: %s") % Data.techs[t].name)
+	return ", ".join(parts)
 
 
 ## Freier Platz für eine Hütte, möglichst nah am Lagerfeuer, mit Platz rundherum (oder null).
@@ -290,7 +336,8 @@ func autotest_report() -> String:
 		print("   Erfroren der Reihe nach (Name, Kind, alt, Alter): %s" % [_test_deaths])
 	if _args.has("tutdone") or _args.has("tuttest"):
 		var huts: int = w.buildings.filter(func(b): return b.type == "huette" and b.complete).size()
-		print("   Einfuehrung: tut=%d/%d, Siedler %d, Huetten %d" % [int(Game.goals.get("tut", 0)), Data.goals.get("tutorial", []).size(), w.settlers.size(), huts])
+		var lager: int = w.buildings.filter(func(b): return b.type == "lager" and b.complete).size()
+		print("   Einfuehrung: tut=%d/%d, Siedler %d, Huetten %d, Lagerhaus %d, erforscht %s, Holz %d, Stein %d" % [int(Game.goals.get("tut", 0)), Data.goals.get("tutorial", []).size(), w.settlers.size(), huts, lager, Game.research.done, Game.amount("holz", w), Game.amount("stein", w)])
 	return ""
 
 
@@ -382,14 +429,16 @@ func _food_test(w) -> void:
 func _tut_test() -> void:
 	var w = Game.world
 	var n: int = Data.goals.get("tutorial", []).size()
-	var before := [w.settlers.size(), w.buildings.filter(func(b): return b.type == "huette").size()]
+	var before := [w.settlers.size(), w.buildings.filter(func(b): return b.type == "huette").size(), w.buildings.filter(func(b): return b.type == "lager").size()]
 	print("Einfuehrungs-Test: vorher Siedler %d, Huetten %d, Platz fuer Huette %s" % [before[0], before[1], hut_spot(w)])
 	Game.goals.tut = n - 1  # letzter Schritt: Erklaerung mit Weiter
 	Game.player_action.emit("next", "")
 	await get_tree().create_timer(2.0, true, false, true).timeout
-	var after := [w.settlers.size(), w.buildings.filter(func(b): return b.type == "huette").size()]
-	var c: bool = after[0] == before[0] + 2 and after[1] == before[1] + 1
-	print("Einfuehrungs-Test %s: nachher Siedler %d (+%d), Huetten %d (+%d), tut=%d/%d" % [_ok(c), after[0], after[0] - before[0], after[1], after[1] - before[1], int(Game.goals.tut), n])
+	var after := [w.settlers.size(), w.buildings.filter(func(b): return b.type == "huette").size(), w.buildings.filter(func(b): return b.type == "lager" and b.complete).size()]
+	var c: bool = after[0] == before[0] + 2 and after[1] == before[1] + 1 and after[2] == before[2] + 1
+	print("Einfuehrungs-Test %s: nachher Siedler %d (+%d), Huetten %d (+%d), Lagerhaus +%d, tut=%d/%d" % [_ok(c), after[0], after[0] - before[0], after[1], after[1] - before[1], after[2] - before[2], int(Game.goals.tut), n])
+	var t_ok: bool = Game.is_researched("steinwerkzeuge") and Game.is_researched("schrift")
+	print("Einfuehrungs-Test %s: Steinwerkzeuge und Schrift erforscht" % _ok(t_ok))
 	for s in w.settlers.slice(before[0]):
 		var home = w.building_by_id(s.home_id)
 		print("   neu: %s (%s), Zuhause %s" % [s.display_name, s.sex, home.type if home else "-"])

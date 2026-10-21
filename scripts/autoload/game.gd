@@ -1073,6 +1073,20 @@ func max_tier() -> int:
 	return m
 
 
+## Eine Forschung sofort fertig (Belohnung der Einführung). Eine andere laufende Forschung läuft weiter.
+func grant_tech(t: String) -> void:
+	if not Data.techs.has(t) or t in research.done:
+		return
+	if research.current == t:
+		_finish_research(t)
+		return
+	research.progress.erase(t)
+	research.done.append(t)
+	_recompute_effects()
+	research_changed.emit()
+	stock_changed.emit()
+
+
 func _finish_research(t: String) -> void:
 	research.progress.erase(t)
 	research.done.append(t)

@@ -441,8 +441,12 @@ ohne Tote), Bild `--plannershot=1`.
   Das X auf der Zielkarte blendet das aktuelle Ziel aus (`goals.hide` = Ziel-ID), das nächste erscheint
   wieder. Prüfart `job`: Siedler mit Beruf `what`, alle Inseln. Testhilfe `--tut=N` (Schritt) mit
   `--panel=build|settlers|research|menu`, `--tuttest=1` spielt alles durch.
-  Wer die Einführung zu Ende spielt (nicht überspringt), bekommt 2 Siedler und eine fertige Hütte
-  (siehe „Kohle, Erfrieren und weitere Ergänzungen“).
+  Jeder Schritt mit Tat bringt etwas (josh 2026-10-21, Variante B, „reward“ in goals.json, steht als
+  „Belohnung: …“ unter der Erklärung): Baumeister 20 Holz, Hütte bauen 30 Beeren, schneller stellen
+  12 Steine, Hütte fertig 1 Siedler, Flechtkörbe starten 1 Siedler, Forscher: Flechtkörbe sofort fertig.
+  Wer die Einführung zu Ende spielt (nicht überspringt), bekommt 2 Siedler, eine fertige Hütte, ein fertiges
+  Lagerhaus sowie Steinwerkzeuge und Schrift (`Extras.TUT_FINAL`, siehe „Kohle, Erfrieren und weitere
+  Ergänzungen“). Am Ende stehen so 6 Siedler, 3 Hütten und ein Lagerhaus.
 - **Statuszeile fest** (josh 2026-10-20): `Hud._fix_top_widths` gibt jeder Zahl die Breite ihres längsten
   üblichen Textes (breit 9999 / 9999 (99 Tage) / 999/999 / Tag 999 23:59, schmal 999 / 999 (9T) / 99/99 /
   Tag 99), die Jahreszeit die ihres längsten Namens; das Klima-Symbol bleibt unsichtbar an seinem Platz
@@ -597,11 +601,12 @@ er meldet sich als System bei Game an).
   `gesundheit`), dann je Toter „… ist erfroren.“ Laune-Grund „Friert (kein Holz, keine Kohle)“.
 - **Haltbares Essen zuerst**: siehe „Nahrung, Vitamine und Gleichgewicht“ (`Game.durable_first`).
 - **Belohnung für die Einführung** (`Extras.tutorial_reward`, aus `GoalCard._advance`, wenn der letzte
-  Schritt erfüllt ist; nicht beim Überspringen und nicht beim stillen Nachholen alter Spielstände): eine
-  fertige Hütte auf dem ersten freien Platz um das Lagerfeuer (Ring für Ring, eine Zelle Abstand zu
-  anderen Gebäuden; ohne Platz 16 Holz) und 2 Einwanderer über `Game.grant_reward(w, {"settlers": 2})`
-  (eine Frau und ein Mann, mit niemandem verwandt). Meldung „Belohnung für die Einführung: 2 Einwanderer
-  und eine fertige Hütte am Lagerfeuer.“
+  Schritt erfüllt ist; nicht beim Überspringen und nicht beim stillen Nachholen alter Spielstände):
+  `Extras.TUT_FINAL` über `Extras.tutorial_step_reward` (auch für die Belohnung jedes Schritts):
+  fertige Gebäude (Hütte, Lagerhaus) auf dem ersten freien Platz um das Lagerfeuer (Ring für Ring, eine
+  Zelle Abstand; ohne Platz ihre Baukosten), 2 Einwanderer über `Game.grant_reward` (eine Frau und ein
+  Mann, mit niemandem verwandt) und sofort fertige Forschungen über `Game.grant_tech` (eine andere
+  laufende Forschung läuft weiter). Meldung „Belohnung für die Einführung: …“.
 - **Siedler-Infofenster ohne Balken**: Sättigung, Gesundheit, Vitamine, Laune, Erholung, Eigenschaften und
   Fähigkeiten haben keine Balken mehr; Eigenschaften und Fähigkeiten stehen als eine Textzeile
   („Bauen 3 · Nahrung 4+ · …“, `Hud._info_text`). Die Werte selbst gibt es weiter (Siedlerliste, Laune-Gründe).
@@ -618,7 +623,7 @@ er meldet sich als System bei Game an).
 - **Testhilfen**: `--coaltest=1` (Kohle vor Holz, Texte; mit `--season=3` ein Winter mit `--coal=N
   --coalwood=N`), `--freezetest=1` (mit `--season=3 --winter=normal`: ein Kind und eine Alte dazu, das
   Lager bleibt ohne Brennstoff; Bericht mit Kälte und Gesundheit je Siedler, Reihenfolge der Toten),
-  `--foodorder=1` (Essensreihenfolge), `--tutdone=1` (letzter Einführungsschritt: 2 Siedler, Hütte).
+  `--foodorder=1` (Essensreihenfolge), `--tutdone=1` (letzter Einführungsschritt: 2 Siedler, Hütte, Lagerhaus, 2 Forschungen).
 
 ## Inselstärken, Gewürze und fremde Händler (Herausforderung)
 
@@ -1723,7 +1728,7 @@ godot --headless -- --autotest=120 --scale=10 --build=1     # Simulation mit Ber
 godot --headless -- --autotest=400 --scale=10 --build=1 --research=1   # forscht automatisch
 godot --headless -- --autotest=60 --scale=10 --prodtest=1  # alle Werkstätten, alles erforscht
 godot --headless -- --autotest=120 --scale=10 --tuttest=1  # spielt die Einführung durch
-godot --headless --fixed-fps 60 -- --autotest=25 --scale=10 --seed=11 --tutdone=1  # Einführung beenden: 2 Siedler, Hütte
+godot --headless --fixed-fps 60 -- --autotest=25 --scale=10 --seed=11 --tutdone=1  # Einführung beenden: 2 Siedler, Hütte, Lagerhaus, 2 Forschungen
 godot --headless --fixed-fps 60 -- --autotest=100 --scale=10 --seed=11 --season=3 --coaltest=1  # Kohle vor Holz
 godot --headless --fixed-fps 60 -- --autotest=200 --scale=10 --seed=11 --season=3 --winter=normal --freezetest=1  # Erfrieren
 godot --headless --fixed-fps 60 -- --autotest=5 --scale=10 --foodorder=1  # Essensreihenfolge

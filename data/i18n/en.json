@@ -2293,5 +2293,12 @@
  "Planungsautomat": "Planning Engine",
  "Steht direkt vor der Verwaltung. Der Verwalter rechnet damit aus, was wo gebaut wird, welche Waren entstehen und welche Schiffe fahren: erst Essen und Wärme, dann Vorrat für den Winter, Häuser, Lager, Werkstätten und immer weiter Forschung. Gibt es nur einmal, ab der Industrialisierung.": "Stands right in front of the administration building. With it the administrator works out what is built where, which goods are made and which ships sail: first food and warmth, then winter stock, houses, storage, workshops and ever more research. Only one, from the Industrial Age.",
  "Neu: Planungsautomat": "New: Planning Engine",
- "Stellt den Planungsautomaten direkt vor die Verwaltung. Dann plant der Verwalter selbst: erst Essen und Wärme, dann Vorrat für den Winter, Häuser, Lager und Werkstätten, und er forscht immer weiter. Bauen und das Material bringen müssen die Siedler.": "Put the planning engine right in front of the administration building. Then the administrator plans himself: first food and warmth, then winter stock, houses, storage and workshops, and he keeps researching. The settlers have to build and bring the materials."
+ "Stellt den Planungsautomaten direkt vor die Verwaltung. Dann plant der Verwalter selbst: erst Essen und Wärme, dann Vorrat für den Winter, Häuser, Lager und Werkstätten, und er forscht immer weiter. Bauen und das Material bringen müssen die Siedler.": "Put the planning engine right in front of the administration building. Then the administrator plans himself: first food and warmth, then winter stock, houses, storage and workshops, and he keeps researching. The settlers have to build and bring the materials.",
+ "Belohnung für die Einführung: %s.": "Reward for the tutorial: %s.",
+ "fertig gebaut: %s": "built: %s",
+ "das Material für %s": "the materials for %s",
+ "erforscht: %s": "researched: %s",
+ "1 neuer Siedler": "1 new settler",
+ "%d neue Siedler": "%d new settlers",
+ "Geschafft! Belohnung: %s.": "Done! Reward: %s."
 }
