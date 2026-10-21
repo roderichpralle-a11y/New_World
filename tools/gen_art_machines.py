@@ -4,8 +4,9 @@
 Wird aus gen_art.py aufgerufen:
   automaton()      Rechenautomat (3x2), Zelle 56 in buildings.png ("automaton", Data.BUILDING_CELLS)
   droid_factory()  Droidenfabrik (3x2), Zelle 57 ("droid_factory")
+  radio()          Rundfunkanstalt (2x2), Zelle 90 ("radio"; josh 2026-10-21)
 """
-from gen_art import new, put, add_outline, STONE, IRON, DARK, GLOW, SLATE, ground_line, stone_wall, tile_roof
+from gen_art import new, put, add_outline, STONE, IRON, DARK, GLOW, SLATE, BRICK, ground_line, stone_wall, tile_roof
 
 BRASS = [(140, 100, 40), (190, 146, 60), (226, 190, 96), (250, 226, 150)]
 STEEL = [(54, 60, 74), (84, 92, 110), (122, 132, 152), (170, 180, 198), (214, 222, 234)]
@@ -205,3 +206,49 @@ def droid_sheet():
                     if ch != ".":
                         put(sheet, f * 16 + x, di * 24 + y, DROID_COL[ch])
     return sheet
+
+
+def radio():
+    """Rundfunkanstalt: kleines Backsteinhaus mit Ziegeldach und Fenstern, daneben ein hoher Gittermast
+    mit rotem Licht an der Spitze und Funkwellen."""
+    img = new(64, 64)
+    # Haus links
+    for y in range(36, 58):
+        for x in range(8, 38):
+            c = BRICK[1] if ((x + (2 if (y // 3) % 2 else 0)) % 6) else BRICK[0]
+            if y % 3 == 0:
+                c = BRICK[0]
+            put(img, x, y, c)
+    tile_roof(img, 8, 26, 30, 11)
+    for wx in (12, 26):  # Fenster mit Licht
+        for y in range(41, 47):
+            for x in range(wx, wx + 6):
+                put(img, x, y, (246, 214, 120) if not (x == wx + 2 or y == 44) else (90, 70, 50))
+    for y in range(50, 58):  # Tür
+        for x in range(20, 25):
+            put(img, x, y, (92, 58, 38) if x != 24 else (60, 40, 28))
+    # Gittermast rechts
+    top, base = 4, 57
+    for y in range(top, base + 1):
+        half = 1 + (y - top) * 6 // (base - top)
+        lx, rx = 49 - half, 49 + half
+        put(img, lx, y, STEEL[1])
+        put(img, rx, y, STEEL[2])
+        if (y - top) % 5 == 0:
+            for x in range(lx, rx + 1):
+                put(img, x, y, STEEL[1])
+        elif (y - top) % 5 == 2 and rx - lx > 2:
+            put(img, (lx + rx) // 2, y, STEEL[0])
+    put(img, 49, top - 1, (230, 50, 40))
+    put(img, 49, top - 2, (255, 120, 100))
+    # Funkwellen
+    for r, col in ((5, (170, 220, 250)), (8, (130, 190, 240))):
+        for a in range(-3, 4):
+            put(img, 49 - r, top + a + 1, col) if abs(a) < 3 else None
+            put(img, 49 + r, top + a + 1, col) if abs(a) < 3 else None
+    # Kabel vom Mast zum Haus
+    for x in range(38, 44):
+        put(img, x, 34 + (x - 38) // 3, DARK)
+    ground_line(img, 6, 58)
+    add_outline(img)
+    return img

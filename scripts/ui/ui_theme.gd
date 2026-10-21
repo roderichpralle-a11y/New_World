@@ -150,6 +150,24 @@ static func label(text: String, size: int = 16, color: Color = TEXT, bold: bool 
 	return l
 
 
+## Pastellgelber Hintergrund für Berufe, die der Verwalter zugewiesen hat (josh 2026-10-21).
+const ADMIN_TINT := Color(1.0, 0.97, 0.58)
+
+
+static func mark_admin(b: Button) -> void:
+	for st in ["normal", "hover", "pressed", "hover_pressed"]:
+		var sb = b.get_theme_stylebox(st)
+		if sb == null:
+			continue
+		sb = sb.duplicate()
+		if sb is StyleBoxTexture:
+			sb.modulate_color = ADMIN_TINT
+		elif sb is StyleBoxFlat:
+			sb.bg_color = sb.bg_color * ADMIN_TINT
+		b.add_theme_stylebox_override(st, sb)
+	b.tooltip_text += ("\n" if b.tooltip_text != "" else "") + Loc.t("Gelb: vom Verwalter zugewiesen")
+
+
 static func button(text: String, icon_name: String = "", min_h: float = 40.0) -> Button:
 	var b := Button.new()
 	b.text = text

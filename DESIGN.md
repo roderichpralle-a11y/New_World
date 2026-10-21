@@ -700,6 +700,20 @@ Spielstände würfeln die Werte reproduzierbar aus der Siedler-ID).
   gewichtet nach Gemüt und Klugheit), außer in einer Hungersnot (weniger als 3 Nahrung je Siedler).
   Spaziergang am Strand (josh 2026-10-20, `Settler._plan_stroll`): Feld für Feld über den Sand am Wasser, möglichst
   geradeaus, mit `stroll_speed` (0,4) des Gehtempos; erholt unterwegs wie eine Pause.
+- **Rundfunkanstalt, Reiter Inseln, gelbe Berufe, Anordnungen ab Stufe 8** (josh 2026-10-21, nur Testversion):
+  Gebäude `rundfunk` (Rundfunkanstalt, ab Papier, `"radio": true`, Bild Zelle 90 aus tools/gen_art_machines.py `radio()`).
+  Der Inselverbund (`Steward.net_active`) läuft nur, wenn die Heimatinsel und mindestens eine andere Insel eine
+  fertige Rundfunkanstalt haben; Inseln ohne machen nicht mit (`Steward._ids`, `net_member`, `has_radio`); die KI baut
+  sie auf der Heimatinsel selbst. Fenster Verwalter, Reiter „Inseln“ (`AdminInfo._islands_tab`, `TAB_ISLANDS` 5, geht
+  auch ohne Verwaltung; der Knopf Verwalter erscheint ab der 2. Insel): Verwalter steuert die Berufe (an/aus),
+  Inselverbund (an/aus, welche Inseln ohne Rundfunkanstalt sind) und Spezialisierung je Insel (Hauptaufgabe); unter
+  Inseln steht nur noch der Stand mit einem Knopf dorthin. Vom Verwalter vergebene Berufe (`Settler.set_job(j, true)`,
+  `by_admin`, gespeichert) haben in Siedlerliste und Infofenster einen pastellgelben Knopf (`UiTheme.mark_admin`).
+  Ab Forschungsstufe 8 (`Admin.SELF_ORDER_TIER`, Schalter `Admin.self_orders` im Reiter Verwalter) ordnet der
+  Verwalter bei fehlenden Leuten erst Überstunden, dann Schichtarbeit an (`auto_orders`, gelb markiert), beendet
+  Überstunden bei 80 % der erlaubten Zeit (danach ein Jahr Pause, `_ot_rest`) und alles, wenn zwei Meldezeiten
+  niemand mehr fehlt; schaltet der Spieler ab, lässt er den Beruf ein Jahr in Ruhe (`_hold`). Tests:
+  `--stewardtest=net`, `--admintest=1`, Bild `--fixture=<sea.json> --adminshot=islands`.
 - **Berufskleidung** (josh 2026-10-20, `Settler.OUTFIT`, `_apply_outfit`, Bilder aus tools/gen_art_outfits.py):
   Handwerker blauer Overall (Hemd und Hose eingefärbt), Bauer braune Hose und gelbe Schirmmütze, Koch weiße Hose
   und Kochmütze, Forscher weißes Hemd (josh 2026-10-21, statt Brille; settler_glasses.png bleibt unbenutzt liegen),

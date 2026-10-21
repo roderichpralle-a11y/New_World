@@ -16,7 +16,6 @@ var _tab_islands: Button
 var _tab_ships: Button
 var _title: Label
 var _goods_mode: String = "main"  # main, all, missing
-var _task_island: int = -1  # Hauptaufgabe wählen: für diese Insel ist die Auswahl offen
 var _mm_island: int = -1  # Mindest- und Höchststand bearbeiten (Steward, ab der 3. Insel): Insel und Ware
 var _mm_good: String = ""
 var _trip_from: int = -1
@@ -1033,7 +1032,8 @@ func _minmax_editor() -> void:
 	_details.add_child(box)
 
 
-## Verwalter-Steuerung (Steward): Schalter und Inseln, die er nicht schafft.
+## Verwalter-Steuerung (josh 2026-10-21): Schalter, Inselverbund und Spezialisierung stehen im Fenster
+## Verwalter, Reiter Inseln (AdminInfo._islands_tab); hier nur der Stand und ein Knopf dorthin.
 func _steward_row() -> void:
 	if not Steward.unlocked():
 		return
@@ -1046,86 +1046,15 @@ func _steward_row() -> void:
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	l.custom_minimum_size.x = 150
 	h.add_child(l)
-	var b := _small_btn(tr("Ausschalten") if Steward.on else tr("Einschalten"), "pause" if Steward.on else "play")
-	b.tooltip_text = tr("Er verteilt die Berufe nach dem Bedarf: Essen, Brennholz, Lager bis zur Höchstmenge, Werkstätten und Baustellen.")
+	var b := _small_btn(tr("Verwalter"), "person")
+	b.tooltip_text = tr("Berufe, Inselverbund und Spezialisierung der Inseln stellst du im Fenster Verwalter ein (Reiter Inseln).")
 	b.pressed.connect(func():
-		Steward.set_on(not Steward.on)
-		refresh())
+		AdminInfo._tab = AdminInfo.TAB_ISLANDS
+		if hud:
+			hud._open_admin())
 	h.add_child(b)
 	box.add_child(h)
 	_details.add_child(box)
-	if Steward.on and Steward.net_unlocked():
-		var nb := _box(Color("#e3eecf") if Steward.net_on else CELL_BG, CELL_LINE, 2, 6)
-		var nh := HBoxContainer.new()
-		nh.add_theme_constant_override("separation", 8)
-		nh.add_child(UiTheme.icon_rect(Data.icon("papier"), 20))
-		var nl := UiTheme.label(tr("Inselverbund: an (Heimatinsel verarbeitet, die anderen liefern)") if Steward.net_on else tr("Inselverbund: aus (jede Insel versorgt sich selbst)"), 14, UiTheme.TEXT, true)
-		nl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		nl.custom_minimum_size.x = 150
-		nh.add_child(nl)
-		var nbt := _small_btn(tr("Ausschalten") if Steward.net_on else tr("Einschalten"), "pause" if Steward.net_on else "play")
-		nbt.pressed.connect(func():
-			Steward.set_net(not Steward.net_on)
-			refresh())
-		nh.add_child(nbt)
-		nb.add_child(nh)
-		_details.add_child(nb)
-	if Steward.on:
-		_task_rows()
-	if Steward.on:
-		for m in Sea.settled_islands():
-			var why := Steward.blocked_on(Sea.worlds.get(int(m.id)))
-			if why != "":
-				_details.add_child(_hint(tr("%s: %s.") % [m.name, why]))
-
-
-## Hauptaufgabe je Insel (josh 2026-10-18): eine Zeile je Insel, Tippen öffnet die Auswahl (mehrere wählbar).
-func _task_rows() -> void:
-	_details.add_child(UiTheme.label(tr("Hauptaufgabe je Insel"), 14, UiTheme.TEXT, true))
-	for m in Sea.settled_islands():
-		var iid := int(m.id)
-		var w = Sea.worlds.get(iid)
-		if w == null:
-			continue
-		var keys := Steward.tasks_of(w)
-		var h := HBoxContainer.new()
-		h.add_theme_constant_override("separation", 6)
-		var l := UiTheme.label("%s: %s" % [m.name, Steward.task_names(w) if not keys.is_empty() else tr("Keine (nur nach Bedarf)")], 14)
-		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		h.add_child(l)
-		var b := _small_btn(tr("Fertig") if _task_island == iid else tr("Wählen"), Steward.TASKS[keys[0]].icon if not keys.is_empty() else "person")
-		b.pressed.connect(func():
-			_task_island = -1 if _task_island == iid else iid
-			refresh())
-		h.add_child(b)
-		_details.add_child(h)
-		if not keys.is_empty():
-			var parts := []
-			for j in Steward.task_jobs(w):
-				parts.append("%s %d/%d" % [Data.jobs[j].name, Steward._count(w, j), Steward.task_target(w, j)])
-			_details.add_child(_hint(tr("Berufe: %s") % ", ".join(PackedStringArray(parts)) if not parts.is_empty() else tr("Hier fehlt noch die passende Werkstatt oder Forschung.")))
-		if _task_island == iid:
-			_details.add_child(_hint(tr("Mehrere wählbar. Nochmal tippen wählt ab.")))
-			var grid := GridContainer.new()
-			grid.columns = 2
-			grid.add_theme_constant_override("h_separation", 4)
-			grid.add_theme_constant_override("v_separation", 4)
-			var opts: Array = [""] + Steward.TASKS.keys()
-			for k in opts:
-				if k == "forschung" and not Sea.is_main(w):
-					continue
-				var tb := _small_btn(tr(Steward.TASKS[k].name) if k != "" else tr("Keine"), Steward.TASKS[k].icon if k != "" else "abriss")
-				tb.toggle_mode = true
-				tb.button_pressed = k in keys if k != "" else keys.is_empty()
-				tb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-				var kk: String = k
-				tb.pressed.connect(func():
-					Steward.toggle_task(iid, kk)
-					refresh())
-				grid.add_child(tb)
-			_details.add_child(grid)
 
 
 # ---------------------------------------------------------------- Schiffe

@@ -400,7 +400,7 @@ func _build_bottom() -> void:
 func _update_admin_button() -> void:
 	if _admin_btn == null:
 		return
-	var show := Game.is_unlocked("verwaltung")
+	var show := Game.is_unlocked("verwaltung") or Steward.unlocked()  # ab der 2. Insel: Reiter Inseln (josh 2026-10-21)
 	if _admin_btn.visible != show:
 		_admin_btn.visible = show
 		_layout()
@@ -1766,6 +1766,8 @@ func _refresh_settler_list() -> void:
 				if j == s.job:
 					ob.select(ids.size() - 1)
 			ob.tooltip_text = tr("Beruf wählen") + (tr("\nStern: passt zum Talent (%s)") % TalentInfo.short_list(s.mind) if not s.mind.best_talents().is_empty() else "")
+			if s.by_admin:
+				UiTheme.mark_admin(ob)
 			ob.item_selected.connect(func(i):
 				sref.set_job(ids[i])
 				Steward.player_set(sref)  # Verwalter überstimmt das eine Weile nicht
@@ -2455,7 +2457,7 @@ func _show_offer(kind: String) -> void:
 	match kind:
 		"jobs":
 			choice_dialog("person", tr("Der Verwalter kann die Berufe steuern"),
-				tr("Jetzt hast du mehr als eine Insel, und die Arbeit wird mehr. Der Verwalter kann auf allen Inseln, auch auf der Heimatinsel, die Berufe der Siedler nach dem Bedarf verteilen:\n• Er sorgt dafür, dass immer genug zu essen da ist.\n• Er sorgt für Brennholz, damit im Herbst und Winter niemand friert.\n• Er füllt die Lager bis zur Höchstmenge, die du unter Vorräte eingestellt hast.\n• Er besetzt Werkstätten, die stillstehen, und schickt Baumeister zu Baustellen.\nGibst du einem Siedler selbst einen Beruf, lässt der Verwalter ihn 2 Tage in Ruhe. Inseln mit mehr als 60 Siedlern schafft er nicht. Ein- und ausschalten kannst du ihn jederzeit unter Inseln."),
+				tr("Jetzt hast du mehr als eine Insel, und die Arbeit wird mehr. Der Verwalter kann auf allen Inseln, auch auf der Heimatinsel, die Berufe der Siedler nach dem Bedarf verteilen:\n• Er sorgt dafür, dass immer genug zu essen da ist.\n• Er sorgt für Brennholz, damit im Herbst und Winter niemand friert.\n• Er füllt die Lager bis zur Höchstmenge, die du unter Vorräte eingestellt hast.\n• Er besetzt Werkstätten, die stillstehen, und schickt Baumeister zu Baustellen.\nGibst du einem Siedler selbst einen Beruf, lässt der Verwalter ihn 2 Tage in Ruhe. Inseln mit mehr als 60 Siedlern schafft er nicht. Ein- und ausschalten kannst du ihn jederzeit im Fenster Verwalter, Reiter Inseln. Dort legst du auch fest, worauf sich jede Insel spezialisiert."),
 				[[tr("Verwalter einschalten"), "play", func(): Steward.set_on(true)], [tr("Später"), "abriss", func(): pass]])
 		"routes":
 			var btns: Array = [[tr("Verstanden"), "play", func(): pass]]
@@ -2469,11 +2471,11 @@ func _show_offer(kind: String) -> void:
 			if not Steward.on:
 				b2 = [[tr("Verwalter einschalten"), "play", func(): Steward.set_on(true)], [tr("Später"), "abriss", func(): pass]]
 			choice_dialog("papier", tr("Die Verwalter arbeiten jetzt zusammen"),
-				tr("Mit Papier schreiben sich die Verwalter der Inseln Briefe. Sie arbeiten als Inselverbund:\n• Die Heimatinsel macht nur noch Endverarbeitung und Forschung. Holzfäller, Bauern, Fischer und Steinmetze dort werden zu Handwerkern und Forschern.\n• Die anderen Inseln holen Essen und Rohstoffe. Ihre Schiffe bringen Essen und Brennholz zur Heimatinsel.\n• Was die anderen Inseln zu viel haben, wird zur Heimatinsel abgeholt.\n• Alle Forschungsplätze werden besetzt.\nDu kannst den Inselverbund unter Inseln abschalten; deine eigenen Berufe, Routen und Grenzen gelten weiter."),
+				tr("Mit Papier können die Verwalter der Inseln zusammenarbeiten. Dafür braucht jede Insel eine Rundfunkanstalt (Bauen, Reiter Wissen), auch die Heimatinsel; Inseln ohne machen nicht mit. Dann arbeiten sie als Inselverbund:\n• Die Heimatinsel macht nur noch Endverarbeitung und Forschung. Holzfäller, Bauern, Fischer und Steinmetze dort werden zu Handwerkern und Forschern.\n• Die anderen Inseln holen Essen und Rohstoffe. Ihre Schiffe bringen Essen und Brennholz zur Heimatinsel.\n• Was die anderen Inseln zu viel haben, wird zur Heimatinsel abgeholt.\n• Alle Forschungsplätze werden besetzt.\nDu kannst den Inselverbund im Fenster Verwalter, Reiter Inseln, abschalten; deine eigenen Berufe, Routen und Grenzen gelten weiter."),
 				b2)
 		"automat":
 			choice_dialog("strom", tr("Ein Automat ersetzt den Verwalter"),
-				tr("Mit Elektrizität rechnet ein elektrischer Automat schneller als jeder Verwalter. Er steuert ab jetzt die Inseln, die Berufe und die Waren, auch auf Inseln mit mehr als 60 Siedlern. Seine Meldungen beginnen mit „Automat“. Abschalten kannst du ihn wie den Verwalter unter Inseln."),
+				tr("Mit Elektrizität rechnet ein elektrischer Automat schneller als jeder Verwalter. Er steuert ab jetzt die Inseln, die Berufe und die Waren, auch auf Inseln mit mehr als 60 Siedlern. Seine Meldungen beginnen mit „Automat“. Abschalten kannst du ihn wie den Verwalter im Fenster Verwalter, Reiter Inseln."),
 				[[tr("Verstanden"), "play", func(): pass]])
 		"ki":
 			choice_dialog("ki", tr("Die KI übernimmt"),
@@ -2947,6 +2949,8 @@ func _info_settler(s: Settler) -> void:
 		_info_box.add_child(UiTheme.label(tr("Kinder arbeiten noch nicht."), 13))
 	else:
 		_info_box.add_child(UiTheme.label(tr("Beruf"), 15, UiTheme.TEXT, true))
+		if s.by_admin:
+			_info_box.add_child(UiTheme.label(tr("Gelb: vom Verwalter zugewiesen"), 12, DIM))
 		if not m.best_talents().is_empty():
 			var hint := UiTheme.label(tr("Stern: Beruf passt zum Talent"), 12, DIM)
 			hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -2969,6 +2973,8 @@ func _info_settler(s: Settler) -> void:
 				b.icon = TalentInfo.star()
 				tip += "\n" + TalentInfo.line(m, jd.skill)
 			b.tooltip_text = tip
+			if s.job == j and s.by_admin:
+				UiTheme.mark_admin(b)
 			var jid: String = j
 			if not Data.job_unlocked(j):
 				b.disabled = true

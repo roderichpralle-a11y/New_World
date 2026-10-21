@@ -166,7 +166,7 @@ func _ki_tick() -> void:
 	# Heimatinsel: Siedler ohne Beruf forschen
 	for s in hw.settlers:
 		if s.is_adult() and s.job == "frei" and not Steward.locked(s):
-			s.set_job("forscher")
+			s.set_job("forscher", true)
 
 
 func _first(w, cond: Callable):
@@ -182,6 +182,8 @@ func _build() -> void:
 	if w == null or not w.construction_sites().is_empty():
 		return
 	var wish := []
+	if not Steward.has_radio(w):
+		wish.append(["rundfunk", tr("damit ich mit den anderen Inseln sprechen kann")])
 	if _count(w, "droidenfabrik") == 0:
 		wish.append(["droidenfabrik", tr("Droiden ersetzen die Arbeit")])
 	if Game.amount("strom", w) < 10 + count_droids() * 3:

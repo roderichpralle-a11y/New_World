@@ -160,6 +160,10 @@ static func routes(main) -> void:
 
 ## --stewardtest=net mit --fixture=<sea.json>: Inselverbund ab Papier (Essen zur Heimatinsel, Rohstoff-Berufe
 ## dort überzählig, Forscher, Überschuss abholen), Rechenautomat-Bedingung und Automat ab Elektrizität.
+static func _radio(main, w) -> void:
+	main._place_on(w, "rundfunk")  # fertig gebaut
+
+
 static func net(main) -> void:
 	await _wait(main, 0.5)
 	var hud = main.hud
@@ -176,11 +180,16 @@ static func net(main) -> void:
 	Game.research.done.erase("elektrizitaet")
 	print("Verwalter ", _okf(not Steward.net_active()), " ohne Papier kein Inselverbund")
 	Game.research.done.append("papier")
-	print("Verwalter ", _okf(Steward.net_active()), " mit Papier: Inselverbund an")
+	Game.refresh_effects()
+	print("Verwalter ", _okf(not Steward.net_active()), " mit Papier, aber ohne Rundfunkanstalt: kein Inselverbund (josh 2026-10-21)")
 	var hw = Sea.main_world()
 	var home_id := int(hw.island_id)
 	var ids: Array = Sea.settled_islands().map(func(m): return int(m.id)).filter(func(i): return i != home_id)
 	var ow = Sea.worlds.get(ids[0])
+	_radio(main, ow)
+	print("Verwalter ", _okf(not Steward.net_active()), " Rundfunkanstalt nur auf der anderen Insel: Verbund ruht (Heimatinsel fehlt)")
+	_radio(main, hw)
+	print("Verwalter ", _okf(Steward.net_active() and Steward.net_member(hw) and Steward.net_member(ow)), " mit Rundfunkanstalt auf beiden Inseln: Inselverbund an")
 	# Essen: Heimatinsel knapp (2 Tage), andere Insel reichlich
 	for w in [hw, ow]:
 		_food_ids_zero(w)

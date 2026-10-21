@@ -117,6 +117,7 @@ func setup(p_world, data: Dictionary) -> void:
 	skill_xp = data.get("skill_xp", {})
 	mind = SettlerMind.new(self, data)
 	job = data.get("job", "frei")
+	by_admin = bool(data.get("by_admin", false))
 	home_id = int(data.get("home", 0))
 	look = data.get("look", random_look(_rng))
 	carry_res = data.get("carry_res", "")
@@ -254,11 +255,14 @@ func best_job() -> String:
 
 
 var _outfit_job := "?"
+var by_admin := false  # Beruf vom Verwalter zugewiesen (josh 2026-10-21)
 
 
 ## Kleidung zum Beruf (OUTFIT): Hemd und Hose einfärben, Mützen, Brille, Schürze, Gewehr und Säge zeigen.
 func _apply_outfit() -> void:
 	_outfit_job = _outfit_key()
+	if not _layers.has("shirt"):
+		return  # Droiden haben ein eigenes Bild
 	var o: Dictionary = OUTFIT.get(job, {}) if _at_work() else {}
 	_layers["shirt"].modulate = Color(o.get("shirt", look.get("shirt", "#ffffff")))
 	_layers["pants"].modulate = Color(o.get("pants", look.get("pants", "#ffffff")))
@@ -276,7 +280,9 @@ func _outfit_key() -> String:
 	return job + str(_at_work())
 
 
-func set_job(j: String) -> void:
+## by_admin: der Verwalter (Admin, Steward, KI) hat den Beruf zugewiesen; die Listen zeigen ihn pastellgelb.
+func set_job(j: String, admin := false) -> void:
+	by_admin = admin and j != "frei"
 	if j == job:
 		return
 	job = j
@@ -1755,9 +1761,9 @@ func _animate(delta: float) -> void:
 	var battle: bool = _battle_tool != "" and not _plan.is_empty() and _plan[0].get("defend", false) and not _working
 	var reading: String = _plan[0].get("read", "") if not _plan.is_empty() and _plan[0].a == "wait" and not _moving else ""
 	_tool.visible = (_working and _cur_tool != "" or battle or reading != "") and not sleeping
-	if _layers["saw"].visible != (job == "foerster" and _at_work() and not _tool.visible):  # Säge in der Hand, außer beim Arbeiten
+	if _layers.has("saw") and _layers["saw"].visible != (job == "foerster" and _at_work() and not _tool.visible):  # Säge in der Hand, außer beim Arbeiten
 		_layers["saw"].visible = not _layers["saw"].visible
-	if _layers["rifle"].visible:  # Gewehr auf dem Rücken: von vorn und von der Seite hinter dem Körper
+	if _layers.has("rifle") and _layers["rifle"].visible:  # Gewehr auf dem Rücken: von vorn und von der Seite hinter dem Körper
 		var at: int = _body.get_child_count() - 1 if _dir == DIR_UP else 0
 		if _layers["rifle"].get_index() != at:
 			_body.move_child(_layers["rifle"], at)
@@ -1855,7 +1861,7 @@ func serialize() -> Dictionary:
 	return {
 		"id": id, "name": display_name, "sex": sex, "age": snappedf(age, 0.001), "max_age": max_age,
 		"hunger": snappedf(hunger, 0.01), "health": snappedf(health, 0.01), "skills": skills,
-		"skill_xp": skill_xp, "job": job, "home": home_id, "look": look,
+		"skill_xp": skill_xp, "job": job, "by_admin": by_admin, "home": home_id, "look": look,
 		"carry_res": carry_res, "carry_n": carry_n, "birth_cd": birth_cooldown_until,
 		"parents": parents, "x": cell.x, "y": cell.y, "mind": mind.serialize(),
 		"busy": {"job": snappedf(float(busy.get("job", 0.0)), 0.001), "other": snappedf(float(busy.get("other", 0.0)), 0.001),

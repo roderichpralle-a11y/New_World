@@ -116,7 +116,7 @@ func tick(w) -> void:
 		if pick == null:
 			return
 		var old: String = pick.job_name()
-		pick.set_job(need.job)
+		pick.set_job(need.job, true)
 		locks[int(pick.id)] = Game.time_days + 0.5  # nicht gleich wieder umsetzen
 		Game.notify_at(w, who() + ": " + tr("%s arbeitet jetzt als %s (%s, vorher %s).") % [pick.display_name, Data.jobs[need.job].name, need.why, old], "person", "verwaltung")
 
@@ -156,7 +156,7 @@ func needed(w) -> Dictionary:
 	var food_goal := 3.0
 	if home and _supplier(w, "food") != -1:
 		food_goal = 1.0
-	elif net and not Sea.is_main(w):
+	elif net and not Sea.is_main(w) and has_radio(w):
 		food_goal = NET_FOOD_DAYS
 	if fd >= 0.0 and fd < food_goal:
 		return {"job": _food_job(w), "why": tr("zu wenig Essen") if fd < 3.0 else tr("Essen für die Heimatinsel"), "hard": fd < 1.5}
@@ -186,7 +186,7 @@ func needed(w) -> Dictionary:
 			if b.complete and b.def.has("research") and b.free_slots() > 0 and w.pool_allows(b):
 				return {"job": "forscher", "why": tr("freie Forschungsplätze"), "hard": false}
 	# 4c. Im Inselverbund: die anderen Inseln liefern die Rohstoffe, die der Heimatinsel fehlen
-	if net and not Sea.is_main(w):
+	if net and not Sea.is_main(w) and has_radio(w):
 		var hw = Sea.main_world()
 		for id in _home_wants(hw):
 			var j := str(RAW_JOB.get(id, ""))
@@ -237,7 +237,7 @@ func _producer(w, id: String) -> String:
 func _surplus(w, job: String) -> bool:
 	if job in task_jobs(w):
 		return false  # Hauptaufgabe der Insel: diese Berufe bleiben
-	if net_active() and Sea.is_main(w) and job in RAW_JOB.values() and Sea.settled_islands().size() >= 2:
+	if net_active() and Sea.is_main(w) and job in RAW_JOB.values():
 		return true  # Heimatinsel im Inselverbund: nur noch Endverarbeitung
 	var goods := []
 	for id in RAW_JOB:
@@ -534,7 +534,9 @@ func _room_below_max(island_id: int, id: String) -> int:
 
 
 # ---------------------------------------------------------------- Stufe 3: Inselverbund, Rechenautomat, Automat
-## Ab Papier reden die Verwalter der Inseln miteinander (net_on, abschaltbar): die Heimatinsel macht nur noch
+## Ab Papier reden die Verwalter der Inseln miteinander (net_on, abschaltbar), aber nur über eine Rundfunkanstalt
+## (Gebäude mit "radio", josh 2026-10-21): mitmachen nur Inseln mit fertiger Rundfunkanstalt, und ohne eine auf
+## der Heimatinsel ruht der Verbund ganz (net_member, has_radio). Die Heimatinsel macht nur noch
 ## Endverarbeitung und Forschung, Rohstoff-Berufe sind dort überzählig. Essen und Brennholz kommen per Schiff
 ## von den anderen Inseln (die dafür NET_FOOD_DAYS Tage Vorrat halten), Überschüsse an Rohstoffen werden zur
 ## Heimatinsel abgeholt. Rechenautomat (Gebäude, ab 2 Inseln, einer Insel mit über 60 Siedlern und der
@@ -555,7 +557,31 @@ func net_unlocked() -> bool:
 
 
 func net_active() -> bool:
-	return active() and net_on and net_unlocked()
+	return active() and net_on and net_unlocked() and has_radio(Sea.main_world()) and _ids().size() >= 2
+
+
+func has_radio(w) -> bool:
+	if w == null:
+		return false
+	for b in w.buildings:
+		if is_instance_valid(b) and b.complete and b.def.get("radio", false):
+			return true
+	return false
+
+
+## Gehört die Insel zum Inselverbund? (Verbund an und eine Rundfunkanstalt auf der Insel)
+func net_member(w) -> bool:
+	return net_active() and has_radio(w)
+
+
+## Inseln ohne Rundfunkanstalt (Namen), für den Hinweis unter Inseln.
+func islands_without_radio() -> Array:
+	var out := []
+	for m in Sea.settled_islands():
+		var w = Sea.worlds.get(int(m.id))
+		if w != null and not has_radio(w):
+			out.append(Sea.island_name(w))
+	return out
 
 
 func set_net(v: bool) -> void:
@@ -601,8 +627,9 @@ func automaton_reason() -> String:
 	return tr("Benötigt noch: %s") % ", ".join(PackedStringArray(miss))
 
 
+## Inseln im Inselverbund: bewohnt und mit Rundfunkanstalt.
 func _ids() -> Array:
-	return Sea.settled_islands().map(func(m): return int(m.id))
+	return Sea.settled_islands().map(func(m): return int(m.id)).filter(func(i): return has_radio(Sea.worlds.get(i)))
 
 
 ## Welche andere Insel kann der Heimatinsel liefern? what = "food" oder eine Ware. -1 = keine.
