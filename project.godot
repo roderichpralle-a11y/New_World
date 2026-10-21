@@ -27,6 +27,10 @@ Merchant="*res://scripts/autoload/merchant.gd"
 Events="*res://scripts/autoload/events.gd"
 Admin="*res://scripts/autoload/admin.gd"
 Hints="*res://scripts/autoload/hints.gd"
+Steward="*res://scripts/autoload/steward.gd"
+Droids="*res://scripts/autoload/droids.gd"
+AiRule="*res://scripts/autoload/ai_rule.gd"
+Planner="*res://scripts/autoload/planner.gd"
 
 [display]
 

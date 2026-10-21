@@ -31,9 +31,12 @@
   "pilze": {"name": "Pilze", "icon": "pilze", "category": "food", "nutrition": 12, "vitamins": 12, "size": 1, "order": 19, "price": 0.1},
   "glas": {"name": "Glas", "icon": "glas", "category": "material", "size": 2, "order": 9.7, "price": 1},
   "papier": {"name": "Papier", "icon": "papier", "category": "material", "size": 1, "order": 9.71, "price": 0.8},
+  "buecher": {"name": "Bücher", "icon": "buecher", "category": "material", "size": 1, "order": 9.72, "price": 1.5},
+  "zeitungen": {"name": "Zeitungen", "icon": "zeitungen", "category": "material", "size": 1, "order": 9.73, "price": 0.6},
   "stahl": {"name": "Stahl", "icon": "stahl", "category": "material", "size": 2, "order": 9.72, "price": 2.5},
   "maschinen": {"name": "Maschinen", "icon": "maschinen", "category": "material", "size": 3, "order": 9.73, "price": 6},
   "strom": {"name": "Strom", "icon": "strom", "category": "material", "size": 0, "order": 9.74},
   "elektronik": {"name": "Elektronik", "icon": "elektronik", "category": "material", "size": 1, "order": 9.75, "price": 8},
+  "droide": {"name": "Droide", "icon": "roboter", "category": "material", "size": 3, "order": 9.76},
   "konserven": {"name": "Konserven", "icon": "konserven", "category": "food", "nutrition": 30, "vitamins": 8, "size": 1, "order": 19.5, "price": 0.6}
 }

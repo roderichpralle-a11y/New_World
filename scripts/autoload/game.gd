@@ -219,7 +219,7 @@ func _process(delta: float) -> void:
 		# KI-Steuerung (KI-Zentrum): freie Siedler auf fehlende Berufe verteilen
 		if time_days >= _ai_next:
 			_ai_next = time_days + 0.25
-			if eff_add("ai_jobs") > 0.0:
+			if eff_add("ai_jobs") > 0.0 and not AiRule.si():  # Superintelligenz: Menschen steuert nur noch der Spieler
 				for w in Sea.all_worlds():
 					AiJobs.tick(w)
 		if time_days >= _wait_next:
@@ -923,8 +923,8 @@ func on_settler_died(s, reason: String, cause: String = "") -> void:
 	if selected == s:
 		select(null)
 	population_changed.emit()
-	if s.world and s.world.settlers.is_empty():
-		Sea.island_lost(s.world)
+	if s.world and s.world.settlers.is_empty() and s.world.droids.is_empty():
+		Sea.island_lost(s.world)  # mit Droiden bleibt die Insel bestehen (KI, josh 2026-10-17)
 	if Sea.total_people() == 0:
 		is_over = true
 		set_speed(0)
@@ -994,6 +994,12 @@ func tech_state(t: String) -> String:
 
 
 func is_unlocked(building_type: String) -> bool:
+	if AiRule.build_block(building_type) != "":
+		return false  # Superintelligenz: keine Häuser
+	if Data.buildings.get(building_type, {}).get("automaton", false) and Steward.automaton_reason() != "":
+		return false  # Rechenautomat: ab 2 Inseln, einer Insel mit über 60 Siedlern und der Renaissance
+	if Data.buildings.get(building_type, {}).get("planner", false) and Planner.build_reason() != "":
+		return false  # Planungsautomat: ab der Industrialisierung und vor einer fertigen Verwaltung
 	# Bauplan aus einem Auftrag: baubar auch ohne die Forschung
 	return is_researched(Data.buildings.get(building_type, {}).get("requires", "")) or Quests.has_plan(building_type)
 

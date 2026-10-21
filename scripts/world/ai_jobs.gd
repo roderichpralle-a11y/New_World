@@ -27,7 +27,7 @@ static func tick(w) -> void:
 			pick = _best_for(others, want)
 	if pick == null:
 		return
-	pick.set_job(want)
+	pick.set_job(want, true)
 	Game.notify_at(w, Loc.t("KI: %s arbeitet jetzt als %s.") % [pick.display_name, Data.jobs[want].name], "ki")
 
 

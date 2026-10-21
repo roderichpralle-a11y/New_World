@@ -42,9 +42,10 @@
       "desc": "Sturmflut!", "coast_radius": 2, "breach_base": 0.3, "breach_power": 0.2},
     "piraten": {"name": "Piraten", "icon": "schwert", "weights": [2, 3, 1, 0], "min_settlers": 8, "reward": true, "min_tier": 4,
       "text": "Piraten wollen an Land gehen und das Lager plündern. Die Erwachsenen verteidigen die Insel, Kinder und Alte verstecken sich.",
-      "hint": "Waffen aus der Waffenschmiede machen die Siedler doppelt so stark, Wachtürme helfen. Ihre Beute nehmen die Piraten erst beim Ablegen mit.", "counter": {"building": "waffenschmiede"},
+      "hint": "Waffen aus der Waffenschmiede machen die Siedler doppelt so stark, Wachtürme helfen und beruhigen. Je schlechter die Insel geschützt ist, desto mehr Angst haben die Siedler. Ihre Beute nehmen die Piraten erst beim Ablegen mit.", "counter": {"building": "waffenschmiede"},
       "desc": "Piraten sind gelandet!",
-      "count": [3, 5, 12], "home_after": 0.5, "timeout": 0.8, "gold_per_kill": 1}
+      "count": [3, 5, 12], "home_after": 0.5, "timeout": 0.8, "gold_per_kill": 1,
+      "fear_max": 25, "fear_armed": 1.0, "fear_unarmed": 0.4, "fear_tower": 3.0, "fear_tower_calm": 0.7, "fear_after_days": 2.0, "fear_rest": 40}
   },
   "raider": {"name": "Pirat", "plural": "Piraten", "by": "von Piraten", "hp": 60, "hp_age": 0.15, "damage": 9, "attack_time": 1.0,
     "speed": 34, "aggro": 3, "night_aggro": 3, "chase": 9,

@@ -117,6 +117,7 @@ func setup(p_world, data: Dictionary) -> void:
 	skill_xp = data.get("skill_xp", {})
 	mind = SettlerMind.new(self, data)
 	job = data.get("job", "frei")
+	by_admin = bool(data.get("by_admin", false))
 	home_id = int(data.get("home", 0))
 	look = data.get("look", random_look(_rng))
 	carry_res = data.get("carry_res", "")
@@ -254,11 +255,14 @@ func best_job() -> String:
 
 
 var _outfit_job := "?"
+var by_admin := false  # Beruf vom Verwalter zugewiesen (josh 2026-10-21)
 
 
 ## Kleidung zum Beruf (OUTFIT): Hemd und Hose einfärben, Mützen, Brille, Schürze, Gewehr und Säge zeigen.
 func _apply_outfit() -> void:
 	_outfit_job = _outfit_key()
+	if not _layers.has("shirt"):
+		return  # Droiden haben ein eigenes Bild
 	var o: Dictionary = OUTFIT.get(job, {}) if _at_work() else {}
 	_layers["shirt"].modulate = Color(o.get("shirt", look.get("shirt", "#ffffff")))
 	_layers["pants"].modulate = Color(o.get("pants", look.get("pants", "#ffffff")))
@@ -276,7 +280,9 @@ func _outfit_key() -> String:
 	return job + str(_at_work())
 
 
-func set_job(j: String) -> void:
+## by_admin: der Verwalter (Admin, Steward, KI) hat den Beruf zugewiesen; die Listen zeigen ihn pastellgelb.
+func set_job(j: String, admin := false) -> void:
+	by_admin = admin and j != "frei"
 	if j == job:
 		return
 	job = j
@@ -374,6 +380,8 @@ func _needs(days: float) -> void:
 ## Kinder lernen beim Spielen ein wenig, in der Schule viel, vor allem in ihren Begabungen.
 func _learn_as_child(days: float, in_school: bool) -> void:
 	var xp := float(Data.ppl("school_xp_per_day", 120.0)) if in_school else float(Data.ppl("play_xp_per_day", 12.0))
+	if world.reading_good() != "":
+		xp *= float(Data.bal("reading_child_learn", 1.3))  # Bücher und Zeitungen: Kinder lernen schneller
 	for sk in Data.skills:
 		gain_xp(sk, xp * days * float(mind.talents.get(sk, 1.0)), true)
 
@@ -389,6 +397,8 @@ func _think() -> void:
 	_release()
 	var prev_kind := _stat_kind
 	_stat_kind = "needs"
+	if sleeping and AiRule.ending:
+		_wake_up()  # am Ende schläft niemand mehr, alle sitzen am Lagerfeuer
 	if sleeping and _sleep_time():
 		return
 	# Schwer krank: im Bett bleiben, nur zum Essen aufstehen
@@ -413,6 +423,12 @@ func _think() -> void:
 	# 2b. Nichts im Lager (oder Lager voll): Hungrige essen direkt am Strauch oder Ufer
 	if hunger < float(Data.bal("eat_below")) * 0.6 and Game.total_food(world) <= 0 and not Game.is_night():
 		if _plan_forage():
+			return
+	# 2c. Ende unter der Superintelligenz: die letzten Siedler sitzen frierend am Lagerfeuer
+	if AiRule.ending and is_adult():
+		var cf = AiRule.campfire(world)
+		if cf != null:
+			_plan_wander(1, tr("Sitzt am Lagerfeuer und friert"), cf.entrance_cell())
 			return
 	# 3. Schlafen (Schichtarbeit: jede Nacht arbeitet die Hälfte durch)
 	if _sleep_time():
@@ -664,10 +680,31 @@ func _plan_leisure() -> bool:
 	if not kids.is_empty():
 		var k = kids[_rng.randi() % kids.size()]
 		opts.append([1.0 + g * 0.15, k.cell, tr("Spielt mit %s") % k.display_name, false])
+	# Lesestoff im Lager (josh 2026-10-20): mit Buch oder Zeitung am Feuer oder draußen im Grünen
+	var rg: String = world.reading_good()
+	if rg != "":
+		var what := tr("ein Buch") if rg == "buecher" else tr("Zeitung")
+		var tool := "book" if rg == "buecher" else "newspaper"
+		if fire:
+			opts.append([2.0, fire.cell, tr("Liest am Feuer %s") % what, true, tool])
+		for i in 6:
+			var c := cell + Vector2i(_rng.randi_range(-7, 7), _rng.randi_range(-7, 7))
+			if world.is_walkable(c) and not world.building_at.has(c) and not world.near_fire(world.cell_to_pos(c)):
+				opts.append([2.0, c, tr("Liest im Grünen %s") % what, false, tool])
+				break
 	for b in world.buildings:
 		if b.complete and b.def.get("base", b.type) in ["bibliothek", "schreibstube"] and b.def.has("research"):
 			opts.append([mind.trait_value("iq") * 0.4, b.entrance_cell(), tr("Liest in: %s") % b.def.name, false])
 			break
+	# Schmuck (josh 2026-10-20): langsam durch den Park gehen, auf einer Bank oder im Pavillon sitzen
+	var park = _near_spot("park")
+	if park != null:
+		opts.append([2.5, park.cell + Vector2i(1, 1), tr("Spaziert durch den Park"), false, "", "park", park])
+	for kind in ["bench", "pavilion"]:
+		var seat = _near_spot(kind)
+		if seat != null:
+			var txt := tr("Sitzt auf der Bank") if kind == "bench" else tr("Sitzt im Pavillon")
+			opts.append([2.0, seat.cell, txt, false, "", kind, seat])
 	if opts.is_empty():
 		return false
 	var total := 0.0
@@ -680,6 +717,8 @@ func _plan_leisure() -> bool:
 		if x <= 0.0:
 			pick = o
 			break
+	if pick.size() > 5:
+		return _plan_decor_leisure(pick[5], pick[6], pick[2])
 	if pick[3]:
 		if not _push_move_to([pick[1]], true):
 			return false
@@ -691,7 +730,10 @@ func _plan_leisure() -> bool:
 	if pick[1] == beach and beach != null and _plan_stroll(beach, pick[2]):
 		activity = tr("Freizeit: ") + pick[2]
 		return true
-	_plan.append({"a": "wait", "t": mind.break_length(), "rest": true, "act": pick[2]})
+	var rest := {"a": "wait", "t": mind.break_length(), "rest": true, "act": pick[2]}
+	if pick.size() > 4 and pick[4] != "":
+		rest["read"] = pick[4]
+	_plan.append(rest)
 	activity = tr("Freizeit: ") + pick[2]
 	return true
 
@@ -749,6 +791,52 @@ func _plan_stroll(start: Vector2i, text: String) -> bool:
 	return true
 
 
+## Nächster fertiger Freizeitort dieser Art (Park, Bank, Pavillon) in leisure_spot_radius Feldern, sonst null.
+func _near_spot(kind: String):
+	var best = null
+	var r := float(Data.bal("leisure_spot_radius", 30))
+	var best_d := r * r
+	for b in world.leisure_spots(kind):
+		var d: float = b.dist_sq(cell)
+		if d < best_d and float(world._unreachable.get(b, 0.0)) <= Game.time_days:
+			best_d = d
+			best = b
+	return best
+
+
+## Freizeit am Schmuck: im Park ein paar Felder langsam spazieren und stehen bleiben, auf der Bank oder im
+## Pavillon sitzen (Pausenschritt mit "sit": Platz auf dem Bild, Settler._run setzt ihn dorthin).
+func _plan_decor_leisure(kind: String, b, text: String) -> bool:
+	var t := mind.break_length()
+	if kind == "park":
+		var free: Array = b.cells().filter(func(c): return world.is_walkable(c))
+		if free.is_empty():
+			return false
+		free.shuffle()
+		if world.find_approach(cell, [free[0]], false) == null:
+			world.mark_unreachable(b)
+			return false
+		_plan.append({"a": "move", "cell": free[0]})
+		var steps := mini(4, free.size())
+		for i in steps:
+			_plan.append({"a": "wait", "t": t / float(steps + 1), "rest": true, "act": text})
+			_plan.append({"a": "move", "cell": free[(i + 1) % free.size()], "speed": float(Data.bal("park_walk_speed", 0.45))})
+		_plan.append({"a": "wait", "t": t / float(steps + 1), "rest": true, "act": text})
+	else:
+		var dest = world.find_approach(cell, [b.entrance_cell()], false)
+		if dest == null:
+			dest = world.find_approach(cell, b.cells(), true)
+		if dest == null:
+			world.mark_unreachable(b)
+			return false
+		_plan.append({"a": "move", "cell": dest})
+		var others: int = world.settlers.filter(func(o): return o != self and not o._plan.is_empty() and o._plan[0].get("sit_b", -1) == b.id).size()
+		var seat: Vector2 = b.position + (Vector2(-4 + 8 * (others % 2), 1) if kind == "bench" else Vector2(-6 + 6 * (others % 3), -9))
+		_plan.append({"a": "wait", "t": t, "rest": true, "act": text, "sit": seat, "sit_b": b.id})
+	activity = tr("Freizeit: ") + text
+	return true
+
+
 func _plan_wander(radius: int, text: String, at = null) -> void:
 	var anchor: Vector2i = cell
 	var st = world.nearest_storage(cell)
@@ -802,7 +890,11 @@ func _plan_work() -> bool:
 			return _plan_free_gather()
 		"jaeger":
 			if Data.job_unlocked("jaeger"):
-				if _plan_destroy_den() or _plan_hunt() or _plan_gather(["beute"]):
+				if not world.lodges().is_empty():
+					# Jagdhütte (josh 2026-10-20): der Jäger jagt nur noch aus der Hütte ins Gehege
+					if _plan_lodge_meat() or _plan_lodge():
+						return true
+				elif _plan_destroy_den() or _plan_hunt() or _plan_gather(["beute"]):
 					return true
 			_stat_kind = "other"
 			return _plan_free_gather()
@@ -1128,6 +1220,10 @@ func _do_produce(b) -> void:
 			# Ein fertiges Schiff liegt sofort im Wasser (siehe Sea)
 			Game.add_stock(res, n, world)
 			continue
+		if res == "droide":
+			for i in n:
+				Droids.build(world, b)  # ein fertiger Droide läuft sofort los
+			continue
 		if first:
 			carry_res = res
 			carry_n = n
@@ -1212,7 +1308,7 @@ func _run_action(delta: float) -> void:
 				mind.relax(delta / float(Data.bal("day_length")))
 				_walk(delta, float(Data.bal("stroll_speed", 0.4)))
 				return
-			_walk(delta, 1.3 if a.get("flee", false) or a.get("defend", false) else 1.0)
+			_walk(delta, 1.3 if a.get("flee", false) or a.get("defend", false) else float(a.get("speed", 1.0)))
 		"arm":
 			Events.arm(self)  # Waffe aus dem Lager, wenn noch eine da ist
 			_battle_tool = _fight_tool()
@@ -1240,14 +1336,21 @@ func _run_action(delta: float) -> void:
 				if not a.get("started", false):
 					a.started = true
 					activity = tr("Freizeit: ") + String(a.get("act", tr("Ruht sich aus")))
+					if a.has("sit"):  # Bank oder Pavillon (Schmuck): Platz nehmen, nach vorn schauen
+						position = a.sit
+						_face(Vector2(0, 1))
 				mind.relax(delta / float(Data.bal("day_length")))
 			a.t = float(a.t) - delta
 			if a.t <= 0.0:
 				_plan.pop_front()
+				if a.has("sit"):
+					position = world.cell_to_pos(cell)
 		"hunt":
 			_run_hunt(a, delta)
 		"hide":
 			_run_hide(a, delta)
+		"lodge":
+			_run_lodge(a, delta)
 
 
 func _walk(delta: float, mult: float = 1.0) -> void:
@@ -1256,8 +1359,7 @@ func _walk(delta: float, mult: float = 1.0) -> void:
 	var target: Vector2 = _path[_path_i]
 	var spd := float(Data.bal("walk_speed")) * Game.eff("walk") * (1.0 if is_adult() else 0.85) * mult
 	spd *= Seasons.walk_mult()  # Schnee
-	if world.road_at(cell):
-		spd *= float(Data.bal("road_speed", 1.5))  # Straße
+	spd *= world.path_speed(cell)  # Straße, Kiesweg, Ziegelweg
 	if hunger <= 0.0:
 		spd *= 0.6
 	if mind.sick != "":
@@ -1523,6 +1625,74 @@ func _run_hunt(a: Dictionary, delta: float) -> void:
 	_walk(delta, 1.1)
 
 
+## Jagdhütte: Fleisch aus dem Gehege holen, wenn dort welches liegt (die Tiere sind dann fort).
+func _plan_lodge_meat() -> bool:
+	for b in world.lodges():
+		var n = world.pen_meat(world.lodge_pen(b))
+		if n == null or not n.is_available() or (n.reserved_by != 0 and n.reserved_by != id):
+			continue
+		if Game.space_for("fleisch", world) <= 0:
+			return false
+		return _plan_gather(["beute"])
+	return false
+
+
+## Jagdhütte: hingehen, drinnen lauern und ein Tier im Gehege schießen. Die Hütte mit jagdbarem Wild
+## zuerst, sonst die nächste.
+func _plan_lodge() -> bool:
+	if health < 40.0 or Game.is_night() or mind.sick != "":
+		return false
+	var best = null
+	var best_d := INF
+	for b in world.lodges():
+		if world.lodge_pen(b) <= 0:
+			continue
+		var d: float = b.dist_sq(cell) + (0.0 if world.lodge_prey(b) != null else 100000.0)
+		if d < best_d:
+			best_d = d
+			best = b
+	if best == null:
+		return false
+	if world.find_path(cell, best.entrance_cell()).is_empty() and cell != best.entrance_cell():
+		return false
+	_plan.append({"a": "move", "cell": best.entrance_cell()})
+	_plan.append({"a": "lodge", "b": best})
+	activity = tr("Geht zur Jagdhütte")
+	return true
+
+
+func _run_lodge(a: Dictionary, delta: float) -> void:
+	var b = a.b
+	if not is_instance_valid(b) or not b.complete or world.lodge_pen(b) <= 0:
+		abort_plan()
+		return
+	if not a.get("started", false):
+		a.started = true
+		a.t = 0.0
+		a.aim = 0.0
+		_hiding = b
+		visible = false
+		_moving = false
+		_working = false
+		activity = tr("Lauert in der Jagdhütte")
+	a.t = float(a.t) + delta
+	var prey = world.lodge_prey(b)
+	if prey != null:
+		activity = tr("Zielt auf: %s") % prey.def.name
+		a.aim = float(a.aim) + delta * work_factor("jagd")
+		if float(a.aim) >= float(Data.bal("lodge_aim_secs", 4.0)):
+			world.lodge_shot(b, prey, self)
+			gain_xp("jagd", 0.6)
+			a.t = 999.0
+	else:
+		a.aim = 0.0
+	# Nach dem Schuss, bei Nacht oder nach langem Warten raus (Essen, Schlaf, dann wieder herein)
+	if float(a.t) >= float(Data.bal("lodge_wait_secs", 25.0)) or Game.is_night():
+		_hiding = null
+		visible = true
+		_plan.pop_front()
+
+
 func _run_hide(a: Dictionary, delta: float) -> void:
 	var b = a.b
 	if not is_instance_valid(b) or not b.complete:
@@ -1589,14 +1759,25 @@ func _animate(delta: float) -> void:
 		s.offset.x = -8 if not s.flip_h else -8
 	# Werkzeug schwingen
 	var battle: bool = _battle_tool != "" and not _plan.is_empty() and _plan[0].get("defend", false) and not _working
-	_tool.visible = (_working and _cur_tool != "" or battle) and not sleeping
-	if _layers["saw"].visible != (job == "foerster" and _at_work() and not _tool.visible):  # Säge in der Hand, außer beim Arbeiten
+	var reading: String = _plan[0].get("read", "") if not _plan.is_empty() and _plan[0].a == "wait" and not _moving else ""
+	_tool.visible = (_working and _cur_tool != "" or battle or reading != "") and not sleeping
+	if _layers.has("saw") and _layers["saw"].visible != (job == "foerster" and _at_work() and not _tool.visible):  # Säge in der Hand, außer beim Arbeiten
 		_layers["saw"].visible = not _layers["saw"].visible
-	if _layers["rifle"].visible:  # Gewehr auf dem Rücken: von vorn und von der Seite hinter dem Körper
+	if _layers.has("rifle") and _layers["rifle"].visible:  # Gewehr auf dem Rücken: von vorn und von der Seite hinter dem Körper
 		var at: int = _body.get_child_count() - 1 if _dir == DIR_UP else 0
 		if _layers["rifle"].get_index() != at:
 			_body.move_child(_layers["rifle"], at)
-	if battle and _tool.visible:
+	if reading != "" and _tool.visible:
+		# Liest: Buch oder Zeitung ruhig vor sich halten, ab und zu umblättern
+		_tool.texture = Data.tool_tex(reading)
+		_tool.rotation = 0.0
+		_tool.position = Vector2(-6 if (_flip and _dir == DIR_SIDE) else -2, -4 + (1 if int(_anim_t * 0.5) % 4 == 0 else 0))
+		_tool.scale = Vector2(0.75, 0.75)
+		_tool.flip_h = _flip and _dir == DIR_SIDE
+		_tool.z_index = -1 if _dir == DIR_UP else 0
+		_body.position.y = 0
+	elif battle and _tool.visible:
+		_tool.scale = Vector2.ONE
 		# Waffe oder Werkzeug kampfbereit hochhalten, während er zum Piraten rennt
 		_tool.texture = Data.tool_tex(_battle_tool)
 		_tool.rotation = -0.35 + sin(_anim_t * 10.0) * 0.12
@@ -1604,6 +1785,7 @@ func _animate(delta: float) -> void:
 		_tool.flip_h = _flip and _dir == DIR_SIDE
 		_tool.z_index = -1 if _dir == DIR_UP else 0
 	elif _tool.visible:
+		_tool.scale = Vector2.ONE
 		_tool.texture = Data.tool_tex(_cur_tool)
 		var swing := sin(_anim_t * 9.0)
 		_tool.rotation = -0.9 + swing * 0.9 if _cur_tool != "rod" else -0.3 + swing * 0.08
@@ -1612,7 +1794,8 @@ func _animate(delta: float) -> void:
 		_tool.z_index = -1 if _dir == DIR_UP else 0
 		_body.position.y = -abs(swing) * 0.8 if not sleeping else _body.position.y
 	elif not sleeping:
-		_body.position.y = 0
+		var sitting: bool = not _plan.is_empty() and _plan[0].a == "wait" and _plan[0].has("sit") and not _moving
+		_body.position.y = 2 if sitting else 0
 	_hurt -= delta
 	_body.modulate = Color(1, 0.5, 0.5) if _hurt > 0.0 else Color.WHITE
 	_carry_icon.visible = carry_n > 0 and not sleeping
@@ -1678,7 +1861,7 @@ func serialize() -> Dictionary:
 	return {
 		"id": id, "name": display_name, "sex": sex, "age": snappedf(age, 0.001), "max_age": max_age,
 		"hunger": snappedf(hunger, 0.01), "health": snappedf(health, 0.01), "skills": skills,
-		"skill_xp": skill_xp, "job": job, "home": home_id, "look": look,
+		"skill_xp": skill_xp, "job": job, "by_admin": by_admin, "home": home_id, "look": look,
 		"carry_res": carry_res, "carry_n": carry_n, "birth_cd": birth_cooldown_until,
 		"parents": parents, "x": cell.x, "y": cell.y, "mind": mind.serialize(),
 		"busy": {"job": snappedf(float(busy.get("job", 0.0)), 0.001), "other": snappedf(float(busy.get("other", 0.0)), 0.001),

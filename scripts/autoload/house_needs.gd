@@ -66,10 +66,16 @@ func level_house(k: int) -> String:
 
 
 ## Bedürfnisse einer Stufe (Liste aus levels.json).
+## Bedürfnisse mit "requires" (Forschung) zählen erst, wenn sie erforscht ist (Lesestoff ab Papier, josh 2026-10-20).
 func level_needs(k: int) -> Array:
 	if k < 1 or k > levels.size():
 		return []
-	return levels[k - 1].get("needs", [])
+	var out := []
+	for nd in levels[k - 1].get("needs", []):
+		if nd.has("requires") and not str(nd.requires) in Game.research.get("done", []):
+			continue
+		out.append(nd)
+	return out
 
 
 ## Name eines Bedürfnisses für die Anzeige, bei Waren mit der Ware: "Möbel (Bretter)".
@@ -77,6 +83,8 @@ func need_label(nd: Dictionary) -> String:
 	var n := str(nd.get("name", nd.get("id", "")))
 	if str(nd.get("kind", "")) == "good":
 		var g := Data.resource_name(str(nd.get("good", "")))
+		for a in nd.get("alt", []):
+			g += ", " + Data.resource_name(str(a))
 		if g != n:
 			return "%s (%s)" % [n, g]
 	return n
@@ -242,6 +250,8 @@ func pool(w, k: int) -> Array:
 func pool_block(w, b, sid: int = 0) -> int:
 	if w == null or not bool(Data.bal("worker_levels", true)):
 		return 0
+	if Droids.is_droid_id(w, sid):
+		return 0  # Droiden brauchen keine Hausstufe
 	var lv: int = mini(b.worker_level(), levels.size())
 	if lv <= 1:
 		return 0
@@ -361,8 +371,14 @@ func _eval(w, st: Dictionary, nd: Dictionary, cons: float, dt: float) -> float:
 			var want := int(acc)
 			if want <= 0:
 				st.acc[g] = acc
-				return 1.0 if Game.amount(g, w) > 0 else 0.0
+				var have := Game.amount(g, w)
+				for alt in nd.get("alt", []):
+					have += Game.amount(str(alt), w)
+				return 1.0 if have > 0 else 0.0
 			var got := Game.take_stock(g, want, w)
+			for alt in nd.get("alt", []):  # Ersatzware (Lesestoff: Zeitungen, sonst Bücher)
+				if got < want:
+					got += Game.take_stock(str(alt), want - got, w)
 			st.acc[g] = acc - want  # was fehlt, bleibt nicht als Schuld stehen
 			return float(got) / float(want)
 		"stock":
