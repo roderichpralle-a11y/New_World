@@ -799,11 +799,13 @@ func _goods_columns(islands: Array) -> Array:
 			if id != "essen":
 				main.append(id)
 				continue
+			var made := _made_goods(islands)
 			for f in Data.sorted_resource_ids():
-				if f in Data.food_ids() and islands.any(func(m): return Game.amount(f, Sea.worlds.get(int(m.id))) > 0):
+				if f in Data.food_ids() and (made.has(f) or islands.any(func(m): return Game.amount(f, Sea.worlds.get(int(m.id))) > 0)):
 					main.append(f)
 		return main
 	var cols := []
+	var made2 := _made_goods(islands)
 	for id in Data.sorted_resource_ids():
 		if Data.resources[id].get("category", "") == "ship":
 			continue
@@ -813,12 +815,27 @@ func _goods_columns(islands: Array) -> Array:
 			var n := Game.amount(id, Sea.worlds.get(int(m.id)))
 			have += n
 			missing = missing or n < 10
-		if have <= 0:
+		if have <= 0 and not made2.has(id):
 			continue
 		if _goods_mode == "missing" and not missing:
 			continue
 		cols.append(id)
 	return cols
+
+
+## Waren, die eine fertige Werkstatt auf einer der Inseln herstellt. Sie bleiben in der Tabelle, auch wenn
+## gerade nichts davon im Lager liegt (josh 2026-10-21: Brot fehlte, weil es sofort gegessen wurde).
+func _made_goods(islands: Array) -> Dictionary:
+	var out := {}
+	for m in islands:
+		var w = Sea.worlds.get(int(m.id))
+		if w == null:
+			continue
+		for b in w.buildings:
+			if is_instance_valid(b) and b.complete and b.def.has("production"):
+				for id in b.prod_def().get("outputs", {}):
+					out[id] = true
+	return out
 
 
 func _fill_goods() -> void:
