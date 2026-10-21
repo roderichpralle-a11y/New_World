@@ -281,6 +281,86 @@ Zeitalterwechsel mit Wertung und Aufträge mit Wahl. Überblick und Zusammenspie
 **Versionsnummer:** steht in `project.godot` unter `application/config/version`. Die ersten beiden Stellen (1.0) zählt man dort von Hand hoch; die letzte setzt der Web-Build selbst auf die Zahl der Stände des Zweigs (`git rev-list --count --first-parent HEAD`), jeder Build von main zählt also eins weiter. Das Menü und der Titelbildschirm zeigen sie unten an, die Testversion mit dem Zusatz „(Testversion)“.
 
 **Leiste unten (josh 2026-10-19):** Bildknöpfe ohne Text (`Hud._menu_button`, Bilder 20x20 aus assets/sprites/menu_icons.png, erzeugt mit tools/gen_art_menu.py, Name im Tooltip): Bauen, Forschung (Tooltip mit Fortschritt), Siedler, Inseln, Verwalter (ab der Forschung der Verwaltung; öffnet das Fenster Verwalter `Hud._admin_panel`, josh 2026-10-20), Menü. **Offene Fenster stehen still** (josh 2026-10-19): Bauen, Forschung, Siedler, Vorräte, Inseln, Handel und Aufträge bauen sich nicht von selbst neu, nur beim Öffnen oder bis 1,5 s nach einem Tipp des Spielers (`Hud.user_just_acted`); die Seekarte bewegt sich weiter. **Möglichst nicht rollen** (josh 2026-10-19): Fehlt einer Liste nur so viel, wie die Fußzeile hoch ist (`Win.footer`, Meta `fit_footer`), blendet `Hud._hide_for_small_scroll` die Fußzeile aus, statt rollen zu lassen. Das Menü legt seine Zeilen ab 640 Pixeln Breite in zwei Spalten; im Fenster Inseln stehen Karte und Liste ab 760 Pixeln nebeneinander. **Bau- und Forschungsmenü (josh 2026-10-19):** Reiter als Bilder (Win.tabs mit icons, Name im Tooltip; Zeitalter-Bilder `Hud.AGE_ICONS`). Jede Zeile: Bild und Name links (nur bei Gesperrtem eine kurze rote Zeile), in der Mitte die Waren „im Lager / nötig“ (rot bei zu wenig; Zahl und Farbe folgen dem Lager auch bei offenem Fenster, ohne dass Zeilen springen: `Hud._update_costs`; Forschung zeigt keine Punkte mehr, nur bei begonnener Forschung den Prozentstand, josh 2026-10-19), Knopf als Bild (Bauen: Hammer, gesperrt: Buch; Forschung: Dreieck, Läuft: Uhr, Fertig: Haken), ganz rechts „i“: `Hud.show_info` mit Beschreibung, Bedürfnissen, Inselstärke, was fehlt und was offene Baustellen noch holen (`_build_info_text`, `_tech_info_text`). Keine Filter „Nur bezahlbare“/„Nur erforschbare“ und kein Fußtext im Baumenü; die Forschung behält unten nur Stand, Forscher und Schriften.
+**Verwalter-Steuerung bis KI (josh 2026-10-17, Testversion /neu/, in Stufen):** Fahrplan: 1. Verwalter
+steuert die Berufe ab der 2. Insel; 2. ab der 3. Insel Routen nach Mindest- und Höchststand je Insel;
+3. ab Papier tauschen die Verwalter der Inseln Bedarf aus (Heimatinsel nur noch Endverarbeitung, Inseln
+liefern Essen und Rohstoffe), Automaten ab 2. Insel + über 60 Siedler + Renaissance, mit Strom ersetzt ein
+Automat den Verwalter; 4. Droiden aus der Fabrik ab Strom und Halbleitern; 5. KI und Superintelligenz bis
+zum Ende am Lagerfeuer. **Stufe 1** (`scripts/autoload/steward.gd`, Autoload `Steward`): ab zwei
+besiedelten Inseln einmal das Fenster „Der Verwalter kann die Berufe steuern“ (`Hud.choice_dialog`,
+`Steward.offer`); an/aus auch im Reiter Inseln (`SeaPanel._steward_row`). Kein Gebäude nötig. Alle
+0,25 Tage je Insel (nicht über `MAX_POP` 60 Siedler) bis zu 2 Wechsel nach `Steward.needed`: Essen unter
+3 Tagen (unter 1,5 Tagen auch aus anderen Berufen), Brennholz unter 4 Tagen ab Sommer, Baustellen,
+stillstehende Werkstätten, Lager unter 90 % der Höchstmenge (`World.store_limits`, Erzeuger aus
+`RAW_JOB` oder der Werkstatt). Nimmt zuerst Freie, dann Überzählige (Waren am Ziel oder Lager voll), nie
+Verwalter, Seeleute, Baumeister, Forscher. Vom Spieler gesetzte Berufe (`Steward.player_set` aus der
+Siedlerliste und dem Infofenster) bleiben 2 Tage. Spielstand `steward` {on, offered, locks}. Test
+`--fixture=sea.json --stewardtest=1` („Verwalter OK/FEHLER“), Bild `--stewardtest=shot`. **Stufe 2**
+(ab drei besiedelten Inseln, Fenster „Der Verwalter kann Waren zwischen den Inseln fahren“): im Reiter
+Inseln auf eine Zahl tippen, Mindest- und Höchststand je Insel und Ware (`Steward.minmax`, gespeichert,
+`SeaPanel._minmax_editor`, Zelle zeigt „min–max“). Alle 0,5 Tage (`route_tick`, nur wenn an) eine Fahrt:
+unter Mindeststand holt ein freies Schiff (keine Route, keine Fahrt, leer, mit Besatzung, das nächste
+zuerst; liegen mehrere bis einen halben Tag gleich nah, das mit dem größten Laderaum; Kogge und größere nur
+mit passendem Hafen auf beiden Inseln, sonst meldet der Verwalter höchstens alle 3 Tage je Insel „fehlt ein Hafen“) die Ware bis zum Höchststand (ohne Höchststand doppelter Mindeststand) von der Insel mit dem
+meisten Überschuss (über ihrem eigenen Mindeststand); über Höchststand fährt der Überschuss zu einer Insel
+unter ihrem Höchststand (Heimatinsel zuerst). Unterwegs- und Abholmengen (`incoming`, `outgoing`) zählen
+mit. Fahrten über `Sea.start_trip`, `sh.steward = true`. Test `--stewardtest=routes`, Bild
+`--panel=sea --seaview=minmax`. **Stufe 3** (Inselverbund, ab Papier, Fenster „Die Verwalter arbeiten jetzt
+zusammen“, Schalter `Steward.net_on` im Reiter Inseln, gespeichert): auf der Heimatinsel (`Sea.main_world`)
+sind alle Rohstoff-Berufe aus `RAW_JOB` überzählig (`_surplus`), Essen holt sie nur unter 1 Tag Vorrat und
+Brennholz nur unter 1 Tag, solange eine andere Insel liefern kann (`_supplier`); Lager-Höchstmengen für
+Rohstoffe zählen dort nicht; freie Forschungsplätze bekommen Forscher. Die anderen Inseln halten
+`NET_FOOD_DAYS` 6 Tage Essen und holen die Rohstoffe, die den Werkstätten der Heimatinsel fehlen
+(`_home_wants`, unter 20). `net_tick` (alle 0,5 Tage, eine Fahrt): Essen zur Heimatinsel unter 5 Tagen (mit
+Unterwegs), Brennholz unter 6 Tagen, sonst Überschüsse über `KEEP_RAW` 60 je Rohstoff (ohne eigene Grenzen
+des Spielers) zur Heimatinsel, größter zuerst; `_send_goods` lädt mehrere Waren. Rechenautomat (Gebäude
+`rechenautomat`, Bild `automaton` aus tools/gen_art_machines.py, Forschung Mechanische Uhr, `automaton: true`):
+baubar erst ab 2 Inseln, einer Insel mit über 60 Siedlern und der Renaissance (`Steward.automaton_reason`,
+`Game.is_unlocked`, Bauen-Fenster nennt, was fehlt); auf seiner Insel gilt die Grenze von 60 nicht. Ab
+Elektrizität ersetzt ein Automat den Verwalter (`automat_mode`, Fenster einmal, keine Grenze, Meldungen
+„Automat:“ über `Steward.who()`). Test `--stewardtest=net`, Bild `--stewardtest=netshot`. **Stufe 4** (Droiden,
+`scripts/autoload/droids.gd` Autoload `Droids`, `scripts/entities/droid.gd` `class_name Droid extends Settler`):
+Droidenfabrik (Forschung Computer, Bild `droid_factory`) stellt aus Elektronik 4, Stahl 4, Maschinen 2 und Strom
+6 die Ware `droide` her; `Settler._do_produce` legt sie nicht ins Lager, sondern ruft `Droids.build` (Droide
+erscheint am Eingang). Ein neuer Droide übernimmt den Beruf, den die meisten erwachsenen Siedler der Insel
+haben (nicht `Droids.HUMAN_JOBS`: Forscher, Verwalter, Seeleute, Jäger, Frei; keine vom Spieler gesperrten),
+der Siedler wird frei. Droiden stehen in `World.droids` (gespeichert unter `droids` je Insel, nicht in
+`settlers`: keine Bevölkerung, kein Essen, keine Häuser, kein Schaden), essen, schlafen und altern nicht,
+arbeiten mit Tempo 1,25 ohne Hausstufe (`HouseNeeds.pool_block`) und brauchen `POWER_PER_DAY` 1 Strom am Tag
+aus dem Inselllager (`Droids.tick` alle 0,1 Tage); ohne Strom stehen alle Droiden der Insel still (grau,
+„Kein Strom“). Eigenes Lauf-Sheet `settler_droid.png` (tools/gen_art_machines.py `droid_sheet`), eigenes
+Infofenster (`Hud._info_droid`, Berufswahl ohne Menschen-Berufe). Der Verwalter zählt Droiden bei den
+Berufen mit (`Steward._count`). Spielstand `droids.built`. Test `--droidtest=1`, Bild `--droidtest=shot`. **Stufe 5**
+(KI-Herrschaft, `scripts/autoload/ai_rule.gd` Autoload `AiRule`): ab Forschung Künstliche Intelligenz ersetzt
+die KI den Automaten (`Steward.who()` „KI“, Fenster einmal, Verwalter wird eingeschaltet). Spieler-Änderungen
+(Verwalter aus, Inselverbund aus, Berufe über `Steward.player_set`, Mindest-/Höchststände) gelten nur noch
+`OVERRIDE_DAYS` 0,5 Tage (2 Minuten), dann überschreibt die KI sie mit Meldung (`AiRule.player_changed`,
+`overrides`). Neue Droiden fahren zuerst auf andere Inseln (`droid_target`); eine automatisierte Insel
+(`automated`: Droiden da, kein Siedler mit Droiden-Beruf) gibt ihr Essen zur Heimatinsel ab, verliert ihre
+Häuser, der Verwalter setzt dort keine Siedler mehr ein; sie bleibt mit Droiden bestehen
+(`Game.on_settler_died` prüft `droids`). Freie Erwachsene der Heimatinsel forschen. Die KI baut einmal am
+Tag selbst (Droidenfabrik, Solarpark/Kraftwerk, Elektronikwerk, Großes Lager, wenn bezahlbar). Neue Forschung
+**Superintelligenz** (Stufe 16, braucht KI und Robotik): Forscher werden frei, das KI-Zentrum verteilt keine
+Siedler mehr, Droiden verlassen Nahrungsberufe, Essen über `FIRE_FOOD` 30 je Insel wird weggeräumt, der Rest
+des Lagers füllt sich mit Elektronik, Maschinen, Stahl, je Runde und Insel wird ein Gebäude der Kategorien
+Wohnen, Nahrung, Wissen abgerissen (außer Lagerfeuer, KI-Zentrum, Zukunftsstadt) und Natur gerodet (Bäume,
+Sträucher, Palmen, Pilze, Gewürze, Baue; Fischgründe bleiben), Häuser sind nicht mehr baubar
+(`AiRule.build_block`, `Game.is_unlocked`), der Inselverbund fährt kein Essen und Holz mehr, der Spieler steuert
+die Siedler selbst. Bleiben höchstens 2 Siedler (`start_ending`): alle Natur weg, Fenster „Nur noch
+Maschinen“, die Siedler sitzen frierend am Lagerfeuer (`Settler._think`), das Spielende heißt „Die Maschinen
+laufen weiter“. Spielstand `ai_rule`. Test `--aitest=1`, Bild `--aitest=shot`.
+**Hauptaufgabe je Insel** (josh 2026-10-18, Testversion): im Reiter Inseln unter dem Verwalter-Schalter eine Zeile
+je Insel; „Wählen“ öffnet die Auswahl aus `Steward.TASKS` (Holz und Bretter, Stein und Ziegel, Getreide und Brot,
+Fisch, Beeren, Pilze, Kokosnüsse, Gewürze, Fleisch und Felle, Erz und Metall, Gold, Forschung nur Heimatinsel, Keine).
+Mehrere Aufgaben je Insel (josh 2026-10-18 21:32): Tippen wählt an bzw. ab (`toggle_task`), „Keine“ löscht alle.
+Gespeichert unter `steward.tasks` als Liste je Insel (alte Spielstände mit einem Text laden). Die Berufe sind die
+Vereinigung aller gewählten Aufgaben; `nodes` je Aufgabe: Sammler und Steinmetze der Insel gehen zuerst an diese
+Fundstellen (`IslandTraits.gather_order`, Gewürze dann schon ab 4 Mahlzeiten Essen je Siedler). In `Steward.needed` nach Essen, Brennholz und Baustellen (`task_need`): `TASK_SHARE` 60 % der
+Erwachsenen (ohne Verwalter, Seeleute, Baumeister, Forscher; Droiden zählen mit) gleich auf die Berufe der Aufgabe
+verteilt; Handwerker und Köche nur bis zu den Plätzen der Werkstätten, die eine Ware der Aufgabe herstellen. Holt
+dafür Leute auch aus anderen Berufen (aus Nahrungsberufen nur ab 4 Tagen Essen); Aufgaben-Berufe sind nie
+überzählig, auch nicht im Inselverbund. Die Zeile zeigt „Beruf ist/Ziel“. Test `--stewardtest=task`, Bild
+`--stewardtest=taskshot`.
 
 **Einheitliche Fenster (josh 2026-10-16, Variante A):** Jedes Fenster aus `Hud._popup_panel(titel, symbol)` hat denselben Kopf: Symbol, Titel (genau der Name des Knopfes, der es öffnet), rechts das X. Kein Hinweistext unter dem Titel; was man wissen muss, steht im Fenster selbst oder als Tooltip. Ein Tipp außerhalb aller Fenster (nicht auf die Leisten oben und unten, nicht aufs Infofenster) schließt sie (`Hud._input`) und löst nichts auf der Karte aus. Namen: Fenster „Vorräte“ (früher Lager; das Gebäude heißt weiter Lager), Fenster „Inseln“ (früher Seekarte) mit Reiter „Karte“ und Knopf „Entdeckungsreise“ (früher „Neue Insel suchen“). Menü > Wertung entfällt (das Fenster `_score_panel` und die Punkte bleiben im Code). Siedlerfenster (ohne Reiter Alle/Erwachsene/Kinder, nur Filter Beruf und Insel, josh 2026-10-19): zwei Listen übereinander, oben „Mit Beruf“, unten „Frei“ (freie Erwachsene und Kinder); der Berufe-Filter gilt nur für „Mit Beruf“, „Frei“ zeigt immer alle Freien (josh 2026-10-20, Test `--panel=settlers --jobfree=1`); Insel-Filter und Sortierung gelten für beide; auf dem Handy quer entfallen Zähler und Spaltenköpfe (`_size_settler_panel`, `tight`). Gesperrte Gebäude im Bauen-Fenster zeigen statt der Kosten den kleinen Knopf „Forsch.“ (öffnet die Forschung). Fenster Verwalter (josh 2026-10-20: einheitlich wie alle Fenster, `Hud._admin_panel`, `AdminInfo.fill_window`, Fuß mit dem Namen des Verwalters; das Infofenster des Gebäudes hat nur noch den Knopf „Fenster Verwalter öffnen“; Test `--adminshot=office|shifts|night|stats`): Reiter Verwalter, Schichten, Nachtschicht, Überstunden (Zeilen `Win.row` mit Schalter an/aus) und Statistik (josh 2026-10-21 nachgeprüft: zählt jetzt je Insel, die Insel der Verwaltung oder die gezeigte): Auslastung je Beruf (`Admin.job_load(w)`, Mittel von `Settler.busy_shares`: im Beruf als große Zahl, darunter „hilft aus“ und „nichts zu tun“) und erzeugte Waren in zwei beschrifteten Spalten „Jahr N“ und „Jahr N+1 bisher“ (`Admin.note_produced(res, n, world)` beim Sammeln, Ernten, Feldernten, Jagen und Bau-Ausräumen (Felle) und in Werkstätten; `Admin.produced[jahr][insel][ware]`, die letzten 3 Jahre, gespeichert unter `admin.produced`; Spielstände von 1.0.84 zählten alle Inseln zusammen und werden der Hauptinsel zugeschrieben). Ohne Verwaltung zeigen die ersten vier Reiter einen Hinweis, die Statistik geht immer. Ein Tipp auf den Inselnamen oben öffnet das Fenster Inseln (josh 2026-10-20). Reiter Verwalter Reiter Verwalter zeigt den Verwalter und den Schalter „Automatische Neuzuweisung freier Berufe“ (`Admin.auto_reassign`, gespeichert unter `admin.auto`): stirbt ein Siedler mit Beruf auf der Insel der Verwaltung, übernimmt ein freier Erwachsener (einer mit passendem Talent zuerst) den Beruf. Erst ab dem Mittelalter (`Admin.AUTO_AGE` 2, `Admin.auto_unlocked()`, vorher ist der Schalter ausgegraut; josh 2026-10-16). Gibt es keinen freien Erwachsenen, kommt der Beruf in `Admin.pending_jobs` (gespeichert unter `admin.pending`), und das nächste Kind, das erwachsen wird, lernt ihn (`Admin.on_grown_up` aus `Settler._needs`); das Fenster zeigt die wartenden Berufe. Stirbt der Verwalter selbst, wird sein Posten genauso neu besetzt (josh 2026-10-17; `Admin._covers` lässt den Verwalterposten auch ohne lebenden Verwalter zu, solange die Verwaltung auf der Insel steht). Entwurfsbilder: /mnt/project-files/konzept/.
 
@@ -621,6 +701,20 @@ Spielstände würfeln die Werte reproduzierbar aus der Siedler-ID).
   gewichtet nach Gemüt und Klugheit), außer in einer Hungersnot (weniger als 3 Nahrung je Siedler).
   Spaziergang am Strand (josh 2026-10-20, `Settler._plan_stroll`): Feld für Feld über den Sand am Wasser, möglichst
   geradeaus, mit `stroll_speed` (0,4) des Gehtempos; erholt unterwegs wie eine Pause.
+- **Rundfunkanstalt, Reiter Inseln, gelbe Berufe, Anordnungen ab Stufe 8** (josh 2026-10-21, nur Testversion):
+  Gebäude `rundfunk` (Rundfunkanstalt, ab Papier, `"radio": true`, Bild Zelle 90 aus tools/gen_art_machines.py `radio()`).
+  Der Inselverbund (`Steward.net_active`) läuft nur, wenn die Heimatinsel und mindestens eine andere Insel eine
+  fertige Rundfunkanstalt haben; Inseln ohne machen nicht mit (`Steward._ids`, `net_member`, `has_radio`); die KI baut
+  sie auf der Heimatinsel selbst. Fenster Verwalter, Reiter „Inseln“ (`AdminInfo._islands_tab`, `TAB_ISLANDS` 5, geht
+  auch ohne Verwaltung; der Knopf Verwalter erscheint ab der 2. Insel): Verwalter steuert die Berufe (an/aus),
+  Inselverbund (an/aus, welche Inseln ohne Rundfunkanstalt sind) und Spezialisierung je Insel (Hauptaufgabe); unter
+  Inseln steht nur noch der Stand mit einem Knopf dorthin. Vom Verwalter vergebene Berufe (`Settler.set_job(j, true)`,
+  `by_admin`, gespeichert) haben in Siedlerliste und Infofenster einen pastellgelben Knopf (`UiTheme.mark_admin`).
+  Ab Forschungsstufe 8 (`Admin.SELF_ORDER_TIER`, Schalter `Admin.self_orders` im Reiter Verwalter) ordnet der
+  Verwalter bei fehlenden Leuten erst Überstunden, dann Schichtarbeit an (`auto_orders`, gelb markiert), beendet
+  Überstunden bei 80 % der erlaubten Zeit (danach ein Jahr Pause, `_ot_rest`) und alles, wenn zwei Meldezeiten
+  niemand mehr fehlt; schaltet der Spieler ab, lässt er den Beruf ein Jahr in Ruhe (`_hold`). Tests:
+  `--stewardtest=net`, `--admintest=1`, Bild `--fixture=<sea.json> --adminshot=islands`.
 - **Berufskleidung** (josh 2026-10-20, `Settler.OUTFIT`, `_apply_outfit`, Bilder aus tools/gen_art_outfits.py):
   Handwerker blauer Overall (Hemd und Hose eingefärbt), Bauer braune Hose und gelbe Schirmmütze, Koch weiße Hose
   und Kochmütze, Forscher weißes Hemd (josh 2026-10-21, statt Brille; settler_glasses.png bleibt unbenutzt liegen),
@@ -804,6 +898,12 @@ Ratten, Brand, Seuche, Sturmflut und ab dem Mittelalter Piraten. Wer sie gut üb
     Kinder, Alte, Kranke und Verletzte verstecken sich in Häusern und bleiben drin, bis die Piraten fort
     sind. **Waffen**: Ware `waffen` (Größe 2) aus der **Waffenschmiede** (`waffenschmiede`, Schmiedekunst,
     Bild `armory` in buildings.png Zelle 53, `tools/gen_art_pirates.py`): 2 Eisen + 1 Holz → 1 Waffe in 8 s.
+    **Belastung** (josh 2026-10-20, Testversion /neu/): `Events.pirate_fear` bei der Landung, Schutz = bewaffnete
+    Kämpfer x `fear_armed` (1) + Kämpfer ohne Waffe x `fear_unarmed` (0,4) + fertige Wachtürme x `fear_tower` (3);
+    Angst = `fear_max` (25) x clamp(1 − Schutz/Piraten/2, 0,1, 1) x `fear_tower_calm`^Türme (0,7). Laune-Grund
+    „Hat Angst vor den Piraten“ während des Überfalls, danach `fear_after_days` (2) Tage „Steckt der Piratenüberfall
+    noch in den Knochen“ (0,4 der Angst, mit Beute 0,7); Kämpfer verlieren `fear_rest` (40) x Angst/25 Erholung.
+    Gespeichert in `Events.islands[id].fear` und `ev.fear`. Meldung bei der Landung (`fear_text`).
     Test `--eventtest=piraten`: erst ab Stufe 4, Schiff und Aussteigen, ohne Abwehr (`Events.no_defense`),
     mit Wachturm und Jägern, mit Waffen (Waffen zurück im Lager), ohne Waffen. Bild: `--eventshot=piraten:now
     --fightcam=<s> --fightshot=<png> --scale=1`. Die Piraten gehen zum nächsten Lager, plündern dort 4 Sekunden und gehen zurück;
@@ -1472,6 +1572,109 @@ Bilder in `assets/sprites/objects3.png` (`tools/gen_art_land.py`, `Data.OBJECT3_
   Sturmflut bricht einen Deich, Hütte nach Ereignis für 70 %, Förster pflanzt und rodet. Ausgabe
   `Land OK`. Bild: `--landshot=road|dike`.
 
+## Zäune, Gehege und Jagdhütte (josh 2026-10-20, Testversion /neu/)
+
+- **Zaun** (`zaun`, Forschung Tierhaltung, 3 Holz, Kachel `fence`, Bilder `fence0..15` in objects3.png Zeile
+  y=48, `tools/gen_art_land.py`): Bodengebäude wie die Straße, der Baumeister baut ihn. Siedler laufen
+  darüber, für Tiere ist er fertig unpassierbar.
+- **Wegnetz der Tiere:** `World.animal_astar` spiegelt `astar` (`_sync_animal` in `_set_solid` und
+  `refresh_tiles_around`) und sperrt dazu fertige Zäune (`fence_at`). Tiere suchen Wege mit
+  `Animal._path_to` -> `World.find_animal_path`, `animal_walkable`, `find_approach(..., for_animal)`;
+  Piraten (`Raider._path_to`) steigen über Zäune.
+- **Gehege:** `World.pen_of(zelle)` = Nummer der geschlossenen Fläche hinter einem Zaun (Füllung über das
+  Tier-Wegnetz, höchstens `pen_max_cells` = 400 Felder, sonst offen; Wasser, Felsen und Gebäude helfen mit),
+  bei jeder Änderung neu (`_pens_dirty`). Tiere im Gehege fressen nur Futter darin, die Baugröße zählt nur
+  Futter darin (`den_food`), Partner kommen nicht durch den Zaun (`_find_mate`), Junge kommen am Bau im
+  Gehege zur Welt. Siedler draußen fliehen nicht vor Tieren im Gehege (`threat_for`).
+- **Jagdhütte** (`jagdhuette`, 2x2, Waffenkunde, `lodge: true`, Bild `lodge` Zelle 58,
+  `tools/gen_art_lodge.py`): wird als Teil des Zauns gebaut (`lodge_pen`: ein Nachbarfeld liegt im Gehege).
+  Gibt es auf der Insel eine fertige Jagdhütte, jagt der Jäger nur noch dort: erst Fleisch aus dem Gehege
+  holen (`_plan_lodge_meat`), sonst zur Hütte und drinnen lauern (`_plan_lodge`, Plan „lodge“,
+  `_run_lodge`, unsichtbar wie beim Verstecken). Ein jagdbares Tier im Gehege (`lodge_prey`: erwachsen,
+  von der Art bleiben `hunt_min_keep` = 2) wird nach `lodge_aim_secs` geschossen (`lodge_shot`, Pfeil);
+  die übrigen laufen von der Hütte weg (`Animal.startle`) und bleiben fern, solange das Fleisch liegt
+  (`_shy`). Nach dem Schuss, nachts oder nach `lodge_wait_secs` geht er hinaus. Ohne Jagdhütte jagt er wie
+  bisher. Infofenster: Tiere im Gehege, Hinweise.
+- **Test** `--pentest=1` (`pen_test.gd`): Gehege, Wege, Jäger in der Hütte, Schuss, Flucht, Fleisch, 2
+  bleiben, Junge, Spielstand. Ausgabe `Gehege OK`. Bild: `--pentest=shot`.
+
+## Bücher, Zeitungen und Lesen (josh 2026-10-20, Testversion /neu/)
+
+- **Druckerei** (`druckerei`, 3x2, Forschung Papier, Bild `printshop` Zelle 59, `tools/gen_art_reading.py`):
+  3 Papier -> 2 Zeitungen und 1 Buch (Waren `zeitungen`, `buecher`, Symbole dort, Zeitung in der Hand
+  `newspaper` in tools.png, Index 13).
+- **Bedarf:** Hausstufe 3 (Steinhaus) hat „Lesestoff“ (`levels.json` id `lesen`, Ware `zeitungen`, `alt`
+  `buecher`: fehlen Zeitungen, werden Bücher verbraucht). Bedürfnisse mit `requires` zählen erst nach dieser
+  Forschung (`HouseNeeds.level_needs`), hier Papier.
+- **Lesen:** liegt Lesestoff im Lager der Insel (`World.reading_good`), lesen Siedler in der Freizeit am
+  Feuer oder im Grünen (`_plan_leisure`, Pausenschritt mit `read`: Buch oder Zeitung vor sich, `_animate`),
+  wollen `reading_leisure_mult` (1,2) mal so viel Freizeit (`SettlerMind.leisure_share`), und Kinder lernen
+  `reading_child_learn` (1,3) mal so schnell (`_learn_as_child`).
+- **Test** `--readtest=1` (`read_test.gd`), Ausgabe `Lesen OK`. Bild: `--readtest=shot`.
+
+## Schmuck (josh 2026-10-20)
+
+Wunsch: „Führe noch mehr Dinge zum Schmücken ein. Brunnen, Statuen, bunte Pflanzen, andere Wege, Parkanlagen,
+einen Fahnenmast und noch 10 weitere Sachen, nach und nach freigeschaltet.“
+- **Bau-Reiter „Schmuck“** (`Hud.BUILD_CATS`, Kategorie `schmuck`, Symbol `schmuck`). Auf schmalen Bildschirmen
+  (< 600 px) werden die acht Reiter schmaler, damit sie in eine Zeile passen. 23 Stücke in `buildings.json`,
+  freigeschaltet über Forschungen von der Steinzeit bis zum Informationszeitalter:
+
+  | Stück | Forschung | Kosten | Schönheit |
+  |---|---|---|---|
+  | Kiesweg (`kiesweg`, Weg 1,2x) | Steinwerkzeuge | 2 Stein | – |
+  | Menhir | Steinwerkzeuge | 8 Stein | 1,5 |
+  | Rotes / Gelbes Blumenbeet | Gartenbau | 2 Holz | 1 |
+  | Hecke (`hecke`, hält Tiere ab) | Gartenbau | 2 Holz | 0,5 |
+  | Holzbank (Freizeit: sitzen) | Holzbearbeitung | 4 Holz | 1 |
+  | Fahnenmast (Fahne weht, 4 Bilder) | Zimmerei | 4 Holz, 4 Bretter | 1,5 |
+  | Steinstatue | Steinbruch | 16 Stein | 3 |
+  | Blumenkübel | Töpferei | 4 Lehm, 1 Holz | 1 |
+  | Ziegelweg (`ziegelweg`, Weg 1,3x) | Maurerei | 3 Ziegel | – |
+  | Springbrunnen (2x2, Wasser bewegt, 4 Bilder) | Maurerei | 16 Stein, 10 Ziegel | 4 |
+  | Blaues Blumenbeet | Bewässerung | 2 Holz, 1 Lehm | 1 |
+  | Seerosenteich (2x2) | Bewässerung | 6 Stein, 6 Lehm | 3 |
+  | Parkanlage (3x3, begehbar; Freizeit: spazieren) | Heilkunde | 10 Holz, 6 Stein | 5 |
+  | Rosenbogen | Schmiedekunst | 4 Holz, 2 Eisen | 2 |
+  | Sonnenuhr | Gelehrsamkeit | 10 Stein, 4 Ziegel | 2 |
+  | Laterne (leuchtet nachts) | Eisenwerkzeuge | 3 Eisen, 2 Bretter | 1 |
+  | Pavillon (2x2; Freizeit: sitzen) | Baumeisterkunst | 16 Bretter, 10 Ziegel, 2 Werkzeug | 4 |
+  | Reiterdenkmal (2x2) | Befestigung | 24 Stein, 10 Eisen | 5 |
+  | Obelisk | Astronomie | 24 Stein, 2 Gold | 4 |
+  | Bronzestatue | Universität | 12 Eisen, 8 Stein | 4 |
+  | Straßenlaterne (elektrisch, leuchtet) | Elektrizität | 4 Stahl, 2 Glas | 1,5 |
+  | Hologramm-Statue (flimmert, 4 Bilder) | Computer | 4 Stahl, 6 Glas, 6 Elektronik | 6 |
+
+  Der Springbrunnen heißt `springbrunnen`, weil `brunnen` der entfernte alte Brunnen ist (`Retired`).
+  Aufträge bieten keine Baupläne für Schmuck an (`Quests.plan_choices`), Brand und Sturmflut treffen ihn nicht
+  (`Events._damage_candidates`).
+- **Schlüssel in buildings.json:** `decor` (Schönheit), `flat` (kein Schatten), `anim` (Bilder je Sekunde, läuft
+  immer, `Building._process`), `icon_size` (Ausschnitt unten mittig fürs Bild in Listen, `Data.building_tex`),
+  `light_y` (Höhe der Lampe), `leisure` (`park`, `bench`, `pavilion`), `props` (eigene Bilder auf einzelnen
+  Feldern, y-sortiert in `entities`; die Felder sind gesperrt, `Building.blocks_cell`), `path_speed`,
+  `animal_wall`. Schmuck hat keine Tür, darf dicht an dicht stehen, aber nicht auf die Tür eines anderen
+  Gebäudes (`World.can_place`). Als Baustelle zeigt er sein eigenes Bild halb durchsichtig. Die Parkanlage ist
+  ein Bodengebäude mit einem Bild über die ganze Fläche (`Building._flat_sprite`), die zwei Zierbäume sind `props`.
+- **Wege:** `World.path_speed(c)`: Straße `road_speed` (1,5), sonst `path_speed` des fertigen Wegs (höchstens
+  `road_speed`), Gras 1. Settler._walk, die Wegkosten (`_grass_cost() / path_speed`) und `travel_time` rechnen
+  damit. Kies- und Ziegelweg sind Kachel-Gebäude wie die Straße (`gravel0..15`, `bricks0..15`), die Hecke wie der
+  Zaun (`hedge0..15`, `fence_at` zählt `animal_wall` mit, auch für Gehege). Wege dürfen vor einer Tür liegen.
+- **Laune:** `World.decor_near(Haus)` = Summe `decor` fertiger Stücke, deren nächstes Feld höchstens
+  `decor_radius` (6) Felder von der Mitte des Hauses liegt; gemerkt je Haus, neu nach Bau, Fertigstellung,
+  Abriss, Verschieben (`decor_dirty`). `World.decor_mood` = `decor_mood_per` (2) mal Wurzel der Summe,
+  höchstens `decor_mood_max` (8). SettlerMind zeigt die Zeile „Wohnt in schöner Umgebung“.
+- **Freizeit** (`Settler._plan_leisure`, `_near_spot`, `_plan_decor_leisure`): nächster Park, nächste Bank,
+  nächster Pavillon in `leisure_spot_radius` (30) Feldern. Park (Gewicht 2,5): ins Grün, dann ein paar Felder
+  langsam (`park_walk_speed` 0,45, Schritt `move` mit `speed`) mit Pausen. Bank und Pavillon (2,0): zur Tür, dann
+  Pausenschritt mit `sit` (Platz auf dem Bild, der Zweite rückt daneben), der Körper sinkt 2 Pixel, danach steht
+  er wieder auf seinem Feld.
+- **Bilder:** `tools/gen_art_decor.py` (aus gen_art.py): buildings.png Zellen 60..89 (Atlas jetzt 512x768),
+  objects3.png Zeilen y=64/80/96 (jetzt 256x112), Symbol `schmuck`.
+- **Test** `--decortest=1` (`scripts/world/decor_test.gd`): Freischalten, Laune mit Obergrenze und Abriss,
+  Tempo und Wegsuche, Hecke, Park und Bank in der Freizeit, Sitzen, wehende Fahne, Tür frei, Spielstand.
+  Ausgabe `Schmuck OK`. Bild: `--decorshot=1` (Dorf mit allem Schmuck, `--seed=11`), Bau-Reiter:
+  `--panel=build --cat=schmuck`.
+
 ## Testen
 
 ```
@@ -1501,6 +1704,7 @@ godot --headless --fixed-fps 60 -- --autotest=20 --scale=10 --talenttest=1  # Ta
 godot --headless --fixed-fps 60 -- --autotest=30 --scale=10 --admintest=1  # Verwaltung, Vertretung, Überstunden, Schicht (Bild: --adminshot=office|workshop|proposal)
 godot --headless --fixed-fps 60 -- --autotest=200 --scale=10 --landtest=1 --noevents=1  # Straßen, Deiche, Neuland, Förster (Bild: --landshot=road|dike)
 godot --headless --fixed-fps 60 -- --autotest=60 --scale=10 --protestvideo=1  # Protest-Video
+godot --headless -- --autotest=150 --decortest=1  # Schmuck (Bild: --decorshot=1 --seed=11)
 godot --headless --fixed-fps 60 -- --autotest=40 --scale=10 --fixture=sea.json --oncetest=1  # Einmal-Route hin und zurück
 godot --headless --fixed-fps 60 -- --autotest=40 --scale=10 --fixture=sea.json --oncetest=trip  # Einmal schicken, Austausch-Halt
 godot --headless --fixed-fps 60 -- --autotest=30 --scale=10 --seed=7 --basictrade=1  # Händler mit einfachen Waren

@@ -44,6 +44,14 @@ var reported: Dictionary = {}  # Beruf -> letzte Meldung (Tag)
 var auto_reassign := false     # Stirbt jemand mit Beruf, bekommt ein freier Siedler diesen Beruf (josh 2026-10-16)
 var pending_jobs: Array = []   # Berufe Verstorbener ohne freien Nachfolger: das nächste erwachsene Kind lernt sie
 const AUTO_AGE := 2            # Neuzuweisung erst ab dem Mittelalter (Zeitalter-Index, josh 2026-10-16)
+## Ab Forschungsstufe 8 ordnet der Verwalter Überstunden und Schichtarbeit (mit Nachtschicht) selbst an
+## (josh 2026-10-21) und beendet sie wieder, wenn niemand mehr fehlt oder Protest droht.
+const SELF_ORDER_TIER := 8
+var self_orders := true        # Spieler-Schalter im Reiter Verwalter
+var auto_orders: Dictionary = {}  # Beruf -> true: diese Anordnung hat der Verwalter selbst getroffen
+var _short_at: Dictionary = {}    # Beruf -> letzter Tag, an dem Leute fehlten
+var _ot_rest: Dictionary = {}     # Beruf -> bis zu diesem Tag ordnet er keine Überstunden mehr an (Erholung)
+var _hold: Dictionary = {}        # Beruf -> bis zu diesem Tag ordnet er nichts an (Spieler hat abgeschaltet)
 var _next_tick := 0.0
 var _night_check_at := 0
 var _night_cached := false
@@ -266,7 +274,8 @@ func claim_manager(s) -> void:
 
 
 ## Überstunden an- oder abschalten. Gibt einen Fehlertext zurück ("" = erledigt).
-func set_overtime(job: String, on: bool) -> String:
+func set_overtime(job: String, on: bool, by_admin := false) -> String:
+	_mark_auto(job, by_admin, on)
 	var o := _order(job).duplicate()
 	if on:
 		if protesting(job):
@@ -281,11 +290,31 @@ func set_overtime(job: String, on: bool) -> String:
 	return ""
 
 
-func set_shift(job: String, on: bool) -> void:
+func set_shift(job: String, on: bool, by_admin := false) -> void:
+	_mark_auto(job, by_admin, on)
 	var o := _order(job).duplicate()
 	o.sh = on
 	orders[job] = o
 	changed.emit()
+
+
+## Wer zuletzt eine Anordnung trifft, dem gehört sie: der Spieler übernimmt sie, der Verwalter markiert sie.
+## Schaltet der Spieler etwas ab, lässt der Verwalter den Beruf ein Jahr in Ruhe (_hold).
+func _mark_auto(job: String, by_admin: bool, on: bool) -> void:
+	if by_admin:
+		auto_orders[job] = true
+	else:
+		auto_orders.erase(job)
+		if not on:
+			_hold[job] = Game.time_days + Seasons.year_days()
+
+
+func self_orders_unlocked() -> bool:
+	return Game.max_tier() >= SELF_ORDER_TIER
+
+
+func self_orders_on() -> bool:
+	return self_orders and self_orders_unlocked()
 
 
 ## Neuzuweisung freigeschaltet (ab dem Mittelalter)?
@@ -319,7 +348,7 @@ func _on_settler_died(s, _cause: String) -> void:
 		Game.notify_at(s.world, tr("Für den Beruf %s von %s gibt es keinen freien Siedler. Das nächste Kind, das erwachsen wird, lernt ihn.") % [_name(s.job), s.display_name], "wissen", "verwaltung")
 		changed.emit()
 		return
-	pick.set_job(s.job)
+	pick.set_job(s.job, true)
 	Game.notify_at(s.world, tr("%s übernimmt den Beruf %s von %s.") % [pick.display_name, _name(s.job), s.display_name], "wissen", "verwaltung")
 	changed.emit()
 
@@ -331,7 +360,7 @@ func on_grown_up(s) -> bool:
 	var job: String = pending_jobs.pop_front()
 	if not Data.jobs.has(job) or (job == JOB and local_manager() != null):
 		return false
-	s.set_job(job)
+	s.set_job(job, true)
 	Game.notify_at(s.world, tr("%s ist erwachsen und lernt den Beruf %s.") % [s.display_name, _name(job)], "wissen", "verwaltung")
 	changed.emit()
 	return true
@@ -371,18 +400,52 @@ func _tick() -> void:
 	if not active():
 		return
 	var m = local_manager()
-	for e in shortages():
+	var short := shortages()
+	for e in short:
+		_short_at[e[0]] = Game.time_days
+	if self_orders_on():
+		_self_order_tick(m)
+	for e in short:
 		var job: String = e[0]
 		if Game.time_days - float(reported.get(job, -99.0)) < _c("report_every", 2.0):
 			continue
 		reported[job] = Game.time_days
 		var text := tr("Verwalter %s: Im Beruf %s fehlen Leute (Werkstätten: %d, Leute: %d).") % [
 			m.display_name, _name(job), int(e[1]), int(e[2])]
+		if self_orders_on() and Game.time_days >= float(_hold.get(job, 0.0)):
+			if not ordered(job, "ot") and not protesting(job) and Game.time_days >= float(_ot_rest.get(job, 0.0)):
+				set_overtime(job, true, true)
+				Game.notify(text + " " + tr("Er ordnet Überstunden an."), "wissen", "verwaltung")
+				continue
+			if not ordered(job, "sh"):
+				set_shift(job, true, true)
+				Game.notify(text + " " + tr("Er ordnet Schichtarbeit mit Nachtschicht an."), "wissen", "verwaltung")
+				continue
 		if ordered(job, "ot") and ordered(job, "sh"):
 			Game.notify(text + " " + tr("Teile mehr Siedler für diesen Beruf ein."), "wissen", "verwaltung")
 			continue
 		Game.notify(text + " " + tr("Vorschlag: Überstunden oder Schichtarbeit."), "wissen", "verwaltung")
 		proposal.emit(job, text)
+
+
+## Eigene Anordnungen des Verwalters pflegen: Überstunden vor dem Protest (nach 80 % der erlaubten Zeit) in
+## Schichtarbeit umwandeln; fehlt im Beruf zwei Meldezeiten lang niemand mehr, alles beenden.
+func _self_order_tick(m) -> void:
+	var year := Seasons.year_days() * _c("overtime_years", 1.0)
+	for job in auto_orders.keys():
+		var o := _order(job)
+		var who := tr("Verwalter %s") % m.display_name
+		if Game.time_days - float(_short_at.get(job, -99.0)) > 2.0 * _c("report_every", 2.0):
+			set_overtime(job, false, true)
+			set_shift(job, false, true)
+			auto_orders.erase(job)
+			Game.notify(who + ": " + tr("Im Beruf %s fehlt niemand mehr. Er beendet Überstunden und Schichtarbeit.") % _name(job), "wissen", "verwaltung")
+		elif bool(o.ot) and Game.time_days - float(o.since) >= year * 0.8:
+			set_overtime(job, false, true)
+			_ot_rest[job] = Game.time_days + year
+			if not bool(o.sh):
+				set_shift(job, true, true)
+			Game.notify(who + ": " + tr("Damit im Beruf %s niemand protestiert, beendet er die Überstunden und ordnet Schichtarbeit an.") % _name(job), "wissen", "verwaltung")
 
 
 # ---------------------------------------------------------------- Statistik (josh 2026-10-20)
@@ -450,12 +513,17 @@ func _on_reset() -> void:
 	reported = {}
 	auto_reassign = false
 	pending_jobs = []
+	self_orders = true
+	auto_orders = {}
+	_short_at = {}
+	_ot_rest = {}
+	_hold = {}
 	_next_tick = 0.0
 	changed.emit()
 
 
 func _on_save(d: Dictionary) -> void:
-	d["admin"] = {"orders": orders.duplicate(true), "protest": protest.duplicate(), "reported": reported.duplicate(), "auto": auto_reassign, "pending": pending_jobs.duplicate(), "produced": produced.duplicate(true)}
+	d["admin"] = {"orders": orders.duplicate(true), "protest": protest.duplicate(), "reported": reported.duplicate(), "auto": auto_reassign, "pending": pending_jobs.duplicate(), "produced": produced.duplicate(true), "self_orders": self_orders, "auto_orders": auto_orders.keys()}
 
 
 func _on_load(data: Dictionary, old_rules: int) -> void:
@@ -466,6 +534,12 @@ func _on_load(data: Dictionary, old_rules: int) -> void:
 	if not (e is Dictionary):
 		return
 	auto_reassign = bool(e.get("auto", false))
+	self_orders = bool(e.get("self_orders", true))
+	var ao = e.get("auto_orders", [])
+	if ao is Array:
+		for j in ao:
+			if Data.jobs.has(str(j)):
+				auto_orders[str(j)] = true
 	var pr = e.get("produced", {})
 	if pr is Dictionary:
 		for y in pr:

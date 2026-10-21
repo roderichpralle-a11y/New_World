@@ -178,6 +178,8 @@ static func comfort_stage() -> Array:
 ## Anteil des Tages, den der Siedler gern frei haette.
 func leisure_share() -> float:
 	var f := 1.25 - 0.05 * trait_value("fleiss")  # Fleissige brauchen weniger Pausen
+	if s.world != null and s.world.reading_good() != "":
+		f *= float(Data.bal("reading_leisure_mult", 1.2))  # wer Lesestoff hat, liest gern und arbeitet etwas weniger
 	return clampf(comfort() * float(Data.ppl("leisure_share_max", 0.3)) * f, 0.0, 0.45)
 
 
@@ -402,6 +404,9 @@ func _update_mood(days: float) -> void:
 		var need: Array = HouseNeeds.mood_reason(home, c)  # Bedürfnisstufen (nur gemerkte Werte)
 		if not need.is_empty():
 			r.append(need)
+		var dm: float = s.world.decor_mood(home)  # Schmuck in der Nähe (World.decor_near, gemerkt)
+		if dm > 0.0:
+			r.append([tr("Wohnt in schöner Umgebung"), dm])
 	# Freizeit
 	if leisure_share() > 0.0:
 		if rest < 25.0:
@@ -427,7 +432,8 @@ func _update_mood(days: float) -> void:
 		r.append([(tr("Freut sich über: %s") if sm > 0.0 else tr("Leidet unter: %s")) % Seasons.season_title(), sm * 60.0])
 	if not Seasons.is_warm(s.world):
 		r.append([tr("Friert (kein Holz, keine Kohle)"), -15.0])
-	r.append_array(Admin.mood_reasons(s))  # Schichtarbeit, Protest gegen Überstunden
+	r.append_array(Admin.mood_reasons(s))
+	r.append_array(Events.fear_reasons(s))  # Piratenüberfall (josh 2026-10-20)  # Schichtarbeit, Protest gegen Überstunden
 	var target := base
 	for x in r:
 		target += float(x[1])

@@ -63,6 +63,27 @@ static func run(main) -> void:
 		AdminInfo._dialog.queue_free()
 	print("Verwaltung: fehlt ", Admin.shortages(), " Vorschlag ", props)
 	_ok(props.size() == 1 and props[0][0] == "handwerker", "Verwalter meldet fehlende Handwerker")
+	# Ab Stufe 8 ordnet er selbst an (josh 2026-10-21): erst Überstunden, dann Schichtarbeit, dann wieder Schluss
+	_ok(not Admin.self_orders_on(), "vor Stufe 8 nur Vorschläge")
+	Game.research.done.append("buchdruck")
+	Admin.reported.clear()
+	Admin._tick()
+	_ok(Admin.ordered("handwerker", "ot") and Admin.auto_orders.has("handwerker"), "Stufe 8: Verwalter ordnet Überstunden selbst an")
+	Admin.reported.clear()
+	Admin._tick()
+	_ok(Admin.ordered("handwerker", "sh"), "danach Schichtarbeit mit Nachtschicht")
+	Admin._short_at["handwerker"] = Game.time_days - 10.0
+	Admin._self_order_tick(Admin.local_manager())
+	_ok(not Admin.ordered("handwerker", "ot") and not Admin.ordered("handwerker", "sh") and not Admin.auto_orders.has("handwerker"), "fehlt niemand mehr: er beendet beides")
+	Admin.set_overtime("handwerker", false)  # Spieler schaltet ab
+	Admin.reported.clear()
+	Admin._tick()
+	_ok(not Admin.ordered("handwerker", "ot"), "nach dem Abschalten durch den Spieler ordnet er ein Jahr nichts an")
+	Game.research.done.erase("buchdruck")
+	Admin._hold.clear()
+	Admin.orders.clear()
+	if AdminInfo._dialog and is_instance_valid(AdminInfo._dialog):
+		AdminInfo._dialog.queue_free()
 	# Vertretung: ein freier Siedler arbeitet in der Sägegrube
 	Game.add_stock("beeren", 80, w)  # genug Essen: Freie sammeln sonst zuerst Nahrung
 	saw.adm = true
@@ -255,8 +276,26 @@ static func shot(main, kind: String) -> void:
 			b.adm = true
 			if kind == "workshop":
 				Game.select(b)
-		if b.type == "verwaltung" and kind in ["office", "night", "stats", "shifts"]:
-			AdminInfo._tab = {"night": 2, "stats": 4, "shifts": 1}.get(kind, 0)
+		if b.type == "verwaltung" and kind in ["office", "night", "stats", "shifts", "islands"]:
+			AdminInfo._tab = {"night": 2, "stats": 4, "shifts": 1, "islands": AdminInfo.TAB_ISLANDS}.get(kind, 0)
+			if kind == "islands":  # mit --fixture=<sea.json>: Inselverbund, Rundfunkanstalt nur auf der Heimatinsel
+				Game.research.done.append("papier")
+				Steward.on = true
+				Steward.offered = true
+				Steward.offered_routes = true
+				Steward.offered_net = true
+				Steward.offered_automat = true
+				main._place_on(w, "rundfunk")
+				var ids: Array = Sea.settled_islands().map(func(m): return int(m.id))
+				if ids.size() > 1:
+					AdminInfo._task_island = int(ids[1])
+				var close := func():  # Hinweisfenster (Verwalter, KI) aus dem Bild nehmen
+					main.hud._offers.clear()
+					for c in main.hud.root.get_children():
+						if c is ColorRect and c.mouse_filter == Control.MOUSE_FILTER_STOP:
+							c.queue_free()
+				for t in [0.5, 1.5, 3.0]:
+					main.get_tree().create_timer(t).timeout.connect(close)
 			for j in Data.jobs:
 				Admin.reported[j] = 1e9  # kein Vorschlagsfenster über dem Fenster
 			if kind == "stats":

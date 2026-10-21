@@ -29,6 +29,8 @@ var _tiles: Array = []
 var _light: PointLight2D
 var _anim_t: float = 0.0
 var _bar: Node2D
+var _props: Array = []  # Schmuck: eigene Bilder auf einzelnen Feldern (Bäume im Park), [Sprite2D, Versatz]
+var _decor_t: float = 0.0
 
 static var _light_tex: Texture2D
 
@@ -41,7 +43,7 @@ func setup(p_world, p_type: String, p_cell: Vector2i, p_complete: bool) -> void:
 	size = Vector2i(int(def.size[0]), int(def.size[1]))
 	complete = p_complete
 	position = foot_pos()
-	if is_ground():
+	if is_ground() and not _flat_sprite():
 		for y in size.y:
 			for x in size.x:
 				var s := Sprite2D.new()
@@ -50,21 +52,28 @@ func setup(p_world, p_type: String, p_cell: Vector2i, p_complete: bool) -> void:
 				add_child(s)
 				_tiles.append(s)
 	else:
-		var sh := Sprite2D.new()
-		sh.texture = Data.object_tex("shadow_big")
-		sh.scale = Vector2(size.x * 16 / 32.0 * 1.1, 1.6)
-		sh.position = Vector2(0, -2)
-		add_child(sh)
+		if not is_ground() and not def.get("flat", false):
+			var sh := Sprite2D.new()
+			sh.texture = Data.object_tex("shadow_big")
+			sh.scale = Vector2(size.x * 16 / 32.0 * 1.1, 1.6)
+			sh.position = Vector2(0, -2)
+			add_child(sh)
 		_sprite = Sprite2D.new()
 		_sprite.centered = false
 		add_child(_sprite)
+		# Schmuck: Bäume der Parkanlage stehen als eigene Bilder zwischen den Siedlern (y-sortiert)
+		for p in def.get("props", []):
+			var ps := Sprite2D.new()
+			ps.centered = false
+			p_world.entities.add_child(ps)
+			_props.append([ps, Vector2i(int(p[1]), int(p[2])), String(p[0])])
 	# Werkstätten bekommen eine Arbeitslampe: sie brennt nachts, solange drinnen jemand arbeitet (Schichtarbeit)
 	if def.get("light", false) or def.has("production"):
 		_light = PointLight2D.new()
 		_light.texture = _get_light_tex()
 		_light.color = Color(1.0, 0.75, 0.45)
 		_light.texture_scale = 1.6 if type == "lagerfeuer" else 1.0
-		_light.position = Vector2(0, -6) if type == "lagerfeuer" else Vector2(0, -14)
+		_light.position = Vector2(0, -6) if type == "lagerfeuer" else Vector2(0, float(def.get("light_y", -14)))
 		_light.energy = 0.0
 		add_child(_light)
 	_bar = Node2D.new()
@@ -92,6 +101,36 @@ static func _get_light_tex() -> Texture2D:
 
 func is_ground() -> bool:
 	return def.get("ground", false)
+
+
+## Schmuck (Kategorie "schmuck"): zählt für die schöne Umgebung (buildings.json "decor") oder ist ein Weg.
+func is_decor() -> bool:
+	return def.has("decor")
+
+
+## Begehbarer Schmuck mit einem Bild über die ganze Fläche (Parkanlage) statt Kacheln.
+func _flat_sprite() -> bool:
+	return is_ground() and def.has("decor") and not def.has("tile") and not def.has("farm")
+
+
+## Felder, auf denen ein Bild steht (Bäume im Park): dort kann niemand laufen.
+func prop_cells() -> Array:
+	var out := []
+	for p in def.get("props", []):
+		out.append(cell + Vector2i(int(p[1]), int(p[2])))
+	return out
+
+
+## Sperrt das Gebäude dieses Feld für die Wegfindung? Gebäude ganz, Bodengebäude nur ihre Bilder.
+func blocks_cell(c: Vector2i) -> bool:
+	return not is_ground() or c in prop_cells()
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_PREDELETE:
+		for p in _props:
+			if is_instance_valid(p[0]):
+				p[0].queue_free()
 
 
 func foot_pos() -> Vector2:
@@ -340,19 +379,27 @@ func refresh() -> void:
 		for t in _tiles:
 			t.texture = Data.object_tex(tname)
 			t.modulate = Color(1, 1, 1, 1.0 if complete or kind == "plant_mark" else 0.5)
-	elif is_ground():
+	elif is_ground() and _sprite == null:
 		var stage := farm_stage() if complete else 0
 		var tiles: String = farm_def().get("tiles", "field")
 		for t in _tiles:
 			t.texture = Data.object_tex("%s%d" % [tiles, stage])
 			t.modulate = Color(1, 1, 1, 1.0 if complete else 0.55)
 	else:
-		var name: String = def.sprite if complete else "construction"
+		# Schmuck zeigt als Baustelle sein eigenes Bild halb durchsichtig (das Baugerüst wäre zu groß)
+		var name: String = def.sprite if complete or is_decor() else "construction"
 		var tex := Data.object_tex(name, 0)
 		_sprite.texture = tex
 		var sz := tex.region.size
 		_sprite.offset = Vector2(-sz.x / 2.0, -sz.y + 4 if sz.y > 16 else -sz.y + 6)
-		_sprite.modulate = Color.WHITE
+		_sprite.modulate = Color.WHITE if complete or not is_decor() else Color(1, 1, 1, 0.45)
+		for p in _props:
+			var ps: Sprite2D = p[0]
+			ps.texture = Data.object_tex(p[2])
+			ps.offset = Vector2(-32, -60)
+			var pc: Vector2i = cell + p[1]
+			ps.position = Vector2(pc.x * 16, pc.y * 16 + 8)
+			ps.modulate = _sprite.modulate
 	_bar.queue_redraw()
 
 
@@ -383,6 +430,10 @@ func _process(delta: float) -> void:
 	if type == "lagerfeuer":
 		_anim_t += delta
 		_sprite.texture = Data.object_tex("campfire", int(_anim_t * 8.0) % 4)
+	elif complete and _sprite and def.has("anim"):
+		# Schmuck: Fahne, Springbrunnen, Hologramm laufen immer
+		_decor_t += delta
+		_sprite.texture = Data.object_tex(def.sprite, int(_decor_t * float(def.anim)) % Data.object_frames(def.sprite))
 	elif complete and _sprite and not def.has("production") and Data.object_frames(def.sprite) > 1:
 		# Leuchtturm: das Feuer kreist nachts
 		_anim_t += delta

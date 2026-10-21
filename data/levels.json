@@ -22,7 +22,8 @@
     {"name": "Bürger", "needs": [
       {"id": "essen", "kind": "stock", "name": "Zubereitetes Essen", "icon": "brot", "goods": ["brot", "raeucherfisch", "eier", "konserven"], "per": 0.5},
       {"id": "hausrat", "kind": "good", "name": "Hausrat", "good": "werkzeug", "rate": 0.06},
-      {"id": "schule", "kind": "building", "name": "Schule", "icon": "wissen", "flag": "school"}
+      {"id": "schule", "kind": "building", "name": "Schule", "icon": "wissen", "flag": "school"},
+      {"id": "lesen", "kind": "good", "name": "Lesestoff", "icon": "buecher", "good": "zeitungen", "alt": ["buecher"], "rate": 0.06, "requires": "papier"}
     ]},
     {"name": "Städter", "needs": [
       {"id": "glas", "kind": "good", "name": "Glas", "good": "glas", "rate": 0.08},

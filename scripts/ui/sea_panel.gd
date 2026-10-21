@@ -16,6 +16,8 @@ var _tab_islands: Button
 var _tab_ships: Button
 var _title: Label
 var _goods_mode: String = "main"  # main, all, missing
+var _mm_island: int = -1  # Mindest- und Höchststand bearbeiten (Steward, ab der 3. Insel): Insel und Ware
+var _mm_good: String = ""
 var _trip_from: int = -1
 var _trip_to: int = -1
 var _trip_goods: Dictionary = {}
@@ -820,6 +822,7 @@ func _goods_columns(islands: Array) -> Array:
 
 
 func _fill_goods() -> void:
+	_steward_row()
 	_details.add_child(_wrap(tr("Was liegt auf welcher Insel? Tippe auf eine Insel, um sie auf der Karte zu sehen."), 13))
 	var islands := Sea.settled_islands()
 	var cols := _goods_columns(islands)
@@ -873,10 +876,29 @@ func _fill_goods() -> void:
 			var n := _goods_amount(id, w)
 			var cell := _box(CELL_BG, CELL_LINE, 2, 2)
 			cell.custom_minimum_size = Vector2(col_w, 30)
-			var l := UiTheme.label(str(n), 13, UiTheme.BAD if _goods_short(id, w, n) else UiTheme.TEXT, true)
+			var txt := str(n)
+			var lim: Array = Steward.limits(int(m.id), id) if id != "essen" else [0, 0]
+			if lim[0] > 0 or lim[1] > 0:
+				txt += "  %s–%s" % [str(lim[0]) if lim[0] > 0 else "", str(lim[1]) if lim[1] > 0 else ""]
+			var l := UiTheme.label(txt, 13 if lim[0] <= 0 and lim[1] <= 0 else 11, UiTheme.BAD if _goods_short(id, w, n) else UiTheme.TEXT, true)
 			l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 			cell.add_child(l)
+			if Steward.routes_unlocked() and id != "essen":
+				var cid := int(m.id)
+				var gid: String = id
+				cell.mouse_filter = Control.MOUSE_FILTER_STOP
+				cell.tooltip_text = tr("Tippen: Mindest- und Höchststand für den Verwalter einstellen")
+				cell.gui_input.connect(func(ev):
+					if ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT and not ev.pressed:
+						_mm_island = cid
+						_mm_good = gid
+						refresh())
+				if cid == _mm_island and gid == _mm_good:
+					var sb: StyleBoxFlat = cell.get_theme_stylebox("panel").duplicate()
+					sb.border_color = UiTheme.ACCENT
+					sb.set_border_width_all(3)
+					cell.add_theme_stylebox_override("panel", sb)
 			grid.add_child(cell)
 	# Unten: Siedler und freie Seeleute je Insel
 	var ph := UiTheme.label(tr("Siedler"), 12, UiTheme.TEXT, true)
@@ -913,6 +935,7 @@ func _fill_goods() -> void:
 	_details.add_child(hs)
 	# Beim Neuaufbau (z. B. nach dem Tipp auf eine Zahl) seitlich an derselben Stelle bleiben
 	_keep_hscroll(hs, _goods_hscroll)
+	_minmax_editor()
 	if cols.is_empty():
 		_details.add_child(_hint(tr("Gerade fehlt auf keiner Insel etwas.")))
 	var chips := HFlowContainer.new()
@@ -940,6 +963,98 @@ func _fill_goods() -> void:
 			hud.toast(err, "boot")
 		refresh())
 	_details.add_child(ex)
+
+
+## Mindest- und Höchststand einer Ware auf einer Insel (Steward.set_limits): der Verwalter fährt Waren nach.
+func _minmax_editor() -> void:
+	if not Steward.routes_unlocked():
+		return
+	if _mm_island < 0 or _mm_good == "" or Sea.worlds.get(_mm_island) == null:
+		_details.add_child(_hint(tr("Tippe auf eine Zahl, um für die Ware auf dieser Insel einen Mindest- und Höchststand einzustellen. Der Verwalter fährt dann mit freien Schiffen Waren hin und her.")))
+		return
+	var w = Sea.worlds.get(_mm_island)
+	var box := _box(Color("#f3e6c8"), UiTheme.ACCENT, 2, 8)
+	var v := VBoxContainer.new()
+	box.add_child(v)
+	var head := HBoxContainer.new()
+	var t := UiTheme.label(tr("%s auf %s (jetzt %d)") % [Data.resource_name(_mm_good), Sea.island_name(w), Game.amount(_mm_good, w)], 14, UiTheme.TEXT, true)
+	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(t)
+	var done := _small_btn(tr("Fertig"))
+	done.pressed.connect(func():
+		_mm_island = -1
+		refresh())
+	head.add_child(done)
+	v.add_child(head)
+	var iid := _mm_island
+	var gid := _mm_good
+	for which in [0, 1]:
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 4)
+		var nm := UiTheme.label(tr("Mindestens") if which == 0 else tr("Höchstens"), 13)
+		nm.custom_minimum_size.x = 96
+		row.add_child(nm)
+		var wi: int = which
+		var val := UiTheme.label("", 14, UiTheme.TEXT, true)
+		val.custom_minimum_size.x = 64
+		val.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		var show := func():
+			var x: int = Steward.limits(iid, gid)[wi]
+			val.text = str(x) if x > 0 else tr("–")
+		for step in [-50, -10, 10, 50]:
+			if step == 10:
+				row.add_child(val)
+			var b := _small_btn(("%+d" % step))
+			b.custom_minimum_size.x = 44
+			var st: int = step
+			b.pressed.connect(func():
+				var lim: Array = Steward.limits(iid, gid)
+				lim[wi] = maxi(0, int(lim[wi]) + st)
+				if wi == 1 and lim[1] > 0 and lim[0] > lim[1]:
+					lim[0] = lim[1]
+				if wi == 0 and lim[1] > 0 and lim[0] > lim[1]:
+					lim[1] = lim[0]
+				Steward.set_limits(iid, gid, lim[0], lim[1])
+				AiRule.player_changed("minmax")
+				show.call())
+			row.add_child(b)
+		show.call()
+		v.add_child(row)
+	var cap := Steward.store_cap(iid, gid)
+	if cap >= 0:
+		var lim_here := Game.limit_of(gid, w)
+		v.add_child(_hint(tr("Lager hier: höchstens %d (Lagergrenze)") % cap if lim_here >= 0 else tr("Lager hier: Platz für höchstens %d") % cap))
+	var why := tr("Liegt weniger als der Mindeststand da, holt der Verwalter die Ware von einer anderen Insel. Liegt mehr als der Höchststand da, bringt er den Überschuss weg (zuerst zur Heimatinsel). Dafür nimmt er freie Schiffe ohne Route.")
+	if not Steward.on:
+		why += " " + tr("Dafür muss der Verwalter eingeschaltet sein.")
+	var hl := _hint(why)
+	v.add_child(hl)
+	_details.add_child(box)
+
+
+## Verwalter-Steuerung (josh 2026-10-21): Schalter, Inselverbund und Spezialisierung stehen im Fenster
+## Verwalter, Reiter Inseln (AdminInfo._islands_tab); hier nur der Stand und ein Knopf dorthin.
+func _steward_row() -> void:
+	if not Steward.unlocked():
+		return
+	var box := _box(Color("#e3eecf") if Steward.on else CELL_BG, CELL_LINE, 2, 6)
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 8)
+	h.add_child(UiTheme.icon_rect(Data.icon("person"), 20))
+	var l := UiTheme.label((tr("Automat steuert die Inseln: an") if Steward.on else tr("Automat steuert die Inseln: aus")) if Steward.automat_mode() else (tr("Verwalter steuert die Berufe: an") if Steward.on else tr("Verwalter steuert die Berufe: aus")), 14, UiTheme.TEXT, true)
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.custom_minimum_size.x = 150
+	h.add_child(l)
+	var b := _small_btn(tr("Verwalter"), "person")
+	b.tooltip_text = tr("Berufe, Inselverbund und Spezialisierung der Inseln stellst du im Fenster Verwalter ein (Reiter Inseln).")
+	b.pressed.connect(func():
+		AdminInfo._tab = AdminInfo.TAB_ISLANDS
+		if hud:
+			hud._open_admin())
+	h.add_child(b)
+	box.add_child(h)
+	_details.add_child(box)
 
 
 # ---------------------------------------------------------------- Schiffe
