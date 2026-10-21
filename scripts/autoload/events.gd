@@ -104,6 +104,74 @@ func busy(w) -> bool:
 	return str(event_of(w).get("type", "")) == "piraten"
 
 
+# ---------------------------------------------------------------- Belastung durch Piraten (josh 2026-10-20)
+## Wie stark ein Überfall die Siedler belastet (Abzug an der Laune, 0..fear_max): hängt ab vom Schutz
+## (bewaffnete Kämpfer, Kämpfer mit Werkzeug, fertige Wachtürme) im Verhältnis zur Zahl der Piraten.
+## Jeder Wachturm beruhigt zusätzlich (fear_tower_calm je Turm).
+func pirate_fear(w, raiders: int) -> float:
+	var d := type_def("piraten")
+	var fighters := 0
+	for s in w.settlers:
+		if defender(s):
+			fighters += 1
+	var armed := mini(fighters, Game.amount("waffen", w))
+	var towers := 0
+	for b in w.buildings:
+		if b.complete and b.def.has("defense"):
+			towers += 1
+	var prot := armed * float(d.get("fear_armed", 1.0)) + (fighters - armed) * float(d.get("fear_unarmed", 0.4)) \
+		+ towers * float(d.get("fear_tower", 3.0))
+	var ratio := prot / maxf(1.0, float(raiders))
+	var f := float(d.get("fear_max", 25.0)) * clampf(1.0 - ratio * 0.5, 0.1, 1.0) * pow(float(d.get("fear_tower_calm", 0.7)), towers)
+	return snappedf(f, 0.1)
+
+
+## Meldung bei der Landung: wie sehr sich die Siedler fürchten und warum.
+func fear_text(w, raiders: int, fear: float) -> String:
+	var towers := 0
+	for b in w.buildings:
+		if b.complete and b.def.has("defense"):
+			towers += 1
+	var t := tr("Die Siedler haben Angst (Laune −%d).") % roundi(fear)
+	if fear < 6.0:
+		t = tr("Die Siedler fühlen sich gut beschützt (Laune nur −%d).") % roundi(fear)
+	elif towers == 0:
+		t += " " + tr("Wachtürme und Waffen würden sie beruhigen.")
+	return t
+
+
+func _set_fear(_w, st: Dictionary, value: float, until: float) -> void:
+	st["fear"] = [value, until, true]  # [Abzug, bis Tag, während des Überfalls]
+
+
+## Nach dem Überfall: die Angst klingt ab (fear_after_days, halb so stark, mit Beute 0,7), und wer gekämpft
+## hat, ist erschöpft (fear_rest je nach Belastung).
+func _after_pirates(w, st: Dictionary, ev: Dictionary) -> void:
+	var d := type_def("piraten")
+	var f := float(ev.get("fear", 0.0))
+	if f <= 0.0:
+		return
+	var share := 0.7 if not ev.get("loot", {}).is_empty() else 0.4
+	st["fear"] = [snappedf(f * share, 0.1), Game.time_days + float(d.get("fear_after_days", 2.0)), false]
+	var tired := float(d.get("fear_rest", 40.0)) * f / float(d.get("fear_max", 25.0))
+	for s in w.settlers:
+		if defender(s):
+			s.mind.rest = maxf(0.0, s.mind.rest - tired)
+
+
+## Gründe für die Laune eines Siedlers (SettlerMind._update_mood).
+func fear_reasons(s) -> Array:
+	var st = islands.get(str(s.world.island_id))
+	if not st is Dictionary or not st.get("fear") is Array:
+		return []
+	var f: Array = st.fear
+	if Game.time_days >= float(f[1]) or float(f[0]) <= 0.0:
+		return []
+	if bool(f[2]):
+		return [[tr("Hat Angst vor den Piraten"), -float(f[0])]]
+	return [[tr("Steckt der Piratenüberfall noch in den Knochen"), -float(f[0])]]
+
+
 # ---------------------------------------------------------------- Verteidigung (josh 2026-10-12)
 ## Sind Piraten an Land (sichtbar, nicht vertrieben)? Dann verteidigen die Erwachsenen die Insel.
 func pirates_ashore(w) -> bool:
@@ -509,6 +577,7 @@ func _finish(w, st: Dictionary, ev: Dictionary, say: bool = true) -> void:
 				parts.append(_pirates_result(w, ev))
 	if typ == "piraten":
 		_return_weapons(w, ev)
+		_after_pirates(w, st, ev)
 	var deaths := int(ev.get("deaths", 0))
 	if deaths == 0:
 		Game.stats["events_survived"] = int(Game.stats.get("events_survived", 0)) + 1
@@ -650,12 +719,12 @@ func _rats(w, ev: Dictionary) -> String:
 
 # ---------------------------------------------------------------- Brand und Sturmflut
 ## Gebäude, die Feuer oder Flut beschädigen können: fertig, kein Feld, kein Lager, kein Hafen, nicht am
-## Ufer gebaut (coast), ohne besondere Wirkung, kein Lagerfeuer (no_damage).
+## Ufer gebaut (coast), ohne besondere Wirkung, kein Lagerfeuer (no_damage), kein Schmuck.
 func _damage_candidates(w) -> Array:
 	var no: Array = _c("no_damage", [])
 	return w.buildings.filter(func(b): return b.complete and not b.is_ground() and not b.type in no \
 		and int(b.def.get("storage", 0)) <= 0 and not b.def.has("harbor") and not b.def.get("coast", false) \
-		and not b.def.has("effects"))
+		and not b.def.has("effects") and not b.def.has("decor"))
 
 
 ## Liegt das Gebäude höchstens r Felder vom Wasser?
@@ -868,8 +937,12 @@ func _pirates_land(w, st: Dictionary, ev: Dictionary) -> void:
 	ev.landing = [land.x, land.y]
 	ev.armed = 0
 	_spawn_raiders(w, ev, n)
+	var fear := pirate_fear(w, n)
+	ev.fear = fear
+	_set_fear(w, st, fear, float(ev.end))
 	Game.notify_at(w, "%s %s" % [type_def("piraten").get("desc", ""), tr("Ein Schiff mit %d Piraten legt an. Die Erwachsenen greifen zu den Waffen (im Lager: %d), Kinder und Alte verstecken sich in den Häusern.") % [n, Game.amount("waffen", w)]],
 		"schwert", "ereignis")
+	Game.notify_at(w, fear_text(w, n, fear), "schwert", "ereignis")
 
 
 func _spawn_raiders(w, ev: Dictionary, n: int) -> void:
@@ -1086,6 +1159,8 @@ func _ev_from(e, t: float):
 	for k in ["ill"]:
 		if e.has(k):
 			ev[k] = str(e[k])
+	if e.has("fear"):
+		ev["fear"] = float(e.fear)
 	for k in ["count", "left", "kills", "lost", "burnt", "fields", "armed"]:
 		if e.has(k):
 			ev[k] = maxi(0, int(e[k]))
@@ -1121,6 +1196,8 @@ func _on_load(data: Dictionary, old_rules: int) -> void:
 				var last := str(s.get("last", ""))
 				islands[str(int(k))] = {"next": float(s.get("next", t + float(_c("grace_days", 8.0)))),
 					"last": last if not type_def(last).is_empty() else "", "ev": _ev_from(s.get("ev"), t)}
+				if s.get("fear") is Array and s.fear.size() >= 3:
+					islands[str(int(k))]["fear"] = [float(s.fear[0]), float(s.fear[1]), bool(s.fear[2])]
 	if old_rules < 1:
 		Game.rules_lines.append(tr("Ab dem zweiten Jahr kündigen sich Ereignisse an: Dürre, Ratten, Brand, Seuche, Sturmflut und ab dem Mittelalter Piraten. Wer sie gut übersteht, bekommt Einwanderer."))
 	if old_rules < 2:
