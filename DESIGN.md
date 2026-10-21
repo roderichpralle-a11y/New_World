@@ -446,7 +446,9 @@ ohne Tote), Bild `--plannershot=1`.
   12 Steine, Hütte fertig 1 Siedler, Flechtkörbe starten 1 Siedler, Forscher: Flechtkörbe sofort fertig.
   Wer die Einführung zu Ende spielt (nicht überspringt), bekommt 2 Siedler, eine fertige Hütte, ein fertiges
   Lagerhaus sowie Steinwerkzeuge und Schrift (`Extras.TUT_FINAL`, siehe „Kohle, Erfrieren und weitere
-  Ergänzungen“). Am Ende stehen so 6 Siedler, 3 Hütten und ein Lagerhaus.
+  Ergänzungen“). Am Ende stehen so 6 Siedler, 3 Hütten und ein Lagerhaus. Die Einführung erscheint auch,
+  wenn die Zielkarte unter Menü > Meldungen aus ist (`GoalCard.shown`; die Einstellung gilt im Browser für
+  alle Versionen).
 - **Statuszeile fest** (josh 2026-10-20): `Hud._fix_top_widths` gibt jeder Zahl die Breite ihres längsten
   üblichen Textes (breit 9999 / 9999 (99 Tage) / 999/999 / Tag 999 23:59, schmal 999 / 999 (9T) / 99/99 /
   Tag 99), die Jahreszeit die ihres längsten Namens; das Klima-Symbol bleibt unsichtbar an seinem Platz

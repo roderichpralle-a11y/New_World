@@ -214,7 +214,11 @@ func _dismiss() -> void:
 	hud.toast(tr("Ziel ausgeblendet. Das nächste Ziel erscheint wieder. Ganz abschalten: Menü > Meldungen."), "ziel", "tag")
 
 
+## Die Einführung erscheint immer, auch wenn die Zielkarte unter Menü > Meldungen aus ist (die Einstellung
+## gilt im Browser für alle Versionen, josh sah 2026-10-21 bei einem neuen Spiel sonst keine Einführung).
 func shown() -> bool:
+	if in_tutorial():
+		return _ms_shown()
 	return Game.goal_card_on and (_ms_shown() or QuestView.row_wanted(self))
 
 
