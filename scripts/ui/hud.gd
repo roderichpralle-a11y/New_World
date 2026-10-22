@@ -2598,6 +2598,7 @@ func _build_notify_panel() -> void:
 		cb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		cb.add_theme_font_size_override("font_size", 14)
 		var cat: String = row[0]
+		cb.set_meta("cat", cat)
 		cb.toggled.connect(func(on):
 			Game.set_notify(cat, on)
 			Sound.play("klick"))
@@ -2620,6 +2621,15 @@ func _build_notify_panel() -> void:
 
 
 var _notify_ft: Dictionary = {}
+
+
+## Eine Art Meldung einschalten (Haken im Fenster Meldungen setzt die Einstellung mit).
+func notify_on(cat: String) -> void:
+	for nb in _notify_grid.get_children():
+		var c: CheckBox = nb.get_child(0)
+		if c.get_meta("cat", "") == cat and not c.button_pressed:
+			c.button_pressed = true
+	Game.set_notify(cat, true)
 
 
 func _update_notify_footer() -> void:

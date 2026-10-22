@@ -783,8 +783,6 @@ func _autotest_tutorial() -> void:
 			Game.player_action.emit("panel", "siedler")
 		"t_research_open":
 			Game.player_action.emit("panel", "forschung")
-		"t_menu_open":
-			Game.player_action.emit("panel", "menue")
 		"t_builder":
 			world.settlers[1].set_job("baumeister")
 		"t_researcher":
@@ -1072,6 +1070,9 @@ func _on_new_game() -> void:
 	hud.on_island_switched()
 	_focus_start()
 	Game.set_speed(1)
+	# Neues Spiel: Zielkarte mit Aufträgen und Meldungen zu Aufträgen an (josh 2026-10-22)
+	hud.notify_on("goal_card")
+	hud.notify_on("ziel")
 	Game.save_game()
 	Game.flush_notes()
 	Game.notify(tr("Willkommen auf deiner Insel! Lena und Jonas brauchen ein Zuhause für Nachwuchs."), "sonne")

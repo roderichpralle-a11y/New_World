@@ -424,8 +424,8 @@ ohne Tote), Bild `--plannershot=1`.
   angelegte Busse bleiben dort stumm), Lautstärken im Menü, gespeichert in `user://settings.cfg`.
   Alle Klänge erzeugt `tools/gen_audio.py` (Ausgabe `assets/audio/`). Gebäude können mit
   `sound` einen eigenen Werkstatt-Klang haben, Tiere mit `sound` ihren Ruf.
-- **Einführung und Ziele** (`data/goals.json`, `scripts/ui/goal_card.gd`): seit `goals.tv` = 7
-  (josh 2026-10-21/22) 29 Schritte: die Statuszeile Symbol für Symbol (Holz, dann das Lager öffnen –
+- **Einführung und Ziele** (`data/goals.json`, `scripts/ui/goal_card.gd`): seit `goals.tv` = 8
+  (josh 2026-10-21/22) 27 Schritte: die Statuszeile Symbol für Symbol (Holz, dann das Lager öffnen –
   Tipp auf die Statuszeile, `Hud` meldet `panel`/`lager` – und wieder schließen, Steine, Nahrung, Siedler, Tag,
   Jahreszeit; Zeiger `top_holz` … `top_season`), Geschwindigkeit, dann der Hüttenbau: Baumenü öffnen,
   Baumenü, Hütte wählen (Prüfart `action`/`place`, `Hud` meldet den Hammer), Hütte setzen, Baumeister
@@ -433,7 +433,9 @@ ohne Tote), Bild `--plannershot=1`.
   Baumeister in der Liste wählen, warten bis die Hütte steht; dann Forschung
   öffnen, Zeitalter (Zeiger `age_tab`: der erste Reiter), Flechtkörbe starten (Pflicht, ohne Weiter, schenkt
   12 Holz über `gift`), Forschung schließen (Prüfart `no_panel`, Zeiger `close` = das X), Menü Siedler
-  öffnen, Forscher, Menü mit Reitern, Kinder, Tod. Erklär-Schritte haben den Knopf
+  öffnen, Forscher, Kinder, Tod (das Menü wird nicht mehr erklärt). Die Erklärung des Menüs Siedler rät
+  zum Fischer (Fisch das ganze Jahr, sehr nahrhaft, Fischgründe begrenzt). Ein neues Spiel schaltet unter
+  Menü > Meldungen die Zielkarte mit Aufträgen und die Meldungen zu Aufträgen ein (`Hud.notify_on`). Erklär-Schritte haben den Knopf
   Weiter (Prüfung `action`/`next`). Der Zeigerpfeil zeigt auf Knöpfe oder Teile offener Fenster
   (`point`, siehe `_pointer_target`; in Zeilen auf den Hammer oder das Dreieck, nicht auf das „i“, siehe
   `_row_button`); die Karte steht dabei als Sprechblase daneben und über den Fenstern
