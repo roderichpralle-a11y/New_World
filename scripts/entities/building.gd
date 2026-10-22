@@ -390,8 +390,12 @@ func refresh() -> void:
 		var name: String = def.sprite if complete or is_decor() else "construction"
 		var tex := Data.object_tex(name, 0) if complete or is_decor() else Data.construction_tex(def.sprite, build_fraction())
 		_sprite.texture = tex
+		_sprite.scale = Vector2.ONE
 		var sz := tex.region.size
 		_sprite.offset = Vector2(-sz.x / 2.0, -sz.y + 4 if sz.y > 16 else -sz.y + 6)
+		if HomeArt.active(world) and type == "huette":
+			HomeArt.apply(_sprite, "hut" if complete else "hut_construction")
+			_bar.position.y = -66.0
 		_sprite.modulate = Color.WHITE if complete or not is_decor() else Color(1, 1, 1, 0.45)
 		for p in _props:
 			var ps: Sprite2D = p[0]

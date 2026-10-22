@@ -91,6 +91,7 @@ var _bubble: Sprite2D
 var _zzz: Label
 var _work_prop: Sprite2D
 var _shadow: Sprite2D
+var _home_sprite: Sprite2D
 
 static var _sheets: Dictionary = {}
 
@@ -121,6 +122,12 @@ func setup(p_world, data: Dictionary) -> void:
 	by_admin = bool(data.get("by_admin", false))
 	home_id = int(data.get("home", 0))
 	look = data.get("look", random_look(_rng))
+	# Upgrade the two existing founders in preview saves as well as in new games.
+	if not look.has("home_portrait") and data.get("parents", []).is_empty():
+		if display_name == "Lena" and sex == "f":
+			look["home_portrait"] = "lena"
+		elif display_name == "Jonas" and sex == "m":
+			look["home_portrait"] = "jonas"
 	carry_res = data.get("carry_res", "")
 	carry_n = int(data.get("carry_n", 0))
 	birth_cooldown_until = float(data.get("birth_cd", 0.0))
@@ -174,12 +181,26 @@ func _build_visual() -> void:
 		s.visible = false
 		_body.add_child(s)
 		_layers[o] = s
+	var portrait := HomeArt.portrait(look)
+	if portrait != null:
+		_home_sprite = Sprite2D.new()
+		_home_sprite.texture = portrait
+		_home_sprite.hframes = 4
+		_home_sprite.vframes = 6
+		_home_sprite.centered = false
+		_home_sprite.offset = Vector2(-80, -136)
+		_home_sprite.scale = HomeArt.SCALE
+		_body.add_child(_home_sprite)
 	_work_prop = Sprite2D.new()
 	_work_prop.centered = false
 	_work_prop.position = Vector2(5, -8)
 	_work_prop.scale = Vector2.ONE / 2.0
 	_work_prop.visible = false
 	add_child(_work_prop)
+	if _home_sprite != null:
+		# Draw the stump before the body: the axe blade must stay visible in front
+		# of the split wood at contact, rather than disappearing behind the prop.
+		move_child(_work_prop, _body.get_index())
 	_tool = Sprite2D.new()
 	_tool.visible = false
 	_tool.position = Vector2(5, -8)
@@ -1817,6 +1838,9 @@ func _animate(delta: float) -> void:
 		var sitting: bool = not _plan.is_empty() and _plan[0].a == "wait" and _plan[0].has("sit") and not _moving
 		_body.position.y = 2 if sitting else 0
 	_work_prop.visible = _working and not sleeping and action in ["axe", "hammer"]
+	_work_prop.scale = Vector2.ONE / 2.0
+	_work_prop.offset = Vector2.ZERO
+	_work_prop.position = Vector2(5, -8)
 	if _work_prop.visible:
 		var prop := AtlasTexture.new()
 		prop.atlas = preload("res://assets/sprites_fine/work_props.png")
@@ -1837,7 +1861,34 @@ func _animate(delta: float) -> void:
 	_zzz.visible = sleeping and visible
 	if _zzz.visible:
 		_zzz.position.y = -30 + sin(_anim_t * 2.0) * 2.0
+	_animate_home()
 	queue_redraw()
+
+
+func _animate_home() -> void:
+	if _home_sprite == null:
+		return
+	# The body, hands, basket and axe are one registered drawing, so grips cannot
+	# drift when another layer or an independently timed tool rotates.
+	for layer in _layers.values():
+		layer.visible = false
+	var action_work: bool = _working and ((look.home_portrait == "jonas" and _cur_tool == "axe") or (look.home_portrait == "lena" and _cur_tool == "basket"))
+	var phase := int(_work_t * 3.2) % 4 if action_work else (int(_anim_t * 7.0) % 4 if _moving else 0)
+	_home_sprite.frame = (_dir + (3 if action_work else 0)) * 4 + phase
+	_home_sprite.flip_h = _flip and _dir == DIR_SIDE
+	_home_sprite.rotation = -PI / 2.0 if sleeping else 0.0
+	_home_sprite.position = Vector2(8, -4) if sleeping else Vector2.ZERO
+	_body.position.y = 0.0
+	if action_work:
+		_tool.visible = false
+	_carry_icon.visible = false
+	_work_prop.visible = action_work and _cur_tool == "axe"
+	if _work_prop.visible:
+		_work_prop.texture = HomeArt.chop_prop(phase)
+		_work_prop.scale = Vector2.ONE / 8.0
+		_work_prop.offset = Vector2(-80, -120)
+		_work_prop.position = Vector2(-14 if _home_sprite.flip_h else 14, 3)
+		_work_prop.flip_h = _home_sprite.flip_h
 
 
 ## Mit Handkarren schieben Erwachsene ihre Last in einer Schubkarre vor sich her: seitlich voraus,

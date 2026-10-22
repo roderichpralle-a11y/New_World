@@ -80,6 +80,7 @@ func refresh() -> void:
 		return
 	var tex := Data.object_tex(name, 0)
 	_sprite.texture = tex
+	_sprite.scale = Vector2.ONE
 	_sprite.material = world.season_material(type, name)
 	var sz := tex.region.size
 	_sprite.offset = Vector2(-sz.x / 2.0, -sz.y + (8 if sz.y <= 16 else 3))
@@ -87,6 +88,9 @@ func refresh() -> void:
 		_sprite.offset.y = -sz.y + 6
 	if type == "fischgrund":
 		_sprite.offset = Vector2(-8, -8)
+	if HomeArt.active(world) and HomeArt.OBJECTS.has(name):
+		HomeArt.apply(_sprite, name)
+		sz = _sprite.texture.get_size() * HomeArt.SCALE
 	_shadow.visible = type != "fischgrund"
 	_shadow.texture = Data.object_tex("shadow_big" if sz.x >= 32 else "shadow")
 	_shadow.position = Vector2(0, 2 if sz.y > 16 else 4)

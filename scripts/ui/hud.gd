@@ -2640,7 +2640,10 @@ func _update_notify_footer() -> void:
 ## Versionsnummer steht nur in project.godot (application/config/version).
 static func version_text() -> String:
 	var ver := str(ProjectSettings.get_setting("application/config/version", "?"))
-	return Loc.t("Version %s%s") % [ver, Loc.t(" (Testversion)") if Game.is_test_build else ""]
+	var text := Loc.t("Version %s%s") % [ver, Loc.t(" (Testversion)") if Game.is_test_build else ""]
+	if ProjectSettings.get_setting("application/config/home_art_revision", "") == "heimat-1":
+		text += " · Heimatinsel 1"
+	return text
 
 
 func _version_label() -> Label:

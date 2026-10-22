@@ -14,6 +14,7 @@ static func frame(main) -> void:
 
 static func run(main) -> void:
 	fails = 0
+	HomeArtTest.run(main)
 	check(ProjectSettings.get_setting("application/config/version") == "1.1.0", "Version 1.1.0")
 	check(Game.build_tag == "fein" and "fein" in Game.SAVE_PATH, "isolierte Speicherplätze")
 	check(Game.import_slot(5, '{"version":3,"time_days":1}') != "", "alte Spielstände werden nicht übernommen")
@@ -25,7 +26,7 @@ static func run(main) -> void:
 		b.setup(main.world, type, Vector2i(5, 5), true)
 		check(b.position == b.foot_pos(), "Bodenanker " + type)
 		if b._sprite:
-			check(b._sprite.offset.y + b._sprite.texture.get_height() <= 6.1, "Grundlinie " + type)
+			check((b._sprite.offset.y + b._sprite.texture.get_height()) * b._sprite.scale.y <= 6.1, "Grundlinie " + type)
 		b.queue_free()
 	for name in Data._icon_index:
 		var tex := Data.icon(name)
