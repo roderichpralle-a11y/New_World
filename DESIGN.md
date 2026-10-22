@@ -424,8 +424,9 @@ ohne Tote), Bild `--plannershot=1`.
   angelegte Busse bleiben dort stumm), Lautstärken im Menü, gespeichert in `user://settings.cfg`.
   Alle Klänge erzeugt `tools/gen_audio.py` (Ausgabe `assets/audio/`). Gebäude können mit
   `sound` einen eigenen Werkstatt-Klang haben, Tiere mit `sound` ihren Ruf.
-- **Einführung und Ziele** (`data/goals.json`, `scripts/ui/goal_card.gd`): seit `goals.tv` = 5
-  (josh 2026-10-21) 26 Schritte: die Statuszeile Symbol für Symbol (Holz, Steine, Nahrung, Siedler, Tag,
+- **Einführung und Ziele** (`data/goals.json`, `scripts/ui/goal_card.gd`): seit `goals.tv` = 6
+  (josh 2026-10-21/22) 28 Schritte: die Statuszeile Symbol für Symbol (Holz, dann das Lager öffnen –
+  Tipp auf die Statuszeile, `Hud` meldet `panel`/`lager` – und wieder schließen, Steine, Nahrung, Siedler, Tag,
   Jahreszeit; Zeiger `top_holz` … `top_season`), Geschwindigkeit, dann der Hüttenbau: Baumenü öffnen,
   Baumenü, Hütte wählen (Prüfart `action`/`place`, `Hud` meldet den Hammer), Hütte setzen, Baumeister
   nötig, Menü Siedler öffnen, Menü Siedler, Baumeister setzen, warten bis die Hütte steht; dann Forschung
@@ -439,7 +440,7 @@ ohne Tote), Bild `--plannershot=1`.
   Neue Spiele starten mit 16 Holz (eine Hütte). Danach feste Ziele mit Belohnungen und endlos erzeugte
   Ziele (Bevölkerung, Inseln, Geburten). Zustand `Game.goals {tut, ms, hide, tv, gift}` im Spielstand;
   Spielstände ohne `goals` überspringen die Einführung und holen erreichte Ziele still nach; Spielstände
-  mit `tv` unter 5 beginnen eine angefangene Einführung neu (erledigte Schritte gehen von selbst
+  mit `tv` unter 5 beginnen eine angefangene Einführung neu (`tv` 5 rückt nach dem Holz 2 Schritte weiter) (erledigte Schritte gehen von selbst
   weiter), eine fertige bleibt fertig. `Game.player_action(kind, what)` meldet Spieleraktionen
   (`panel` mit bauen/forschung/siedler/menue, `job`, `next`). Statistik `kills` zählt erlegte Tiere.
   Das X auf der Zielkarte blendet das aktuelle Ziel aus (`goals.hide` = Ziel-ID), das nächste erscheint

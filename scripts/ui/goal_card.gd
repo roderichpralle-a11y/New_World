@@ -458,6 +458,8 @@ func _pointer_target(g: Dictionary):
 			return hud._speed_btns[2][0]
 		"top":
 			return _closed_or(hud.top_bar)
+		"top_bar":  # Statuszeile zum Antippen (öffnet das Lager); offen: das X
+			return _closed_or(hud.top_bar) if not hud._stock_panel.visible else null
 		"top_holz", "top_stein":  # je ein Symbol der Statuszeile (josh 2026-10-21)
 			return _closed_or(hud._res_labels[pt.substr(4)].get_parent().get_child(0))
 		"top_food":

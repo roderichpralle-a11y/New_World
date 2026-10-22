@@ -180,7 +180,9 @@ func _build_topbar() -> void:
 	p.gui_input.connect(func(ev):
 		if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
 			_refresh_stock(true)
-			_toggle(_stock_panel))
+			_toggle(_stock_panel)
+			if _stock_panel.visible:
+				Game.player_action.emit("panel", "lager"))
 	root.add_child(p)
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 12)
