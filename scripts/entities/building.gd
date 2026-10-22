@@ -388,7 +388,7 @@ func refresh() -> void:
 	else:
 		# Schmuck zeigt als Baustelle sein eigenes Bild halb durchsichtig (das Baugerüst wäre zu groß)
 		var name: String = def.sprite if complete or is_decor() else "construction"
-		var tex := Data.object_tex(name, 0)
+		var tex := Data.object_tex(name, 0) if complete or is_decor() else Data.construction_tex(def.sprite, build_fraction())
 		_sprite.texture = tex
 		var sz := tex.region.size
 		_sprite.offset = Vector2(-sz.x / 2.0, -sz.y + 4 if sz.y > 16 else -sz.y + 6)

@@ -89,6 +89,7 @@ var _cart_roll: float = 0.0
 var _cart_last: Vector2
 var _bubble: Sprite2D
 var _zzz: Label
+var _work_prop: Sprite2D
 var _shadow: Sprite2D
 
 static var _sheets: Dictionary = {}
@@ -96,7 +97,7 @@ static var _sheets: Dictionary = {}
 
 static func sheet(name: String) -> Texture2D:
 	if not _sheets.has(name):
-		_sheets[name] = load("res://assets/sprites/settler_%s.png" % name)
+		_sheets[name] = load("res://assets/sprites_fine/settler_%s.png" % name)
 	return _sheets[name]
 
 
@@ -154,9 +155,10 @@ func _build_visual() -> void:
 		var s := Sprite2D.new()
 		s.texture = sheet(o[0])
 		s.hframes = 4
-		s.vframes = 3
+		s.vframes = 42
 		s.centered = false
-		s.offset = Vector2(-8, -22)
+		s.offset = Vector2(-24, -66)
+		s.scale = Vector2.ONE / 3.0
 		if o[1] != "":
 			s.modulate = Color(look.get(o[1], "#ffffff"))
 		_body.add_child(s)
@@ -165,12 +167,19 @@ func _build_visual() -> void:
 		var s := Sprite2D.new()
 		s.texture = sheet(o)
 		s.hframes = 4
-		s.vframes = 3
+		s.vframes = 42
 		s.centered = false
-		s.offset = Vector2(-8, -22)
+		s.offset = Vector2(-24, -66)
+		s.scale = Vector2.ONE / 3.0
 		s.visible = false
 		_body.add_child(s)
 		_layers[o] = s
+	_work_prop = Sprite2D.new()
+	_work_prop.centered = false
+	_work_prop.position = Vector2(5, -8)
+	_work_prop.scale = Vector2.ONE / 2.0
+	_work_prop.visible = false
+	add_child(_work_prop)
 	_tool = Sprite2D.new()
 	_tool.visible = false
 	_tool.position = Vector2(5, -8)
@@ -623,8 +632,8 @@ func _do_sleep_inside() -> void:
 
 func _do_sleep_outside() -> void:
 	sleeping = true
-	_body.rotation = -PI / 2
-	_body.position = Vector2(-6, -4)
+	_body.rotation = 0
+	_body.position = Vector2.ZERO
 	_zzz.visible = true
 	activity = tr("Schläft unter freiem Himmel")
 
@@ -1752,11 +1761,21 @@ func _animate(delta: float) -> void:
 	var frame := 0
 	if _moving:
 		frame = int(_anim_t * 8.0) % 4
+	var action := "walk"
+	if sleeping:
+		action = "sleep"
+	elif _working and _cur_tool != "":
+		action = _cur_tool if _cur_tool in ["axe", "pick", "sickle", "hammer", "basket", "rod", "spoon", "book", "shovel", "spear"] else "hammer"
+		frame = int(_anim_t * 5.0) % 4
+	elif carry_n > 0:
+		action = "carry"
+	var actions := ["walk", "axe", "pick", "sickle", "hammer", "basket", "rod", "spoon", "book", "shovel", "spear", "sleep", "eat", "carry"]
+	var action_row: int = actions.find(action) * 3
 	for k in _layers:
 		var s: Sprite2D = _layers[k]
-		s.frame = _dir * 4 + frame
+		s.frame = (action_row + _dir) * 4 + frame
 		s.flip_h = _flip and _dir == DIR_SIDE
-		s.offset.x = -8 if not s.flip_h else -8
+		s.offset.x = -24
 	# Werkzeug schwingen
 	var battle: bool = _battle_tool != "" and not _plan.is_empty() and _plan[0].get("defend", false) and not _working
 	var reading: String = _plan[0].get("read", "") if not _plan.is_empty() and _plan[0].a == "wait" and not _moving else ""
@@ -1789,13 +1808,21 @@ func _animate(delta: float) -> void:
 		_tool.texture = Data.tool_tex(_cur_tool)
 		var swing := sin(_anim_t * 9.0)
 		_tool.rotation = -0.9 + swing * 0.9 if _cur_tool != "rod" else -0.3 + swing * 0.08
-		_tool.position = Vector2(-5 if (_flip and _dir == DIR_SIDE) else 5, -9)
+		var hand_y: float = [-13.5, -15.0, -8.0, -7.0][frame]
+		_tool.position = Vector2(-4 if (_flip and _dir == DIR_SIDE) else 4, hand_y if action in ["axe", "pick", "hammer", "sickle", "shovel", "spear"] else -7.0)
 		_tool.flip_h = _flip and _dir == DIR_SIDE
 		_tool.z_index = -1 if _dir == DIR_UP else 0
 		_body.position.y = -abs(swing) * 0.8 if not sleeping else _body.position.y
 	elif not sleeping:
 		var sitting: bool = not _plan.is_empty() and _plan[0].a == "wait" and _plan[0].has("sit") and not _moving
 		_body.position.y = 2 if sitting else 0
+	_work_prop.visible = _working and not sleeping and action in ["axe", "hammer"]
+	if _work_prop.visible:
+		var prop := AtlasTexture.new()
+		prop.atlas = preload("res://assets/sprites_fine/work_props.png")
+		prop.region = Rect2(frame * 32, 0 if action == "axe" else 32, 32, 32)
+		_work_prop.texture = prop
+		_work_prop.flip_h = _flip and _dir == DIR_SIDE
 	_hurt -= delta
 	_body.modulate = Color(1, 0.5, 0.5) if _hurt > 0.0 else Color.WHITE
 	_carry_icon.visible = carry_n > 0 and not sleeping
@@ -1807,7 +1834,7 @@ func _animate(delta: float) -> void:
 			_carry_icon.scale = Vector2(0.75, 0.75)
 			_carry_icon.show_behind_parent = false
 	_bubble.visible = hunger < 20.0 and not sleeping and int(_anim_t * 2.0) % 3 != 0
-	_zzz.visible = sleeping and visible and _body.rotation != 0
+	_zzz.visible = sleeping and visible
 	if _zzz.visible:
 		_zzz.position.y = -30 + sin(_anim_t * 2.0) * 2.0
 	queue_redraw()

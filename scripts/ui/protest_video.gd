@@ -360,7 +360,7 @@ func _draw_marcher(m: Dictionary, lt: float) -> void:
 	var style := int(look.get("style", 0))
 	var step := int(lt * 8.0) + i  # 8 Schritte je Sekunde, 32 je Schleife: nahtlos
 	var frame: int = m.dir * 4 + (step % 4 if m.walking else 0)
-	var src := Rect2((frame % 4) * 16, (frame / 4) * 24, 16, 24)
+	var src := Rect2((frame % 4) * 48, (frame / 4) * 72, 48, 72)
 	var dst := Rect2(Vector2(x - 8.0, y - 22.0) * _k, Vector2(16, 24) * _k)
 	if m.dir == 2 and f < 0.0:
 		dst.size.x = -dst.size.x  # gespiegelt: Godot zeichnet ab position mit |Breite|

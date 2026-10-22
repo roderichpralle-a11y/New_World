@@ -332,7 +332,7 @@ func _on_speed(s: int) -> void:
 ## Knöpfe der Leiste unten (josh 2026-10-19): Bilder statt Text aus assets/sprites/menu_icons.png
 ## (tools/gen_art_menu.py, je 20x20, doppelt groß gezeigt); der Name steht im Tooltip.
 const MENU_ICONS := ["bauen", "forschung", "siedler", "inseln", "menue", "verwalter"]
-const MENU_TEX := preload("res://assets/sprites/menu_icons.png")
+const MENU_TEX := preload("res://assets/sprites_fine/menu_icons.png")
 var _admin_btn: Button
 var _admin_panel: PanelContainer  # Fenster Verwalter (AdminInfo.fill_window)
 var _admin_box: VBoxContainer
@@ -505,6 +505,13 @@ func _drag_scroll(ev: InputEvent) -> bool:
 	if ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT:
 		if ev.pressed:
 			_drag_sc = _scroll_at(ev.position)
+			# The native scrollbar must own thumb/track gestures; content dragging
+			# must never consume its motion or release event.
+			if _drag_sc:
+				for bar in [_drag_sc.get_v_scroll_bar(), _drag_sc.get_h_scroll_bar()]:
+					if bar.is_visible_in_tree() and bar.get_global_rect().has_point(ev.position):
+						_drag_sc = null
+						break
 			_drag_from = ev.position
 			_drag_start = _drag_sc.scroll_vertical if _drag_sc else 0
 			_dragging = false

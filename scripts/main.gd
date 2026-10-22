@@ -133,6 +133,13 @@ func _maybe_autotest() -> void:
 	if args.has("season"):
 		# Testhilfe: Start in einer Jahreszeit (0 Frühling .. 3 Winter)
 		Seasons.jump_to_season(int(args.season))
+	if args.has("finecheck"):
+		await FineTest.run(self)
+		if FineTest.fails > 0:
+			get_tree().quit(1)
+			return
+	if args.has("finegallery"):
+		FineTest.gallery(self, str(args.finegallery))
 	if args.has("foodtest"):
 		_autotest_food()
 	if args.has("slottest"):

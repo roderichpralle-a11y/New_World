@@ -1,0 +1,72 @@
+name: Fein 1.1.0 prüfen und unter /fein veröffentlichen
+
+on:
+  push:
+    branches: [codex/fein-1.1.0]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# Serialize every fine deployment, independently of the normal edition.
+concurrency:
+  group: pages-fein
+  cancel-in-progress: true
+
+env:
+  GODOT_VERSION: 4.7.2-stable
+
+jobs:
+  fein:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Grafikprüfung vorbereiten
+        run: pip install pillow numpy
+      - name: Godot und Web-Vorlagen laden
+        run: |
+          set -eu
+          base=https://github.com/godotengine/godot/releases/download/$GODOT_VERSION
+          curl -fLsS "$base/Godot_v${GODOT_VERSION}_linux.x86_64.zip" -o godot.zip
+          unzip -q godot.zip
+          mv Godot_v${GODOT_VERSION}_linux.x86_64 godot-bin
+          curl -fLsS "$base/Godot_v${GODOT_VERSION}_export_templates.tpz" -o templates.tpz
+          dest="$HOME/.local/share/godot/export_templates/4.7.2.stable"
+          mkdir -p "$dest"
+          unzip -qj templates.tpz templates/web_nothreads_release.zip templates/web_nothreads_debug.zip templates/version.txt -d "$dest"
+      - name: Version und Grafiken prüfen
+        run: |
+          python tools/verify_fine_art.py
+          test "$(sed -n 's/^config\/version="\(.*\)"/\1/p' project.godot)" = 1.1.0
+      - name: Import und Laufzeittests
+        run: |
+          set -eu
+          ./godot-bin --headless --import --quit > import.log 2>&1
+          ./godot-bin --headless --fixed-fps 60 -- --autotest=10 --scale=10 --seed=11 --finecheck=1 --noevents=1 > finecheck.log 2>&1
+          ./godot-bin --headless --fixed-fps 60 -- --autotest=40 --scale=10 --seed=11 --stalltest=1 --noevents=1 > stalls.log 2>&1
+          ./godot-bin --headless --fixed-fps 60 -- --autotest=60 --scale=10 --seed=11 --decortest=1 --noevents=1 > decor.log 2>&1
+          if grep -E 'SCRIPT ERROR|FEHLER' finecheck.log stalls.log decor.log; then exit 1; fi
+      - name: Web exportieren
+        run: |
+          mkdir -p build/web
+          ./godot-bin --headless --export-release Web build/web/index.html
+          test -s build/web/index.wasm
+          printf '1.1.0\n' > build/web/version.txt
+          touch build/web/.nojekyll
+      - name: Prüfprotokolle behalten
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fein-pruefung
+          path: '*.log'
+      - name: Nur /fein aktualisieren
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: build/web
+          destination_dir: fein
+          keep_files: true
+          commit_message: Fein 1.1.0

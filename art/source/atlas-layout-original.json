@@ -1,0 +1,930 @@
+{
+  "note": "Originalkoordinaten sind logische Pixel des Ausgangsspiels, KEINE Schnittkoordinaten der Entwurfsbögen.",
+  "base_grid": 16,
+  "character": {
+    "frame": [
+      16,
+      24
+    ],
+    "cols": 4,
+    "rows": 3,
+    "directions": [
+      "down",
+      "up",
+      "side"
+    ],
+    "layers": [
+      "pants",
+      "shirt",
+      "skin",
+      "hair_0|hair_1|hair_2",
+      "fixed|fixed_bun"
+    ],
+    "high_res_suggestion": {
+      "frame": [
+        48,
+        72
+      ],
+      "texture_scale": 0.3333333333333333,
+      "note": "3x native Rasterauflösung, unveränderte logische Figurengröße; siehe Original-Offsets -8,-22. Vor Integration Raster festlegen. Skalierung und Offset nicht doppelt anwenden."
+    }
+  },
+  "buildings": {
+    "cell": [
+      64,
+      64
+    ],
+    "cols": 8,
+    "baseline_from_bottom": 4,
+    "entries": {
+      "house_wood": [
+        0,
+        1
+      ],
+      "house_stone": [
+        1,
+        1
+      ],
+      "store_big": [
+        2,
+        1
+      ],
+      "mill": [
+        3,
+        4
+      ],
+      "bakery": [
+        7,
+        1
+      ],
+      "smokehouse": [
+        8,
+        1
+      ],
+      "henhouse": [
+        9,
+        1
+      ],
+      "sawpit": [
+        10,
+        1
+      ],
+      "claypit": [
+        11,
+        1
+      ],
+      "brickworks": [
+        12,
+        1
+      ],
+      "quarry": [
+        13,
+        1
+      ],
+      "charcoal": [
+        14,
+        1
+      ],
+      "mine": [
+        15,
+        1
+      ],
+      "smelter": [
+        16,
+        1
+      ],
+      "smithy": [
+        17,
+        1
+      ],
+      "scriptorium": [
+        18,
+        1
+      ],
+      "library": [
+        19,
+        1
+      ],
+      "shipyard": [
+        20,
+        1
+      ],
+      "tower": [
+        21,
+        1
+      ],
+      "lighthouse": [
+        22,
+        2
+      ],
+      "monument": [
+        24,
+        1
+      ],
+      "school": [
+        25,
+        1
+      ],
+      "scriptorium2": [
+        26,
+        1
+      ],
+      "scriptorium3": [
+        27,
+        1
+      ],
+      "scriptorium4": [
+        28,
+        1
+      ],
+      "jetty": [
+        29,
+        1
+      ],
+      "harbor": [
+        30,
+        1
+      ],
+      "harbor_big": [
+        31,
+        1
+      ],
+      "quay_wood": [
+        32,
+        1
+      ],
+      "quay_ore": [
+        33,
+        1
+      ],
+      "quay_food": [
+        34,
+        1
+      ],
+      "glassworks": [
+        35,
+        1
+      ],
+      "papermill": [
+        36,
+        1
+      ],
+      "university": [
+        37,
+        1
+      ],
+      "steelworks": [
+        38,
+        1
+      ],
+      "factory": [
+        39,
+        1
+      ],
+      "cannery": [
+        40,
+        1
+      ],
+      "tenement": [
+        41,
+        1
+      ],
+      "powerplant": [
+        42,
+        1
+      ],
+      "greenhouse": [
+        43,
+        1
+      ],
+      "apartment": [
+        44,
+        1
+      ],
+      "electronics": [
+        45,
+        1
+      ],
+      "solarpark": [
+        46,
+        1
+      ],
+      "lab": [
+        47,
+        1
+      ],
+      "ai_center": [
+        48,
+        1
+      ],
+      "fusion": [
+        49,
+        1
+      ],
+      "future_city": [
+        50,
+        1
+      ],
+      "tablets": [
+        51,
+        1
+      ],
+      "office": [
+        52,
+        1
+      ],
+      "armory": [
+        53,
+        1
+      ],
+      "pigsty": [
+        54,
+        1
+      ],
+      "cowshed": [
+        55,
+        1
+      ],
+      "automaton": [
+        56,
+        1
+      ],
+      "droid_factory": [
+        57,
+        1
+      ],
+      "lodge": [
+        58,
+        1
+      ],
+      "printshop": [
+        59,
+        1
+      ],
+      "flowerbed_red": [
+        60,
+        1
+      ],
+      "flowerbed_yellow": [
+        61,
+        1
+      ],
+      "flowerbed_blue": [
+        62,
+        1
+      ],
+      "bench": [
+        63,
+        1
+      ],
+      "menhir": [
+        64,
+        1
+      ],
+      "flagpole": [
+        65,
+        4
+      ],
+      "statue_stone": [
+        69,
+        1
+      ],
+      "flower_tub": [
+        70,
+        1
+      ],
+      "fountain": [
+        71,
+        4
+      ],
+      "pond": [
+        75,
+        1
+      ],
+      "park": [
+        76,
+        1
+      ],
+      "park_tree": [
+        77,
+        1
+      ],
+      "rose_arch": [
+        78,
+        1
+      ],
+      "sundial": [
+        79,
+        1
+      ],
+      "lantern": [
+        80,
+        1
+      ],
+      "pavilion": [
+        81,
+        1
+      ],
+      "equestrian": [
+        82,
+        1
+      ],
+      "obelisk": [
+        83,
+        1
+      ],
+      "statue_bronze": [
+        84,
+        1
+      ],
+      "street_lamp": [
+        85,
+        1
+      ],
+      "hologram": [
+        86,
+        4
+      ],
+      "radio": [
+        90,
+        1
+      ],
+      "plan_automaton": [
+        91,
+        1
+      ]
+    }
+  },
+  "objects": {
+    "tree0": [
+      0,
+      0,
+      32,
+      48,
+      1
+    ],
+    "tree1": [
+      32,
+      0,
+      32,
+      48,
+      1
+    ],
+    "tree2": [
+      64,
+      0,
+      32,
+      48,
+      1
+    ],
+    "stump": [
+      96,
+      0,
+      32,
+      48,
+      1
+    ],
+    "sapling": [
+      128,
+      0,
+      32,
+      48,
+      1
+    ],
+    "hut": [
+      0,
+      48,
+      48,
+      48,
+      1
+    ],
+    "storehouse": [
+      48,
+      48,
+      48,
+      48,
+      1
+    ],
+    "construction": [
+      96,
+      48,
+      48,
+      48,
+      1
+    ],
+    "rock_big": [
+      0,
+      96,
+      16,
+      16,
+      1
+    ],
+    "rock_small": [
+      16,
+      96,
+      16,
+      16,
+      1
+    ],
+    "bush_full": [
+      32,
+      96,
+      16,
+      16,
+      1
+    ],
+    "bush_empty": [
+      48,
+      96,
+      16,
+      16,
+      1
+    ],
+    "grave": [
+      64,
+      96,
+      16,
+      16,
+      1
+    ],
+    "shadow": [
+      80,
+      96,
+      16,
+      8,
+      1
+    ],
+    "shadow_big": [
+      96,
+      96,
+      32,
+      8,
+      1
+    ],
+    "campfire": [
+      0,
+      112,
+      16,
+      16,
+      4
+    ],
+    "fish_anim": [
+      64,
+      112,
+      16,
+      16,
+      4
+    ],
+    "field0": [
+      0,
+      128,
+      16,
+      16,
+      1
+    ],
+    "field1": [
+      16,
+      128,
+      16,
+      16,
+      1
+    ],
+    "field2": [
+      32,
+      128,
+      16,
+      16,
+      1
+    ],
+    "field3": [
+      48,
+      128,
+      16,
+      16,
+      1
+    ],
+    "orchard0": [
+      64,
+      128,
+      16,
+      16,
+      1
+    ],
+    "orchard1": [
+      80,
+      128,
+      16,
+      16,
+      1
+    ],
+    "orchard2": [
+      96,
+      128,
+      16,
+      16,
+      1
+    ],
+    "orchard3": [
+      112,
+      128,
+      16,
+      16,
+      1
+    ]
+  },
+  "objects2": {
+    "palm0": [
+      0,
+      0,
+      32,
+      48,
+      1
+    ],
+    "palm1": [
+      32,
+      0,
+      32,
+      48,
+      1
+    ],
+    "palm_empty": [
+      64,
+      0,
+      32,
+      48,
+      1
+    ],
+    "cave": [
+      96,
+      0,
+      32,
+      48,
+      1
+    ],
+    "mushrooms": [
+      0,
+      48,
+      16,
+      16,
+      1
+    ],
+    "ore_rock": [
+      16,
+      48,
+      16,
+      16,
+      1
+    ],
+    "gold_rock": [
+      32,
+      48,
+      16,
+      16,
+      1
+    ],
+    "den": [
+      48,
+      48,
+      16,
+      16,
+      1
+    ],
+    "wallow": [
+      64,
+      48,
+      16,
+      16,
+      1
+    ],
+    "carcass": [
+      80,
+      48,
+      16,
+      16,
+      1
+    ],
+    "arrow": [
+      96,
+      48,
+      16,
+      16,
+      1
+    ],
+    "spice_full": [
+      112,
+      48,
+      16,
+      16,
+      1
+    ],
+    "spice_empty": [
+      128,
+      48,
+      16,
+      16,
+      1
+    ],
+    "boat": [
+      0,
+      64,
+      32,
+      32,
+      2
+    ],
+    "ship_kogge": [
+      0,
+      96,
+      48,
+      48,
+      2
+    ],
+    "ship_fast": [
+      96,
+      96,
+      48,
+      48,
+      2
+    ],
+    "ship_galleon": [
+      192,
+      96,
+      48,
+      48,
+      2
+    ]
+  },
+  "connections": {
+    "families": [
+      "road",
+      "dike",
+      "fence",
+      "gravel",
+      "bricks",
+      "hedge"
+    ],
+    "masks": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "bits": {
+      "north": 1,
+      "east": 2,
+      "south": 4,
+      "west": 8
+    },
+    "cell": [
+      16,
+      16
+    ]
+  },
+  "animals": {
+    "cell": [
+      24,
+      24
+    ],
+    "cols": 5,
+    "columns": [
+      "walk0",
+      "walk1",
+      "walk2",
+      "walk3",
+      "attack"
+    ],
+    "rows": {
+      "wolf": 0,
+      "eber": 1,
+      "baer": 2,
+      "pirat": 3
+    }
+  },
+  "cart": {
+    "cell": [
+      24,
+      24
+    ],
+    "cols": 4,
+    "rows": [
+      "down_full",
+      "up_full",
+      "side_full",
+      "down_front",
+      "up_front",
+      "side_front"
+    ]
+  },
+  "icons": {
+    "cell": [
+      16,
+      16
+    ],
+    "order": [
+      "holz",
+      "stein",
+      "beeren",
+      "fisch",
+      "weizen",
+      "nahrung",
+      "person",
+      "haus",
+      "hammer",
+      "herz",
+      "sonne",
+      "mond",
+      "pause",
+      "play",
+      "schnell",
+      "menu",
+      "abriss",
+      "bretter",
+      "lehm",
+      "ziegel",
+      "kohle",
+      "erz",
+      "eisen",
+      "werkzeug",
+      "mehl",
+      "aepfel",
+      "eier",
+      "raeucherfisch",
+      "brot",
+      "wissen",
+      "axt",
+      "korb",
+      "wasser",
+      "karren",
+      "pflug",
+      "schiff",
+      "schwert",
+      "kiste",
+      "fleisch",
+      "felle",
+      "kokos",
+      "pilze",
+      "gold",
+      "boot",
+      "kompass",
+      "schild",
+      "wolf",
+      "eber",
+      "baer",
+      "musik",
+      "glocke",
+      "vollbild",
+      "ziel",
+      "haken",
+      "zeiger",
+      "kogge",
+      "schnellsegler",
+      "galeone",
+      "anker",
+      "glas",
+      "papier",
+      "stahl",
+      "maschinen",
+      "konserven",
+      "strom",
+      "elektronik",
+      "uhr",
+      "fernrohr",
+      "dampf",
+      "zug",
+      "spritze",
+      "schnee",
+      "motor",
+      "computer",
+      "netz",
+      "dna",
+      "ki",
+      "roboter",
+      "atom",
+      "zeitalter",
+      "tontafel",
+      "gewuerze",
+      "ereignis",
+      "haendler",
+      "feuer",
+      "ratte",
+      "sehr_schnell",
+      "weg",
+      "waffen",
+      "milch",
+      "buecher",
+      "zeitungen",
+      "schmuck"
+    ]
+  },
+  "tools": {
+    "cell": [
+      16,
+      16
+    ],
+    "order": [
+      "axe",
+      "pick",
+      "basket",
+      "rod",
+      "hammer",
+      "sickle",
+      "spoon",
+      "book",
+      "shovel",
+      "spear",
+      "saber",
+      "pitchfork",
+      "club",
+      "newspaper"
+    ]
+  },
+  "menu_icons": {
+    "cell": [
+      20,
+      20
+    ],
+    "order": [
+      "bauen",
+      "forschung",
+      "siedler",
+      "inseln",
+      "menue",
+      "verwalter"
+    ]
+  },
+  "seasons": {
+    "image": [
+      80,
+      24
+    ],
+    "icons": {
+      "spring": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "summer": [
+        16,
+        0,
+        16,
+        16
+      ],
+      "autumn": [
+        32,
+        0,
+        16,
+        16
+      ],
+      "winter": [
+        48,
+        0,
+        16,
+        16
+      ]
+    },
+    "particles": {
+      "snowflake": [
+        64,
+        16,
+        8,
+        8
+      ],
+      "leaf": [
+        72,
+        16,
+        8,
+        8
+      ]
+    }
+  },
+  "ui": {
+    "original": "24x24 Bereiche, Nine-Slice-Rand 6px; Laufzeitfarben und weitere Elemente in ui_theme.gd/Win",
+    "note": "VScrollBar-Griff muss in allen Zuständen deutlich sichtbar bleiben."
+  },
+  "procedural_sources": [
+    "assets/shaders/season.gdshader",
+    "scripts/world/world.gd",
+    "scripts/ui/sea_panel.gd",
+    "scripts/ui/fest_video.gd",
+    "scripts/ui/protest_video.gd",
+    "scripts/ui/goal_card.gd",
+    "scripts/ui/ui_theme.gd",
+    "scripts/ui/win.gd"
+  ],
+  "deprecated": [
+    "settler_glasses.png: wird noch geladen, aktuell nicht als Berufskleidung eingeschaltet; keine Brillenpflicht für Forscher einführen",
+    "Brunnen/brunnenbau entfernt: nicht wieder einführen; Springbrunnen ist bestehende Dekoration"
+  ]
+}
