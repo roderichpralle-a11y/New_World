@@ -789,6 +789,8 @@ func _autotest_tutorial() -> void:
 			world.settlers[1].set_job("baumeister")
 		"t_researcher":
 			world.settlers[1].set_job("forscher")
+		"t_job_open":
+			Game.player_action.emit("job_list", "")
 		"t_stock_open":
 			Game.player_action.emit("panel", "lager")
 		"t_hut_pick":

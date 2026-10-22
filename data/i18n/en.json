@@ -2328,5 +2328,9 @@
  "Öffne das Lager.": "Open the storage.",
  "Tippe auf die Statuszeile. Dann öffnet sich das Fenster Vorräte mit allen Waren.": "Tap the status bar. The Supplies window opens with all goods.",
  "Das ist dein Lager. Schließe es wieder.": "This is your storage. Close it again.",
- "Hier stehen alle Waren. Oben wählst du alles, nur Nahrung oder nur Material. Unten steht, wie voll das Lager ist. Tippe oben rechts auf das X.": "Here are all goods. At the top you pick everything, only food or only material. At the bottom is how full the storage is. Tap the X at the top right."
+ "Hier stehen alle Waren. Oben wählst du alles, nur Nahrung oder nur Material. Unten steht, wie voll das Lager ist. Tippe oben rechts auf das X.": "Here are all goods. At the top you pick everything, only food or only material. At the bottom is how full the storage is. Tap the X at the top right.",
+ "Tippe beim Siedler auf seinen Beruf.": "Tap a settler's job.",
+ "In der Spalte Beruf steht, was jeder Siedler gerade arbeitet, zum Beispiel Sammler oder Holzfäller. Tippe darauf, dann öffnet sich die Liste aller Berufe.": "The Job column shows what each settler works as, for example Gatherer or Woodcutter. Tap it to open the list of all jobs.",
+ "Wähle in der Liste den Baumeister.": "Pick Builder in the list.",
+ "Tippe in der Liste auf Baumeister. Der Siedler hört dann mit seiner Arbeit auf, holt das Holz und baut die Hütte. Ein Stern neben einem Beruf heißt: Er passt zu seinem Talent.": "Tap Builder in the list. The settler then stops their work, fetches the wood and builds the hut. A star next to a job means: it suits their talent."
 }

@@ -159,6 +159,8 @@ func progress(g: Dictionary) -> Array:
 		"no_panel":  # zurück zum Hauptbildschirm: kein Fenster offen
 			return [0 if _panel_open() else 1, 1]
 		"action":
+			if c.has("or_job") and int(GoalChecks.progress({"type": "job", "what": c.or_job, "n": 1})[0]) >= 1:
+				return [1, 1]  # Beruf schon auf anderem Weg vergeben
 			for a in _actions:
 				if a[0] == c.get("kind") and (what == "" or a[1] == what):
 					return [1, 1]

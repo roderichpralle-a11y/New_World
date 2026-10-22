@@ -1773,6 +1773,7 @@ func _refresh_settler_list() -> void:
 			ob.tooltip_text = tr("Beruf wählen") + (tr("\nStern: passt zum Talent (%s)") % TalentInfo.short_list(s.mind) if not s.mind.best_talents().is_empty() else "")
 			if s.by_admin:
 				UiTheme.mark_admin(ob)
+			ob.get_popup().about_to_popup.connect(func(): Game.player_action.emit("job_list", ""))
 			ob.item_selected.connect(func(i):
 				sref.set_job(ids[i])
 				Steward.player_set(sref)  # Verwalter überstimmt das eine Weile nicht
