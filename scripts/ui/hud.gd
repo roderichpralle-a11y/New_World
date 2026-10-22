@@ -1277,20 +1277,22 @@ var _stock_cat := ""
 var _stock_only_have := false
 var _stock_ft: Dictionary = {}
 var _stock_bar: ProgressBar
+## Gezielt aktualisieren (josh 2026-10-22): Zeigt das Fenster dieselben Waren wie zuletzt, ändern sich nur Zahlen
+## und Knöpfe der bestehenden Zeilen (_stock_rows); neu gebaut wird nur, wenn sich die Auswahl der Waren ändert.
+var _stock_rows: Dictionary = {}  # Ware -> {al, ll, minus, plus, tail, kind, h}
+var _stock_ids: Array = []
 
 
 func _refresh_stock(force: bool = false) -> void:
 	if _stock_grid == null or (not force and not _stock_panel.visible):
 		return
-	for c in _stock_grid.get_children():
-		_stock_grid.remove_child(c)
-		c.queue_free()
 	var vol := Game.storage_volume()
 	var used := Game.used_volume()
 	_stock_ft.left.text = tr("Lager: %d von %d belegt") % [used, vol]
 	_stock_bar.value = 100.0 * used / max(1, vol)
 	(_stock_bar.get_theme_stylebox("fill") as StyleBoxFlat).bg_color = UiTheme.BAD if used >= vol else UiTheme.GOOD
 	Win.set_left2(_stock_ft, tr("Frei: %d, für feste Mengen reserviert: %d. Nahrungssorten: %d") % [maxi(0, vol - used), Game.reserved_volume(), Game.food_variety()])
+	var ids := []
 	for id in Data.sorted_resource_ids():
 		var cat: String = Data.resources[id].get("category", "")
 		if cat == "ship":
@@ -1299,10 +1301,22 @@ func _refresh_stock(force: bool = false) -> void:
 			continue
 		if _stock_only_have and Game.amount(id) <= 0 and Game.limit_of(id) < 0:
 			continue
+		ids.append(id)
+	if ids == _stock_ids and not ids.is_empty():
+		for id in ids:
+			_update_stock_row(id)
+		return
+	_stock_ids = ids
+	_stock_rows.clear()
+	for c in _stock_grid.get_children():
+		_stock_grid.remove_child(c)
+		c.queue_free()
+	for id in ids:
 		var box := PanelContainer.new()
 		box.add_theme_stylebox_override("panel", Win.row_box())
 		box.add_child(_stock_row(id))
 		_stock_grid.add_child(box)
+		_update_stock_row(id)
 	if _stock_grid.get_child_count() == 0:
 		_stock_grid.add_child(UiTheme.label(tr("Davon ist nichts im Lager."), 14, Win.DIM))
 
@@ -1317,13 +1331,12 @@ func _stock_row(id: String) -> Control:
 	n.tooltip_text = tr("Größe: %d Raum je Stück") % size if size > 0 else tr("Braucht keinen Lagerraum.")
 	n.mouse_filter = Control.MOUSE_FILTER_PASS
 	h.add_child(n)
-	var a := Game.amount(id)
-	var full := size > 0 and Game.space_for(id) <= 0
-	var al := UiTheme.label("%d" % a, 14, UiTheme.BAD if full else UiTheme.TEXT, true)
+	var al := UiTheme.label("", 14, UiTheme.TEXT, true)
 	al.custom_minimum_size.x = 36
 	al.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	h.add_child(al)
-	h.modulate.a = 1.0 if a > 0 or Game.limit_of(id) >= 0 else 0.6
+	var r := {"h": h, "al": al}
+	_stock_rows[id] = r
 	if size <= 0:
 		var x := UiTheme.label(tr("ohne Lagerraum"), 12)
 		x.custom_minimum_size.x = 150
@@ -1334,7 +1347,6 @@ func _stock_row(id: String) -> Control:
 	sl.mouse_filter = Control.MOUSE_FILTER_PASS
 	sl.custom_minimum_size.x = 24
 	h.add_child(sl)
-	var lim := Game.limit_of(id)
 	var minus := UiTheme.button("−", "", 30)
 	minus.tooltip_text = tr("Weniger lagern")
 	minus.pressed.connect(func():
@@ -1345,15 +1357,13 @@ func _stock_row(id: String) -> Control:
 			Game.set_limit(id, max(0, cur - 10))
 		_refresh_stock(true))
 	h.add_child(minus)
-	var ll := UiTheme.label("frei" if lim < 0 else "%d" % lim, 14)
+	var ll := UiTheme.label("", 14)
 	ll.custom_minimum_size.x = 38
 	ll.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	ll.tooltip_text = tr("Höchstens so viel wird gelagert.") if lim >= 0 else tr("Keine feste Menge: nimmt freien Platz.")
 	ll.mouse_filter = Control.MOUSE_FILTER_PASS
 	h.add_child(ll)
 	var plus := UiTheme.button("+", "", 30)
 	plus.tooltip_text = tr("Mehr lagern")
-	plus.disabled = lim >= 0 and lim >= Game.max_limit(id)
 	plus.pressed.connect(func():
 		var cur := Game.limit_of(id)
 		var base: int = ceili(Game.amount(id) / 10.0) * 10 if cur < 0 else cur
@@ -1362,8 +1372,41 @@ func _stock_row(id: String) -> Control:
 			toast(tr("Der Stauraum ist ausgeschöpft."), "kiste")
 		_refresh_stock(true))
 	h.add_child(plus)
+	var tail := HBoxContainer.new()  # „N weg“, „frei“ oder Platzhalter, je nach Lage (_update_stock_row)
+	tail.custom_minimum_size.x = 30
+	h.add_child(tail)
+	r.merge({"ll": ll, "plus": plus, "tail": tail, "kind": ""})
+	return h
+
+
+## Zahlen und Knöpfe einer bestehenden Lagerzeile auf den Stand bringen.
+func _update_stock_row(id: String) -> void:
+	var r: Dictionary = _stock_rows.get(id, {})
+	if r.is_empty():
+		return
+	var a := Game.amount(id)
+	var lim := Game.limit_of(id)
+	var full := Data.good_size(id) > 0 and Game.space_for(id) <= 0
+	r.al.text = "%d" % a
+	r.al.add_theme_color_override("font_color", UiTheme.BAD if full else UiTheme.TEXT)
+	r.h.modulate.a = 1.0 if a > 0 or lim >= 0 else 0.6
+	if not r.has("ll"):
+		return
+	r.ll.text = "frei" if lim < 0 else "%d" % lim
+	r.ll.tooltip_text = tr("Höchstens so viel wird gelagert.") if lim >= 0 else tr("Keine feste Menge: nimmt freien Platz.")
+	r.plus.disabled = lim >= 0 and lim >= Game.max_limit(id)
 	var ex := Game.excess(id)
-	if ex > 0:
+	var kind := "weg" if ex > 0 else ("frei" if lim >= 0 else "")
+	var tail: HBoxContainer = r.tail
+	if kind == r.kind:
+		if kind == "weg":
+			tail.get_child(0).text = tr("%d weg") % ex
+		return
+	r.kind = kind
+	for c in tail.get_children():
+		tail.remove_child(c)
+		c.queue_free()
+	if kind == "weg":
 		var d := UiTheme.button(tr("%d weg") % ex, "", 30)
 		d.tooltip_text = tr("Überschuss wegwerfen. Er ist dann verloren.")
 		d.add_theme_color_override("font_color", UiTheme.BAD)
@@ -1371,19 +1414,14 @@ func _stock_row(id: String) -> Control:
 			var k := Game.discard_excess(id)
 			toast(tr("%d %s weggeworfen.") % [k, Data.resource_name(id)], "abriss")
 			_refresh_stock(true))
-		h.add_child(d)
-	elif lim >= 0:
+		tail.add_child(d)
+	elif kind == "frei":
 		var f := UiTheme.button("frei", "", 30)
 		f.tooltip_text = tr("Feste Menge aufheben")
 		f.pressed.connect(func():
 			Game.set_limit(id, -1)
 			_refresh_stock(true))
-		h.add_child(f)
-	else:
-		var sp := Control.new()
-		sp.custom_minimum_size.x = 30
-		h.add_child(sp)
-	return h
+		tail.add_child(f)
 
 
 func _build_place_bar() -> void:
@@ -1638,10 +1676,16 @@ func _refresh_settler_list() -> void:
 	_settler_updaters.clear()
 	_settler_sig = _settler_signature()
 	var keep := [_settler_scroll.scroll_vertical]
+	# Gezielt aktualisieren (josh 2026-10-22): Zeilen, deren Siedler gleich geblieben ist (erwachsen, Beruf,
+	# Insel), werden wiederverwendet und nur neu einsortiert; neu gebaut wird nur, was sich geändert hat.
+	var cached_rows := {}
+	for e in _settler_rows.values():
+		cached_rows[e.rb] = true
 	for lst in [_settler_list, _settler_list_free]:
 		for c in lst.get_children():
 			lst.remove_child(c)
-			c.queue_free()
+			if not cached_rows.has(c):
+				c.queue_free()
 	var all_isl: bool = _settler_f_island.visible and _settler_f_island.selected == 1
 	var pool := []
 	if all_isl:
@@ -1711,7 +1755,21 @@ func _refresh_settler_list() -> void:
 		_settler_list_free.add_child(UiTheme.label(tr("Alle haben einen Beruf."), 14, DIM))
 	var narrow := _settler_narrow
 	var row_h := 26
+	var jsig := str(Data.jobs.keys().filter(func(j): return Data.job_unlocked(j)).size())
+	var used := {}
 	for s in list:
+		var rk := "%s|%s|%s|%s|%s|%s" % [s.is_adult(), s.job, s.by_admin, s.world == world, narrow, jsig]
+		var sid: int = s.get_instance_id()
+		var target: VBoxContainer = _settler_list if (s.is_adult() and s.job != "frei") else _settler_list_free
+		var cr = _settler_rows.get(sid, null)
+		if cr != null and cr.key == rk:
+			used[sid] = true
+			cr.upd.call()
+			_settler_updaters.append(cr.upd)
+			target.add_child(cr.rb)
+			continue
+		if cr != null:
+			cr.rb.queue_free()
 		var h := HBoxContainer.new()
 		h.add_theme_constant_override("separation", 6)
 		var sref = s
@@ -1774,8 +1832,7 @@ func _refresh_settler_list() -> void:
 				UiTheme.mark_admin(ob)
 			ob.get_popup().about_to_popup.connect(func(): Game.player_action.emit("job_list", ""))
 			ob.item_selected.connect(func(i):
-				sref.set_job(ids[i])
-				Steward.player_set(sref)  # Verwalter überstimmt das eine Weile nicht
+				JobDesk.assign(sref, ids[i], "spieler")  # Vergabestelle: Automatik überstimmt das eine Weile nicht
 				Game.player_action.emit("job", ids[i])
 				_refresh_settler_list.call_deferred())  # Zeile wandert zu „Mit Beruf“ oder „Frei“
 			h.add_child(ob)
@@ -1863,13 +1920,20 @@ func _refresh_settler_list() -> void:
 		var rb := PanelContainer.new()  # Zeile im einheitlichen Rahmen (Win.row_box), etwas flacher
 		rb.add_theme_stylebox_override("panel", _settler_row_box())
 		rb.add_child(h)
-		(_settler_list if (s.is_adult() and s.job != "frei") else _settler_list_free).add_child(rb)
+		target.add_child(rb)
+		_settler_rows[sid] = {"key": rk, "rb": rb, "upd": upd}
+		used[sid] = true
+	for sid in _settler_rows.keys():  # Zeilen von Siedlern, die nicht mehr in der Liste stehen
+		if not used.has(sid):
+			_settler_rows[sid].rb.queue_free()
+			_settler_rows.erase(sid)
 	call_deferred("_layout")
 	(func():  # beim Neubauen an derselben Stelle in den Listen bleiben
 		_settler_scroll.scroll_vertical = keep[0]).call_deferred()
 
 
 var _settler_rb: StyleBoxFlat
+var _settler_rows: Dictionary = {}  # Instanz-ID des Siedlers -> {key, rb, upd} (_refresh_settler_list)
 
 
 func _settler_row_box() -> StyleBoxFlat:
@@ -2500,6 +2564,14 @@ func _show_offer(kind: String) -> void:
 			choice_dialog("ki", tr("Die Superintelligenz"),
 				tr("Die Superintelligenz hat entschieden: Menschen stören nur. Sie forscht selbst und lässt kein Essen mehr herstellen, auch nicht auf den anderen Inseln.\n• Droiden reißen alles ab, was sie für nutzlos hält: Häuser, Felder, Backstuben, Schulen.\n• Die Lager sind voll mit Dingen, die man nicht essen kann. Essen passt nur noch ans Lagerfeuer.\n• Neue Häuser dürfen nicht gebaut werden.\nDeine Siedler kannst du weiter steuern, zum Beispiel zum Fischen."),
 				[[tr("Verstanden"), "play", func(): pass]])
+		"forscher":
+			var hw = Sea.main_world()
+			choice_dialog("wissen", tr("Die Forscher haben wenig zu tun"),
+				tr("Die Forscher sind nur zu %d %% ausgelastet. Meistens wird dann zu wenig geforscht. %s\nWas soll der Verwalter tun?") % [
+					int(round(float(Steward.job_busy(hw, "forscher")[0]))), Steward.research_info],
+				[[tr("Forschung wählen"), "wissen", func(): if not _research_panel.visible: _toggle(_research_panel)],
+				[tr("Einen Forscher weniger"), "person", func(): Steward.release_researcher(Sea.main_world())],
+				[tr("So lassen"), "abriss", func(): pass]])
 		"end":
 			choice_dialog("feuer", tr("Nur noch Maschinen"),
 				tr("Die letzten Siedler sitzen am Lagerfeuer und frieren. Es ist wie am Anfang des Spiels, nur ist keine Natur mehr da. Kein Baum, kein Strauch. Nur Maschinen, die weiterlaufen."),
@@ -2980,8 +3052,7 @@ func _info_settler(s: Settler) -> void:
 				b.disabled = true
 				b.tooltip_text = tip + tr("\nBenötigt Forschung: %s") % Data.techs.get(jd.requires, {}).get("name", "?")
 			b.pressed.connect(func():
-				s.set_job(jid)
-				Steward.player_set(s)  # Verwalter überstimmt das eine Weile nicht
+				JobDesk.assign(s, jid, "spieler")  # Vergabestelle: Automatik überstimmt das eine Weile nicht
 				Game.player_action.emit("job", jid)
 				_rebuild_info())
 			grid.add_child(b)

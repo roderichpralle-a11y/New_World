@@ -1596,6 +1596,40 @@ oder „neu“; danach heißen der Spielstand-Platz (`slot_<tag>`) und die Rekor
   (`scripts/world/cart_test.gd`, über `Extras.autotest_setup`): Sichtbarkeit („Karren OK/FEHLER“), vier
   Siedler schieben nach rechts, links, unten und oben; mit `--shot` zoomt die Kamera auf sie.
 
+## Vergabestelle für Berufe und Auslastung (josh 2026-10-22, Testversion /neu/)
+**Vergabestelle** (`scripts/autoload/job_desk.gd`, Autoload `JobDesk`): Jede Änderung eines Berufs durch ein
+System geht über `JobDesk.assign(s, job, by)`, damit Verwalter, Planungsautomat, KI und KI-Zentrum einander
+nicht überschreiben. Wer einen Siedler einteilt, hält ihn `HOLD[by]` Tage; in der Zeit darf nur ein höherer Rang
+ihn umsetzen (`JobDesk.may`). Rangfolge: `spieler` (9, hält 2 Tage, unter der KI 0,5) > `ki` (AiRule) >
+`automat` (Planner, Droiden, Anheuern für Siedler-Schiffe) > `verwalter` (Steward, Neuzuweisung nach Todesfall in
+Admin) > `zentrum` (AiJobs). Das KI-Zentrum verteilt nur auf Inseln, die der Verwalter nicht steuert
+(`center_allowed`). Die Geschichte der Superintelligenz setzt sich mit `force` darüber hinweg. Spieler-Wahl in
+Siedlerliste und Infofenster: `assign(…, "spieler")`. Spielstand `job_desk` = {Siedler-ID: [bis, Rang]}; ältere
+Spielstände übernehmen `steward.locks` als Spieler-Sperren. `Steward.locked(s)` = `not may(s, "verwalter")`.
+Überstunden und Schichten haben schon eigene Regeln (Admin `_mark_auto`, `_hold`: wer zuletzt anordnet, dem gehört es).
+
+**Auslastung beim Verwalter** (Steward): `job_busy(w, job)` = [Mittel, kleinster Wert, gemessen, alle] aus
+`Settler.busy_percent()`. Regel 6 in `needed`: sind alle Gemessenen eines Berufs ab `BUSY_FULL` (95 %), braucht er
+mehr Leute. `_trim` (jede Runde): liegt ein Beruf mit mindestens 2 Gemessenen im Mittel unter `BUSY_LOW` (80 %),
+wird der am wenigsten Beschäftigte frei; der Beruf ruht dann `TRIM_DAYS` (1 Tag, `_cooling`), in der Zeit holt der
+Verwalter dafür niemanden dazu (Regeln 4 bis 6). Nicht für Frei, Verwalter, Seemann, Forscher, Baumeister bei
+offenen Baustellen und den Beruf, den die Insel gerade am dringendsten braucht. Forscher (nur Heimatinsel,
+`_check_research`) unter `RESEARCH_LOW` (20 %): mit Planungsautomat oder KI startet `Planner.research_step()` die
+nächste Forschung (oder gibt einen Forscher frei, wenn geforscht wird und Material fehlt); sonst fragt ein Fenster
+(`offer` "forscher", höchstens alle 2 Tage) mit „Forschung wählen“, „Einen Forscher weniger“, „So lassen“ und dem
+Grund (`research_info`: nichts gewählt, Ware fehlt, mehr Forscher als Arbeit). Test `--fixture=<sea.json>
+--stewardtest=busy` („Vergabe OK/FEHLER“).
+
+**Neue Insel** (Hints): bei jeder neu besiedelten Insel (nicht die Heimatinsel) das Fenster `isl_hunt:<id>` (alle zu
+Jägern machen; ohne Waffenkunde der Text `locked`), sobald höchstens noch `hunt_min_keep` (2) erwachsene Tiere je
+Art leben `isl_wood:<id>` (einer Holzfäller, dann ein Haus bauen); ohne wilde Tiere gleich `isl_wood`. Überschrift
+mit Inselname. Spielstand `hints.isl` = {Insel-ID: Schritt}; ältere Spielstände zählen bestehende Inseln als fertig.
+
+**Listen gezielt aktualisieren:** Das Lager (`_refresh_stock`) baut nur neu, wenn sich die Auswahl der Waren ändert;
+sonst setzt `_update_stock_row` Zahlen, Grenze, Knöpfe und den Endknopf („N weg“/„frei“) der bestehenden Zeilen. Die
+Siedlerliste (`_refresh_settler_list`) verwendet Zeilen wieder (`_settler_rows`, Schlüssel: erwachsen, Beruf, vom
+Verwalter, Insel, schmal, Zahl der freien Berufe) und sortiert sie nur neu ein; neu gebaut werden nur geänderte.
+
 ## Straßen, Deiche und Förster (josh 2026-10-11, `scripts/world/land.gd`)
 
 Bau-Reiter „Land und Wege“ (Kategorie `land`, Symbol `weg`). Alle drei sind 1x1-Bodengebäude mit

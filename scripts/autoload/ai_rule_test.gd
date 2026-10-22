@@ -79,7 +79,7 @@ static func run(main, mode: String) -> void:
 			free_s = s
 			break
 	free_s.set_job("frei")
-	Steward.locks.erase(int(free_s.id))
+	JobDesk.release(int(free_s.id))
 	AiRule._ki_tick()
 	print("KI ", _okf(free_s.job == "forscher"), " Freie auf der Heimatinsel forschen (%s)" % free_s.job)
 	# Bauen

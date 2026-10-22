@@ -401,7 +401,8 @@ func crew_missing(sh: Dictionary) -> int:
 
 
 ## Macht einen Siedler der Insel zum Seemann (zuerst Freie, dann die mit der kleinsten Fertigkeit).
-func hire_sailor(sh: Dictionary) -> String:
+## by: wer anheuert (Vergabestelle JobDesk); der Spieler über den Knopf, der Automat beim Siedler-Schiff.
+func hire_sailor(sh: Dictionary, by: String = "spieler") -> String:
 	var w = worlds.get(int(sh.at))
 	if w == null or sh.state == "sea":
 		return tr("Das Schiff ist auf See.")
@@ -409,11 +410,11 @@ func hire_sailor(sh: Dictionary) -> String:
 	if crew_missing(sh) <= 0:
 		return ""
 	var taken := _assigned_ids()
-	var cands: Array = w.settlers.filter(func(s): return s.is_adult() and not taken.has(int(s.id)) and s.job != "seemann")
+	var cands: Array = w.settlers.filter(func(s): return s.is_adult() and not taken.has(int(s.id)) and s.job != "seemann" and JobDesk.may(s, by))
 	if cands.size() <= 1:
 		return tr("Auf %s ist niemand mehr frei, der anheuern kann.") % island_name(w)
 	cands.sort_custom(func(a, b): return _hire_score(a) < _hire_score(b))
-	cands[0].set_job("seemann")
+	JobDesk.assign(cands[0], "seemann", by)
 	fill_crew(sh)
 	Game.notify(tr("%s heuert auf der %s an.") % [cands[0].display_name, sh.name], "boot")
 	return ""
@@ -773,7 +774,7 @@ func send_settlers(from_world, to_id: int, people: Array) -> String:
 	for sh in list:
 		fill_crew(sh)
 		if crew_missing(sh) > 0:
-			hire_sailor(sh)
+			hire_sailor(sh, "automat")
 	for sh in list:
 		if can_send(from_world, to_id, people, sh) == "":
 			return send_ship(from_world, to_id, people, sh)

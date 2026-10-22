@@ -13,6 +13,10 @@ extends Node
 ## Spielstand: "hints" = {seen: [Schlüssel]}. Alter Spielstand ohne "hints": alles, was schon gilt, zählt
 ## als gesehen (keine Fenster für Dinge, die man schon hat).
 ## Selbsttests sehen keine Fenster (--autotest), außer mit --hinttest.
+## Neue Insel (josh 2026-10-22), bei jeder neu besiedelten Insel, Schlüssel "isl_hunt:<Insel-ID>" und
+## "isl_wood:<Insel-ID>": zuerst alle zu Jägern machen, damit die Tiere sie nicht töten; sind höchstens noch
+## 2 erwachsene Tiere je Art übrig (so viele lassen die Jäger stehen), einer wird Holzfäller, dann ein Haus
+## bauen. Ohne wilde Tiere gleich der zweite Schritt. Spielstand: "hints".isl = {Insel-ID: Schritt 1 oder 2}.
 
 signal queued
 
@@ -21,6 +25,7 @@ const ORDER := ["age_", "tier_", "tech_", "first_"]
 var texts: Dictionary = {}
 var seen: Dictionary = {}  # Schlüssel -> true
 var queue: Array = []  # Schlüssel, die auf ihr Fenster warten
+var isl: Dictionary = {}  # Insel-ID (Text) -> Schritt der Anleitung für neue Inseln (1 Jäger, 2 Holzfäller und Haus)
 var _seed := false  # beim nächsten Prüfen alles, was schon gilt, ohne Fenster als gesehen merken
 var _next := 0.0
 var _off := false  # Selbsttest ohne --hinttest
@@ -33,23 +38,32 @@ func _ready() -> void:
 	_off = a.contains("--autotest") and not a.contains("--hinttest")
 	Game.register_system(self)
 	Game.state_reset.connect(_on_reset)
-	Game.state_save.connect(func(data: Dictionary): data["hints"] = {"seen": seen.keys()})
+	Game.state_save.connect(func(data: Dictionary): data["hints"] = {"seen": seen.keys(), "isl": isl.duplicate()})
 	Game.state_load.connect(_on_load)
 
 
 func _on_reset() -> void:
 	seen = {}
+	isl = {}
 	queue = []
 	_seed = false
 
 
 func _on_load(data: Dictionary, _old_rules: int) -> void:
 	seen = {}
+	isl = {}
 	queue = []
 	var h = data.get("hints", null)
 	if h is Dictionary:
 		for k in h.get("seen", []):
 			seen[str(k)] = true
+		var ii = h.get("isl", null)
+		if ii is Dictionary:
+			for k in ii:
+				isl[str(k)] = int(ii[k])
+		else:
+			for m in Sea.settled_islands():  # Spielstand von vor der Anleitung: bestehende Inseln haben sie hinter sich
+				isl[str(int(m.id))] = 2
 		_seed = false
 	else:
 		_seed = true
@@ -72,9 +86,11 @@ func check() -> void:
 		if not seen.has(k):
 			seen[k] = true
 			fresh.append(k)
+	var guide := island_guide(_seed)
 	if _seed:
 		_seed = false
 		return
+	fresh.append_array(guide)
 	if fresh.is_empty():
 		return
 	fresh.sort_custom(func(a, b): return _rank(a) < _rank(b))
@@ -93,6 +109,39 @@ func _rank(k: String) -> int:
 		if k.begins_with(ORDER[i]):
 			return i * 1000 + (int(k.get_slice("_", 1)) if i < 2 else 0)
 	return 9999
+
+
+## Anleitung für neu besiedelte Inseln: gibt die neuen Schlüssel zurück. quiet: nur merken (alter Spielstand).
+func island_guide(quiet := false) -> Array:
+	var out := []
+	for w in Sea.all_worlds():
+		if w == null or not is_instance_valid(w) or Sea.is_main(w) or w.settlers.is_empty():
+			continue
+		var id := str(int(w.island_id))
+		var step := int(isl.get(id, 0))
+		if quiet:
+			isl[id] = 2
+			continue
+		if step == 0:
+			isl[id] = 1 if not tame(w) else 2
+			out.append(("isl_hunt:" if not tame(w) else "isl_wood:") + id)
+		elif step == 1 and tame(w):
+			isl[id] = 2
+			out.append("isl_wood:" + id)
+	return out
+
+
+## Sind auf der Insel höchstens noch 2 erwachsene Tiere je Art (so viele lassen die Jäger stehen)?
+func tame(w) -> bool:
+	var keep := int(Data.bal("hunt_min_keep", 2))
+	for a in w.animals:
+		if is_instance_valid(a) and not a.dead and a.is_adult() and w.adult_count(a.type) > keep:
+			return false
+	return true
+
+
+func _isl_name(k: String) -> String:
+	return Sea.island_name(Sea.worlds.get(int(k.get_slice(":", 1))))
 
 
 ## Alle Schlüssel mit Text, deren Bedingung jetzt erfüllt ist.
@@ -134,15 +183,21 @@ func due() -> Array:
 
 
 func title(k: String) -> String:
+	if k.contains(":"):
+		return tr(str(texts.get(k.get_slice(":", 0), {}).get("name", ""))) % _isl_name(k)
 	return tr(str(texts.get(k, {}).get("name", "")))
 
 
 func text(k: String) -> String:
+	if k.begins_with("isl_hunt:") and not Data.job_unlocked("jaeger"):
+		return tr(str(texts.get("isl_hunt", {}).get("locked", "")))
+	if k.contains(":"):
+		return tr(str(texts.get(k.get_slice(":", 0), {}).get("text", "")))
 	return tr(str(texts.get(k, {}).get("text", "")))
 
 
 func icon(k: String) -> String:
-	var e: Dictionary = texts.get(k, {})
+	var e: Dictionary = texts.get(k.get_slice(":", 0), {})
 	if e.has("icon"):
 		return str(e.icon)
 	if k.begins_with("age_") or k.begins_with("tier_"):

@@ -31,6 +31,7 @@ Steward="*res://scripts/autoload/steward.gd"
 Droids="*res://scripts/autoload/droids.gd"
 AiRule="*res://scripts/autoload/ai_rule.gd"
 Planner="*res://scripts/autoload/planner.gd"
+JobDesk="*res://scripts/autoload/job_desk.gd"
 
 [display]
 

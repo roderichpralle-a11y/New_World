@@ -2357,5 +2357,21 @@
  "Jede Hütte bringt 2 Wohnplätze. Nur mit freien Plätzen bekommen deine Siedler Kinder.": "Every hut adds 2 living spaces. Your settlers only have children while spaces are free.",
  "Deine Siedler können nichts mehr einlagern. Wer sammelt, Holz fällt oder fischt, hört auf, bis wieder Platz ist. Baue ein neues Lager: im Baumenü unter Lager. Ein Lagerhaus fasst 400, später das Große Lager 1000. Steht es nah an der Arbeit, sparen die Siedler auch Wege.": "Your settlers cannot store anything more. Whoever gathers, cuts wood or fishes stops until there is room again. Build a new storage: in the build menu under Storage. A storehouse holds 400, later the large storage 1000. Placed close to the work, it also saves your settlers walking.",
  "Meldungen nach Wunsch": "Messages as you like",
- "Ein Jahr ist vorbei. Im Spiel erscheinen viele Meldungen. Unter Menü > Meldungen schaltest du jede Art einzeln an oder ab, zum Beispiel Tag und Jahreszeit oder Bauen. Wichtiges wie Hunger, Kälte und Todesfälle lässt du am besten an.": "A year has passed. Many messages appear in the game. Under Menu > Messages you switch each kind on or off, for example Day and season or Building. Best keep important ones like hunger, cold and deaths on."
+ "Ein Jahr ist vorbei. Im Spiel erscheinen viele Meldungen. Unter Menü > Meldungen schaltest du jede Art einzeln an oder ab, zum Beispiel Tag und Jahreszeit oder Bauen. Wichtiges wie Hunger, Kälte und Todesfälle lässt du am besten an.": "A year has passed. Many messages appear in the game. Under Menu > Messages you switch each kind on or off, for example Day and season or Building. Best keep important ones like hunger, cold and deaths on.",
+ "Die %s haben im Mittel nur %d %% zu tun. %s ist jetzt frei; in einem Tag prüft er wieder.": "The %s are only %d %% busy on average. %s is now free; he checks again in one day.",
+ "Es wird gerade nichts erforscht.": "Nothing is being researched right now.",
+ "Für %s fehlt: %s.": "%s is missing: %s.",
+ "Es gibt mehr Forscher als Arbeit.": "There are more researchers than work.",
+ "%s forscht nicht mehr und ist jetzt frei.": "%s stops researching and is now free.",
+ "alle %s sind voll ausgelastet": "all %s are fully busy",
+ "Die Forscher haben wenig zu tun": "The researchers have little to do",
+ "Die Forscher sind nur zu %d %% ausgelastet. Meistens wird dann zu wenig geforscht. %s\nWas soll der Verwalter tun?": "The researchers are only %d %% busy. Usually this means too little is being researched. %s\nWhat should the administrator do?",
+ "Forschung wählen": "Choose research",
+ "Einen Forscher weniger": "One researcher fewer",
+ "So lassen": "Leave it",
+ "Neue Insel %s: zuerst jagen": "New island %s: hunt first",
+ "Auf dieser Insel leben wilde Tiere. Mach zuerst alle Siedler hier zu Jägern, sonst werden sie angegriffen und sterben. Jäger lassen von jeder Tierart 2 übrig. Sobald es nur noch so wenige sind, sagt dir ein Hinweis, wie es weitergeht.": "Wild animals live on this island. First make all settlers here hunters, or they will be attacked and die. Hunters leave 2 of each kind of animal. As soon as only that few are left, a hint tells you what to do next.",
+ "Auf dieser Insel leben wilde Tiere, und sie greifen Siedler an. Jäger gibt es erst mit der Forschung Waffenkunde. Erforsche sie bald und mach dann alle Siedler hier zu Jägern. Bis dahin halte die Siedler nah beim Lagerfeuer.": "Wild animals live on this island, and they attack settlers. Hunters need the research Weapons. Research it soon and then make all settlers here hunters. Until then keep the settlers close to the campfire.",
+ "Neue Insel %s: jetzt bauen": "New island %s: build now",
+ "Die Insel ist jetzt sicherer. Mach einen Jäger zum Holzfäller und lass dann ein Haus bauen, damit die Siedler ein Dach über dem Kopf haben. Ein Baumeister baut es. Danach kann die Siedlung wachsen.": "The island is safer now. Make one hunter a woodcutter and then have a house built so the settlers have a roof over their heads. A builder builds it. Then the settlement can grow."
 }
