@@ -434,7 +434,8 @@ ohne Tote), Bild `--plannershot=1`.
   öffnen, Zeitalter (Zeiger `age_tab`: der erste Reiter), Flechtkörbe starten (Pflicht, ohne Weiter, schenkt
   12 Holz über `gift`), Forschung schließen (Prüfart `no_panel`, Zeiger `close` = das X), Menü Siedler
   öffnen, Forscher, Kinder, Tod (das Menü wird nicht mehr erklärt). Die Erklärung des Menüs Siedler rät
-  zum Fischer (Fisch das ganze Jahr, sehr nahrhaft, Fischgründe begrenzt). Ein neues Spiel schaltet unter
+  zum Fischer (Fisch das ganze Jahr, im Winter langsamer, im Eiswinter gar nicht nachwachsend, sehr nahrhaft,
+  Fischgründe begrenzt). Ein neues Spiel schaltet unter
   Menü > Meldungen die Zielkarte mit Aufträgen und die Meldungen zu Aufträgen ein (`Hud.notify_on`). Erklär-Schritte haben den Knopf
   Weiter (Prüfung `action`/`next`). Der Zeigerpfeil zeigt auf Knöpfe oder Teile offener Fenster
   (`point`, siehe `_pointer_target`; in Zeilen auf den Hammer oder das Dreieck, nicht auf das „i“, siehe
