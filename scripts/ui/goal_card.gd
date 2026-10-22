@@ -21,6 +21,7 @@ var _tick: float = 0.0
 var _cur_id: String = ""
 var _actions: Array = []  # Aktionen seit Beginn des aktuellen Schritts
 var _bob: float = 0.0
+var _warn: Label  # Mahnung in Stufe I: Baustelle ohne Baumeister, Forschung ohne Forscher (josh 2026-10-22)
 var _ms_box: Control  # Ziel bzw. Pruefung (oben); das X blendet nur diesen Teil aus
 var _quest_row: Control  # Auftrag darunter (QuestView, Teil D)
 
@@ -71,6 +72,11 @@ func setup(p_hud) -> void:
 	_hint.custom_minimum_size.x = 170
 	_hint.visible = false
 	v.add_child(_hint)
+	_warn = UiTheme.label("", 12, Color("#c03a2a"), true)
+	_warn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_warn.custom_minimum_size.x = 170
+	_warn.visible = false
+	v.add_child(_warn)
 	_next = UiTheme.button(tr("Weiter"), "play", 34)
 	_next.size_flags_horizontal = Control.SIZE_SHRINK_END
 	_next.add_theme_font_size_override("font_size", 14)
@@ -211,6 +217,26 @@ func _advance(g: Dictionary, silent: bool) -> void:
 	tw.tween_property(self, "modulate", Color.WHITE, 0.8)
 
 
+## Solange nur Stufe I erforscht ist: Mahnung, wenn eine Baustelle ohne Baumeister wartet oder eine Forschung
+## ohne Forscher stillsteht (josh 2026-10-22). Leer, wenn alles passt.
+func tier1_warning() -> String:
+	if Game.max_tier() > 1:
+		return ""
+	var w = Game.world
+	if w == null or not is_instance_valid(w):
+		return ""
+	var has_job := func(wd, j: String) -> bool:
+		return wd.settlers.any(func(x): return x.is_adult() and x.job == j)
+	if w.buildings.any(func(b): return not b.complete) and not has_job.call(w, "baumeister"):
+		return tr("Achtung: Eine Baustelle wartet, aber niemand ist Baumeister. Gib einem Siedler im Menü Siedler den Beruf Baumeister.")
+	var home = Sea.main_world()
+	if Game.research.current != "" and home != null and not has_job.call(home, "forscher"):
+		return tr("Achtung: Die Forschung steht still, weil niemand Forscher ist. Gib mindestens einem Siedler den Beruf Forscher.")
+	if Game.research.current == "" and Data.techs.keys().any(func(t): return Game.tech_state(t) == "available"):
+		return tr("Tipp: Gerade wird nichts erforscht. Öffne die Forschung und starte etwas Neues.")
+	return ""
+
+
 ## Wegklicken: dieses Ziel bleibt verborgen, das naechste erscheint wieder (ein Auftrag bleibt sichtbar).
 func _dismiss() -> void:
 	Game.goals["hide"] = _cur_id
@@ -316,6 +342,11 @@ func _check() -> void:
 		_hint.text = g.get("hint", "")  # Pruefung: was noch fehlt, aendert sich laufend
 		if _hint.visible:
 			_relayout()
+	var wt := tier1_warning() if not t else ""
+	if wt != _warn.text:
+		_warn.text = wt
+		_warn.visible = wt != ""
+		_relayout()
 	var p := progress(g)
 	_bar.visible = int(p[1]) > 1
 	_bar.value = 100.0 * float(p[0]) / max(1.0, float(p[1]))

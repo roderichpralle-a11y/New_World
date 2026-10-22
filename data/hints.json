@@ -232,6 +232,16 @@
   "name": "Neu: Zukunftsstadt",
   "text": "Baut die Zukunftsstadt, das Ziel aller Zeitalter. Auf allen Inseln kommen dann doppelt so oft Kinder."
  },
+ "first_storage_full": {
+  "name": "Das Lager ist voll",
+  "text": "Deine Siedler können nichts mehr einlagern. Wer sammelt, Holz fällt oder fischt, hört auf, bis wieder Platz ist. Baue ein neues Lager: im Baumenü unter Lager. Ein Lagerhaus fasst 400, später das Große Lager 1000. Steht es nah an der Arbeit, sparen die Siedler auch Wege.",
+  "icon": "kiste"
+ },
+ "first_year": {
+  "name": "Meldungen nach Wunsch",
+  "text": "Ein Jahr ist vorbei. Im Spiel erscheinen viele Meldungen. Unter Menü > Meldungen schaltest du jede Art einzeln an oder ab, zum Beispiel Tag und Jahreszeit oder Bauen. Wichtiges wie Hunger, Kälte und Todesfälle lässt du am besten an.",
+  "icon": "glocke"
+ },
  "first_winter": {
   "name": "Der Winter kommt",
   "text": "Im Winter wächst nichts, und die Siedler müssen heizen. Legt Holz oder Kohle und haltbares Essen zurück. Das Symbol neben der Jahreszeit zeigt, wie hart der Winter wird."

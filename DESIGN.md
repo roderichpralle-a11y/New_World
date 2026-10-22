@@ -448,6 +448,12 @@ fast bildschirmfüllend mit kompakten Zeilen; Spaltenköpfe Name, Alter, Beruf, 
   (`point`, siehe `_pointer_target`; in Zeilen auf den Hammer oder das Dreieck, nicht auf das „i“, siehe
   `_row_button`); die Karte steht dabei als Sprechblase daneben und über den Fenstern
   (`GoalCard.bubble`, dann setzt `hud._layout` sie nicht), Listen rollen einmal je Schritt zum Ziel.
+  Nach der Einführung führen Ziele durch Stufe I (josh 2026-10-22, `goals.mv` = 2, alte Spielstände über
+  `Game._ms_upgrade`/`OLD_MS` beim selben Ziel): Fischer, Schreibstube, Gartenbau, Getreidefeld, Bauer,
+  Holzbearbeitung, Sägegrube, vierte Hütte. Solange nur Stufe I erforscht ist, mahnt die Zielkarte rot
+  (`GoalCard.tier1_warning`): Baustelle ohne Baumeister, Forschung ohne Forscher, oder nichts wird erforscht.
+  Hinweis-Fenster `first_storage_full` (ein Lager zum ersten Mal voll: neues Lager bauen) und `first_year`
+  (nach einem Jahr: Menü > Meldungen).
   Neue Spiele starten mit 16 Holz (eine Hütte). Danach feste Ziele mit Belohnungen und endlos erzeugte
   Ziele (Bevölkerung, Inseln, Geburten). Zustand `Game.goals {tut, ms, hide, tv, gift}` im Spielstand;
   Spielstände ohne `goals` überspringen die Einführung und holen erreichte Ziele still nach; Spielstände

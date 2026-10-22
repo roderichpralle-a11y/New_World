@@ -145,7 +145,7 @@ func reset_state(new_seed: int) -> void:
 	stats = {"births": 0, "deaths": 0, "max_pop": 0, "starved": 0, "starve_day": time_days}
 	lineage = {}
 	research = {"current": "", "progress": {}, "done": [], "paid": []}
-	goals = {"tut": 0, "ms": 0, "tv": 8}
+	goals = {"tut": 0, "ms": 0, "tv": 8, "mv": 2}
 	rules = RULES
 	rules_old = RULES
 	rules_day = time_days
@@ -1463,16 +1463,35 @@ func apply_save_header(d: Dictionary) -> void:
 		# Seit tv 8 (josh 2026-10-22): ohne die 2 Schritte zum Menü (vorher 25 und 26)
 		if tv >= 5 and tv < 8 and tut >= 25 and tut < 999:
 			tut = 999 if tut >= 29 else (tut - 2 if tut >= 27 else 25)
-		goals = {"tut": tut, "ms": int(g.get("ms", 0)), "hide": str(g.get("hide", "")), "tv": 8,
-			"gift": str(g.get("gift", ""))}
+		goals = {"tut": tut, "ms": _ms_upgrade(g), "hide": str(g.get("hide", "")), "tv": 8,
+			"gift": str(g.get("gift", "")), "mv": 2}
 	else:
-		goals = {"tut": 999, "ms": 0, "catchup": true}
+		goals = {"tut": 999, "ms": 0, "catchup": true, "mv": 2}
 	_recompute_effects()
 	research_changed.emit()
 	is_over = false
 	selected = null
 	_last_day = day()
 	set_speed(1)
+
+
+## Feste Ziele bis Oktober 2026 (goals.mv fehlt). Seit mv 2 (josh 2026-10-22) führen am Anfang Ziele der Stufe I
+## (Fischer, Schreibstube, Gartenbau, Feld, Bauer, Holzbearbeitung, Sägegrube, vierte Hütte); ein alter Spielstand
+## steht danach beim selben Ziel wie vorher (entfallene Ziele: am Anfang der neuen Liste).
+const OLD_MS := ["m_pop5", "m_lager", "m_tech3", "m_food3", "m_pop8", "m_schreib", "m_holzhaus", "m_tier3", "m_pop12",
+	"m_births10", "m_brot", "m_tier5", "m_pop18", "m_werft", "m_found1", "m_settle2", "m_kills5", "m_pop25",
+	"m_steinhaus", "m_gold", "m_settle3", "m_alltech", "m_denkmal", "m_pop40"]
+
+
+func _ms_upgrade(g: Dictionary) -> int:
+	var ms := int(g.get("ms", 0))
+	if int(g.get("mv", 1)) >= 2 or ms <= 0:
+		return ms
+	var ids: Array = Data.goals.get("milestones", []).map(func(m): return str(m.id))
+	if ms >= OLD_MS.size():  # schon bei den endlos erzeugten Zielen
+		return ms - OLD_MS.size() + ids.size()
+	var at := ids.find(OLD_MS[ms])
+	return maxi(at, 0)
 
 
 ## Nach Sea.build_from_save (main.gd): alle Welten existieren. Systeme lesen ihre Schluessel

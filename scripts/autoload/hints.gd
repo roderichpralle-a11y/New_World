@@ -109,6 +109,13 @@ func due() -> Array:
 	var w = Game.world
 	if Seasons.season() >= 2 or Seasons.year() > 1:
 		out.append("first_winter")
+	if Seasons.year() > 1:  # nach einem Jahr: Meldungen im Menü an- und abschalten (josh 2026-10-22)
+		out.append("first_year")
+	for wd in Sea.all_worlds():  # zum ersten Mal ist ein Lager voll (josh 2026-10-22)
+		var vol := Game.storage_volume(wd)
+		if vol > 0 and Game.used_volume(wd) >= vol - 3:
+			out.append("first_storage_full")
+			break
 	if not Quests.offers.is_empty() or not Quests.active.is_empty():
 		out.append("first_quests")
 	for wd in Sea.all_worlds():
@@ -143,7 +150,7 @@ func icon(k: String) -> String:
 	if k.begins_with("tech_"):
 		return str(Data.techs.get(k.substr(5), {}).get("icon", "wissen"))
 	return {"first_winter": "holz", "first_quests": "ziel", "first_event": "ereignis", "first_pirates": "ereignis",
-		"first_merchant": "haendler", "first_exam": "zeitalter", "first_island": "kompass", "first_admin": "wissen"}.get(k, "wissen")
+		"first_merchant": "haendler", "first_exam": "zeitalter", "first_island": "kompass", "first_admin": "wissen", "first_storage_full": "kiste", "first_year": "glocke"}.get(k, "wissen")
 
 
 ## Nächster Hinweis aus der Schlange ("" = keiner).
