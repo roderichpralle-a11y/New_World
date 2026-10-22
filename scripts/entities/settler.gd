@@ -1878,7 +1878,10 @@ func _animate_home() -> void:
 	_home_sprite.flip_h = _flip and _dir == DIR_SIDE
 	_home_sprite.rotation = -PI / 2.0 if sleeping else 0.0
 	_home_sprite.position = Vector2(8, -4) if sleeping else Vector2.ZERO
-	_body.position.y = 0.0
+	# Preserve the seat offset selected by the normal animator. Only the baked
+	# work poses replace its independently calculated tool/body bob.
+	if action_work or sleeping:
+		_body.position.y = 0.0
 	if action_work:
 		_tool.visible = false
 	_carry_icon.visible = false
