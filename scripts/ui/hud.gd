@@ -1434,7 +1434,13 @@ func _on_placement(active: bool, type: String, valid: bool) -> void:
 const DIM := Color("#6e5a50")
 ## Sortierbare Spalten: Schluessel, Text, Breite (0 = dehnbar; breit / schmal)
 const SETTLER_COLS := [["name", "Name", 0, 0], ["age", "Alter", 62, 30], ["act", "Tätigkeit", 0, -1],
-	["talent", "Talent", 120, -1], ["job", "Beruf", 150, 84], ["busy", "Auslastung", 110, 40], ["hunger", "Satt", 120, 44], ["mood", "Laune", 120, 44]]
+	["talent", "Talent", -1, -1], ["job", "Beruf", 150, 84], ["busy", "Auslastung", 110, 40], ["hunger", "Satt", 120, 44], ["mood", "Laune", 120, 44]]
+## Dichte Liste (josh 2026-10-22): keine Talent-Spalte, keine Zahlen über den Balken, Filter, Zähler und
+## „Freie zeigen“ in einer Zeile, beide Gruppen in einer Liste ohne Lücke, das Fenster reicht bis unten
+## (die Knöpfe unten liegen darüber, die Liste rollt unter ihnen hervor).
+var _settler_show_free: bool = true
+var _settler_free_cb: CheckBox
+var _settler_pad: Control
 var _settler_scroll: ScrollContainer
 var _settler_updaters: Array = []
 var _settler_tick: float = 0.0
@@ -1446,7 +1452,6 @@ var _settler_f_job: OptionButton
 var _settler_f_group: OptionButton
 var _settler_f_island: OptionButton
 var _settler_count: Label
-var _settler_count_ft: Dictionary = {}
 var _settler_narrow: bool = false
 
 
@@ -1463,12 +1468,28 @@ func _build_settler_panel() -> void:
 	# Keine Reiter Alle / Erwachsene / Kinder mehr (josh 2026-10-19, die Liste zeigt immer alle).
 	# Filter nur für Berufe und bei mehreren Inseln die Insel; keine „Nur Hungrige“/„Nur Kranke“ (josh 2026-10-19)
 	var fr := HFlowContainer.new()
-	fr.add_theme_constant_override("h_separation", 4)
-	fr.add_theme_constant_override("v_separation", 4)
+	fr.add_theme_constant_override("h_separation", 6)
+	fr.add_theme_constant_override("v_separation", 2)
 	_settler_f_job = _settler_filter_button(tr("Welche Berufe anzeigen"))
 	fr.add_child(_settler_f_job)
 	_settler_f_island = _settler_filter_button(tr("Welche Insel anzeigen"))
 	fr.add_child(_settler_f_island)
+	_settler_free_cb = CheckBox.new()
+	_settler_free_cb.text = tr("Freie zeigen")
+	_settler_free_cb.button_pressed = _settler_show_free
+	_settler_free_cb.focus_mode = Control.FOCUS_NONE
+	_settler_free_cb.add_theme_font_size_override("font_size", 14)
+	_settler_free_cb.tooltip_text = tr("Freie Siedler und Kinder in der Liste zeigen oder ausblenden")
+	_settler_free_cb.toggled.connect(func(on):
+		_settler_show_free = on
+		Sound.play("klick")
+		_refresh_settler_list())
+	fr.add_child(_settler_free_cb)
+	_settler_count = UiTheme.label("", 14, DIM)
+	_settler_count.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_settler_count.custom_minimum_size.y = 32
+	_settler_count.mouse_filter = Control.MOUSE_FILTER_PASS
+	fr.add_child(_settler_count)
 	v.add_child(fr)
 	# Spaltenkoepfe: antippen sortiert, nochmal antippen dreht die Reihenfolge um
 	var head := HBoxContainer.new()
@@ -1479,7 +1500,7 @@ func _build_settler_panel() -> void:
 		b.focus_mode = Control.FOCUS_NONE
 		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		b.clip_text = true
-		b.custom_minimum_size.y = 32
+		b.custom_minimum_size.y = 22
 		b.add_theme_font_size_override("font_size", 14)
 		b.add_theme_color_override("font_color", DIM)
 		b.add_theme_color_override("font_hover_color", UiTheme.TEXT)
@@ -1500,38 +1521,39 @@ func _build_settler_panel() -> void:
 		_settler_head[key] = b
 	v.add_child(head)
 	_settler_head_row = head
-	# Zwei Listen: oben die Siedler mit Beruf, unten die freien (und die Kinder)
-	_settler_head_job = UiTheme.label("", 15, Color("#7a4a28"), true)
-	v.add_child(_settler_head_job)
+	# Eine Liste: oben die Siedler mit Beruf, direkt darunter die freien (und die Kinder)
 	_settler_scroll = ScrollContainer.new()
 	_settler_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	_settler_scroll.custom_minimum_size = Vector2(560, 250)
+	_settler_scroll.custom_minimum_size = Vector2(560, 120)
+	_settler_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.add_child(_settler_scroll)
+	var inner := VBoxContainer.new()
+	inner.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	inner.add_theme_constant_override("separation", 2)
+	_settler_scroll.add_child(inner)
+	_settler_head_job = UiTheme.label("", 14, Color("#7a4a28"), true)
+	inner.add_child(_settler_head_job)
 	_settler_list = VBoxContainer.new()
 	_settler_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_settler_list.add_theme_constant_override("separation", 3)
-	_settler_scroll.add_child(_settler_list)
-	_settler_head_free = UiTheme.label("", 15, Color("#7a4a28"), true)
-	v.add_child(_settler_head_free)
-	_settler_scroll_free = ScrollContainer.new()
-	_settler_scroll_free.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	_settler_scroll_free.custom_minimum_size = Vector2(560, 150)
-	v.add_child(_settler_scroll_free)
+	_settler_list.add_theme_constant_override("separation", 2)
+	inner.add_child(_settler_list)
+	_settler_head_free = UiTheme.label("", 14, Color("#7a4a28"), true)
+	inner.add_child(_settler_head_free)
 	_settler_list_free = VBoxContainer.new()
 	_settler_list_free.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_settler_list_free.add_theme_constant_override("separation", 3)
-	_settler_scroll_free.add_child(_settler_list_free)
-	var ft := Win.footer(v)
-	_settler_count = ft.left
-	_settler_count.custom_minimum_size.x = 200
-	_settler_count_ft = ft
+	_settler_list_free.add_theme_constant_override("separation", 2)
+	inner.add_child(_settler_list_free)
+	_settler_pad = Control.new()  # Platz unter der letzten Zeile: die Knöpfe unten liegen über dem Fenster
+	_settler_pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	inner.add_child(_settler_pad)
+	_settler_scroll_free = _settler_scroll
 
 
 func _settler_filter_button(tip: String) -> OptionButton:
 	var ob := OptionButton.new()
 	ob.focus_mode = Control.FOCUS_NONE
-	ob.custom_minimum_size = Vector2(120, 40)
-	ob.add_theme_font_size_override("font_size", 15)
+	ob.custom_minimum_size = Vector2(120, 32)
+	ob.add_theme_font_size_override("font_size", 14)
 	ob.get_popup().add_theme_font_size_override("font_size", 16)
 	ob.tooltip_text = tip
 	ob.item_selected.connect(func(_i): _refresh_settler_list())
@@ -1547,20 +1569,9 @@ func _size_settler_panel(avail_h: float = -1.0) -> void:
 		avail_h = vs.y - 160.0
 	var w := clampf(vs.x - 36.0, 290.0, 980.0)
 	_settler_narrow = w < 620.0
-	# Platz fuer Titel, Filter, Zaehler und Spaltenkoepfe abziehen
-	var extra := 200.0 + (46.0 if _settler_narrow else 0.0)
-	var tight := avail_h < 360.0  # Handy quer: der Zähler entfällt, die Listen werden knapp
-	_settler_count_ft.box.visible = not tight
-	_settler_count_ft.sep.visible = not tight
+	var tight := avail_h < 360.0  # Handy quer: ohne Spaltenköpfe
 	_settler_head_row.visible = not tight
-	var room := clampf(avail_h - extra - 56.0, 90.0 if tight else 140.0, 2000.0)  # 56: die zwei Überschriften
-	var top_h := roundf(room * 0.6)
-	_settler_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_settler_scroll_free.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_settler_scroll.size_flags_stretch_ratio = 0.6
-	_settler_scroll_free.size_flags_stretch_ratio = 0.4
-	_settler_scroll.custom_minimum_size = Vector2(w, maxf(top_h, 54.0 if tight else 80.0))
-	_settler_scroll_free.custom_minimum_size = Vector2(w, maxf(room - top_h, 40.0 if tight else 56.0))
+	_settler_scroll.custom_minimum_size = Vector2(w, 60.0)
 	for col in SETTLER_COLS:
 		var b: Button = _settler_head[col[0]]
 		var cw: int = col[3] if _settler_narrow else col[2]
@@ -1626,7 +1637,7 @@ func _refresh_settler_list() -> void:
 	_update_settler_filters()
 	_settler_updaters.clear()
 	_settler_sig = _settler_signature()
-	var keep := [_settler_scroll.scroll_vertical, _settler_scroll_free.scroll_vertical]
+	var keep := [_settler_scroll.scroll_vertical]
 	for lst in [_settler_list, _settler_list_free]:
 		for c in lst.get_children():
 			lst.remove_child(c)
@@ -1687,16 +1698,19 @@ func _refresh_settler_list() -> void:
 	var sick_n := pool.filter(func(x): return x.mind.sick != "").size()
 	var hungry_n := pool.filter(func(x): return x.hunger < 30.0).size()
 	_settler_count.text = tr("%d Siedler, %d hungrig") % [pool.size(), hungry_n] + ((tr(", %d krank") % sick_n) if sick_n > 0 else "")
-	Win.set_left2(_settler_count_ft, tr("Zu sehen: %d. Lebensstil: %s.") % [list.size(), stage[0]])
+	_settler_count.tooltip_text = tr("Zu sehen: %d. Lebensstil: %s.") % [list.size(), stage[0]]
 	var n_job := list.filter(func(x): return x.is_adult() and x.job != "frei").size()
 	_settler_head_job.text = tr("Mit Beruf (%d)") % n_job
 	_settler_head_free.text = tr("Frei (%d)") % (list.size() - n_job)
+	_settler_head_free.visible = _settler_show_free
+	_settler_list_free.visible = _settler_show_free
+	_settler_pad.custom_minimum_size.y = _bottom.get_parent().size.y + 12.0
 	if n_job == 0:
 		_settler_list.add_child(UiTheme.label(tr("Niemand passt zu dieser Auswahl.") if not pool.is_empty() else tr("Auf dieser Insel lebt niemand."), 14))
 	if list.size() - n_job == 0:
 		_settler_list_free.add_child(UiTheme.label(tr("Alle haben einen Beruf."), 14, DIM))
 	var narrow := _settler_narrow
-	var row_h := 30
+	var row_h := 26
 	for s in list:
 		var h := HBoxContainer.new()
 		h.add_theme_constant_override("separation", 6)
@@ -1713,9 +1727,6 @@ func _refresh_settler_list() -> void:
 		var other: bool = s.world != world
 		nb.text = s.display_name + ("  (%s)" % Sea.island_name(s.world) if other else "")
 		nb.tooltip_text = tr("Auf der Karte zeigen")
-		if not s.mind.best_talents().is_empty():
-			nb.tooltip_text += "\n" + "\n".join(s.mind.best_talents().map(func(k): return TalentInfo.line(sref.mind, k)))
-			TalentInfo.badge(nb)  # Stern am Namen: hat ein Talent (auch schmal, wo die Spalte fehlt)
 		nb.pressed.connect(func():
 			_settler_panel.visible = false
 			if is_instance_valid(sref) and sref.world != world:
@@ -1735,15 +1746,6 @@ func _refresh_settler_list() -> void:
 			act.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			act.size_flags_stretch_ratio = 1.4
 			h.add_child(act)
-			# Talente mit Arbeitstempo-Bonus (nur breit; schmal zeigt das Berufsmenue Sterne)
-			# jedes Talent in einer eigenen Zeile (höchstens zwei), damit nichts abgeschnitten wird
-			var tl := UiTheme.label(TalentInfo.column_text(s.mind), 12)
-			tl.clip_text = true
-			tl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-			tl.custom_minimum_size.x = SETTLER_COLS[3][2]
-			tl.mouse_filter = Control.MOUSE_FILTER_PASS
-			tl.tooltip_text = "\n".join(s.mind.best_talents().map(func(k): return TalentInfo.line(sref.mind, k)))
-			h.add_child(tl)
 		var jw: int = SETTLER_COLS[4][3] if narrow else SETTLER_COLS[4][2]
 		if s.is_adult():
 			# Beruf direkt in der Liste waehlen
@@ -1763,14 +1765,11 @@ func _refresh_settler_list() -> void:
 			for j in Data.jobs:
 				if not Data.job_unlocked(j) and j != s.job:
 					continue
-				if TalentInfo.job_match(s.mind, j):
-					ob.add_icon_item(TalentInfo.star(), Data.jobs[j].name, ids.size())
-				else:
-					ob.add_item(Data.jobs[j].name, ids.size())
+				ob.add_item(Data.jobs[j].name, ids.size())  # ohne Talent-Stern (josh 2026-10-22)
 				ids.append(j)
 				if j == s.job:
 					ob.select(ids.size() - 1)
-			ob.tooltip_text = tr("Beruf wählen") + (tr("\nStern: passt zum Talent (%s)") % TalentInfo.short_list(s.mind) if not s.mind.best_talents().is_empty() else "")
+			ob.tooltip_text = tr("Beruf wählen")
 			if s.by_admin:
 				UiTheme.mark_admin(ob)
 			ob.get_popup().about_to_popup.connect(func(): Game.player_action.emit("job_list", ""))
@@ -1792,6 +1791,7 @@ func _refresh_settler_list() -> void:
 		bz.mouse_filter = Control.MOUSE_FILTER_PASS
 		var bl := UiTheme.label("", 12)
 		bl.mouse_filter = Control.MOUSE_FILTER_PASS
+		bl.visible = false  # keine Zahl über dem Balken (josh 2026-10-22), steht im Tooltip
 		bz.add_child(bl)
 		var bbar := UiTheme.bar(Color("#5a9a4a"), 8)
 		bbar.custom_minimum_size.x = 0
@@ -1802,7 +1802,9 @@ func _refresh_settler_list() -> void:
 		sat.custom_minimum_size.x = SETTLER_COLS[6][3] if narrow else SETTLER_COLS[6][2]
 		sat.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		sat.add_theme_constant_override("separation", 1)
+		sat.mouse_filter = Control.MOUSE_FILTER_PASS
 		var pl := UiTheme.label("", 12)
+		pl.visible = false  # keine Zahl über dem Balken (josh 2026-10-22), steht im Tooltip
 		sat.add_child(pl)
 		var hb := UiTheme.bar(Color("#e0a040"), 8)
 		hb.custom_minimum_size.x = 0
@@ -1813,8 +1815,10 @@ func _refresh_settler_list() -> void:
 		md.custom_minimum_size.x = SETTLER_COLS[7][3] if narrow else SETTLER_COLS[7][2]
 		md.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		md.add_theme_constant_override("separation", 1)
+		md.mouse_filter = Control.MOUSE_FILTER_PASS
 		var ml := UiTheme.label("", 12)
 		ml.clip_text = true
+		ml.visible = false  # keine Zahl über dem Balken (josh 2026-10-22), steht im Tooltip
 		md.add_child(ml)
 		var mbar := UiTheme.bar(Color("#e070a0"), 8)
 		mbar.custom_minimum_size.x = 0
@@ -1843,6 +1847,7 @@ func _refresh_settler_list() -> void:
 			var hungry: bool = sref.hunger < 30.0
 			fill.bg_color = Color("#d04a3a") if hungry else Color("#e0a040")
 			pl.text = "%d%%" % int(round(sref.hunger)) + (tr(" Hunger!") if hungry and not narrow else "")
+			sat.tooltip_text = tr("Satt: %s") % pl.text
 			var m: SettlerMind = sref.mind
 			mbar.value = m.mood
 			mfill.bg_color = Color("#d04a3a") if m.sick != "" else Color("#e070a0")
@@ -1852,6 +1857,7 @@ func _refresh_settler_list() -> void:
 			else:
 				ml.text = "%d%%" % int(round(m.mood)) if narrow else m.mood_text()
 				ml.remove_theme_color_override("font_color")
+			md.tooltip_text = tr("Laune: %s") % ml.text
 		upd.call()
 		_settler_updaters.append(upd)
 		var rb := PanelContainer.new()  # Zeile im einheitlichen Rahmen (Win.row_box), etwas flacher
@@ -1860,8 +1866,7 @@ func _refresh_settler_list() -> void:
 		(_settler_list if (s.is_adult() and s.job != "frei") else _settler_list_free).add_child(rb)
 	call_deferred("_layout")
 	(func():  # beim Neubauen an derselben Stelle in den Listen bleiben
-		_settler_scroll.scroll_vertical = keep[0]
-		_settler_scroll_free.scroll_vertical = keep[1]).call_deferred()
+		_settler_scroll.scroll_vertical = keep[0]).call_deferred()
 
 
 var _settler_rb: StyleBoxFlat
@@ -2914,18 +2919,7 @@ func _info_settler(s: Settler) -> void:
 	ch.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	ch.text = tr("Charakter: %s") % m.character_text()
 	_info_box.add_child(ch)
-	# Talente mit Bonus gut sichtbar (josh 2026-10-10), je Talent eine Zeile mit Stern
-	for sk in m.best_talents():
-		var th := HBoxContainer.new()
-		th.add_theme_constant_override("separation", 4)
-		th.add_child(UiTheme.icon_rect(TalentInfo.star(), 16))
-		var tl := UiTheme.label(TalentInfo.line(m, sk), 14, UiTheme.TEXT, true)
-		tl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		tl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		th.add_child(tl)
-		_info_box.add_child(th)
-	if m.best_talents().is_empty():
-		_info_box.add_child(UiTheme.label(tr("Talent: keins"), 13, DIM))
+	# Keine Talente und Fähigkeiten im Infofenster (josh 2026-10-22)
 	var ill := UiTheme.label("", 14, Color("#c03a2a"), true)
 	ill.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_info_box.add_child(ill)
@@ -2954,27 +2948,18 @@ func _info_settler(s: Settler) -> void:
 		why.visible = not lines.is_empty())
 	var home = world.building_by_id(s.home_id)
 	_info_box.add_child(UiTheme.label(tr("Zuhause: %s") % (home.def.name + NeedsInfo.home_suffix(home) if home else tr("keins (schläft draußen)")), 13))
-	# Eigenschaften und Fähigkeiten als Text, ohne Balken (josh 2026-10-09)
+	# Eigenschaften als Text, ohne Balken (josh 2026-10-09)
 	var tdefs: Dictionary = Data.ppl("traits", {})
 	var tl := []
 	for k in SettlerMind.TRAITS:
 		tl.append("%s %d" % [tdefs[k].name, int(round(m.trait_value(k)))])
 	_info_text(tr("Eigenschaften"), " · ".join(tl))
-	var sl := []
-	for sk in Data.skills:
-		var t := float(m.talents.get(sk, 1.0))
-		sl.append("%s %d%s" % [Data.skills[sk].name, int(s.skill_level(sk)), "++" if t >= 1.6 else ("+" if m.is_talent(sk) else "")])
-	_info_text(tr("Fähigkeiten (+ = begabt)"), " · ".join(sl))
 	if not s.is_adult():
 		_info_box.add_child(UiTheme.label(tr("Kinder arbeiten noch nicht."), 13))
 	else:
 		_info_box.add_child(UiTheme.label(tr("Beruf"), 15, UiTheme.TEXT, true))
 		if s.by_admin:
 			_info_box.add_child(UiTheme.label(tr("Gelb: vom Verwalter zugewiesen"), 12, DIM))
-		if not m.best_talents().is_empty():
-			var hint := UiTheme.label(tr("Stern: Beruf passt zum Talent"), 12, DIM)
-			hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			_info_box.add_child(hint)
 		var grid := GridContainer.new()
 		grid.columns = 2
 		grid.add_theme_constant_override("h_separation", 4)
@@ -2987,11 +2972,6 @@ func _info_settler(s: Settler) -> void:
 			b.add_theme_font_size_override("font_size", 14)
 			var jd: Dictionary = Data.jobs[j]
 			var tip: String = jd.desc
-			if jd.skill != "":
-				tip += tr("\nFähigkeit: %s (Stufe %d)") % [Data.skills[jd.skill].name, int(s.skill_level(jd.skill))]
-			if TalentInfo.job_match(m, j):
-				b.icon = TalentInfo.star()
-				tip += "\n" + TalentInfo.line(m, jd.skill)
 			b.tooltip_text = tip
 			if s.job == j and s.by_admin:
 				UiTheme.mark_admin(b)
@@ -3749,6 +3729,12 @@ func _layout() -> void:
 		pnl.reset_size()
 		pnl.size.x = min(pnl.size.x, vs.x - 12)
 		pnl.position = Vector2((vs.x - pnl.size.x) / 2.0, max(top_h, vs.y - pnl.size.y - bp.size.y - 18))
+	# Siedler: bis an den unteren Rand, die Knöpfe unten liegen darüber (josh 2026-10-22)
+	_settler_panel.custom_minimum_size.y = vs.y - top_h - 6.0
+	_settler_panel.reset_size()
+	_settler_panel.size.x = min(_settler_panel.size.x, vs.x - 12)
+	_settler_panel.position = Vector2((vs.x - _settler_panel.size.x) / 2.0, top_h)
+	bp.move_to_front()
 	var bottom_space := bp.size.y + 18
 	if portrait:
 		_info_panel.size = Vector2(vs.x - 12, min(vs.y * 0.45, 420))
@@ -3773,7 +3759,7 @@ func _fit_visible_panels() -> void:
 	if _menu_help != null and _menu_help.visible and _panels().all(func(pn): return pn == null or not pn.visible):
 		_menu_help.visible = false  # Fenster zu: Hilfe dazu auch zu
 	for pnl in _panels():
-		if not pnl.visible:
+		if not pnl.visible or pnl == _settler_panel:  # Siedler reicht bis unten, die Liste rollt (siehe _layout)
 			continue
 		var cap := minf(avail, _win_size.y)  # alle Fenster gleich hoch
 		var ws = pnl.get_meta("wrap_sc") if pnl.has_meta("wrap_sc") else null  # Fenster mit nachträglich eingebauter Liste: wächst und schrumpft mit
