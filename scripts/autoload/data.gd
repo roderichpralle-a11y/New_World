@@ -18,16 +18,16 @@ var animals: Dictionary = {}
 var goals: Dictionary = {}  # Einfuehrung und Ziele
 var people: Dictionary = {}  # Charaktere: Eigenschaften, Krankheiten, Laune, Freizeit
 
-var tex_terrain: Texture2D = preload("res://assets/sprites/terrain.png")
-var tex_objects: Texture2D = preload("res://assets/sprites/objects.png")
-var tex_buildings: Texture2D = preload("res://assets/sprites/buildings.png")
-var tex_icons: Texture2D = preload("res://assets/sprites/icons.png")
-var tex_tools: Texture2D = preload("res://assets/sprites/tools.png")
-var tex_ui: Texture2D = preload("res://assets/sprites/ui.png")
-var tex_objects2: Texture2D = preload("res://assets/sprites/objects2.png")
-var tex_animals: Texture2D = preload("res://assets/sprites/animals.png")
-var tex_objects3: Texture2D = preload("res://assets/sprites/objects3.png")
-var tex_cart: Texture2D = preload("res://assets/sprites/cart.png")
+var tex_terrain: Texture2D = preload("res://assets/sprites_fine/terrain.png")
+var tex_objects: Texture2D = preload("res://assets/sprites_fine/objects.png")
+var tex_buildings: Texture2D = preload("res://assets/sprites_fine/buildings.png")
+var tex_icons: Texture2D = preload("res://assets/sprites_fine/icons.png")
+var tex_tools: Texture2D = preload("res://assets/sprites_fine/tools.png")
+var tex_ui: Texture2D = preload("res://assets/sprites_fine/ui.png")
+var tex_objects2: Texture2D = preload("res://assets/sprites_fine/objects2.png")
+var tex_animals: Texture2D = preload("res://assets/sprites_fine/animals.png")
+var tex_objects3: Texture2D = preload("res://assets/sprites_fine/objects3.png")
+var tex_cart: Texture2D = preload("res://assets/sprites_fine/cart.png")
 var font_regular: Font = preload("res://assets/fonts/pixelify-sans-latin-400-normal.woff2")
 var font_bold: Font = preload("res://assets/fonts/pixelify-sans-latin-700-normal.woff2")
 
@@ -142,7 +142,7 @@ func _ready() -> void:
 	goals = _load("goals")
 	animals = _load("animals")
 	people = _load("people")
-	var f := FileAccess.open("res://assets/sprites/icons.txt", FileAccess.READ)
+	var f := FileAccess.open("res://assets/sprites_fine/icons.txt", FileAccess.READ)
 	if f:
 		var i := 0
 		for line in f.get_as_text().split("\n"):
@@ -224,6 +224,21 @@ func object_frames(name: String) -> int:
 	if OBJECT2_REGIONS.has(name):
 		return OBJECT2_REGIONS[name][4]
 	return OBJECT_REGIONS.get(name, [0, 0, 0, 0, 1])[4]
+
+
+func construction_tex(sprite: String, progress: float) -> AtlasTexture:
+	var index: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://assets/sprites_fine/construction_index.json"))
+	if not index.has(sprite):
+		return object_tex("construction")
+	var stage := clampi(int(progress * 4.0), 0, 3)
+	var key := "site:%s:%d" % [sprite, stage]
+	if not _cache.has(key):
+		var at := AtlasTexture.new()
+		at.atlas = preload("res://assets/sprites_fine/construction.png")
+		var row := int(index[sprite])
+		at.region = Rect2((row / 16) * 256 + stage * 64, (row % 16) * 64, 64, 64)
+		_cache[key] = at
+	return _cache[key]
 
 
 func icon(name: String) -> AtlasTexture:

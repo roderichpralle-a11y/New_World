@@ -40,7 +40,7 @@ var _slot_base := LIVE_SAVE_PATH
 var autostart := ""
 ## Vor dem Neuladen der Seite: nichts mehr speichern (sonst landet das laufende Spiel im neuen Platz)
 var save_locked := false
-const SAVE_VERSION := 3
+const SAVE_VERSION := 4
 ## Regelstand ("Mehr Herausforderung" = 1). SAVE_VERSION bleibt 3 (alte, noch im Browser
 ## zwischengespeicherte Versionen lehnen unbekannte Versionen ab und wuerden Spielstaende loeschen).
 ## Spielstaende ohne "rules" (= 0) bekommen die neuen Regeln ab dem Laden.
@@ -109,31 +109,10 @@ func _ready() -> void:
 
 
 func _detect_test_build() -> void:
-	var path := ""
-	if OS.has_feature("web"):
-		path = str(JavaScriptBridge.eval("window.location.pathname", true))
-	if "--testbuild" in OS.get_cmdline_user_args():
-		path = "/test/"
-	if "--neubuild" in OS.get_cmdline_user_args():
-		path = "/neu/"
-	if "/neu/" in path:  # Umbau "Mehr Herausforderung": eigener Spielstand
-		build_tag = "neu"
-	elif "/test" in path:  # /test/ und /test-en/
-		build_tag = "test"
-	else:
-		return
+	# Fein is an independent edition, on desktop and at /fein/. Never copy live saves.
+	build_tag = "fein"
 	is_test_build = true
-	SAVE_PATH = "user://savegame_%s.json" % build_tag
-	# Kopie des Spiels, das gerade im normalen Spiel aktiv ist ([game] slot), sonst Platz 1
-	var live := LIVE_SAVE_PATH
-	var cf := ConfigFile.new()
-	if cf.load("user://settings.cfg") == OK:
-		var n := clampi(int(cf.get_value("game", "slot", 1)), 1, SLOTS)
-		var p := LIVE_SAVE_PATH if n <= 1 else LIVE_SAVE_PATH.replace(".json", "_%d.json" % n)
-		if FileAccess.file_exists(p):
-			live = p
-	if not FileAccess.file_exists(SAVE_PATH) and FileAccess.file_exists(live):
-		DirAccess.copy_absolute(live, SAVE_PATH)
+	SAVE_PATH = "user://savegame_fein.json"
 
 
 func reset_state(new_seed: int) -> void:
@@ -1106,9 +1085,9 @@ func _load_slot() -> void:
 	var cf := ConfigFile.new()
 	if cf.load("user://settings.cfg") == OK:
 		slot = clampi(int(cf.get_value("game", _slot_key(), 1)), 1, SLOTS)
-		autostart = str(cf.get_value("game", "autostart", ""))
+		autostart = str(cf.get_value("game", "autostart_fein", ""))
 		if autostart != "":
-			cf.erase_section_key("game", "autostart")
+			cf.erase_section_key("game", "autostart_fein")
 			cf.save("user://settings.cfg")
 	SAVE_PATH = slot_path(slot)
 
@@ -1142,7 +1121,7 @@ func switch_slot(n: int, mode: String) -> void:
 	cf.load("user://settings.cfg")
 	cf.set_value("game", _slot_key(), n)
 	if mode != "":
-		cf.set_value("game", "autostart", mode)
+		cf.set_value("game", "autostart_fein", mode)
 	cf.save("user://settings.cfg")
 	if mode != "":
 		save_locked = true
@@ -1186,7 +1165,7 @@ func slot_file_name(n: int) -> String:
 ## Prueft einen importierten Text und legt ihn in Platz n ab. Gibt "" oder einen Fehlertext zurueck.
 func import_slot(n: int, text: String) -> String:
 	var d = JSON.parse_string(text)
-	if not (d is Dictionary) or not int(d.get("version", 0)) in [1, 2, SAVE_VERSION] or not d.has("time_days"):
+	if not (d is Dictionary) or int(d.get("version", 0)) != SAVE_VERSION or d.get("edition", "") != "fein" or not d.has("time_days"):
 		return tr("Das ist kein Spielstand von Insel-Siedler.")
 	var f := FileAccess.open(slot_path(n), FileAccess.WRITE)
 	if f == null:
@@ -1247,6 +1226,7 @@ func save_game() -> void:
 		return
 	var data := {
 		"version": SAVE_VERSION,
+		"edition": "fein",
 		"seed": seed_value,
 		"time_days": time_days,
 		"next_id": next_id,
@@ -1364,7 +1344,7 @@ func load_save() -> Dictionary:
 		return {}
 	var d = JSON.parse_string(f.get_as_text())
 	# Version 1 (eine Insel) wird beim Laden in das neue Format uebernommen
-	if not (d is Dictionary) or not int(d.get("version", 0)) in [1, 2, SAVE_VERSION]:
+	if not (d is Dictionary) or int(d.get("version", 0)) != SAVE_VERSION or d.get("edition", "") != "fein":
 		return {}
 	return d
 

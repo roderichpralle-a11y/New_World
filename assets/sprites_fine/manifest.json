@@ -1,0 +1,739 @@
+{
+  "edition": "fein",
+  "version": "1.1.0",
+  "character_scale": 3,
+  "objects": {
+    "hut": {
+      "source": "gebaeude_wohnen_1",
+      "kind": "design-board"
+    },
+    "house_wood": {
+      "source": "gebaeude_wohnen_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "house_stone": {
+      "source": "gebaeude_wohnen_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "school": {
+      "source": "gebaeude_wohnen_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "tenement": {
+      "source": "gebaeude_wohnen_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "apartment": {
+      "source": "gebaeude_wohnen_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "mill": {
+      "frames": 4,
+      "kind": "geometry",
+      "blade_angle_step_degrees": 22.5,
+      "orthogonal_arms": true
+    },
+    "bakery": {
+      "source": "gebaeude_nahrung_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "smokehouse": {
+      "source": "gebaeude_nahrung_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "henhouse": {
+      "source": "gebaeude_nahrung_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "pigsty": {
+      "source": "gebaeude_nahrung_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "cowshed": {
+      "source": "gebaeude_nahrung_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "cannery": {
+      "source": "gebaeude_nahrung_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "greenhouse": {
+      "source": "gebaeude_nahrung_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "lodge": {
+      "source": "gebaeude_nahrung_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "sawpit": {
+      "source": "gebaeude_handwerk_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "claypit": {
+      "source": "gebaeude_handwerk_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "brickworks": {
+      "source": "gebaeude_handwerk_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "quarry": {
+      "source": "gebaeude_handwerk_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "charcoal": {
+      "source": "gebaeude_handwerk_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "mine": {
+      "source": "gebaeude_handwerk_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "smelter": {
+      "source": "gebaeude_handwerk_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "smithy": {
+      "source": "gebaeude_handwerk_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "armory": {
+      "source": "gebaeude_handwerk_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "glassworks": {
+      "source": "gebaeude_handwerk_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "papermill": {
+      "source": "gebaeude_handwerk_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "printshop": {
+      "source": "gebaeude_handwerk_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "steelworks": {
+      "source": "gebaeude_handwerk_2",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "factory": {
+      "source": "gebaeude_handwerk_2",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "powerplant": {
+      "source": "gebaeude_handwerk_2",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "electronics": {
+      "source": "gebaeude_handwerk_2",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "droid_factory": {
+      "source": "gebaeude_handwerk_2",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "solarpark": {
+      "source": "gebaeude_handwerk_2",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "fusion": {
+      "source": "gebaeude_handwerk_2",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "scriptorium": {
+      "source": "gebaeude_wissen_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "scriptorium2": {
+      "source": "gebaeude_wissen_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "scriptorium3": {
+      "source": "gebaeude_wissen_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "scriptorium4": {
+      "source": "gebaeude_wissen_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "library": {
+      "source": "gebaeude_wissen_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "tablets": {
+      "source": "gebaeude_wissen_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "office": {
+      "source": "gebaeude_wissen_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "radio": {
+      "source": "gebaeude_wissen_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "automaton": {
+      "source": "gebaeude_wissen_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "plan_automaton": {
+      "source": "gebaeude_wissen_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "university": {
+      "source": "gebaeude_wissen_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "lab": {
+      "source": "gebaeude_wissen_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "ai_center": {
+      "source": "gebaeude_wissen_2",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "future_city": {
+      "source": "gebaeude_wissen_2",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "shipyard": {
+      "source": "gebaeude_see_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "jetty": {
+      "source": "gebaeude_see_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "harbor": {
+      "source": "gebaeude_see_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "harbor_big": {
+      "source": "gebaeude_see_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "quay_wood": {
+      "source": "gebaeude_see_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "quay_ore": {
+      "source": "gebaeude_see_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "quay_food": {
+      "source": "gebaeude_see_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "tower": {
+      "source": "gebaeude_see_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "lighthouse": {
+      "source": "gebaeude_see_1",
+      "frames": 2,
+      "kind": "design-board"
+    },
+    "monument": {
+      "source": "gebaeude_see_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "campfire": {
+      "source": "gebaeude_lager_1",
+      "kind": "design-board"
+    },
+    "storehouse": {
+      "source": "gebaeude_lager_1",
+      "kind": "design-board"
+    },
+    "store_big": {
+      "source": "gebaeude_lager_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "flowerbed_red": {
+      "source": "gebaeude_schmuck_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "flowerbed_yellow": {
+      "source": "gebaeude_schmuck_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "bench": {
+      "source": "gebaeude_schmuck_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "menhir": {
+      "source": "gebaeude_schmuck_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "flagpole": {
+      "source": "gebaeude_schmuck_1",
+      "frames": 4,
+      "kind": "design-board"
+    },
+    "statue_stone": {
+      "source": "gebaeude_schmuck_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "flower_tub": {
+      "source": "gebaeude_schmuck_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "fountain": {
+      "source": "gebaeude_schmuck_1",
+      "frames": 4,
+      "kind": "design-board"
+    },
+    "flowerbed_blue": {
+      "source": "gebaeude_schmuck_1",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "pond": {
+      "source": "gebaeude_schmuck_2",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "park": {
+      "source": "gebaeude_schmuck_2",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "rose_arch": {
+      "source": "gebaeude_schmuck_2",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "sundial": {
+      "source": "gebaeude_schmuck_2",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "lantern": {
+      "source": "gebaeude_schmuck_2",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "pavilion": {
+      "source": "gebaeude_schmuck_2",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "equestrian": {
+      "source": "gebaeude_schmuck_2",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "obelisk": {
+      "source": "gebaeude_schmuck_2",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "statue_bronze": {
+      "source": "gebaeude_schmuck_2",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "street_lamp": {
+      "source": "gebaeude_schmuck_2",
+      "frames": 1,
+      "kind": "design-board"
+    },
+    "hologram": {
+      "frames": 4,
+      "kind": "geometry",
+      "fixed_pedestal": true
+    },
+    "tree0": {
+      "source": "landschaft_rohstoffe",
+      "kind": "design-board"
+    },
+    "tree1": {
+      "source": "landschaft_rohstoffe",
+      "kind": "design-board"
+    },
+    "tree2": {
+      "source": "landschaft_rohstoffe",
+      "kind": "design-board"
+    },
+    "stump": {
+      "source": "landschaft_rohstoffe",
+      "kind": "design-board"
+    },
+    "sapling": {
+      "source": "landschaft_rohstoffe",
+      "kind": "design-board"
+    },
+    "rock_big": {
+      "source": "landschaft_rohstoffe",
+      "kind": "design-board"
+    },
+    "rock_small": {
+      "source": "landschaft_rohstoffe",
+      "kind": "design-board"
+    },
+    "bush_full": {
+      "source": "landschaft_rohstoffe",
+      "kind": "design-board"
+    },
+    "bush_empty": {
+      "source": "landschaft_rohstoffe",
+      "kind": "design-board"
+    },
+    "palm0": {
+      "source": "landschaft_rohstoffe",
+      "kind": "design-board"
+    },
+    "palm1": {
+      "source": "landschaft_rohstoffe",
+      "kind": "design-board"
+    },
+    "palm_empty": {
+      "source": "landschaft_rohstoffe",
+      "kind": "design-board"
+    },
+    "mushrooms": {
+      "source": "landschaft_rohstoffe",
+      "kind": "design-board"
+    },
+    "spice_full": {
+      "source": "landschaft_rohstoffe",
+      "kind": "design-board"
+    },
+    "spice_empty": {
+      "source": "landschaft_rohstoffe",
+      "kind": "design-board"
+    },
+    "ore_rock": {
+      "source": "landschaft_rohstoffe",
+      "kind": "design-board"
+    },
+    "gold_rock": {
+      "source": "landschaft_rohstoffe",
+      "kind": "design-board"
+    },
+    "den": {
+      "source": "landschaft_rohstoffe",
+      "kind": "design-board"
+    },
+    "wallow": {
+      "source": "landschaft_rohstoffe",
+      "kind": "design-board"
+    },
+    "cave": {
+      "source": "landschaft_rohstoffe",
+      "kind": "design-board"
+    },
+    "carcass": {
+      "source": "landschaft_rohstoffe",
+      "kind": "design-board"
+    },
+    "boat": {
+      "source": "schiffe",
+      "frames": 2,
+      "kind": "design-board"
+    },
+    "ship_kogge": {
+      "source": "schiffe",
+      "frames": 2,
+      "kind": "design-board"
+    },
+    "ship_fast": {
+      "source": "schiffe",
+      "frames": 2,
+      "kind": "design-board"
+    },
+    "ship_galleon": {
+      "source": "schiffe",
+      "frames": 2,
+      "kind": "design-board"
+    },
+    "fish_anim": {
+      "frames": 4,
+      "kind": "geometry",
+      "sea_only": true,
+      "splash": false
+    }
+  },
+  "files": {
+    "animals.png": {
+      "size": [
+        120,
+        96
+      ],
+      "sha256": "24b63381b2a9982236a9ee34319a0fd8d72f51016095701ebbedc9c962696348"
+    },
+    "buildings.png": {
+      "size": [
+        512,
+        768
+      ],
+      "sha256": "f59dd2a6e582ce3537c48ef5a5e6bf004de51ea4681886e314b89fcb62cd6c78"
+    },
+    "cart.png": {
+      "size": [
+        96,
+        144
+      ],
+      "sha256": "22f2a7e648c7f8ab3df043dfc7cfb036d314f6a1cbcf99b3efb27f0c033897f2"
+    },
+    "construction.png": {
+      "size": [
+        1280,
+        1024
+      ],
+      "sha256": "46b73bec501df9cf690e37a9f17e751ca96038aa892970ec41ef97ba32b0fa48"
+    },
+    "icons.png": {
+      "size": [
+        1488,
+        16
+      ],
+      "sha256": "55b0ec1b38b95e0799050bb170fa12c09921778aade7b93bc9345f187e58dc16"
+    },
+    "menu_icons.png": {
+      "size": [
+        120,
+        20
+      ],
+      "sha256": "487ef8d8f919fbe93cad0ca327374070bb000fc4d43f8ac8f60f85f6e903b71c"
+    },
+    "objects.png": {
+      "size": [
+        256,
+        256
+      ],
+      "sha256": "c35099e521c2ca55d1153e60267450a2289b0b449e7bbc9dcc3b040ba13c1a5a"
+    },
+    "objects2.png": {
+      "size": [
+        288,
+        144
+      ],
+      "sha256": "165feb62d26b9ce88dbf4c2a676bb7860b192d6a69d696a26e28bdecbb7aab0b"
+    },
+    "objects3.png": {
+      "size": [
+        256,
+        112
+      ],
+      "sha256": "65aefa3d8f043b9b7c061af2842c39b2216568c52841eb28004c51628f3294ae"
+    },
+    "scrollbars.png": {
+      "size": [
+        128,
+        128
+      ],
+      "sha256": "49260a0f2c1db3a0d60ecf8beec498f6d1a7ec1f05a8f8f3f1cf7171766bfc7c"
+    },
+    "seasons.png": {
+      "size": [
+        80,
+        24
+      ],
+      "sha256": "32673bec09016ed4c8e8b2d18526b6b04c1b89fd3a8194c790884ea02075c202"
+    },
+    "settler_apron.png": {
+      "size": [
+        192,
+        3024
+      ],
+      "sha256": "15b42f52c609e31536b716f15bc6e7b442ec88cd142c35d49456dc7e9b3e125b"
+    },
+    "settler_cap.png": {
+      "size": [
+        192,
+        3024
+      ],
+      "sha256": "ba625e677a7b196ccfef1d5bb91bcf07a07018333426b34b10e6615c67725b65"
+    },
+    "settler_chefhat.png": {
+      "size": [
+        192,
+        3024
+      ],
+      "sha256": "5f6586124de801f8bcea98fa73936800f40c55be11d2834576a5710e5c9defb9"
+    },
+    "settler_droid.png": {
+      "size": [
+        192,
+        3024
+      ],
+      "sha256": "a6180751227f233c14fa845006717444476bb55e2d0c23fc878044884d589940"
+    },
+    "settler_fixed.png": {
+      "size": [
+        192,
+        3024
+      ],
+      "sha256": "567e35fef939e8d3659c326f49b9d467a4d40c96d4c3e0538da263437e9ee9f2"
+    },
+    "settler_fixed_bun.png": {
+      "size": [
+        192,
+        3024
+      ],
+      "sha256": "567e35fef939e8d3659c326f49b9d467a4d40c96d4c3e0538da263437e9ee9f2"
+    },
+    "settler_glasses.png": {
+      "size": [
+        192,
+        3024
+      ],
+      "sha256": "f3388536f642998e24f5bb0bf60e495dd97dcc051a9d5084da3a9184d238ddf4"
+    },
+    "settler_hair_0.png": {
+      "size": [
+        192,
+        3024
+      ],
+      "sha256": "14f359deff7ae53043598a7df98e1fd452a6c8fcd628837709538e9abd86a1d2"
+    },
+    "settler_hair_1.png": {
+      "size": [
+        192,
+        3024
+      ],
+      "sha256": "a0445e16f527223efd5bcbd30b603dce94248ab714f56d4589e250f3655099e6"
+    },
+    "settler_hair_2.png": {
+      "size": [
+        192,
+        3024
+      ],
+      "sha256": "93703e81f0d505f3d45a60e9514e8a0986af55184fe8e6879c2ef9d86421551f"
+    },
+    "settler_hunthat.png": {
+      "size": [
+        192,
+        3024
+      ],
+      "sha256": "628e00b921557f50e215d510c0608292677f29f31fc8a56e9438f02c10ef3d96"
+    },
+    "settler_pants.png": {
+      "size": [
+        192,
+        3024
+      ],
+      "sha256": "d52cb4e7c707e64f5a184752420834f398f3f06993c1affe8e6ea13620c2837a"
+    },
+    "settler_rifle.png": {
+      "size": [
+        192,
+        3024
+      ],
+      "sha256": "3ab2d2e99a69117ae64ab83e8ce44425bbedc5e8ae1cf8920c50e386078b737c"
+    },
+    "settler_saw.png": {
+      "size": [
+        192,
+        3024
+      ],
+      "sha256": "acd08988382977cf2868566161eb005d40b00727787cc739fdd8f02947714748"
+    },
+    "settler_shirt.png": {
+      "size": [
+        192,
+        3024
+      ],
+      "sha256": "7e0dcb969aec76af70aafba9eed14120739ad7cf80dafa9966155048fc07dbf5"
+    },
+    "settler_skin.png": {
+      "size": [
+        192,
+        3024
+      ],
+      "sha256": "6e2516086f5117ac6b0f3e6517194125c405f7c853c3d5482d043f92c2bb67ba"
+    },
+    "terrain.png": {
+      "size": [
+        256,
+        64
+      ],
+      "sha256": "866286d45885884f16c0709d2ea6407bffb1866d9dafba925b2323f3ca4e928b"
+    },
+    "tools.png": {
+      "size": [
+        224,
+        16
+      ],
+      "sha256": "b2fc9a399580ebe17738ba5ed22ad9c6a8f196de67c85d525959ec1bec925104"
+    },
+    "ui.png": {
+      "size": [
+        96,
+        24
+      ],
+      "sha256": "15ec7627909f463677168686e9557b87fccdfba8857b7fcde30748d570c36f6c"
+    },
+    "work_props.png": {
+      "size": [
+        128,
+        64
+      ],
+      "sha256": "04fdffa36972d65bd04bef321e11e6b71c3101a798a3aa55181cd468b06b0f3c"
+    }
+  }
+}
