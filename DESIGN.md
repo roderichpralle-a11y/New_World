@@ -1630,6 +1630,13 @@ sonst setzt `_update_stock_row` Zahlen, Grenze, Knöpfe und den Endknopf („N w
 Siedlerliste (`_refresh_settler_list`) verwendet Zeilen wieder (`_settler_rows`, Schlüssel: erwachsen, Beruf, vom
 Verwalter, Insel, schmal, Zahl der freien Berufe) und sortiert sie nur neu ein; neu gebaut werden nur geänderte.
 
+## Anzeigegröße und Zoom (josh 2026-10-23, Testversion /neu/)
+Menü > Einstellungen „Anzeigegröße“ 50 / 75 / 100 / 125 % (`Game.UI_SIZES`, `Game.ui_size`, je Gerät in
+user://settings.cfg [display] ui_size, Signal `ui_size_changed`). `main._update_ui_scale` teilt die virtuelle kurze
+Bildschirmseite (400 bis 540) durch die Anzeigegröße, höchstens so viele wie echte Pixel und mindestens so viele,
+dass die lange Seite `UI_MIN_LONG` (860) virtuelle Pixel hat (125 % auf 16:10 sonst zu schmal). 75 % zeigt mehr
+vom Spiel und den Menüs. Die Karte lässt sich weiter herauszoomen (`GameCamera.ZOOM_MIN` 0,5 statt 1).
+
 ## Straßen, Deiche und Förster (josh 2026-10-11, `scripts/world/land.gd`)
 
 Bau-Reiter „Land und Wege“ (Kategorie `land`, Symbol `weg`). Alle drei sind 1x1-Bodengebäude mit

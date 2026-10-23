@@ -7,7 +7,7 @@ signal tapped(world_pos: Vector2, touch: bool)
 signal hovered(world_pos: Vector2)
 signal right_tapped
 
-const ZOOM_MIN := 1.0
+const ZOOM_MIN := 0.5  # weiter herauszoomen (josh 2026-10-23)
 const ZOOM_MAX := 6.0
 const TAP_SLOP := 10.0
 

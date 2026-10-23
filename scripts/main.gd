@@ -8,6 +8,7 @@ var hud: Hud
 
 func _ready() -> void:
 	get_window().size_changed.connect(_update_ui_scale)
+	Game.ui_size_changed.connect(_update_ui_scale)
 	_update_ui_scale()
 	camera = GameCamera.new()
 	add_child(camera)
@@ -998,7 +999,11 @@ func _autotest_prod() -> void:
 
 
 ## Kleine Bildschirme (Handy) bekommen eine groessere Oberflaeche:
-## die kurze Bildschirmseite entspricht 400 bis 540 virtuellen Pixeln.
+## die kurze Bildschirmseite entspricht 400 bis 540 virtuellen Pixeln, geteilt durch die Anzeigegröße
+## aus dem Menü (Game.ui_size: 75 % zeigt mehr, 125 % alles größer), höchstens so viele wie echte Pixel.
+const UI_MIN_LONG := 860.0
+
+
 func _update_ui_scale() -> void:
 	var win := get_window()
 	var px := Vector2(win.size)
@@ -1009,7 +1014,10 @@ func _update_ui_scale() -> void:
 		dpr = 1.0
 	var css := px / dpr
 	var short_css: float = min(css.x, css.y)
-	var virt_short: float = clamp(short_css, 400.0, 540.0)
+	var virt_short: float = minf(clamp(short_css, 400.0, 540.0) / Game.ui_size, minf(px.x, px.y))
+	# Fenster und Leisten brauchen mindestens UI_MIN_LONG virtuelle Pixel auf der langen Seite (125 % auf einem
+	# Bildschirm im Format 16:10 wäre sonst zu schmal)
+	virt_short = maxf(virt_short, UI_MIN_LONG * minf(px.x, px.y) / maxf(px.x, px.y))
 	var s: float = min(px.x, px.y) / virt_short
 	var target := Vector2i(roundi(px.x / s), roundi(px.y / s))
 	if win.content_scale_size != target:
