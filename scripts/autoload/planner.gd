@@ -484,7 +484,7 @@ func _bring_settlers(w, need: String) -> Dictionary:
 	for o in Sea.all_worlds():
 		if o == w or Game.food_days(o) < FOOD_DAYS or Sea.idle_ships(int(o.island_id)).is_empty():
 			continue
-		var free: Array = o.settlers.filter(func(s): return s.is_adult() and s.job == "frei" and not Steward.locked(s))
+		var free: Array = o.settlers.filter(func(s): return s.is_adult() and s.job == "frei" and JobDesk.may(s, "automat"))
 		if free.size() >= 2:
 			donors.append([o, free])
 	donors.sort_custom(func(a, b): return a[1].size() > b[1].size())
@@ -732,11 +732,10 @@ func _ensure_builder(w):
 	var s = _staff(w, "baumeister", tr("Baustelle"), true)
 	if s == null:
 		# Sonst niemand da (kleine Insel, alle forschen): ein Forscher baut, damit die Baustelle nicht ewig steht
-		var cand: Array = w.settlers.filter(func(x): return x.is_adult() and x.job == "forscher" and not Steward.locked(x))
+		var cand: Array = w.settlers.filter(func(x): return x.is_adult() and x.job == "forscher" and JobDesk.may(x, "automat"))
 		if not cand.is_empty():
 			s = cand[0]
-			s.set_job("baumeister", true)
-			Steward.locks[int(s.id)] = Game.time_days + 1.0
+			JobDesk.assign(s, "baumeister", "automat")
 	return s
 
 
@@ -744,11 +743,9 @@ func _ensure_builder(w):
 func _staff(w, job: String, why: String, hard: bool = false):
 	if job == "" or not Data.jobs.has(job) or not Data.job_unlocked(job):
 		return null
-	var s = Steward._take_worker(w, {"job": job, "why": why, "hard": hard})
-	if s == null:
+	var s = Steward._take_worker(w, {"job": job, "why": why, "hard": hard}, "automat")
+	if s == null or not JobDesk.assign(s, job, "automat"):  # der Verwalter (Rang darunter) setzt ihn nicht gleich wieder um
 		return null
-	s.set_job(job, true)
-	Steward.locks[int(s.id)] = Game.time_days + 1.0  # der Verwalter setzt ihn nicht gleich wieder um
 	return s
 
 

@@ -111,7 +111,7 @@ func build(w, b) -> Droid:
 	var s = pick[1]
 	if s != null:
 		var old: String = s.job_name()
-		s.set_job("frei")
+		JobDesk.assign(s, "frei", "automat", -1.0, true)  # pick_job hat ihn schon nach der Vergabestelle gewählt
 		Game.notify_at(w, tr("Droide %s übernimmt die Arbeit von %s als %s. %s ist jetzt frei.") % [d.display_name, s.display_name, old, s.display_name], "roboter", "verwaltung")
 	else:
 		Game.notify_at(w, tr("Droide %s ist fertig und arbeitet als %s.") % [d.display_name, d.job_name()], "roboter", "verwaltung")
@@ -123,7 +123,7 @@ func build(w, b) -> Droid:
 func pick_job(w) -> Array:
 	var by_job := {}
 	for s in w.settlers:
-		if s.is_adult() and replaceable(s.job) and not Steward.locked(s):
+		if s.is_adult() and replaceable(s.job) and JobDesk.may(s, "automat"):
 			if not by_job.has(s.job):
 				by_job[s.job] = []
 			by_job[s.job].append(s)

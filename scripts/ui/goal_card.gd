@@ -21,6 +21,7 @@ var _tick: float = 0.0
 var _cur_id: String = ""
 var _actions: Array = []  # Aktionen seit Beginn des aktuellen Schritts
 var _bob: float = 0.0
+var _warn: Label  # Mahnung in Stufe I: Baustelle ohne Baumeister, Forschung ohne Forscher (josh 2026-10-22)
 var _ms_box: Control  # Ziel bzw. Pruefung (oben); das X blendet nur diesen Teil aus
 var _quest_row: Control  # Auftrag darunter (QuestView, Teil D)
 
@@ -71,6 +72,11 @@ func setup(p_hud) -> void:
 	_hint.custom_minimum_size.x = 170
 	_hint.visible = false
 	v.add_child(_hint)
+	_warn = UiTheme.label("", 12, Color("#c03a2a"), true)
+	_warn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_warn.custom_minimum_size.x = 170
+	_warn.visible = false
+	v.add_child(_warn)
 	_next = UiTheme.button(tr("Weiter"), "play", 34)
 	_next.size_flags_horizontal = Control.SIZE_SHRINK_END
 	_next.add_theme_font_size_override("font_size", 14)
@@ -156,7 +162,11 @@ func progress(g: Dictionary) -> Array:
 	match c.get("type", ""):
 		"selected_settler":
 			return [1 if Game.selected is Settler else 0, 1]
+		"no_panel":  # zurück zum Hauptbildschirm: kein Fenster offen
+			return [0 if _panel_open() else 1, 1]
 		"action":
+			if c.has("or_job") and int(GoalChecks.progress({"type": "job", "what": c.or_job, "n": 1})[0]) >= 1:
+				return [1, 1]  # Beruf schon auf anderem Weg vergeben
 			for a in _actions:
 				if a[0] == c.get("kind") and (what == "" or a[1] == what):
 					return [1, 1]
@@ -187,7 +197,10 @@ func _advance(g: Dictionary, silent: bool) -> void:
 	if was_tut:
 		if not in_tutorial():
 			hud.toast(tr("Einführung geschafft! Jetzt warten Ziele mit Belohnungen auf dich."), "ziel")
-			Extras.tutorial_reward(Game.world)  # 2 Siedler und eine fertige Hütte
+			Extras.tutorial_reward(Game.world)  # 2 Siedler, Hütte, Lagerhaus und zwei Forschungen
+		var got := Extras.tutorial_step_reward(Game.world, g.get("reward", {}))
+		if got != "":
+			hud.toast(tr("Geschafft! Belohnung: %s.") % got, "ziel")
 	else:
 		var parts := []
 		for res in g.get("reward", {}):
@@ -204,6 +217,26 @@ func _advance(g: Dictionary, silent: bool) -> void:
 	tw.tween_property(self, "modulate", Color.WHITE, 0.8)
 
 
+## Solange nur Stufe I erforscht ist: Mahnung, wenn eine Baustelle ohne Baumeister wartet oder eine Forschung
+## ohne Forscher stillsteht (josh 2026-10-22). Leer, wenn alles passt.
+func tier1_warning() -> String:
+	if Game.max_tier() > 1:
+		return ""
+	var w = Game.world
+	if w == null or not is_instance_valid(w):
+		return ""
+	var has_job := func(wd, j: String) -> bool:
+		return wd.settlers.any(func(x): return x.is_adult() and x.job == j)
+	if w.buildings.any(func(b): return not b.complete) and not has_job.call(w, "baumeister"):
+		return tr("Achtung: Eine Baustelle wartet, aber niemand ist Baumeister. Gib einem Siedler im Menü Siedler den Beruf Baumeister.")
+	var home = Sea.main_world()
+	if Game.research.current != "" and home != null and not has_job.call(home, "forscher"):
+		return tr("Achtung: Die Forschung steht still, weil niemand Forscher ist. Gib mindestens einem Siedler den Beruf Forscher.")
+	if Game.research.current == "" and Data.techs.keys().any(func(t): return Game.tech_state(t) == "available"):
+		return tr("Tipp: Gerade wird nichts erforscht. Öffne die Forschung und starte etwas Neues.")
+	return ""
+
+
 ## Wegklicken: dieses Ziel bleibt verborgen, das naechste erscheint wieder (ein Auftrag bleibt sichtbar).
 func _dismiss() -> void:
 	Game.goals["hide"] = _cur_id
@@ -211,7 +244,11 @@ func _dismiss() -> void:
 	hud.toast(tr("Ziel ausgeblendet. Das nächste Ziel erscheint wieder. Ganz abschalten: Menü > Meldungen."), "ziel", "tag")
 
 
+## Die Einführung erscheint immer, auch wenn die Zielkarte unter Menü > Meldungen aus ist (die Einstellung
+## gilt im Browser für alle Versionen, josh sah 2026-10-21 bei einem neuen Spiel sonst keine Einführung).
 func shown() -> bool:
+	if in_tutorial():
+		return _ms_shown()
 	return Game.goal_card_on and (_ms_shown() or QuestView.row_wanted(self))
 
 
@@ -288,6 +325,11 @@ func _check() -> void:
 		_head.text = (tr("Einführung %d/%d") % [int(Game.goals.tut) + 1, tut_n]) if t else (tr("Prüfung") if is_exam(g) else tr("Ziel"))
 		_text.text = g.text
 		_hint.text = g.get("hint", "")
+		if t:  # was der Schritt bringt; der letzte zeigt die Belohnung für die ganze Einführung
+			var last := int(Game.goals.tut) == tut_n - 1
+			var rw: Dictionary = g.get("reward", Extras.TUT_FINAL if last else {})
+			if not rw.is_empty():
+				_hint.text += "\n" + tr("Belohnung: %s.") % Extras.tutorial_reward_text(rw)
 		# In der Einfuehrung ist die Erklaerung immer offen
 		_hint.visible = t and _hint.text != ""
 		_skip.visible = t
@@ -300,6 +342,11 @@ func _check() -> void:
 		_hint.text = g.get("hint", "")  # Pruefung: was noch fehlt, aendert sich laufend
 		if _hint.visible:
 			_relayout()
+	var wt := tier1_warning() if not t else ""
+	if wt != _warn.text:
+		_warn.text = wt
+		_warn.visible = wt != ""
+		_relayout()
 	var p := progress(g)
 	_bar.visible = int(p[1]) > 1
 	_bar.value = 100.0 * float(p[0]) / max(1.0, float(p[1]))
@@ -390,11 +437,16 @@ func _set_bubble(on: bool) -> void:
 
 
 ## Aktionsknopf einer Listenzeile (Win.row: der letzte Knopf rechts), sonst die Zeile selbst.
+## Der Knopf, der baut oder forscht (Hammer, Dreieck): der vorletzte, ganz rechts steht das „i“
+## (josh 2026-10-21: der Pfeil stand unter dem „i“ statt unter dem Hammer).
 func _row_button(row: Control) -> Control:
 	var h = row.get_child(0) if row.get_child_count() > 0 else null
-	if h != null and h.get_child_count() > 0 and h.get_child(-1) is Button:
-		return h.get_child(-1)
-	return row
+	if h == null or h.get_child_count() == 0:
+		return row
+	var n: int = h.get_child_count()
+	if n >= 2 and h.get_child(n - 2) is Button and h.get_child(n - 1) is Button:
+		return h.get_child(n - 2)
+	return h.get_child(n - 1) if h.get_child(n - 1) is Button else row
 
 
 ## Wohin der Zeiger zeigt: ein Control, eine Bildschirmposition oder nichts.
@@ -439,6 +491,25 @@ func _pointer_target(g: Dictionary):
 			return hud._speed_btns[2][0]
 		"top":
 			return _closed_or(hud.top_bar)
+		"top_bar":  # Statuszeile zum Antippen (öffnet das Lager); offen: das X
+			return _closed_or(hud.top_bar) if not hud._stock_panel.visible else null
+		"top_holz", "top_stein":  # je ein Symbol der Statuszeile (josh 2026-10-21)
+			return _closed_or(hud._res_labels[pt.substr(4)].get_parent().get_child(0))
+		"top_food":
+			return _closed_or(hud._food_label.get_parent().get_child(0))
+		"top_pop":
+			return _closed_or(hud._pop_label.get_parent().get_child(0))
+		"top_day":
+			return _closed_or(hud._day_icon)
+		"top_season":
+			return _closed_or(hud._season_icon)
+		"close":  # das X des offenen Fensters
+			for p in hud._panels():
+				if p.visible:
+					var head: Node = p.get_child(0).get_child(0) if p.get_child_count() > 0 and p.get_child(0).get_child_count() > 0 else null
+					if head is HBoxContainer and head.get_child_count() > 0:
+						return head.get_child(head.get_child_count() - 1)
+			return null
 		"speeds":
 			return _closed_or(hud.speed_bar)
 		"bottom":
@@ -479,6 +550,13 @@ func _pointer_target(g: Dictionary):
 			return _closed_or(hud.settler_btn)
 		"age_tabs":
 			return _children_rect(hud._research_tabs) if hud._research_panel.visible else null
+		"age_tab":  # der erste Reiter (Steinzeit, das Bild mit dem Hammer)
+			if not hud._research_panel.visible:
+				return null
+			for c in hud._research_tabs.get_children():
+				if c is Control and c.visible:
+					return c
+			return null
 		"tech_row", "tech_btn":
 			if not hud._research_panel.visible:
 				return _closed_or(hud._research_btn)

@@ -116,7 +116,7 @@ func _overwrite_settings() -> void:
 			_:
 				if key.begins_with("job:"):
 					var sid := int(key.substr(4))
-					Steward.locks.erase(sid)
+					JobDesk.release(sid)
 					say(tr("Ich setze die Berufe wieder nach meinem Plan ein. Das ist effizienter."))
 		Steward.changed.emit()
 
@@ -165,8 +165,8 @@ func _ki_tick() -> void:
 			w.demolish(house)
 	# Heimatinsel: Siedler ohne Beruf forschen
 	for s in hw.settlers:
-		if s.is_adult() and s.job == "frei" and not Steward.locked(s):
-			s.set_job("forscher", true)
+		if s.is_adult() and s.job == "frei":
+			JobDesk.assign(s, "forscher", "ki")
 
 
 func _first(w, cond: Callable):
@@ -247,7 +247,7 @@ func _si_start() -> void:
 	for w in Sea.all_worlds():
 		for s in w.settlers:
 			if s.job == "forscher":
-				s.set_job("frei")
+				JobDesk.assign(s, "frei", "ki", -1.0, true)  # Geschichte: gilt auch gegen den Spieler
 	say(tr("Ich forsche jetzt selbst. Menschen stören dabei nur."))
 
 

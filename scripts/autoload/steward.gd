@@ -4,14 +4,13 @@ extends Node
 ## 1. immer genug zu essen, 2. Wärme (Brennholz für Herbst und Winter), 3. Lager bis zur eingestellten
 ## Höchstmenge füllen (World.store_limits), dazu Werkstätten besetzen und Baustellen. Inseln mit mehr als
 ## MAX_POP Siedlern kann er nicht steuern. Ändert der Spieler einen Beruf von Hand, lässt der Verwalter
-## diesen Siedler LOCK_DAYS Tage in Ruhe (player_set). Keine Verwaltung nötig; an- und abschaltbar im
+## diesen Siedler eine Weile in Ruhe (Vergabestelle JobDesk, Rang „verwalter“). Keine Verwaltung nötig; an- und abschaltbar im
 ## Fenster Inseln.
 
 signal offer(kind: String)  # Hud zeigt das Angebots-Fenster
 signal changed
 
 const MAX_POP := 60
-const LOCK_DAYS := 2.0
 const TICK_DAYS := 0.25
 const MOVES_PER_TICK := 2
 const KIND_JOB := {"kueche": "koch", "handwerk": "handwerker", "stein": "steinmetz", "stall": "bauer"}
@@ -21,12 +20,24 @@ const RAW_JOB := {"holz": "holzfaeller", "stein": "steinmetz", "beeren": "sammle
 const FOOD_JOBS := ["bauer", "fischer", "sammler", "jaeger"]
 ## Berufe, die der Verwalter nie umbesetzt
 const KEEP := ["verwalter", "seemann", "baumeister", "forscher"]
+## Auslastung (josh 2026-10-22): Sind alle in einem Beruf voll ausgelastet (ab BUSY_FULL %), braucht er mehr Leute;
+## liegt der Beruf im Mittel unter BUSY_LOW %, wird einer frei und der Beruf erst TRIM_DAYS später wieder geprüft.
+## Forscher unter RESEARCH_LOW %: meist wird zu wenig geforscht. Der Verwalter fragt den Spieler (höchstens alle
+## ASK_DAYS Tage); mit Planungsautomat oder KI startet er selbst die nächste Forschung oder gibt einen Forscher frei.
+const BUSY_FULL := 95
+const BUSY_LOW := 80
+const RESEARCH_LOW := 20
+const TRIM_DAYS := 1.0
+const ASK_DAYS := 2.0
+const NO_TRIM := ["frei", "verwalter", "seemann", "forscher"]
 
 var on := false        # Verwalter steuert die Berufe
 var offered := false   # Angebot schon gezeigt
 var offered_routes := false  # Hinweis „Verwalter fährt Waren“ (3. Insel) schon gezeigt
-var locks: Dictionary = {}  # Siedler-ID -> Spieltag, bis zu dem der Verwalter ihn in Ruhe lässt
 var _next := 0.0
+var _trim_next: Dictionary = {}  # "Insel-ID:Beruf" -> Spieltag, ab dem der Beruf wieder geprüft wird
+var _research_asked := -99.0
+var research_info := ""  # Grund, warum die Forscher wenig zu tun haben (für das Fenster)
 
 
 func _ready() -> void:
@@ -65,12 +76,13 @@ func set_on(v: bool) -> void:
 ## Der Spieler hat einem Siedler selbst einen Beruf gegeben: der Verwalter überstimmt das eine Weile nicht.
 func player_set(s) -> void:
 	if s != null:
-		locks[int(s.id)] = Game.time_days + (AiRule.OVERRIDE_DAYS if AiRule.ki() else LOCK_DAYS)
+		JobDesk.hold(s, "spieler")
 		AiRule.player_changed("job:%d" % int(s.id))
 
 
+## Darf der Verwalter den Siedler gerade nicht umsetzen (Vergabestelle)?
 func locked(s) -> bool:
-	return float(locks.get(int(s.id), -1.0)) > Game.time_days
+	return not JobDesk.may(s, "verwalter")
 
 
 # ---------------------------------------------------------------- Ablauf
@@ -116,9 +128,108 @@ func tick(w) -> void:
 		if pick == null:
 			return
 		var old: String = pick.job_name()
-		pick.set_job(need.job, true)
-		locks[int(pick.id)] = Game.time_days + 0.5  # nicht gleich wieder umsetzen
+		JobDesk.assign(pick, need.job, "verwalter")  # hält ihn eine Weile, damit er nicht gleich wieder wechselt
 		Game.notify_at(w, who() + ": " + tr("%s arbeitet jetzt als %s (%s, vorher %s).") % [pick.display_name, Data.jobs[need.job].name, need.why, old], "person", "verwaltung")
+	_trim(w)
+	if Sea.is_main(w):
+		_check_research(w)
+
+
+# ---------------------------------------------------------------- Auslastung (josh 2026-10-22)
+## Auslastung eines Berufs auf der Insel: [Mittel in %, kleinster Wert, gemessene Leute, alle Leute].
+## Gemessen ist, wer lange genug im Beruf ist (Settler.busy_percent >= 0).
+func job_busy(w, job: String) -> Array:
+	var sum := 0.0
+	var lo := 999
+	var n := 0
+	var all := 0
+	for s in _adults(w):
+		if s.job != job:
+			continue
+		all += 1
+		var b: int = s.busy_percent()
+		if b < 0:
+			continue
+		sum += b
+		lo = mini(lo, b)
+		n += 1
+	return [sum / n if n > 0 else -1.0, lo if n > 0 else -1, n, all]
+
+
+## Wurde im Beruf gerade einer frei gemacht? Dann holt der Verwalter dafür einen Tag lang niemanden dazu.
+func _cooling(w, job: String) -> bool:
+	return float(_trim_next.get("%d:%s" % [int(w.island_id), job], -1.0)) > Game.time_days
+
+
+## Alle im Beruf voll ausgelastet: der Beruf braucht mehr Leute. Gibt den Beruf zurück ("" = keiner).
+func _busy_job(w) -> String:
+	for j in Data.jobs:
+		if j in NO_TRIM or not Data.job_unlocked(j) or _cooling(w, j):
+			continue
+		var b := job_busy(w, j)
+		if int(b[2]) >= 1 and int(b[2]) == int(b[3]) and int(b[1]) >= BUSY_FULL:
+			return j
+	return ""
+
+
+## Ein Beruf mit wenig Arbeit (im Mittel unter BUSY_LOW %): einen davon frei machen, dann einen Tag warten.
+func _trim(w) -> void:
+	var want := str(needed(w).get("job", ""))
+	for j in Data.jobs:
+		if j in NO_TRIM or j == want or _cooling(w, j):
+			continue
+		if j == "baumeister" and not w.construction_sites().is_empty():
+			continue
+		var b := job_busy(w, j)
+		if int(b[2]) < 2 or float(b[0]) >= BUSY_LOW:
+			continue
+		var cand := _adults(w).filter(func(s): return s.job == j and s.busy_percent() >= 0 and JobDesk.may(s, "verwalter"))
+		if cand.is_empty():
+			continue
+		cand.sort_custom(func(a, c): return a.busy_percent() < c.busy_percent())
+		var s = cand[0]
+		_trim_next["%d:%s" % [int(w.island_id), j]] = Game.time_days + TRIM_DAYS
+		JobDesk.assign(s, "frei", "verwalter")
+		Game.notify_at(w, who() + ": " + tr("Die %s haben im Mittel nur %d %% zu tun. %s ist jetzt frei; in einem Tag prüft er wieder.") % [
+			Data.jobs[j].name, int(round(float(b[0]))), s.display_name], "person", "verwaltung")
+		return
+
+
+## Forscher kaum ausgelastet: Spieler fragen, mit Automat oder KI selbst handeln.
+func _check_research(w) -> void:
+	var b := job_busy(w, "forscher")
+	if int(b[2]) < 1 or float(b[0]) >= RESEARCH_LOW:
+		return
+	var cur: String = Game.research.current
+	if cur == "":
+		research_info = tr("Es wird gerade nichts erforscht.")
+	else:
+		var miss: Array = Writing.missing_at(w, cur)
+		if not miss.is_empty():
+			research_info = tr("Für %s fehlt: %s.") % [Data.techs[cur].name, ", ".join(PackedStringArray(miss.map(func(id): return Data.resource_name(id))))]
+		else:
+			research_info = tr("Es gibt mehr Forscher als Arbeit.")
+	if Planner.active() or (AiRule.ki() and not AiRule.si()):
+		if cur == "":
+			Planner.research_step()
+		elif not _cooling(w, "forscher") and int(b[3]) >= 2:
+			release_researcher(w)
+		return
+	if Game.time_days - _research_asked < ASK_DAYS:
+		return
+	_research_asked = Game.time_days
+	offer.emit("forscher")
+
+
+## Einen Forscher frei machen (der am wenigsten zu tun hat).
+func release_researcher(w) -> void:
+	var cand := _adults(w).filter(func(s): return s.job == "forscher" and JobDesk.may(s, "verwalter"))
+	if cand.is_empty():
+		return
+	cand.sort_custom(func(a, c): return a.busy_percent() < c.busy_percent())
+	_trim_next["%d:forscher" % int(w.island_id)] = Game.time_days + TRIM_DAYS
+	JobDesk.assign(cand[0], "frei", "verwalter")
+	Game.notify_at(w, who() + ": " + tr("%s forscht nicht mehr und ist jetzt frei.") % cand[0].display_name, "wissen", "verwaltung")
 
 
 func _adults(w) -> Array:
@@ -178,7 +289,7 @@ func needed(w) -> Dictionary:
 	for b in w.buildings:
 		if b.complete and b.def.has("production") and b.free_slots() > 0 and b.occupants.is_empty() and b.prod_blocker() == "":
 			var j: String = KIND_JOB.get(b.prod_def().get("job", ""), "")
-			if j != "" and w.pool_allows(b) and _count(w, j) < _workplaces(w, b.prod_def().get("job", "")):
+			if j != "" and not _cooling(w, j) and w.pool_allows(b) and _count(w, j) < _workplaces(w, b.prod_def().get("job", "")):
 				return {"job": j, "why": tr("%s steht still") % b.def.name, "hard": false}
 	# 4b. Im Inselverbund: genug Forscher auf der Heimatinsel (alle freien Forschungsplätze besetzt)
 	if home and Game.research.current != "":
@@ -190,7 +301,7 @@ func needed(w) -> Dictionary:
 		var hw = Sea.main_world()
 		for id in _home_wants(hw):
 			var j := str(RAW_JOB.get(id, ""))
-			if j != "" and Data.job_unlocked(j) and _count(w, j) < 1 + pop / 6:
+			if j != "" and Data.job_unlocked(j) and not _cooling(w, j) and _count(w, j) < 1 + pop / 6:
 				return {"job": j, "why": tr("%s für die Heimatinsel") % Data.resource_name(id), "hard": false}
 	# 5. Lager bis zur eingestellten Höchstmenge füllen
 	var lim: Dictionary = w.store_limits
@@ -201,8 +312,12 @@ func needed(w) -> Dictionary:
 		if home and RAW_JOB.has(id):
 			continue  # Rohstoffe holen die anderen Inseln
 		var j := _producer(w, str(id))
-		if j != "" and Data.job_unlocked(j) and _count(w, j) < 1 + pop / 8:
+		if j != "" and Data.job_unlocked(j) and not _cooling(w, j) and _count(w, j) < 1 + pop / 8:
 			return {"job": j, "why": tr("Lager mit %s auffüllen") % Data.resource_name(str(id)), "hard": false}
+	# 6. Auslastung: alle im Beruf voll beschäftigt, dann braucht er mehr Leute
+	var bj := _busy_job(w)
+	if bj != "":
+		return {"job": bj, "why": tr("alle %s sind voll ausgelastet") % Data.jobs[bj].name, "hard": false}
 	return {}
 
 
@@ -255,9 +370,10 @@ func _surplus(w, job: String) -> bool:
 
 
 ## Holt einen Siedler für den Beruf: zuerst Freie, dann Überzählige; bei harter Not auch andere.
-func _take_worker(w, need: Dictionary):
+## by: wer fragt (Vergabestelle JobDesk), der Verwalter oder der Planungsautomat.
+func _take_worker(w, need: Dictionary, by: String = "verwalter"):
 	var job: String = need.job
-	var adults := _adults(w).filter(func(s): return s.job != job and not locked(s) and not s.job in KEEP)
+	var adults := _adults(w).filter(func(s): return s.job != job and JobDesk.may(s, by) and not s.job in KEEP)
 	var free := adults.filter(func(s): return s.job == "frei")
 	if not free.is_empty():
 		return AiJobs._best_for(free, job)
@@ -286,17 +402,19 @@ func _on_reset() -> void:
 	offered_net = false
 	offered_automat = false
 	net_on = true
-	locks = {}
 	minmax = {}
 	tasks = {}
 	_next = 0.0
+	_trim_next = {}
+	_research_asked = -99.0
+	research_info = ""
 	_route_next = 0.0
 	_net_next = 0.0
 	changed.emit()
 
 
 func _on_save(d: Dictionary) -> void:
-	d["steward"] = {"on": on, "offered": offered, "offered_routes": offered_routes, "offered_net": offered_net, "offered_automat": offered_automat, "net_on": net_on, "locks": locks.duplicate(), "minmax": minmax.duplicate(true), "tasks": tasks.duplicate(true)}
+	d["steward"] = {"on": on, "offered": offered, "offered_routes": offered_routes, "offered_net": offered_net, "offered_automat": offered_automat, "net_on": net_on, "minmax": minmax.duplicate(true), "tasks": tasks.duplicate(true)}
 
 
 func _on_load(data: Dictionary, _old_rules: int) -> void:
@@ -327,10 +445,6 @@ func _on_load(data: Dictionary, _old_rules: int) -> void:
 			var keys: Array = (v if v is Array else [v]).map(func(x): return str(x)).filter(func(x): return TASKS.has(x))
 			if not keys.is_empty():
 				tasks[str(k)] = keys  # früher nur eine Aufgabe als Text
-	var l = e.get("locks", {})
-	if l is Dictionary:
-		for k in l:
-			locks[int(k)] = float(l[k])
 	changed.emit()
 
 
@@ -340,6 +454,8 @@ func autotest_setup(args: Dictionary, main) -> void:
 			await StewardTest.routes(main)
 		elif str(args.stewardtest) == "net":
 			await StewardTest.net(main)
+		elif str(args.stewardtest) == "busy":
+			await StewardTest.busy(main)
 		elif str(args.stewardtest).begins_with("task"):
 			await StewardTest.task(main, str(args.stewardtest))
 		else:

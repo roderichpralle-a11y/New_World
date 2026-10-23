@@ -133,7 +133,7 @@ static func run(main, _mode: String) -> void:
 	for s in adults1:
 		if s.job == "frei":
 			s.set_job("holzfaeller")
-		Steward.locks[int(s.id)] = Game.time_days + 5.0
+		JobDesk.hold(s, "spieler", 5.0)
 	var n_sites: int = _sites(w1).size()
 	p = Planner.decide(w1)
 	var farm := _sites(w1).filter(func(b): return b.def.has("farm"))
@@ -142,7 +142,7 @@ static func run(main, _mode: String) -> void:
 	# Baumeister: der Automat sorgt für einen
 	# (alle waren gesperrt; jetzt darf der Automat wieder umsetzen)
 	for s in adults1:
-		Steward.locks.erase(int(s.id))
+		JobDesk.release(int(s.id))
 	var bm = Planner._ensure_builder(w1)
 	_ok(Steward._count(w1, "baumeister") >= 1, "Baumeister für die Baustelle: %s (%d)" % [bm.display_name if bm != null else "-", Steward._count(w1, "baumeister")])
 	_ok(Planner._ensure_builder(w1) == null, "nur ein Baumeister, solange einer da ist")
@@ -185,7 +185,7 @@ static func run(main, _mode: String) -> void:
 	for s in w3.settlers:
 		if s.is_adult():
 			s.set_job("fischer")
-			Steward.locks[int(s.id)] = Game.time_days + 5.0
+			JobDesk.hold(s, "spieler", 5.0)
 	_ok(Planner.workers_wanted(w3) != "", "Arbeitskräfte fehlen auf %s: %s" % [Sea.island_name(w3), Planner.workers_wanted(w3)])
 	p = Planner.decide(w3)
 	var house := _sites(w3).filter(func(b): return int(b.def.get("housing", 0)) > 0)
@@ -202,7 +202,7 @@ static func run(main, _mode: String) -> void:
 	var w1free: Array = w1.settlers.filter(func(s): return s.is_adult())
 	w1.stock["fisch"] = 3000
 	for s in w1free:
-		Steward.locks.erase(int(s.id))
+		JobDesk.release(int(s.id))
 		s.set_job("frei")
 	Planner._grow[str(ids[3])] = [Game.time_days - 5.0, w3.settlers.size()]
 	Sea._new_ship("boot", ids[1])  # die Boote dort fahren schon Waren

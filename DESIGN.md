@@ -411,7 +411,14 @@ ohne Tote), Bild `--plannershot=1`.
 
 **Hinweis-Fenster (josh 2026-10-17):** `Hints` (scripts/autoload/hints.gd) zeigt einmal je Spielstand ein Fenster in Menükarten-Größe (Symbol, Überschrift, 3 bis 5 Sätze, „Verstanden“; `Hud._show_hint`), wenn etwas Neues kommt: Zeitalter (`age_<i>`, Steinzeit beim Spielstart), zweite Stufe eines Zeitalters (`tier_<n>`, sobald ihre erste Forschung wählbar ist), Forschungen, die ein Gebäude oder eine Funktion freischalten (`tech_<id>`; reine Verbesserungen haben keinen Text und kein Fenster), und erste Male (`first_winter`, `quests`, `event`, `pirates`, `merchant`, `exam`, `island`, `admin`). Texte in data/hints.json (`name` = Überschrift, `text`), Quelle ist das Dokument https://claude.ai/code/artifact/19039865-1477-49a5-9d6a-ace9fc6bd2d8. Prüft jede Sekunde, was gilt; mehrere Hinweise kommen nacheinander, Zeitalter zuerst. Das Spiel hält an, solange das Fenster offen ist. Menü > Meldungen „Hinweis-Fenster, wenn etwas Neues kommt“ (`Game.hints_on`, settings.cfg [notify] hints) schaltet es ab, dann nur als Meldung. Spielstand `hints.seen`; ein alter Spielstand ohne `hints` merkt alles, was schon gilt, still als gesehen. Selbsttests zeigen keine Fenster außer mit `--hinttest=1`; Bild mit `--hintshot=<Schlüssel> --shot=…`. Tontafel-Texte sagen überall: ohne Tontafeln (später Papier, Strom, Elektronik) wird nur mit 20 % des Tempos geforscht (josh 2026-10-17).
 
-**Siedlerliste:** fast bildschirmfüllend mit kompakten Zeilen; Spaltenköpfe Name, Alter, Beruf, Satt sortieren (nochmal tippen dreht um), Reiter Erwachsene/Kinder, Filter nur noch für den Beruf und, bei mehreren Inseln, Diese Insel/Alle Inseln (josh 2026-10-19: keine Filter „Nur Hungrige“/„Nur Kranke“). Testaufruf: `--crowd=24 --panel=settlers [--sfilter=1] [--freetest=1]`. Die Liste baut sich neu, sobald jemand bei offenem Fenster die Gruppe wechselt (Beruf gewählt, frei geworden, erwachsen, geboren, gestorben; `Hud._settler_signature` jede Sekunde), und bleibt dabei an derselben Stelle (josh 2026-10-17: „Frei“ blieb leer, weil die Liste nur beim Öffnen gebaut wurde). Spalte Auslastung: `Settler.busy_percent()` = eigene Arbeit / (eigene Arbeit + anderes + nichts zu tun) der Tageszeit eines Erwachsenen, gleiche Einteilung wie die Statistik der KI-Version (`_stat_kind`: job, other, idle, needs zählt nicht), hier als gleitender Wert, der mit `BUSY_DAYS` (1 Tag) verblasst; wird beim Berufswechsel geleert und gespeichert.
+**Siedlerliste:** seit josh 2026-10-22 dicht: das Fenster reicht von der Statuszeile bis an den unteren Rand (die
+Knöpfe unten liegen darüber, `bp.move_to_front()` in `_layout`; ein Abstand `_settler_pad` unter der letzten Zeile;
+`_fit_visible_panels` lässt das Fenster aus), eine Zeile mit Berufsfilter, Inselfilter, Haken „Freie zeigen“
+(`_settler_show_free`, blendet „Frei“ aus) und Zähler (Lebensstil im Tooltip), Spaltenköpfe ohne Talent, darunter
+eine einzige Liste mit „Mit Beruf“ und direkt darunter „Frei“; Balken für Auslastung, Satt und Laune ohne Zahlen
+darüber (Werte im Tooltip); Talent-Sterne am Namen und im Berufsmenü (josh 2026-10-23 wieder da, ohne Talent-Spalte). Das Infofenster eines Siedlers zeigt keine
+Talente und Fähigkeiten mehr (die Werte wirken weiter). Davor:
+fast bildschirmfüllend mit kompakten Zeilen; Spaltenköpfe Name, Alter, Beruf, Satt sortieren (nochmal tippen dreht um), Reiter Erwachsene/Kinder, Filter nur noch für den Beruf und, bei mehreren Inseln, Diese Insel/Alle Inseln (josh 2026-10-19: keine Filter „Nur Hungrige“/„Nur Kranke“). Testaufruf: `--crowd=24 --panel=settlers [--sfilter=1] [--freetest=1]`. Die Liste baut sich neu, sobald jemand bei offenem Fenster die Gruppe wechselt (Beruf gewählt, frei geworden, erwachsen, geboren, gestorben; `Hud._settler_signature` jede Sekunde), und bleibt dabei an derselben Stelle (josh 2026-10-17: „Frei“ blieb leer, weil die Liste nur beim Öffnen gebaut wurde). Spalte Auslastung: `Settler.busy_percent()` = eigene Arbeit / (eigene Arbeit + anderes + nichts zu tun) der Tageszeit eines Erwachsenen, gleiche Einteilung wie die Statistik der KI-Version (`_stat_kind`: job, other, idle, needs zählt nicht), hier als gleitender Wert, der mit `BUSY_DAYS` (1 Tag) verblasst; wird beim Berufswechsel geleert und gespeichert.
 
 **Schrift:** Pixelify Sans mit eigenen 5x7-Ziffern (die Originalziffern 2/5/6/8/9 waren klein kaum zu unterscheiden). Neu erzeugen mit `python3 tools/gen_font_digits.py` (liest `tools/fonts_src/`, schreibt `assets/fonts/`).
 
@@ -424,25 +431,46 @@ ohne Tote), Bild `--plannershot=1`.
   angelegte Busse bleiben dort stumm), Lautstärken im Menü, gespeichert in `user://settings.cfg`.
   Alle Klänge erzeugt `tools/gen_audio.py` (Ausgabe `assets/audio/`). Gebäude können mit
   `sound` einen eigenen Werkstatt-Klang haben, Tiere mit `sound` ihren Ruf.
-- **Einführung und Ziele** (`data/goals.json`, `scripts/ui/goal_card.gd`): seit `goals.tv` = 4
-  (josh 2026-10-19) 21 Schritte: Statuszeile, Geschwindigkeit, Menüknöpfe unten, Baumenü, Baumeister,
-  Menü Siedler, Baumeister setzen, Hütte bauen, schneller stellen, Forschung und Zeitalter, die Zeile
-  Flechtkörbe (schenkt 12 Holz, `gift`, einmal je Schritt über `goals.gift`), Flechtkörbe starten
-  (Prüfart `tech_started`), Forscher, Menü mit Reitern, Kinder, Tod. Erklär-Schritte haben den Knopf
+- **Einführung und Ziele** (`data/goals.json`, `scripts/ui/goal_card.gd`): seit `goals.tv` = 8
+  (josh 2026-10-21/22) 27 Schritte: die Statuszeile Symbol für Symbol (Holz, dann das Lager öffnen –
+  Tipp auf die Statuszeile, `Hud` meldet `panel`/`lager` – und wieder schließen, Steine, Nahrung, Siedler, Tag,
+  Jahreszeit; Zeiger `top_holz` … `top_season`), Geschwindigkeit, dann der Hüttenbau: Baumenü öffnen,
+  Baumenü, Hütte wählen (Prüfart `action`/`place`, `Hud` meldet den Hammer), Hütte setzen, Baumeister
+  nötig, Menü Siedler öffnen, Menü Siedler, auf den Beruf tippen (Prüfart `action`/`job_list`, `or_job`),
+  Baumeister in der Liste wählen, warten bis die Hütte steht; dann Forschung
+  öffnen, Zeitalter (Zeiger `age_tab`: der erste Reiter), Flechtkörbe starten (Pflicht, ohne Weiter, schenkt
+  12 Holz über `gift`), Forschung schließen (Prüfart `no_panel`, Zeiger `close` = das X), Menü Siedler
+  öffnen, Forscher, Kinder, Tod (das Menü wird nicht mehr erklärt). Die Erklärung des Menüs Siedler rät
+  zum Fischer (Fisch das ganze Jahr, im Winter langsamer, im Eiswinter gar nicht nachwachsend, sehr nahrhaft,
+  Fischgründe begrenzt). Ein neues Spiel schaltet unter
+  Menü > Meldungen die Zielkarte mit Aufträgen und die Meldungen zu Aufträgen ein (`Hud.notify_on`). Erklär-Schritte haben den Knopf
   Weiter (Prüfung `action`/`next`). Der Zeigerpfeil zeigt auf Knöpfe oder Teile offener Fenster
-  (`point`, siehe `_pointer_target`); die Karte steht dabei als Sprechblase daneben und über den Fenstern
+  (`point`, siehe `_pointer_target`; in Zeilen auf den Hammer oder das Dreieck, nicht auf das „i“, siehe
+  `_row_button`); die Karte steht dabei als Sprechblase daneben und über den Fenstern
   (`GoalCard.bubble`, dann setzt `hud._layout` sie nicht), Listen rollen einmal je Schritt zum Ziel.
+  Nach der Einführung führen Ziele durch Stufe I (josh 2026-10-22, `goals.mv` = 2, alte Spielstände über
+  `Game._ms_upgrade`/`OLD_MS` beim selben Ziel): Fischer, Schreibstube, Gartenbau, Getreidefeld, Bauer,
+  Holzbearbeitung, Sägegrube, vierte Hütte. Solange nur Stufe I erforscht ist, mahnt die Zielkarte rot
+  (`GoalCard.tier1_warning`): Baustelle ohne Baumeister, Forschung ohne Forscher, oder nichts wird erforscht.
+  Hinweis-Fenster `first_storage_full` (ein Lager zum ersten Mal voll: neues Lager bauen) und `first_year`
+  (nach einem Jahr: Menü > Meldungen).
   Neue Spiele starten mit 16 Holz (eine Hütte). Danach feste Ziele mit Belohnungen und endlos erzeugte
   Ziele (Bevölkerung, Inseln, Geburten). Zustand `Game.goals {tut, ms, hide, tv, gift}` im Spielstand;
   Spielstände ohne `goals` überspringen die Einführung und holen erreichte Ziele still nach; Spielstände
-  mit `tv` unter 4 beginnen eine angefangene Einführung neu (erledigte Schritte gehen von selbst
+  mit `tv` unter 5 beginnen eine angefangene Einführung neu (`tv` 5 rückt nach dem Holz 2 Schritte weiter) (erledigte Schritte gehen von selbst
   weiter), eine fertige bleibt fertig. `Game.player_action(kind, what)` meldet Spieleraktionen
   (`panel` mit bauen/forschung/siedler/menue, `job`, `next`). Statistik `kills` zählt erlegte Tiere.
   Das X auf der Zielkarte blendet das aktuelle Ziel aus (`goals.hide` = Ziel-ID), das nächste erscheint
   wieder. Prüfart `job`: Siedler mit Beruf `what`, alle Inseln. Testhilfe `--tut=N` (Schritt) mit
   `--panel=build|settlers|research|menu`, `--tuttest=1` spielt alles durch.
-  Wer die Einführung zu Ende spielt (nicht überspringt), bekommt 2 Siedler und eine fertige Hütte
-  (siehe „Kohle, Erfrieren und weitere Ergänzungen“).
+  Jeder Schritt mit Tat bringt etwas (josh 2026-10-21, Variante B, „reward“ in goals.json, steht als
+  „Belohnung: …“ unter der Erklärung): Baumeister 20 Holz, Hütte setzen 30 Beeren und 12 Steine,
+  Hütte fertig 1 Siedler, Flechtkörbe starten 1 Siedler, Forscher: Flechtkörbe sofort fertig.
+  Wer die Einführung zu Ende spielt (nicht überspringt), bekommt 2 Siedler, eine fertige Hütte, ein fertiges
+  Lagerhaus sowie Steinwerkzeuge und Schrift (`Extras.TUT_FINAL`, siehe „Kohle, Erfrieren und weitere
+  Ergänzungen“). Am Ende stehen so 6 Siedler, 3 Hütten und ein Lagerhaus. Die Einführung erscheint auch,
+  wenn die Zielkarte unter Menü > Meldungen aus ist (`GoalCard.shown`; die Einstellung gilt im Browser für
+  alle Versionen).
 - **Statuszeile fest** (josh 2026-10-20): `Hud._fix_top_widths` gibt jeder Zahl die Breite ihres längsten
   üblichen Textes (breit 9999 / 9999 (99 Tage) / 999/999 / Tag 999 23:59, schmal 999 / 999 (9T) / 99/99 /
   Tag 99), die Jahreszeit die ihres längsten Namens; das Klima-Symbol bleibt unsichtbar an seinem Platz
@@ -597,11 +625,12 @@ er meldet sich als System bei Game an).
   `gesundheit`), dann je Toter „… ist erfroren.“ Laune-Grund „Friert (kein Holz, keine Kohle)“.
 - **Haltbares Essen zuerst**: siehe „Nahrung, Vitamine und Gleichgewicht“ (`Game.durable_first`).
 - **Belohnung für die Einführung** (`Extras.tutorial_reward`, aus `GoalCard._advance`, wenn der letzte
-  Schritt erfüllt ist; nicht beim Überspringen und nicht beim stillen Nachholen alter Spielstände): eine
-  fertige Hütte auf dem ersten freien Platz um das Lagerfeuer (Ring für Ring, eine Zelle Abstand zu
-  anderen Gebäuden; ohne Platz 16 Holz) und 2 Einwanderer über `Game.grant_reward(w, {"settlers": 2})`
-  (eine Frau und ein Mann, mit niemandem verwandt). Meldung „Belohnung für die Einführung: 2 Einwanderer
-  und eine fertige Hütte am Lagerfeuer.“
+  Schritt erfüllt ist; nicht beim Überspringen und nicht beim stillen Nachholen alter Spielstände):
+  `Extras.TUT_FINAL` über `Extras.tutorial_step_reward` (auch für die Belohnung jedes Schritts):
+  fertige Gebäude (Hütte, Lagerhaus) auf dem ersten freien Platz um das Lagerfeuer (Ring für Ring, eine
+  Zelle Abstand; ohne Platz ihre Baukosten), 2 Einwanderer über `Game.grant_reward` (eine Frau und ein
+  Mann, mit niemandem verwandt) und sofort fertige Forschungen über `Game.grant_tech` (eine andere
+  laufende Forschung läuft weiter). Meldung „Belohnung für die Einführung: …“.
 - **Siedler-Infofenster ohne Balken**: Sättigung, Gesundheit, Vitamine, Laune, Erholung, Eigenschaften und
   Fähigkeiten haben keine Balken mehr; Eigenschaften und Fähigkeiten stehen als eine Textzeile
   („Bauen 3 · Nahrung 4+ · …“, `Hud._info_text`). Die Werte selbst gibt es weiter (Siedlerliste, Laune-Gründe).
@@ -618,7 +647,7 @@ er meldet sich als System bei Game an).
 - **Testhilfen**: `--coaltest=1` (Kohle vor Holz, Texte; mit `--season=3` ein Winter mit `--coal=N
   --coalwood=N`), `--freezetest=1` (mit `--season=3 --winter=normal`: ein Kind und eine Alte dazu, das
   Lager bleibt ohne Brennstoff; Bericht mit Kälte und Gesundheit je Siedler, Reihenfolge der Toten),
-  `--foodorder=1` (Essensreihenfolge), `--tutdone=1` (letzter Einführungsschritt: 2 Siedler, Hütte).
+  `--foodorder=1` (Essensreihenfolge), `--tutdone=1` (letzter Einführungsschritt: 2 Siedler, Hütte, Lagerhaus, 2 Forschungen).
 
 ## Inselstärken, Gewürze und fremde Händler (Herausforderung)
 
@@ -1567,6 +1596,40 @@ oder „neu“; danach heißen der Spielstand-Platz (`slot_<tag>`) und die Rekor
   (`scripts/world/cart_test.gd`, über `Extras.autotest_setup`): Sichtbarkeit („Karren OK/FEHLER“), vier
   Siedler schieben nach rechts, links, unten und oben; mit `--shot` zoomt die Kamera auf sie.
 
+## Vergabestelle für Berufe und Auslastung (josh 2026-10-22, Testversion /neu/)
+**Vergabestelle** (`scripts/autoload/job_desk.gd`, Autoload `JobDesk`): Jede Änderung eines Berufs durch ein
+System geht über `JobDesk.assign(s, job, by)`, damit Verwalter, Planungsautomat, KI und KI-Zentrum einander
+nicht überschreiben. Wer einen Siedler einteilt, hält ihn `HOLD[by]` Tage; in der Zeit darf nur ein höherer Rang
+ihn umsetzen (`JobDesk.may`). Rangfolge: `spieler` (9, hält 2 Tage, unter der KI 0,5) > `ki` (AiRule) >
+`automat` (Planner, Droiden, Anheuern für Siedler-Schiffe) > `verwalter` (Steward, Neuzuweisung nach Todesfall in
+Admin) > `zentrum` (AiJobs). Das KI-Zentrum verteilt nur auf Inseln, die der Verwalter nicht steuert
+(`center_allowed`). Die Geschichte der Superintelligenz setzt sich mit `force` darüber hinweg. Spieler-Wahl in
+Siedlerliste und Infofenster: `assign(…, "spieler")`. Spielstand `job_desk` = {Siedler-ID: [bis, Rang]}; ältere
+Spielstände übernehmen `steward.locks` als Spieler-Sperren. `Steward.locked(s)` = `not may(s, "verwalter")`.
+Überstunden und Schichten haben schon eigene Regeln (Admin `_mark_auto`, `_hold`: wer zuletzt anordnet, dem gehört es).
+
+**Auslastung beim Verwalter** (Steward): `job_busy(w, job)` = [Mittel, kleinster Wert, gemessen, alle] aus
+`Settler.busy_percent()`. Regel 6 in `needed`: sind alle Gemessenen eines Berufs ab `BUSY_FULL` (95 %), braucht er
+mehr Leute. `_trim` (jede Runde): liegt ein Beruf mit mindestens 2 Gemessenen im Mittel unter `BUSY_LOW` (80 %),
+wird der am wenigsten Beschäftigte frei; der Beruf ruht dann `TRIM_DAYS` (1 Tag, `_cooling`), in der Zeit holt der
+Verwalter dafür niemanden dazu (Regeln 4 bis 6). Nicht für Frei, Verwalter, Seemann, Forscher, Baumeister bei
+offenen Baustellen und den Beruf, den die Insel gerade am dringendsten braucht. Forscher (nur Heimatinsel,
+`_check_research`) unter `RESEARCH_LOW` (20 %): mit Planungsautomat oder KI startet `Planner.research_step()` die
+nächste Forschung (oder gibt einen Forscher frei, wenn geforscht wird und Material fehlt); sonst fragt ein Fenster
+(`offer` "forscher", höchstens alle 2 Tage) mit „Forschung wählen“, „Einen Forscher weniger“, „So lassen“ und dem
+Grund (`research_info`: nichts gewählt, Ware fehlt, mehr Forscher als Arbeit). Test `--fixture=<sea.json>
+--stewardtest=busy` („Vergabe OK/FEHLER“).
+
+**Neue Insel** (Hints): bei jeder neu besiedelten Insel (nicht die Heimatinsel) das Fenster `isl_hunt:<id>` (alle zu
+Jägern machen; ohne Waffenkunde der Text `locked`), sobald höchstens noch `hunt_min_keep` (2) erwachsene Tiere je
+Art leben `isl_wood:<id>` (einer Holzfäller, dann ein Haus bauen); ohne wilde Tiere gleich `isl_wood`. Überschrift
+mit Inselname. Spielstand `hints.isl` = {Insel-ID: Schritt}; ältere Spielstände zählen bestehende Inseln als fertig.
+
+**Listen gezielt aktualisieren:** Das Lager (`_refresh_stock`) baut nur neu, wenn sich die Auswahl der Waren ändert;
+sonst setzt `_update_stock_row` Zahlen, Grenze, Knöpfe und den Endknopf („N weg“/„frei“) der bestehenden Zeilen. Die
+Siedlerliste (`_refresh_settler_list`) verwendet Zeilen wieder (`_settler_rows`, Schlüssel: erwachsen, Beruf, vom
+Verwalter, Insel, schmal, Zahl der freien Berufe) und sortiert sie nur neu ein; neu gebaut werden nur geänderte.
+
 ## Straßen, Deiche und Förster (josh 2026-10-11, `scripts/world/land.gd`)
 
 Bau-Reiter „Land und Wege“ (Kategorie `land`, Symbol `weg`). Alle drei sind 1x1-Bodengebäude mit
@@ -1723,7 +1786,7 @@ godot --headless -- --autotest=120 --scale=10 --build=1     # Simulation mit Ber
 godot --headless -- --autotest=400 --scale=10 --build=1 --research=1   # forscht automatisch
 godot --headless -- --autotest=60 --scale=10 --prodtest=1  # alle Werkstätten, alles erforscht
 godot --headless -- --autotest=120 --scale=10 --tuttest=1  # spielt die Einführung durch
-godot --headless --fixed-fps 60 -- --autotest=25 --scale=10 --seed=11 --tutdone=1  # Einführung beenden: 2 Siedler, Hütte
+godot --headless --fixed-fps 60 -- --autotest=25 --scale=10 --seed=11 --tutdone=1  # Einführung beenden: 2 Siedler, Hütte, Lagerhaus, 2 Forschungen
 godot --headless --fixed-fps 60 -- --autotest=100 --scale=10 --seed=11 --season=3 --coaltest=1  # Kohle vor Holz
 godot --headless --fixed-fps 60 -- --autotest=200 --scale=10 --seed=11 --season=3 --winter=normal --freezetest=1  # Erfrieren
 godot --headless --fixed-fps 60 -- --autotest=5 --scale=10 --foodorder=1  # Essensreihenfolge

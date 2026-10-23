@@ -339,7 +339,7 @@ func _on_settler_died(s, _cause: String) -> void:
 		return  # es gibt schon einen neuen Verwalter
 	var pick = null
 	for o in s.world.settlers:
-		if o == s or not o.is_adult() or o.job != "frei":
+		if o == s or not o.is_adult() or o.job != "frei" or not JobDesk.may(o, "verwalter"):
 			continue
 		if pick == null or (TalentInfo.job_match(o.mind, s.job) and not TalentInfo.job_match(pick.mind, s.job)):
 			pick = o
@@ -348,7 +348,7 @@ func _on_settler_died(s, _cause: String) -> void:
 		Game.notify_at(s.world, tr("Für den Beruf %s von %s gibt es keinen freien Siedler. Das nächste Kind, das erwachsen wird, lernt ihn.") % [_name(s.job), s.display_name], "wissen", "verwaltung")
 		changed.emit()
 		return
-	pick.set_job(s.job, true)
+	JobDesk.assign(pick, s.job, "verwalter")
 	Game.notify_at(s.world, tr("%s übernimmt den Beruf %s von %s.") % [pick.display_name, _name(s.job), s.display_name], "wissen", "verwaltung")
 	changed.emit()
 
@@ -358,9 +358,8 @@ func on_grown_up(s) -> bool:
 	if pending_jobs.is_empty() or not auto_on() or not _covers(s.world, pending_jobs[0]):
 		return false
 	var job: String = pending_jobs.pop_front()
-	if not Data.jobs.has(job) or (job == JOB and local_manager() != null):
+	if not Data.jobs.has(job) or (job == JOB and local_manager() != null) or not JobDesk.assign(s, job, "verwalter"):
 		return false
-	s.set_job(job, true)
 	Game.notify_at(s.world, tr("%s ist erwachsen und lernt den Beruf %s.") % [s.display_name, _name(job)], "wissen", "verwaltung")
 	changed.emit()
 	return true

@@ -69,9 +69,8 @@ static func run(main) -> void:
 		if n is Button and n.icon == TalentInfo.star():
 			star_jobs.append(n.text)
 	print("Talente: Infofenster ", lines, " Sternberufe ", star_jobs)
-	_okprint(lines.size() == 2 and "40" in str(lines[0]), "Infofenster zeigt 2 Talentzeilen")
-	var sj: bool = star_jobs.size() >= 2 and Data.jobs.baumeister.name in star_jobs and not Data.jobs.holzfaeller.name in star_jobs
-	_okprint(sj, "Berufsknoepfe mit Stern: %d" % star_jobs.size())
+	# josh 2026-10-22: das Infofenster zeigt keine Talente mehr; die Sterne stehen nur in der Siedlerliste
+	_okprint(lines.is_empty() and star_jobs.is_empty(), "Infofenster ohne Talentzeilen und Sterne")
 	# Siedlerliste: Stern am Namen und im Berufsmenue
 	print("Talente: Fenster ", main.get_viewport().get_visible_rect().size)
 	hud._toggle(hud._settler_panel)

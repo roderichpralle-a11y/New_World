@@ -180,7 +180,9 @@ func _build_topbar() -> void:
 	p.gui_input.connect(func(ev):
 		if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
 			_refresh_stock(true)
-			_toggle(_stock_panel))
+			_toggle(_stock_panel)
+			if _stock_panel.visible:
+				Game.player_action.emit("panel", "lager"))
 	root.add_child(p)
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 12)
@@ -827,7 +829,8 @@ func _fill_build_list() -> void:
 				return
 			_build_panel.visible = false
 			Game.select(null)
-			world.start_placement(tp, camera.position))
+			world.start_placement(tp, camera.position)
+			Game.player_action.emit("place", tp))
 		_build_list.add_child(box)
 	for b in locked_rows:
 		_build_list.add_child(b)
@@ -1274,20 +1277,22 @@ var _stock_cat := ""
 var _stock_only_have := false
 var _stock_ft: Dictionary = {}
 var _stock_bar: ProgressBar
+## Gezielt aktualisieren (josh 2026-10-22): Zeigt das Fenster dieselben Waren wie zuletzt, ändern sich nur Zahlen
+## und Knöpfe der bestehenden Zeilen (_stock_rows); neu gebaut wird nur, wenn sich die Auswahl der Waren ändert.
+var _stock_rows: Dictionary = {}  # Ware -> {al, ll, minus, plus, tail, kind, h}
+var _stock_ids: Array = []
 
 
 func _refresh_stock(force: bool = false) -> void:
 	if _stock_grid == null or (not force and not _stock_panel.visible):
 		return
-	for c in _stock_grid.get_children():
-		_stock_grid.remove_child(c)
-		c.queue_free()
 	var vol := Game.storage_volume()
 	var used := Game.used_volume()
 	_stock_ft.left.text = tr("Lager: %d von %d belegt") % [used, vol]
 	_stock_bar.value = 100.0 * used / max(1, vol)
 	(_stock_bar.get_theme_stylebox("fill") as StyleBoxFlat).bg_color = UiTheme.BAD if used >= vol else UiTheme.GOOD
 	Win.set_left2(_stock_ft, tr("Frei: %d, für feste Mengen reserviert: %d. Nahrungssorten: %d") % [maxi(0, vol - used), Game.reserved_volume(), Game.food_variety()])
+	var ids := []
 	for id in Data.sorted_resource_ids():
 		var cat: String = Data.resources[id].get("category", "")
 		if cat == "ship":
@@ -1296,10 +1301,22 @@ func _refresh_stock(force: bool = false) -> void:
 			continue
 		if _stock_only_have and Game.amount(id) <= 0 and Game.limit_of(id) < 0:
 			continue
+		ids.append(id)
+	if ids == _stock_ids and not ids.is_empty():
+		for id in ids:
+			_update_stock_row(id)
+		return
+	_stock_ids = ids
+	_stock_rows.clear()
+	for c in _stock_grid.get_children():
+		_stock_grid.remove_child(c)
+		c.queue_free()
+	for id in ids:
 		var box := PanelContainer.new()
 		box.add_theme_stylebox_override("panel", Win.row_box())
 		box.add_child(_stock_row(id))
 		_stock_grid.add_child(box)
+		_update_stock_row(id)
 	if _stock_grid.get_child_count() == 0:
 		_stock_grid.add_child(UiTheme.label(tr("Davon ist nichts im Lager."), 14, Win.DIM))
 
@@ -1314,13 +1331,12 @@ func _stock_row(id: String) -> Control:
 	n.tooltip_text = tr("Größe: %d Raum je Stück") % size if size > 0 else tr("Braucht keinen Lagerraum.")
 	n.mouse_filter = Control.MOUSE_FILTER_PASS
 	h.add_child(n)
-	var a := Game.amount(id)
-	var full := size > 0 and Game.space_for(id) <= 0
-	var al := UiTheme.label("%d" % a, 14, UiTheme.BAD if full else UiTheme.TEXT, true)
+	var al := UiTheme.label("", 14, UiTheme.TEXT, true)
 	al.custom_minimum_size.x = 36
 	al.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	h.add_child(al)
-	h.modulate.a = 1.0 if a > 0 or Game.limit_of(id) >= 0 else 0.6
+	var r := {"h": h, "al": al}
+	_stock_rows[id] = r
 	if size <= 0:
 		var x := UiTheme.label(tr("ohne Lagerraum"), 12)
 		x.custom_minimum_size.x = 150
@@ -1331,7 +1347,6 @@ func _stock_row(id: String) -> Control:
 	sl.mouse_filter = Control.MOUSE_FILTER_PASS
 	sl.custom_minimum_size.x = 24
 	h.add_child(sl)
-	var lim := Game.limit_of(id)
 	var minus := UiTheme.button("−", "", 30)
 	minus.tooltip_text = tr("Weniger lagern")
 	minus.pressed.connect(func():
@@ -1342,15 +1357,13 @@ func _stock_row(id: String) -> Control:
 			Game.set_limit(id, max(0, cur - 10))
 		_refresh_stock(true))
 	h.add_child(minus)
-	var ll := UiTheme.label("frei" if lim < 0 else "%d" % lim, 14)
+	var ll := UiTheme.label("", 14)
 	ll.custom_minimum_size.x = 38
 	ll.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	ll.tooltip_text = tr("Höchstens so viel wird gelagert.") if lim >= 0 else tr("Keine feste Menge: nimmt freien Platz.")
 	ll.mouse_filter = Control.MOUSE_FILTER_PASS
 	h.add_child(ll)
 	var plus := UiTheme.button("+", "", 30)
 	plus.tooltip_text = tr("Mehr lagern")
-	plus.disabled = lim >= 0 and lim >= Game.max_limit(id)
 	plus.pressed.connect(func():
 		var cur := Game.limit_of(id)
 		var base: int = ceili(Game.amount(id) / 10.0) * 10 if cur < 0 else cur
@@ -1359,8 +1372,41 @@ func _stock_row(id: String) -> Control:
 			toast(tr("Der Stauraum ist ausgeschöpft."), "kiste")
 		_refresh_stock(true))
 	h.add_child(plus)
+	var tail := HBoxContainer.new()  # „N weg“, „frei“ oder Platzhalter, je nach Lage (_update_stock_row)
+	tail.custom_minimum_size.x = 30
+	h.add_child(tail)
+	r.merge({"ll": ll, "plus": plus, "tail": tail, "kind": ""})
+	return h
+
+
+## Zahlen und Knöpfe einer bestehenden Lagerzeile auf den Stand bringen.
+func _update_stock_row(id: String) -> void:
+	var r: Dictionary = _stock_rows.get(id, {})
+	if r.is_empty():
+		return
+	var a := Game.amount(id)
+	var lim := Game.limit_of(id)
+	var full := Data.good_size(id) > 0 and Game.space_for(id) <= 0
+	r.al.text = "%d" % a
+	r.al.add_theme_color_override("font_color", UiTheme.BAD if full else UiTheme.TEXT)
+	r.h.modulate.a = 1.0 if a > 0 or lim >= 0 else 0.6
+	if not r.has("ll"):
+		return
+	r.ll.text = "frei" if lim < 0 else "%d" % lim
+	r.ll.tooltip_text = tr("Höchstens so viel wird gelagert.") if lim >= 0 else tr("Keine feste Menge: nimmt freien Platz.")
+	r.plus.disabled = lim >= 0 and lim >= Game.max_limit(id)
 	var ex := Game.excess(id)
-	if ex > 0:
+	var kind := "weg" if ex > 0 else ("frei" if lim >= 0 else "")
+	var tail: HBoxContainer = r.tail
+	if kind == r.kind:
+		if kind == "weg":
+			tail.get_child(0).text = tr("%d weg") % ex
+		return
+	r.kind = kind
+	for c in tail.get_children():
+		tail.remove_child(c)
+		c.queue_free()
+	if kind == "weg":
 		var d := UiTheme.button(tr("%d weg") % ex, "", 30)
 		d.tooltip_text = tr("Überschuss wegwerfen. Er ist dann verloren.")
 		d.add_theme_color_override("font_color", UiTheme.BAD)
@@ -1368,19 +1414,14 @@ func _stock_row(id: String) -> Control:
 			var k := Game.discard_excess(id)
 			toast(tr("%d %s weggeworfen.") % [k, Data.resource_name(id)], "abriss")
 			_refresh_stock(true))
-		h.add_child(d)
-	elif lim >= 0:
+		tail.add_child(d)
+	elif kind == "frei":
 		var f := UiTheme.button("frei", "", 30)
 		f.tooltip_text = tr("Feste Menge aufheben")
 		f.pressed.connect(func():
 			Game.set_limit(id, -1)
 			_refresh_stock(true))
-		h.add_child(f)
-	else:
-		var sp := Control.new()
-		sp.custom_minimum_size.x = 30
-		h.add_child(sp)
-	return h
+		tail.add_child(f)
 
 
 func _build_place_bar() -> void:
@@ -1431,7 +1472,13 @@ func _on_placement(active: bool, type: String, valid: bool) -> void:
 const DIM := Color("#6e5a50")
 ## Sortierbare Spalten: Schluessel, Text, Breite (0 = dehnbar; breit / schmal)
 const SETTLER_COLS := [["name", "Name", 0, 0], ["age", "Alter", 62, 30], ["act", "Tätigkeit", 0, -1],
-	["talent", "Talent", 120, -1], ["job", "Beruf", 150, 84], ["busy", "Auslastung", 110, 40], ["hunger", "Satt", 120, 44], ["mood", "Laune", 120, 44]]
+	["talent", "Talent", -1, -1], ["job", "Beruf", 150, 84], ["busy", "Auslastung", 110, 40], ["hunger", "Satt", 120, 44], ["mood", "Laune", 120, 44]]
+## Dichte Liste (josh 2026-10-22): keine Talent-Spalte, keine Zahlen über den Balken, Filter, Zähler und
+## „Freie zeigen“ in einer Zeile, beide Gruppen in einer Liste ohne Lücke, das Fenster reicht bis unten
+## (die Knöpfe unten liegen darüber, die Liste rollt unter ihnen hervor).
+var _settler_show_free: bool = true
+var _settler_free_cb: CheckBox
+var _settler_pad: Control
 var _settler_scroll: ScrollContainer
 var _settler_updaters: Array = []
 var _settler_tick: float = 0.0
@@ -1443,7 +1490,6 @@ var _settler_f_job: OptionButton
 var _settler_f_group: OptionButton
 var _settler_f_island: OptionButton
 var _settler_count: Label
-var _settler_count_ft: Dictionary = {}
 var _settler_narrow: bool = false
 
 
@@ -1460,12 +1506,28 @@ func _build_settler_panel() -> void:
 	# Keine Reiter Alle / Erwachsene / Kinder mehr (josh 2026-10-19, die Liste zeigt immer alle).
 	# Filter nur für Berufe und bei mehreren Inseln die Insel; keine „Nur Hungrige“/„Nur Kranke“ (josh 2026-10-19)
 	var fr := HFlowContainer.new()
-	fr.add_theme_constant_override("h_separation", 4)
-	fr.add_theme_constant_override("v_separation", 4)
+	fr.add_theme_constant_override("h_separation", 6)
+	fr.add_theme_constant_override("v_separation", 2)
 	_settler_f_job = _settler_filter_button(tr("Welche Berufe anzeigen"))
 	fr.add_child(_settler_f_job)
 	_settler_f_island = _settler_filter_button(tr("Welche Insel anzeigen"))
 	fr.add_child(_settler_f_island)
+	_settler_free_cb = CheckBox.new()
+	_settler_free_cb.text = tr("Freie zeigen")
+	_settler_free_cb.button_pressed = _settler_show_free
+	_settler_free_cb.focus_mode = Control.FOCUS_NONE
+	_settler_free_cb.add_theme_font_size_override("font_size", 14)
+	_settler_free_cb.tooltip_text = tr("Freie Siedler und Kinder in der Liste zeigen oder ausblenden")
+	_settler_free_cb.toggled.connect(func(on):
+		_settler_show_free = on
+		Sound.play("klick")
+		_refresh_settler_list())
+	fr.add_child(_settler_free_cb)
+	_settler_count = UiTheme.label("", 14, DIM)
+	_settler_count.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_settler_count.custom_minimum_size.y = 32
+	_settler_count.mouse_filter = Control.MOUSE_FILTER_PASS
+	fr.add_child(_settler_count)
 	v.add_child(fr)
 	# Spaltenkoepfe: antippen sortiert, nochmal antippen dreht die Reihenfolge um
 	var head := HBoxContainer.new()
@@ -1476,7 +1538,7 @@ func _build_settler_panel() -> void:
 		b.focus_mode = Control.FOCUS_NONE
 		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		b.clip_text = true
-		b.custom_minimum_size.y = 32
+		b.custom_minimum_size.y = 22
 		b.add_theme_font_size_override("font_size", 14)
 		b.add_theme_color_override("font_color", DIM)
 		b.add_theme_color_override("font_hover_color", UiTheme.TEXT)
@@ -1497,38 +1559,39 @@ func _build_settler_panel() -> void:
 		_settler_head[key] = b
 	v.add_child(head)
 	_settler_head_row = head
-	# Zwei Listen: oben die Siedler mit Beruf, unten die freien (und die Kinder)
-	_settler_head_job = UiTheme.label("", 15, Color("#7a4a28"), true)
-	v.add_child(_settler_head_job)
+	# Eine Liste: oben die Siedler mit Beruf, direkt darunter die freien (und die Kinder)
 	_settler_scroll = ScrollContainer.new()
 	_settler_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	_settler_scroll.custom_minimum_size = Vector2(560, 250)
+	_settler_scroll.custom_minimum_size = Vector2(560, 120)
+	_settler_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.add_child(_settler_scroll)
+	var inner := VBoxContainer.new()
+	inner.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	inner.add_theme_constant_override("separation", 2)
+	_settler_scroll.add_child(inner)
+	_settler_head_job = UiTheme.label("", 14, Color("#7a4a28"), true)
+	inner.add_child(_settler_head_job)
 	_settler_list = VBoxContainer.new()
 	_settler_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_settler_list.add_theme_constant_override("separation", 3)
-	_settler_scroll.add_child(_settler_list)
-	_settler_head_free = UiTheme.label("", 15, Color("#7a4a28"), true)
-	v.add_child(_settler_head_free)
-	_settler_scroll_free = ScrollContainer.new()
-	_settler_scroll_free.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	_settler_scroll_free.custom_minimum_size = Vector2(560, 150)
-	v.add_child(_settler_scroll_free)
+	_settler_list.add_theme_constant_override("separation", 2)
+	inner.add_child(_settler_list)
+	_settler_head_free = UiTheme.label("", 14, Color("#7a4a28"), true)
+	inner.add_child(_settler_head_free)
 	_settler_list_free = VBoxContainer.new()
 	_settler_list_free.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_settler_list_free.add_theme_constant_override("separation", 3)
-	_settler_scroll_free.add_child(_settler_list_free)
-	var ft := Win.footer(v)
-	_settler_count = ft.left
-	_settler_count.custom_minimum_size.x = 200
-	_settler_count_ft = ft
+	_settler_list_free.add_theme_constant_override("separation", 2)
+	inner.add_child(_settler_list_free)
+	_settler_pad = Control.new()  # Platz unter der letzten Zeile: die Knöpfe unten liegen über dem Fenster
+	_settler_pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	inner.add_child(_settler_pad)
+	_settler_scroll_free = _settler_scroll
 
 
 func _settler_filter_button(tip: String) -> OptionButton:
 	var ob := OptionButton.new()
 	ob.focus_mode = Control.FOCUS_NONE
-	ob.custom_minimum_size = Vector2(120, 40)
-	ob.add_theme_font_size_override("font_size", 15)
+	ob.custom_minimum_size = Vector2(120, 32)
+	ob.add_theme_font_size_override("font_size", 14)
 	ob.get_popup().add_theme_font_size_override("font_size", 16)
 	ob.tooltip_text = tip
 	ob.item_selected.connect(func(_i): _refresh_settler_list())
@@ -1544,20 +1607,9 @@ func _size_settler_panel(avail_h: float = -1.0) -> void:
 		avail_h = vs.y - 160.0
 	var w := clampf(vs.x - 36.0, 290.0, 980.0)
 	_settler_narrow = w < 620.0
-	# Platz fuer Titel, Filter, Zaehler und Spaltenkoepfe abziehen
-	var extra := 200.0 + (46.0 if _settler_narrow else 0.0)
-	var tight := avail_h < 360.0  # Handy quer: der Zähler entfällt, die Listen werden knapp
-	_settler_count_ft.box.visible = not tight
-	_settler_count_ft.sep.visible = not tight
+	var tight := avail_h < 360.0  # Handy quer: ohne Spaltenköpfe
 	_settler_head_row.visible = not tight
-	var room := clampf(avail_h - extra - 56.0, 90.0 if tight else 140.0, 2000.0)  # 56: die zwei Überschriften
-	var top_h := roundf(room * 0.6)
-	_settler_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_settler_scroll_free.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_settler_scroll.size_flags_stretch_ratio = 0.6
-	_settler_scroll_free.size_flags_stretch_ratio = 0.4
-	_settler_scroll.custom_minimum_size = Vector2(w, maxf(top_h, 54.0 if tight else 80.0))
-	_settler_scroll_free.custom_minimum_size = Vector2(w, maxf(room - top_h, 40.0 if tight else 56.0))
+	_settler_scroll.custom_minimum_size = Vector2(w, 60.0)
 	for col in SETTLER_COLS:
 		var b: Button = _settler_head[col[0]]
 		var cw: int = col[3] if _settler_narrow else col[2]
@@ -1623,11 +1675,17 @@ func _refresh_settler_list() -> void:
 	_update_settler_filters()
 	_settler_updaters.clear()
 	_settler_sig = _settler_signature()
-	var keep := [_settler_scroll.scroll_vertical, _settler_scroll_free.scroll_vertical]
+	var keep := [_settler_scroll.scroll_vertical]
+	# Gezielt aktualisieren (josh 2026-10-22): Zeilen, deren Siedler gleich geblieben ist (erwachsen, Beruf,
+	# Insel), werden wiederverwendet und nur neu einsortiert; neu gebaut wird nur, was sich geändert hat.
+	var cached_rows := {}
+	for e in _settler_rows.values():
+		cached_rows[e.rb] = true
 	for lst in [_settler_list, _settler_list_free]:
 		for c in lst.get_children():
 			lst.remove_child(c)
-			c.queue_free()
+			if not cached_rows.has(c):
+				c.queue_free()
 	var all_isl: bool = _settler_f_island.visible and _settler_f_island.selected == 1
 	var pool := []
 	if all_isl:
@@ -1684,17 +1742,34 @@ func _refresh_settler_list() -> void:
 	var sick_n := pool.filter(func(x): return x.mind.sick != "").size()
 	var hungry_n := pool.filter(func(x): return x.hunger < 30.0).size()
 	_settler_count.text = tr("%d Siedler, %d hungrig") % [pool.size(), hungry_n] + ((tr(", %d krank") % sick_n) if sick_n > 0 else "")
-	Win.set_left2(_settler_count_ft, tr("Zu sehen: %d. Lebensstil: %s.") % [list.size(), stage[0]])
+	_settler_count.tooltip_text = tr("Zu sehen: %d. Lebensstil: %s.") % [list.size(), stage[0]]
 	var n_job := list.filter(func(x): return x.is_adult() and x.job != "frei").size()
 	_settler_head_job.text = tr("Mit Beruf (%d)") % n_job
 	_settler_head_free.text = tr("Frei (%d)") % (list.size() - n_job)
+	_settler_head_free.visible = _settler_show_free
+	_settler_list_free.visible = _settler_show_free
+	_settler_pad.custom_minimum_size.y = _bottom.get_parent().size.y + 12.0
 	if n_job == 0:
 		_settler_list.add_child(UiTheme.label(tr("Niemand passt zu dieser Auswahl.") if not pool.is_empty() else tr("Auf dieser Insel lebt niemand."), 14))
 	if list.size() - n_job == 0:
 		_settler_list_free.add_child(UiTheme.label(tr("Alle haben einen Beruf."), 14, DIM))
 	var narrow := _settler_narrow
-	var row_h := 30
+	var row_h := 26
+	var jsig := str(Data.jobs.keys().filter(func(j): return Data.job_unlocked(j)).size())
+	var used := {}
 	for s in list:
+		var rk := "%s|%s|%s|%s|%s|%s" % [s.is_adult(), s.job, s.by_admin, s.world == world, narrow, jsig]
+		var sid: int = s.get_instance_id()
+		var target: VBoxContainer = _settler_list if (s.is_adult() and s.job != "frei") else _settler_list_free
+		var cr = _settler_rows.get(sid, null)
+		if cr != null and cr.key == rk:
+			used[sid] = true
+			cr.upd.call()
+			_settler_updaters.append(cr.upd)
+			target.add_child(cr.rb)
+			continue
+		if cr != null:
+			cr.rb.queue_free()
 		var h := HBoxContainer.new()
 		h.add_theme_constant_override("separation", 6)
 		var sref = s
@@ -1710,9 +1785,9 @@ func _refresh_settler_list() -> void:
 		var other: bool = s.world != world
 		nb.text = s.display_name + ("  (%s)" % Sea.island_name(s.world) if other else "")
 		nb.tooltip_text = tr("Auf der Karte zeigen")
-		if not s.mind.best_talents().is_empty():
+		if not s.mind.best_talents().is_empty():  # Stern am Namen: hat ein Talent (josh 2026-10-23 wieder da)
 			nb.tooltip_text += "\n" + "\n".join(s.mind.best_talents().map(func(k): return TalentInfo.line(sref.mind, k)))
-			TalentInfo.badge(nb)  # Stern am Namen: hat ein Talent (auch schmal, wo die Spalte fehlt)
+			TalentInfo.badge(nb)
 		nb.pressed.connect(func():
 			_settler_panel.visible = false
 			if is_instance_valid(sref) and sref.world != world:
@@ -1732,15 +1807,6 @@ func _refresh_settler_list() -> void:
 			act.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			act.size_flags_stretch_ratio = 1.4
 			h.add_child(act)
-			# Talente mit Arbeitstempo-Bonus (nur breit; schmal zeigt das Berufsmenue Sterne)
-			# jedes Talent in einer eigenen Zeile (höchstens zwei), damit nichts abgeschnitten wird
-			var tl := UiTheme.label(TalentInfo.column_text(s.mind), 12)
-			tl.clip_text = true
-			tl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-			tl.custom_minimum_size.x = SETTLER_COLS[3][2]
-			tl.mouse_filter = Control.MOUSE_FILTER_PASS
-			tl.tooltip_text = "\n".join(s.mind.best_talents().map(func(k): return TalentInfo.line(sref.mind, k)))
-			h.add_child(tl)
 		var jw: int = SETTLER_COLS[4][3] if narrow else SETTLER_COLS[4][2]
 		if s.is_adult():
 			# Beruf direkt in der Liste waehlen
@@ -1760,7 +1826,7 @@ func _refresh_settler_list() -> void:
 			for j in Data.jobs:
 				if not Data.job_unlocked(j) and j != s.job:
 					continue
-				if TalentInfo.job_match(s.mind, j):
+				if TalentInfo.job_match(s.mind, j):  # Stern: Beruf passt zum Talent (josh 2026-10-23 wieder da)
 					ob.add_icon_item(TalentInfo.star(), Data.jobs[j].name, ids.size())
 				else:
 					ob.add_item(Data.jobs[j].name, ids.size())
@@ -1770,9 +1836,9 @@ func _refresh_settler_list() -> void:
 			ob.tooltip_text = tr("Beruf wählen") + (tr("\nStern: passt zum Talent (%s)") % TalentInfo.short_list(s.mind) if not s.mind.best_talents().is_empty() else "")
 			if s.by_admin:
 				UiTheme.mark_admin(ob)
+			ob.get_popup().about_to_popup.connect(func(): Game.player_action.emit("job_list", ""))
 			ob.item_selected.connect(func(i):
-				sref.set_job(ids[i])
-				Steward.player_set(sref)  # Verwalter überstimmt das eine Weile nicht
+				JobDesk.assign(sref, ids[i], "spieler")  # Vergabestelle: Automatik überstimmt das eine Weile nicht
 				Game.player_action.emit("job", ids[i])
 				_refresh_settler_list.call_deferred())  # Zeile wandert zu „Mit Beruf“ oder „Frei“
 			h.add_child(ob)
@@ -1788,6 +1854,7 @@ func _refresh_settler_list() -> void:
 		bz.mouse_filter = Control.MOUSE_FILTER_PASS
 		var bl := UiTheme.label("", 12)
 		bl.mouse_filter = Control.MOUSE_FILTER_PASS
+		bl.visible = false  # keine Zahl über dem Balken (josh 2026-10-22), steht im Tooltip
 		bz.add_child(bl)
 		var bbar := UiTheme.bar(Color("#5a9a4a"), 8)
 		bbar.custom_minimum_size.x = 0
@@ -1798,7 +1865,9 @@ func _refresh_settler_list() -> void:
 		sat.custom_minimum_size.x = SETTLER_COLS[6][3] if narrow else SETTLER_COLS[6][2]
 		sat.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		sat.add_theme_constant_override("separation", 1)
+		sat.mouse_filter = Control.MOUSE_FILTER_PASS
 		var pl := UiTheme.label("", 12)
+		pl.visible = false  # keine Zahl über dem Balken (josh 2026-10-22), steht im Tooltip
 		sat.add_child(pl)
 		var hb := UiTheme.bar(Color("#e0a040"), 8)
 		hb.custom_minimum_size.x = 0
@@ -1809,8 +1878,10 @@ func _refresh_settler_list() -> void:
 		md.custom_minimum_size.x = SETTLER_COLS[7][3] if narrow else SETTLER_COLS[7][2]
 		md.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		md.add_theme_constant_override("separation", 1)
+		md.mouse_filter = Control.MOUSE_FILTER_PASS
 		var ml := UiTheme.label("", 12)
 		ml.clip_text = true
+		ml.visible = false  # keine Zahl über dem Balken (josh 2026-10-22), steht im Tooltip
 		md.add_child(ml)
 		var mbar := UiTheme.bar(Color("#e070a0"), 8)
 		mbar.custom_minimum_size.x = 0
@@ -1839,6 +1910,7 @@ func _refresh_settler_list() -> void:
 			var hungry: bool = sref.hunger < 30.0
 			fill.bg_color = Color("#d04a3a") if hungry else Color("#e0a040")
 			pl.text = "%d%%" % int(round(sref.hunger)) + (tr(" Hunger!") if hungry and not narrow else "")
+			sat.tooltip_text = tr("Satt: %s") % pl.text
 			var m: SettlerMind = sref.mind
 			mbar.value = m.mood
 			mfill.bg_color = Color("#d04a3a") if m.sick != "" else Color("#e070a0")
@@ -1848,19 +1920,26 @@ func _refresh_settler_list() -> void:
 			else:
 				ml.text = "%d%%" % int(round(m.mood)) if narrow else m.mood_text()
 				ml.remove_theme_color_override("font_color")
+			md.tooltip_text = tr("Laune: %s") % ml.text
 		upd.call()
 		_settler_updaters.append(upd)
 		var rb := PanelContainer.new()  # Zeile im einheitlichen Rahmen (Win.row_box), etwas flacher
 		rb.add_theme_stylebox_override("panel", _settler_row_box())
 		rb.add_child(h)
-		(_settler_list if (s.is_adult() and s.job != "frei") else _settler_list_free).add_child(rb)
+		target.add_child(rb)
+		_settler_rows[sid] = {"key": rk, "rb": rb, "upd": upd}
+		used[sid] = true
+	for sid in _settler_rows.keys():  # Zeilen von Siedlern, die nicht mehr in der Liste stehen
+		if not used.has(sid):
+			_settler_rows[sid].rb.queue_free()
+			_settler_rows.erase(sid)
 	call_deferred("_layout")
 	(func():  # beim Neubauen an derselben Stelle in den Listen bleiben
-		_settler_scroll.scroll_vertical = keep[0]
-		_settler_scroll_free.scroll_vertical = keep[1]).call_deferred()
+		_settler_scroll.scroll_vertical = keep[0]).call_deferred()
 
 
 var _settler_rb: StyleBoxFlat
+var _settler_rows: Dictionary = {}  # Instanz-ID des Siedlers -> {key, rb, upd} (_refresh_settler_list)
 
 
 func _settler_row_box() -> StyleBoxFlat:
@@ -2491,6 +2570,14 @@ func _show_offer(kind: String) -> void:
 			choice_dialog("ki", tr("Die Superintelligenz"),
 				tr("Die Superintelligenz hat entschieden: Menschen stören nur. Sie forscht selbst und lässt kein Essen mehr herstellen, auch nicht auf den anderen Inseln.\n• Droiden reißen alles ab, was sie für nutzlos hält: Häuser, Felder, Backstuben, Schulen.\n• Die Lager sind voll mit Dingen, die man nicht essen kann. Essen passt nur noch ans Lagerfeuer.\n• Neue Häuser dürfen nicht gebaut werden.\nDeine Siedler kannst du weiter steuern, zum Beispiel zum Fischen."),
 				[[tr("Verstanden"), "play", func(): pass]])
+		"forscher":
+			var hw = Sea.main_world()
+			choice_dialog("wissen", tr("Die Forscher haben wenig zu tun"),
+				tr("Die Forscher sind nur zu %d %% ausgelastet. Meistens wird dann zu wenig geforscht. %s\nWas soll der Verwalter tun?") % [
+					int(round(float(Steward.job_busy(hw, "forscher")[0]))), Steward.research_info],
+				[[tr("Forschung wählen"), "wissen", func(): if not _research_panel.visible: _toggle(_research_panel)],
+				[tr("Einen Forscher weniger"), "person", func(): Steward.release_researcher(Sea.main_world())],
+				[tr("So lassen"), "abriss", func(): pass]])
 		"end":
 			choice_dialog("feuer", tr("Nur noch Maschinen"),
 				tr("Die letzten Siedler sitzen am Lagerfeuer und frieren. Es ist wie am Anfang des Spiels, nur ist keine Natur mehr da. Kein Baum, kein Strauch. Nur Maschinen, die weiterlaufen."),
@@ -2594,6 +2681,7 @@ func _build_notify_panel() -> void:
 		cb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		cb.add_theme_font_size_override("font_size", 14)
 		var cat: String = row[0]
+		cb.set_meta("cat", cat)
 		cb.toggled.connect(func(on):
 			Game.set_notify(cat, on)
 			Sound.play("klick"))
@@ -2616,6 +2704,15 @@ func _build_notify_panel() -> void:
 
 
 var _notify_ft: Dictionary = {}
+
+
+## Eine Art Meldung einschalten (Haken im Fenster Meldungen setzt die Einstellung mit).
+func notify_on(cat: String) -> void:
+	for nb in _notify_grid.get_children():
+		var c: CheckBox = nb.get_child(0)
+		if c.get_meta("cat", "") == cat and not c.button_pressed:
+			c.button_pressed = true
+	Game.set_notify(cat, true)
 
 
 func _update_notify_footer() -> void:
@@ -2900,18 +2997,7 @@ func _info_settler(s: Settler) -> void:
 	ch.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	ch.text = tr("Charakter: %s") % m.character_text()
 	_info_box.add_child(ch)
-	# Talente mit Bonus gut sichtbar (josh 2026-10-10), je Talent eine Zeile mit Stern
-	for sk in m.best_talents():
-		var th := HBoxContainer.new()
-		th.add_theme_constant_override("separation", 4)
-		th.add_child(UiTheme.icon_rect(TalentInfo.star(), 16))
-		var tl := UiTheme.label(TalentInfo.line(m, sk), 14, UiTheme.TEXT, true)
-		tl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		tl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		th.add_child(tl)
-		_info_box.add_child(th)
-	if m.best_talents().is_empty():
-		_info_box.add_child(UiTheme.label(tr("Talent: keins"), 13, DIM))
+	# Keine Talente und Fähigkeiten im Infofenster (josh 2026-10-22)
 	var ill := UiTheme.label("", 14, Color("#c03a2a"), true)
 	ill.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_info_box.add_child(ill)
@@ -2940,27 +3026,18 @@ func _info_settler(s: Settler) -> void:
 		why.visible = not lines.is_empty())
 	var home = world.building_by_id(s.home_id)
 	_info_box.add_child(UiTheme.label(tr("Zuhause: %s") % (home.def.name + NeedsInfo.home_suffix(home) if home else tr("keins (schläft draußen)")), 13))
-	# Eigenschaften und Fähigkeiten als Text, ohne Balken (josh 2026-10-09)
+	# Eigenschaften als Text, ohne Balken (josh 2026-10-09)
 	var tdefs: Dictionary = Data.ppl("traits", {})
 	var tl := []
 	for k in SettlerMind.TRAITS:
 		tl.append("%s %d" % [tdefs[k].name, int(round(m.trait_value(k)))])
 	_info_text(tr("Eigenschaften"), " · ".join(tl))
-	var sl := []
-	for sk in Data.skills:
-		var t := float(m.talents.get(sk, 1.0))
-		sl.append("%s %d%s" % [Data.skills[sk].name, int(s.skill_level(sk)), "++" if t >= 1.6 else ("+" if m.is_talent(sk) else "")])
-	_info_text(tr("Fähigkeiten (+ = begabt)"), " · ".join(sl))
 	if not s.is_adult():
 		_info_box.add_child(UiTheme.label(tr("Kinder arbeiten noch nicht."), 13))
 	else:
 		_info_box.add_child(UiTheme.label(tr("Beruf"), 15, UiTheme.TEXT, true))
 		if s.by_admin:
 			_info_box.add_child(UiTheme.label(tr("Gelb: vom Verwalter zugewiesen"), 12, DIM))
-		if not m.best_talents().is_empty():
-			var hint := UiTheme.label(tr("Stern: Beruf passt zum Talent"), 12, DIM)
-			hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			_info_box.add_child(hint)
 		var grid := GridContainer.new()
 		grid.columns = 2
 		grid.add_theme_constant_override("h_separation", 4)
@@ -2973,11 +3050,6 @@ func _info_settler(s: Settler) -> void:
 			b.add_theme_font_size_override("font_size", 14)
 			var jd: Dictionary = Data.jobs[j]
 			var tip: String = jd.desc
-			if jd.skill != "":
-				tip += tr("\nFähigkeit: %s (Stufe %d)") % [Data.skills[jd.skill].name, int(s.skill_level(jd.skill))]
-			if TalentInfo.job_match(m, j):
-				b.icon = TalentInfo.star()
-				tip += "\n" + TalentInfo.line(m, jd.skill)
 			b.tooltip_text = tip
 			if s.job == j and s.by_admin:
 				UiTheme.mark_admin(b)
@@ -2986,8 +3058,7 @@ func _info_settler(s: Settler) -> void:
 				b.disabled = true
 				b.tooltip_text = tip + tr("\nBenötigt Forschung: %s") % Data.techs.get(jd.requires, {}).get("name", "?")
 			b.pressed.connect(func():
-				s.set_job(jid)
-				Steward.player_set(s)  # Verwalter überstimmt das eine Weile nicht
+				JobDesk.assign(s, jid, "spieler")  # Vergabestelle: Automatik überstimmt das eine Weile nicht
 				Game.player_action.emit("job", jid)
 				_rebuild_info())
 			grid.add_child(b)
@@ -3735,6 +3806,12 @@ func _layout() -> void:
 		pnl.reset_size()
 		pnl.size.x = min(pnl.size.x, vs.x - 12)
 		pnl.position = Vector2((vs.x - pnl.size.x) / 2.0, max(top_h, vs.y - pnl.size.y - bp.size.y - 18))
+	# Siedler: bis an den unteren Rand, die Knöpfe unten liegen darüber (josh 2026-10-22)
+	_settler_panel.custom_minimum_size.y = vs.y - top_h - 6.0
+	_settler_panel.reset_size()
+	_settler_panel.size.x = min(_settler_panel.size.x, vs.x - 12)
+	_settler_panel.position = Vector2((vs.x - _settler_panel.size.x) / 2.0, top_h)
+	bp.move_to_front()
 	var bottom_space := bp.size.y + 18
 	if portrait:
 		_info_panel.size = Vector2(vs.x - 12, min(vs.y * 0.45, 420))
@@ -3759,7 +3836,7 @@ func _fit_visible_panels() -> void:
 	if _menu_help != null and _menu_help.visible and _panels().all(func(pn): return pn == null or not pn.visible):
 		_menu_help.visible = false  # Fenster zu: Hilfe dazu auch zu
 	for pnl in _panels():
-		if not pnl.visible:
+		if not pnl.visible or pnl == _settler_panel:  # Siedler reicht bis unten, die Liste rollt (siehe _layout)
 			continue
 		var cap := minf(avail, _win_size.y)  # alle Fenster gleich hoch
 		var ws = pnl.get_meta("wrap_sc") if pnl.has_meta("wrap_sc") else null  # Fenster mit nachträglich eingebauter Liste: wächst und schrumpft mit

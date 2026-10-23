@@ -314,3 +314,104 @@ static func task(main, mode: String) -> void:
 	print("Verwalter ", _okf(Steward.tasks_of(ow) == ["holz"]), " alter Spielstand mit einer Aufgabe lädt")
 	Steward.toggle_task(oid, "")
 	print("Verwalter ", _okf(Steward.tasks_of(ow).is_empty() and Steward.task_need(ow).is_empty()), " Hauptaufgabe aus")
+
+
+## --stewardtest=busy mit --fixture=<sea.json>: Vergabestelle (Vorrang, Halte-Zeit), Auslastung (unter 80 % wird
+## einer frei, dann ein Tag Ruhe; alle voll ausgelastet -> mehr Leute), Forscher unter 20 % -> Frage an den
+## Spieler, mit Automat startet die nächste Forschung, neue Insel: Jäger-, dann Holzfäller-Hinweis.
+## Druckt „Vergabe OK/FEHLER“ und am Ende „Vergabe OK (N Fehler)“.
+static func busy(main) -> void:
+	await _wait(main, 0.5)
+	var fails := [0]
+	var ok := func(c: bool, what: String):
+		if not c:
+			fails[0] += 1
+		print("Vergabe ", _okf(c), " ", what)
+	Game.set_speed(0)
+	var w = Sea.main_world()
+	for o in Sea.all_worlds():  # die Insel mit den meisten Siedlern
+		if o.settlers.size() > w.settlers.size():
+			w = o
+	var ad: Array = w.settlers.filter(func(s): return s.is_adult())
+	ok.call(ad.size() >= 5, "Insel mit %d Erwachsenen" % ad.size())
+	# Vergabestelle
+	var a = ad[0]
+	JobDesk.release(int(a.id))
+	JobDesk.assign(a, "holzfaeller", "spieler")
+	ok.call(a.job == "holzfaeller" and not a.by_admin, "Spieler setzt Holzfäller")
+	ok.call(not JobDesk.may(a, "verwalter") and not JobDesk.may(a, "automat") and not JobDesk.may(a, "ki"), "Spieler-Beruf hält gegen Verwalter, Automat und KI")
+	ok.call(not JobDesk.assign(a, "fischer", "verwalter") and a.job == "holzfaeller", "Verwalter darf nicht umsetzen")
+	JobDesk.release(int(a.id))
+	JobDesk.assign(a, "fischer", "verwalter")
+	ok.call(a.job == "fischer" and a.by_admin and not JobDesk.may(a, "verwalter") and not JobDesk.may(a, "zentrum"), "Verwalter hält gegen sich selbst und das KI-Zentrum")
+	ok.call(JobDesk.may(a, "automat"), "Automat (Rang darüber) darf")
+	Game.time_days += 0.6
+	ok.call(JobDesk.may(a, "verwalter"), "nach der Halte-Zeit darf der Verwalter wieder")
+	Steward.on = true
+	ok.call(not JobDesk.center_allowed(w), "KI-Zentrum hält sich heraus, wenn der Verwalter steuert")
+	# Auslastung: drei Holzfäller mit 30 %
+	var cut := ad.slice(0, 3)
+	for s in ad:
+		JobDesk.release(int(s.id))
+		s.set_job("sammler")
+		s.busy = {"job": 1.0}
+	for s in cut:
+		s.set_job("holzfaeller")
+		s.busy = {"job": 0.3, "idle": 0.7}
+	ok.call(int(round(float(Steward.job_busy(w, "holzfaeller")[0]))) == 30, "Auslastung Holzfäller %s" % [Steward.job_busy(w, "holzfaeller")])
+	Steward._trim_next.clear()
+	Steward._trim(w)
+	var n_h: int = w.settlers.filter(func(s): return s.job == "holzfaeller").size()
+	ok.call(n_h == 2 and Steward._cooling(w, "holzfaeller"), "unter 80 %%: einer frei, Holzfäller jetzt %d" % n_h)
+	Steward._trim(w)
+	ok.call(w.settlers.filter(func(s): return s.job == "holzfaeller").size() == 2, "einen Tag Ruhe, dann wieder prüfen")
+	# alle voll ausgelastet
+	for s in ad:
+		if s.job == "sammler":
+			s.busy = {"job": 1.0}
+	ok.call(Steward._busy_job(w) == "sammler", "alle Sammler voll ausgelastet -> mehr Sammler (%s)" % Steward._busy_job(w))
+	# Forscher unter 20 %
+	var r = ad[ad.size() - 1]
+	JobDesk.release(int(r.id))
+	r.set_job("forscher")
+	r.busy = {"job": 0.1, "idle": 0.9}
+	Game.research.current = ""
+	Planner.on = false
+	var ki_done: Array = Game.research.done.filter(func(t): return t in ["ki", "superintelligenz"])
+	for t in ki_done:
+		Game.research.done.erase(t)
+	main.hud._offers.clear()
+	Steward._research_asked = -99.0
+	Steward._check_research(w)
+	ok.call(main.hud._offers.has("forscher") and Steward.research_info != "", "Forscher 10 %%: Spieler wird gefragt (%s)" % Steward.research_info)
+	main.hud._offers.clear()
+	Steward._check_research(w)
+	ok.call(not main.hud._offers.has("forscher"), "nicht gleich noch einmal fragen")
+	Game.research.done.append_array(ki_done)
+	if AiRule.ki() and Sea.is_main(w):
+		Steward._check_research(w)
+		ok.call(Game.research.current != "" or Planner.wanted_tech != "", "unter der KI: nächste Forschung von selbst (%s%s)" % [Game.research.current, Planner.wanted_tech])
+	main.hud._show_offer("forscher")
+	ok.call(main.hud._hint_dialog != null, "Fenster mit der Frage")
+	if main.hud._hint_dialog != null:
+		main.hud._hint_dialog.queue_free()
+		main.hud._hint_dialog = null
+	# Neue Insel
+	var ow = null
+	for o in Sea.all_worlds():
+		if not Sea.is_main(o) and not o.settlers.is_empty():
+			ow = o
+	if ow != null:
+		Hints.isl.clear()
+		var keys: Array = Hints.island_guide()
+		var id := str(int(ow.island_id))
+		ok.call(keys.has(("isl_wood:" if Hints.tame(ow) else "isl_hunt:") + id), "neue Insel: erster Hinweis %s" % [keys])
+		if keys.has("isl_hunt:" + id):
+			for an in ow.animals.duplicate():
+				if ow.adult_count(an.type) > 2:
+					an.dead = true
+			keys = Hints.island_guide()
+			ok.call(keys.has("isl_wood:" + id), "Tiere bei 2 je Art: Holzfäller-Hinweis %s" % [keys])
+		ok.call(Hints.island_guide().is_empty(), "kein Hinweis doppelt")
+		ok.call(Hints.title("isl_wood:" + id).contains(Sea.island_name(ow)), "Überschrift mit Inselname: %s" % Hints.title("isl_wood:" + id))
+	print("Vergabe ", _okf(fails[0] == 0), " (%d Fehler)" % fails[0])
