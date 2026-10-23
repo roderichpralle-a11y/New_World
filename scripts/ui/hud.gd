@@ -1785,6 +1785,9 @@ func _refresh_settler_list() -> void:
 		var other: bool = s.world != world
 		nb.text = s.display_name + ("  (%s)" % Sea.island_name(s.world) if other else "")
 		nb.tooltip_text = tr("Auf der Karte zeigen")
+		if not s.mind.best_talents().is_empty():  # Stern am Namen: hat ein Talent (josh 2026-10-23 wieder da)
+			nb.tooltip_text += "\n" + "\n".join(s.mind.best_talents().map(func(k): return TalentInfo.line(sref.mind, k)))
+			TalentInfo.badge(nb)
 		nb.pressed.connect(func():
 			_settler_panel.visible = false
 			if is_instance_valid(sref) and sref.world != world:
@@ -1823,11 +1826,14 @@ func _refresh_settler_list() -> void:
 			for j in Data.jobs:
 				if not Data.job_unlocked(j) and j != s.job:
 					continue
-				ob.add_item(Data.jobs[j].name, ids.size())  # ohne Talent-Stern (josh 2026-10-22)
+				if TalentInfo.job_match(s.mind, j):  # Stern: Beruf passt zum Talent (josh 2026-10-23 wieder da)
+					ob.add_icon_item(TalentInfo.star(), Data.jobs[j].name, ids.size())
+				else:
+					ob.add_item(Data.jobs[j].name, ids.size())
 				ids.append(j)
 				if j == s.job:
 					ob.select(ids.size() - 1)
-			ob.tooltip_text = tr("Beruf wählen")
+			ob.tooltip_text = tr("Beruf wählen") + (tr("\nStern: passt zum Talent (%s)") % TalentInfo.short_list(s.mind) if not s.mind.best_talents().is_empty() else "")
 			if s.by_admin:
 				UiTheme.mark_admin(ob)
 			ob.get_popup().about_to_popup.connect(func(): Game.player_action.emit("job_list", ""))
