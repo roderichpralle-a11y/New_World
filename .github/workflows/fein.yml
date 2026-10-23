@@ -41,6 +41,7 @@ jobs:
         run: |
           python tools/verify_fine_art.py
           python tools/verify_home_art.py
+          python tools/verify_whole_walk.py
           test "$(sed -n 's/^config\/version="\(.*\)"/\1/p' project.godot)" = 1.1.0
       - name: Import und Laufzeittests
         run: |

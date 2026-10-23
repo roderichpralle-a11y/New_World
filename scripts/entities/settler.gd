@@ -23,6 +23,7 @@ const OUTFIT := {
 const DIR_DOWN := 0
 const DIR_UP := 1
 const DIR_SIDE := 2
+const WALK_CYCLE_DISTANCE := 20.0
 
 var id: int
 var display_name: String
@@ -92,6 +93,8 @@ var _zzz: Label
 var _work_prop: Sprite2D
 var _shadow: Sprite2D
 var _home_sprite: Sprite2D
+var _side_walk_sprite: Sprite2D
+var _walk_distance := 0.0
 
 static var _sheets: Dictionary = {}
 
@@ -191,6 +194,16 @@ func _build_visual() -> void:
 		_home_sprite.offset = Vector2(-80, -136)
 		_home_sprite.scale = HomeArt.SCALE
 		_body.add_child(_home_sprite)
+		# Every frame is a complete figure: no separate leg/arm geometry.
+		_side_walk_sprite = Sprite2D.new()
+		_side_walk_sprite.texture = HomeArt.side_walk(look)
+		_side_walk_sprite.hframes = HomeArt.WALK_FRAMES
+		_side_walk_sprite.vframes = 1
+		_side_walk_sprite.centered = false
+		_side_walk_sprite.offset = Vector2(-80, -136)
+		_side_walk_sprite.scale = HomeArt.SCALE
+		_side_walk_sprite.visible = false
+		_body.add_child(_side_walk_sprite)
 	_work_prop = Sprite2D.new()
 	_work_prop.centered = false
 	_work_prop.position = Vector2(5, -8)
@@ -1396,6 +1409,7 @@ func _walk(delta: float, mult: float = 1.0) -> void:
 		spd *= 0.8
 	var to := target - position
 	var step := spd * delta
+	_walk_distance = fposmod(_walk_distance + minf(step, to.length()), WALK_CYCLE_DISTANCE)
 	if to.length() <= step:
 		position = target
 		cell = world.pos_to_cell(target)
@@ -1878,6 +1892,13 @@ func _animate_home() -> void:
 	_home_sprite.flip_h = _flip and _dir == DIR_SIDE
 	_home_sprite.rotation = -PI / 2.0 if sleeping else 0.0
 	_home_sprite.position = Vector2(8, -4) if sleeping else Vector2.ZERO
+	var walking := _moving and not _working and not sleeping and _dir == DIR_SIDE
+	_home_sprite.visible = not walking
+	_side_walk_sprite.visible = walking
+	if walking:
+		_side_walk_sprite.frame = int(_walk_distance / WALK_CYCLE_DISTANCE * HomeArt.WALK_FRAMES) % HomeArt.WALK_FRAMES
+		_side_walk_sprite.flip_h = _flip
+		_body.position.y = 0.0
 	# Preserve the seat offset selected by the normal animator. Only the baked
 	# work poses replace its independently calculated tool/body bob.
 	if action_work or sleeping:

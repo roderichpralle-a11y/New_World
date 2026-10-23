@@ -18,6 +18,9 @@ const JONAS := preload("res://assets/home_v2/jonas.png")
 const LENA := preload("res://assets/home_v2/lena.png")
 const MEADOW := preload("res://assets/home_v2/meadow.png")
 const CHOP_PROPS := preload("res://assets/home_v2/chop_props.png")
+const WALK_JONAS := preload("res://assets/walk_v4/jonas.png")
+const WALK_LENA := preload("res://assets/walk_v4/lena.png")
+const WALK_FRAMES := 4
 static var _cache: Dictionary = {}
 
 
@@ -46,6 +49,10 @@ static func portrait(look: Dictionary) -> Texture2D:
 		"lena": return LENA
 		"jonas": return JONAS
 	return null
+
+
+static func side_walk(look: Dictionary) -> Texture2D:
+	return WALK_LENA if look.get("home_portrait", "") == "lena" else WALK_JONAS
 
 
 static func chop_prop(frame: int) -> AtlasTexture:

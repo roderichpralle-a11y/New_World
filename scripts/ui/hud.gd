@@ -2643,6 +2643,8 @@ static func version_text() -> String:
 	var text := Loc.t("Version %s%s") % [ver, Loc.t(" (Testversion)") if Game.is_test_build else ""]
 	if ProjectSettings.get_setting("application/config/home_art_revision", "") == "heimat-1":
 		text += " · Heimatinsel 1"
+	elif ProjectSettings.get_setting("application/config/home_art_revision", "") == "gang-1":
+		text += " · Gang 1"
 	return text
 
 

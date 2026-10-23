@@ -1,0 +1,144 @@
+{
+  "jonas": {
+    "frame": [
+      160,
+      144
+    ],
+    "columns": 4,
+    "rows": 1,
+    "ground_anchor": [
+      80,
+      136
+    ],
+    "complete_figures": true,
+    "frames": [
+      {
+        "source": "art/walk-v4/jonas-walk-source.png",
+        "source_rect": [
+          217,
+          133,
+          486,
+          570
+        ],
+        "placement": [
+          47,
+          30
+        ],
+        "uniform_scale": 0.24311926605504589
+      },
+      {
+        "source": "art/walk-v4/jonas-walk-source.png",
+        "source_rect": [
+          873,
+          139,
+          1130,
+          577
+        ],
+        "placement": [
+          50,
+          30
+        ],
+        "uniform_scale": 0.24311926605504589
+      },
+      {
+        "source": "art/walk-v4/jonas-walk-source.png",
+        "source_rect": [
+          203,
+          669,
+          483,
+          1111
+        ],
+        "placement": [
+          45,
+          29
+        ],
+        "uniform_scale": 0.24311926605504589
+      },
+      {
+        "source": "art/walk-v4/jonas-walk-source.png",
+        "source_rect": [
+          870,
+          669,
+          1133,
+          1114
+        ],
+        "placement": [
+          47,
+          28
+        ],
+        "uniform_scale": 0.24311926605504589
+      }
+    ]
+  },
+  "lena": {
+    "frame": [
+      160,
+      144
+    ],
+    "columns": 4,
+    "rows": 1,
+    "ground_anchor": [
+      80,
+      136
+    ],
+    "complete_figures": true,
+    "frames": [
+      {
+        "source": "art/walk-v4/lena-walk-source.png",
+        "source_rect": [
+          211,
+          107,
+          492,
+          568
+        ],
+        "placement": [
+          48,
+          23
+        ],
+        "uniform_scale": 0.2448087431693989
+      },
+      {
+        "source": "art/walk-v4/lena-walk-source.png",
+        "source_rect": [
+          854,
+          115,
+          1139,
+          576
+        ],
+        "placement": [
+          49,
+          23
+        ],
+        "uniform_scale": 0.2448087431693989
+      },
+      {
+        "source": "art/walk-v4/lena-walk-source.png",
+        "source_rect": [
+          201,
+          667,
+          490,
+          1129
+        ],
+        "placement": [
+          47,
+          23
+        ],
+        "uniform_scale": 0.2448087431693989
+      },
+      {
+        "source": "art/walk-v4/lena-walk-source.png",
+        "source_rect": [
+          845,
+          659,
+          1128,
+          1133
+        ],
+        "placement": [
+          48,
+          20
+        ],
+        "uniform_scale": 0.2448087431693989
+      }
+    ]
+  }
+}

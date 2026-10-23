@@ -31,6 +31,28 @@ static func run(main) -> void:
 		s._work_t = old.time
 		s._dir = old.dir
 		s._animate(0.0)
+		var moving: bool = s._moving
+		var working: bool = s._working
+		var direction: int = s._dir
+		var flipped: bool = s._flip
+		var distance: float = s._walk_distance
+		s._moving = true
+		s._working = false
+		s._dir = Settler.DIR_SIDE
+		for flip in [false,true]:
+			for frame in HomeArt.WALK_FRAMES:
+				s._flip = flip
+				s._walk_distance = (frame+0.01)/HomeArt.WALK_FRAMES*Settler.WALK_CYCLE_DISTANCE
+				s._animate(0.0)
+				FineTest.check(s._side_walk_sprite.visible and not s._home_sprite.visible, "vollständige Gehfigur "+s.display_name)
+				FineTest.check(s._side_walk_sprite.frame == frame and s._side_walk_sprite.flip_h == flip, "Gehphase %s/%d/%s" % [s.display_name,frame,str(flip)])
+				FineTest.check(s._side_walk_sprite.get_child_count() == 0, "keine einzelnen Gliedmaßen in der Gehfigur")
+		s._moving = moving
+		s._working = working
+		s._dir = direction
+		s._flip = flipped
+		s._walk_distance = distance
+		s._animate(0.0)
 
 
 static func scene(main, phase: int) -> void:
@@ -64,3 +86,16 @@ static func scene(main, phase: int) -> void:
 	var zoom := clampf(main.get_viewport_rect().size.x / 330.0, 1.0, 2.0)
 	main.camera.zoom = Vector2(zoom, zoom)
 	main.camera.focus(w.cell_to_pos(c) + Vector2(0, -2))
+
+
+static func walk_scene(main, frame: int, flip: bool) -> void:
+	scene(main,0)
+	for i in mini(2,main.world.settlers.size()):
+		var s = main.world.settlers[i]
+		s._moving = true
+		s._working = false
+		s.sleeping = false
+		s._flip = flip
+		s._walk_distance = (frame+0.01)/HomeArt.WALK_FRAMES*Settler.WALK_CYCLE_DISTANCE
+		s.position = main.world.cell_to_pos(main.world.center)+Vector2(-34+i*64,48)
+		s._animate(0.0)

@@ -560,6 +560,8 @@ func _maybe_autotest() -> void:
 			hud.show_rules_dialog(Game.rules_lines if not Game.rules_lines.is_empty() else _sample_rules_lines(), Callable(), false)
 		if args.has("homeview"):
 			HomeArtTest.scene(self, int(args.get("homephase", "2")))
+		if args.has("homewalk"):
+			HomeArtTest.walk_scene(self,int(args.get("walkframe","0")),args.has("walkflip"))
 		await get_tree().create_timer(0.5).timeout
 		await RenderingServer.frame_post_draw
 		get_viewport().get_texture().get_image().save_png(args.shot)
