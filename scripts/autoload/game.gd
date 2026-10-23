@@ -10,6 +10,7 @@ signal selection_changed(obj)
 signal speed_changed(speed: int)
 signal game_over
 signal research_changed
+signal ui_size_changed  # Anzeigegröße im Menü geändert (main._update_ui_scale)
 ## Spieler hat etwas getan (fuer die Einfuehrung), z. B. ("job", "holzfaeller")
 signal player_action(kind: String, what: String)
 ## Neues Spiel: reset_state ist fertig (die neue Welt entsteht erst danach). Systeme setzen
@@ -620,6 +621,24 @@ func _load_notify_settings() -> void:
 		notify_off[c] = not bool(cf.get_value("notify", c, true))
 	goal_card_on = bool(cf.get_value("notify", "goal_card", true))
 	hints_on = bool(cf.get_value("notify", "hints", true))
+	ui_size = float(cf.get_value("display", "ui_size", 1.0))
+	if not ui_size in UI_SIZES:
+		ui_size = 1.0
+
+
+## Anzeigegröße (josh 2026-10-23): kleiner = mehr vom Spiel und den Menüs sichtbar. Je Gerät in
+## user://settings.cfg [display] ui_size, damit der Mac klein und das iPhone bei 100 % bleiben kann.
+const UI_SIZES := [0.75, 1.0, 1.25]
+var ui_size := 1.0
+
+
+func set_ui_size(v: float) -> void:
+	ui_size = v
+	var cf := ConfigFile.new()
+	cf.load("user://settings.cfg")
+	cf.set_value("display", "ui_size", v)
+	cf.save("user://settings.cfg")
+	ui_size_changed.emit()
 
 
 func set_notify(cat: String, on: bool) -> void:

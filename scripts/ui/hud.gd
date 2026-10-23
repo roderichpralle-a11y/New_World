@@ -2041,6 +2041,7 @@ func _build_menu_panel() -> void:
 			_menu_panel.visible = false})
 		set_box.add_child(rw.box)
 	set_box.add_child(_language_row())
+	set_box.add_child(_ui_size_row())
 	var ft := Win.footer(v)
 	ft.left.text = version_text()
 	Win.set_left2(ft, tr("Das Spiel speichert automatisch."))
@@ -2077,6 +2078,32 @@ func _language_row() -> HBoxContainer:
 		else:
 			OS.set_restart_on_exit(true)
 			get_tree().quit())
+	h.add_child(ob)
+	return h
+
+
+## Anzeigegröße 75 / 100 / 125 % (josh 2026-10-23), gilt sofort und nur auf diesem Gerät.
+func _ui_size_row() -> HBoxContainer:
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 8)
+	var l := UiTheme.label(tr("Anzeigegröße"), 15)
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	l.tooltip_text = tr("Kleiner zeigt mehr vom Spiel und von den Menüs. Gilt nur auf diesem Gerät.")
+	l.mouse_filter = Control.MOUSE_FILTER_PASS
+	h.add_child(l)
+	var ob := OptionButton.new()
+	ob.focus_mode = Control.FOCUS_NONE
+	ob.custom_minimum_size = Vector2(140, 40)
+	ob.add_theme_font_size_override("font_size", 15)
+	ob.get_popup().add_theme_font_size_override("font_size", 16)
+	ob.tooltip_text = l.tooltip_text
+	for v in Game.UI_SIZES:
+		ob.add_item("%d %%" % roundi(v * 100.0))
+		if is_equal_approx(v, Game.ui_size):
+			ob.select(ob.item_count - 1)
+	ob.item_selected.connect(func(i):
+		Game.set_ui_size(Game.UI_SIZES[i])
+		_layout.call_deferred())
 	h.add_child(ob)
 	return h
 
