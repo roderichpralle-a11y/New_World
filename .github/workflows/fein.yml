@@ -58,6 +58,10 @@ jobs:
           test -s build/web/index.wasm
           printf '1.1.0\n' > build/web/version.txt
           touch build/web/.nojekyll
+      - name: Neue Spieldatei vom Browser-Cache unterscheiden
+        run: |
+          python -m unittest discover -s tools -p 'test_version_web_pack.py'
+          python tools/version_web_pack.py build/web --revision "$GITHUB_SHA" --entry gang-2.html
       - name: Prüfprotokolle behalten
         if: always()
         uses: actions/upload-artifact@v4
