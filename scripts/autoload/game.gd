@@ -628,7 +628,7 @@ func _load_notify_settings() -> void:
 
 ## Anzeigegröße (josh 2026-10-23): kleiner = mehr vom Spiel und den Menüs sichtbar. Je Gerät in
 ## user://settings.cfg [display] ui_size, damit der Mac klein und das iPhone bei 100 % bleiben kann.
-const UI_SIZES := [0.75, 1.0, 1.25]
+const UI_SIZES := [0.5, 0.75, 1.0, 1.25]
 var ui_size := 1.0
 
 

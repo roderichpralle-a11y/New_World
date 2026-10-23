@@ -2082,7 +2082,7 @@ func _language_row() -> HBoxContainer:
 	return h
 
 
-## Anzeigegröße 75 / 100 / 125 % (josh 2026-10-23), gilt sofort und nur auf diesem Gerät.
+## Anzeigegröße 50 / 75 / 100 / 125 % (josh 2026-10-23), gilt sofort und nur auf diesem Gerät.
 func _ui_size_row() -> HBoxContainer:
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 8)
