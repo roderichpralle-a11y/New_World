@@ -15,58 +15,58 @@
       {
         "source": "art/walk-v4/jonas-walk-source.png",
         "source_rect": [
-          217,
-          133,
-          486,
-          570
+          200,
+          63,
+          554,
+          601
         ],
         "placement": [
           47,
           30
         ],
-        "uniform_scale": 0.24311926605504589
+        "uniform_scale": 0.1968430826369545
       },
       {
         "source": "art/walk-v4/jonas-walk-source.png",
         "source_rect": [
-          873,
-          139,
-          1130,
-          577
+          740,
+          63,
+          1020,
+          602
         ],
         "placement": [
-          50,
+          55,
           30
         ],
-        "uniform_scale": 0.24311926605504589
+        "uniform_scale": 0.1968430826369545
       },
       {
         "source": "art/walk-v4/jonas-walk-source.png",
         "source_rect": [
-          203,
-          669,
-          483,
-          1111
+          191,
+          682,
+          569,
+          1228
         ],
         "placement": [
           45,
           29
         ],
-        "uniform_scale": 0.24311926605504589
+        "uniform_scale": 0.1968430826369545
       },
       {
         "source": "art/walk-v4/jonas-walk-source.png",
         "source_rect": [
-          870,
-          669,
-          1133,
-          1114
+          740,
+          681,
+          1021,
+          1230
         ],
         "placement": [
-          47,
+          55,
           28
         ],
-        "uniform_scale": 0.24311926605504589
+        "uniform_scale": 0.1968430826369545
       }
     ]
   },
@@ -86,58 +86,58 @@
       {
         "source": "art/walk-v4/lena-walk-source.png",
         "source_rect": [
-          211,
-          107,
-          492,
-          568
+          199,
+          62,
+          556,
+          601
         ],
         "placement": [
-          48,
-          23
+          46,
+          24
         ],
-        "uniform_scale": 0.2448087431693989
+        "uniform_scale": 0.2077922077922078
       },
       {
         "source": "art/walk-v4/lena-walk-source.png",
         "source_rect": [
-          854,
-          115,
-          1139,
-          576
+          731,
+          63,
+          1021,
+          602
         ],
         "placement": [
-          49,
-          23
+          54,
+          24
         ],
-        "uniform_scale": 0.2448087431693989
+        "uniform_scale": 0.2077922077922078
       },
       {
         "source": "art/walk-v4/lena-walk-source.png",
         "source_rect": [
-          201,
-          667,
-          490,
-          1129
+          190,
+          681,
+          575,
+          1228
         ],
         "placement": [
-          47,
-          23
+          44,
+          22
         ],
-        "uniform_scale": 0.2448087431693989
+        "uniform_scale": 0.2077922077922078
       },
       {
         "source": "art/walk-v4/lena-walk-source.png",
         "source_rect": [
-          845,
-          659,
-          1128,
-          1133
+          735,
+          682,
+          1022,
+          1229
         ],
         "placement": [
-          48,
-          20
+          54,
+          22
         ],
-        "uniform_scale": 0.2448087431693989
+        "uniform_scale": 0.2077922077922078
       }
     ]
   }

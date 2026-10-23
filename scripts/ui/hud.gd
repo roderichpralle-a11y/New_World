@@ -2645,6 +2645,8 @@ static func version_text() -> String:
 		text += " · Heimatinsel 1"
 	elif ProjectSettings.get_setting("application/config/home_art_revision", "") == "gang-1":
 		text += " · Gang 1"
+	elif ProjectSettings.get_setting("application/config/home_art_revision", "") == "gang-2":
+		text += " · Gang 2"
 	return text
 
 
