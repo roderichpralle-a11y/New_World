@@ -19,6 +19,9 @@ import build  # noqa: E402
 
 FIG = 21.0  # Figur in Spielpixeln
 DOOR = 18.0  # Tür in Spielpixeln (Weg B: 0,85 Figuren)
+# josh 2026-10-24 14:02: Gebäude und Bäume 30 % kleiner als auf den ersten Vergleichstafeln
+SHRINK = 0.7
+TREES = {"tree0", "tree1", "tree2", "tree3", "palm0", "palm1", "palm_empty"}
 
 # Türhöhe je Bogen (Bogenpixel), gilt für Bilder ohne eigene Messung
 SHEET_DOOR = {
@@ -64,13 +67,16 @@ KEEP_SIZE = {"lighthouse", "tower", "monument"}
 
 def scale_for(name, sheet, img):
     """Spielpixel je Bogenpixel."""
+    import build as b
+    decor = name in b.BUILDINGS and b.BUILDINGS[name][0].startswith("gebaeude_schmuck")
+    k = SHRINK if name in TREES or (name in b.BUILDINGS and not decor) else 1.0
     if name in FIXED:
         kind, v = FIXED[name]
-        return v / (img.height if kind == "h" else img.width)
+        return v * k / (img.height if kind == "h" else img.width)
     door = DOORS.get(name, SHEET_DOOR.get(sheet))
     if door is None:
         return None
-    return DOOR / door
+    return DOOR * k / door
 
 
 def new_footprint(name, old, w_game):

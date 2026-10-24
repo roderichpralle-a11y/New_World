@@ -342,7 +342,40 @@ def gen_buildings():
     c = cells["park_tree"][0]
     clear(atlas, (c % 8) * 64, (c // 8) * 64, 64, 64)
     save(atlas, "buildings")
+    gen_big()
     return cells
+
+
+BIG_PAD = 3  # Spielpixel unter dem Bild: Building setzt Bilder 4 Pixel unter den Fuß (Sockel ragt 1 Pixel vor)
+
+
+def gen_big():
+    """Größenverhältnisse (josh 2026-10-24, Weg B, 30 % kleiner): jedes Gebäude als eigene Datei
+    assets/sprites_hd/big/<name>.png in seiner gemessenen Größe (scale.py), Bilder nebeneinander.
+    big/index.json: Name -> [Bilder, Breite, Höhe] je Bild in Spielpixeln (Data.BIG)."""
+    import scale as sc
+    out_dir = os.path.join(OUT, "big")
+    os.makedirs(out_dir, exist_ok=True)
+    cells = building_cells()
+    index = {}
+    for name, spec in BUILDINGS.items():
+        img = building_img(name)
+        f = sc.scale_for(name, spec[0], img)
+        img = scale(img, f * S)
+        frames = cells.get(name, (0, 1))[1]
+        if name in ("hut", "storehouse"):
+            frames = 1
+        w = -(-img.width // S)
+        h = -(-img.height // S) + BIG_PAD
+        sheet_img = Image.new("RGBA", (w * S * frames, h * S), (0, 0, 0, 0))
+        anim = ANIMS.get(name)
+        for fr in range(frames):
+            im = anim(img, fr, frames) if anim else img
+            sheet_img.alpha_composite(im, (fr * w * S + (w * S - im.width) // 2, (h - BIG_PAD) * S - im.height))
+        sheet_img.save(os.path.join(out_dir, name + ".png"), optimize=True)
+        index[name] = [frames, w, h]
+    json.dump(index, open(os.path.join(out_dir, "index.json"), "w"), indent=0, sort_keys=True)
+    print("   big", len(index))
 
 
 # ------------------------------------------------------------------ Bewegungen (Bilder je Frame)
@@ -600,10 +633,8 @@ def gen_animals():
     # Maßstab: Bär ~23 Spielpixel breit; Pirat so groß wie ein Siedler
     for row, rects in ANIMAL_ROWS:
         imgs = [grab("tiere_piraten", r, keep=0.05, feet=True) for r in rects]
-        if row == 3:
-            f = FIG_H * 1.05 * S / imgs[0].height
-        else:
-            f = {0: 20.0, 1: 19.0, 2: 23.0}[row] * S / max(i.width for i in imgs[:4])
+        import scale as sc
+        f = sc.FIXED[["wolf", "eber", "baer", "pirat"][row]][1] * S / imgs[0].height
         for col, img in enumerate(imgs):
             img = scale(img, f)
             put(atlas, img, col * c, row * c, c, c, bottom=1)
@@ -719,13 +750,22 @@ def _bottom_for(cell):
     return 3 if cell[3] > 16 else 0
 
 
+def nature_img(name, cell):
+    """Natur in der Größe aus scale.py (Bäume knapp 2 Figuren hoch), höchstens so groß wie die Zelle."""
+    import scale as sc
+    sh, rect, w = NATURE[name]
+    img = grab(sh, rect, keep=0.03)
+    f = sc.scale_for(name, sh, img)
+    if f is None:
+        return fit(img, w * S, (cell[3] - 1) * S, upscale=True)
+    img = scale(img, f * S)
+    return fit(img, cell[2] * S, (cell[3] - 1) * S)
+
+
 def gen_objects(cells):
     atlas = old_hd("objects")
     for name, cell in OBJ1.items():
-        sh, rect, w = NATURE[name]
-        img = grab(sh, rect, keep=0.03)
-        img = fit(img, w * S, (cell[3] - 1) * S, upscale=True)
-        put(atlas, img, *cell, bottom=_bottom_for(cell))
+        put(atlas, nature_img(name, cell), *cell, bottom=_bottom_for(cell))
     # Hütte und Lagerhaus (48x48)
     for name, cell in (("hut", (0, 48, 48, 48)), ("storehouse", (48, 48, 48, 48))):
         img = fit(building_img(name), 50 * S, 44 * S)
@@ -762,15 +802,12 @@ def gen_objects(cells):
 
     atlas = old_hd("objects2")
     for name, cell in OBJ2.items():
-        sh, rect, w = NATURE[name]
-        img = grab(sh, rect, keep=0.03)
-        img = fit(img, w * S, (cell[3] - 1) * S, upscale=True)
-        put(atlas, img, *cell, bottom=_bottom_for(cell))
+        put(atlas, nature_img(name, cell), *cell, bottom=_bottom_for(cell))
     # Boot und Schiffe (2 Bilder: schaukeln)
     for name, cell, ic in (("boat", (0, 64, 32, 32), "boot"), ("ship_kogge", (0, 96, 48, 48), "kogge"),
                            ("ship_fast", (96, 96, 48, 48), "schnellsegler"), ("ship_galleon", (192, 96, 48, 48), "galeone")):
         img = ICONS[ic]
-        w = {"boat": 22, "ship_kogge": 36, "ship_fast": 32, "ship_galleon": 44}[name]
+        w = min(cell[2] - 2, {"boat": 26, "ship_kogge": 44, "ship_fast": 40, "ship_galleon": 46}[name])
         img = fit(img, w * S, (cell[3] - 4) * S, upscale=True)
         for f in range(2):
             put(atlas, anim_bob(img, f, 2), cell[0] + f * cell[2], cell[1], cell[2], cell[3], bottom=2)

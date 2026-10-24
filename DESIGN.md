@@ -38,6 +38,14 @@ bleiben bei der alten Grafik; dieser Zweig wird nicht nach main gemischt, solang
 - **Noch alte Grafik** (keine Bögen dazu): Stahlwerk, Fabrik, Kraftwerk, Elektronikwerk, Droidenfabrik,
   Solarpark, Fusionsreaktor, Droiden, Schubkarre, Grab, Pfeil, Werkzeuge Spitzhacke/Sichel/Löffel/
   Mistgabel/Keule.
+- **Größenverhältnisse** (josh 2026-10-24, Weg B, dann „Gebäude und Bäume 30 % kleiner“): Maßstab ist die
+  Figur (21 Pixel, bleibt immer so). `tools/art_v2/scale.py` misst je Bild die Haustür im Bogen (`DOORS`,
+  sonst `SHEET_DOOR` des Bogens) und setzt sie auf 18 · 0,7 Pixel; Bäume, Tiere, Schmuck und Schiffe haben feste
+  Höhen (`FIXED`), Gebäude und Bäume mal `SHRINK` = 0,7, Schmuck nicht. Gebäude liegen darum als eigene Bilder in
+  `assets/sprites_hd/big/<name>.png` (Bilder nebeneinander, 3 Pixel Rand unten), `big/index.json` -> `Data.BIG`
+  geht in `Data.object_tex` vor allen Atlanten (index.json steht im Export-Filter). Grundflächen in
+  buildings.json daraus abgeleitet (Mauern etwa 70 % der Bildbreite, höchstens 2 Felder mehr; Jagdhütte 3x2).
+  `python3 tools/art_v2/scale.py` schreibt Vergleichstafeln nach tools/preview/v2/.
 - Neu bauen: `python3 tools/art_v2/build.py`, Bildschirmfoto mit festem Zoom: `--zoom=4` (Testhilfe).
 
 ## Spielregeln (Etappe 1)

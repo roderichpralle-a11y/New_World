@@ -140,6 +140,10 @@ const CART_LOAD := [[Vector2(0, -4), 0.625], [Vector2(0, -24), 0.5], [Vector2(11
 const TOOL_INDEX := {"axe": 0, "pick": 1, "basket": 2, "rod": 3, "hammer": 4, "sickle": 5,
 	"spoon": 6, "book": 7, "shovel": 8, "spear": 9, "saber": 10, "pitchfork": 11, "club": 12, "newspaper": 13}
 
+## Größenverhältnisse (josh 2026-10-24): Gebäude als eigene Bilder in ihrer gemessenen Größe
+## (assets/sprites_hd/big, tools/art_v2/build.py gen_big): Name -> [Bilder, Breite, Höhe] je Bild.
+## Gilt vor BUILDING_CELLS und objects.png.
+var BIG: Dictionary = {}
 var _icon_index: Dictionary = {}
 var _cache: Dictionary = {}
 
@@ -163,6 +167,11 @@ func _ready() -> void:
 	goals = _load("goals")
 	animals = _load("animals")
 	people = _load("people")
+	var bf := FileAccess.open("res://assets/sprites_hd/big/index.json", FileAccess.READ)
+	if bf:
+		var bi = JSON.parse_string(bf.get_as_text())
+		if bi is Dictionary:
+			BIG = bi
 	var f := FileAccess.open("res://assets/sprites/icons.txt", FileAccess.READ)
 	if f:
 		var i := 0
@@ -219,7 +228,13 @@ func object_tex(name: String, frame: int = 0) -> AtlasTexture:
 	if _cache.has(key):
 		return _cache[key]
 	var at := AtlasTexture.new()
-	if BUILDING_CELLS.has(name):
+	if BIG.has(name):
+		var b: Array = BIG[name]
+		if not _cache.has("big:" + name):
+			_cache["big:" + name] = hd("big/" + name)
+		at.atlas = _cache["big:" + name]
+		at.region = Rect2(float(b[1]) * (frame % int(b[0])), 0, float(b[1]), float(b[2]))
+	elif BUILDING_CELLS.has(name):
 		var i: int = BUILDING_CELLS[name][0] + frame
 		at.atlas = tex_buildings
 		at.region = Rect2((i % 8) * 64, (i / 8) * 64, 64, 64)
@@ -240,6 +255,8 @@ func object_tex(name: String, frame: int = 0) -> AtlasTexture:
 
 
 func object_frames(name: String) -> int:
+	if BIG.has(name):
+		return int(BIG[name][0])
 	if BUILDING_CELLS.has(name):
 		return BUILDING_CELLS[name][1]
 	if OBJECT2_REGIONS.has(name):
