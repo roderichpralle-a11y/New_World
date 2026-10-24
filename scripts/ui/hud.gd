@@ -334,7 +334,7 @@ func _on_speed(s: int) -> void:
 ## Knöpfe der Leiste unten (josh 2026-10-19): Bilder statt Text aus assets/sprites/menu_icons.png
 ## (tools/gen_art_menu.py, je 20x20, doppelt groß gezeigt); der Name steht im Tooltip.
 const MENU_ICONS := ["bauen", "forschung", "siedler", "inseln", "menue", "verwalter"]
-const MENU_TEX := preload("res://assets/sprites/menu_icons.png")
+var MENU_TEX: Texture2D = Data.hd("menu_icons")
 var _admin_btn: Button
 var _admin_panel: PanelContainer  # Fenster Verwalter (AdminInfo.fill_window)
 var _admin_box: VBoxContainer
@@ -2757,7 +2757,7 @@ func _update_notify_footer() -> void:
 ## Versionsnummer steht nur in project.godot (application/config/version).
 static func version_text() -> String:
 	var ver := str(ProjectSettings.get_setting("application/config/version", "?"))
-	return Loc.t("Version %s%s") % [ver, Loc.t(" (Testversion)") if Game.is_test_build else ""]
+	return Loc.t("Version %s%s") % [ver, Loc.t(" (Testversion)") if Game.is_test_build and Game.build_tag != "v2" else ""]
 
 
 func _version_label() -> Label:
@@ -3654,7 +3654,9 @@ func show_title(has_save: bool) -> void:
 	st.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(st)
 	if Game.is_test_build:
-		var tb := UiTheme.label(tr("Testversion mit eigenem Spielstand.\nDein normales Spiel bleibt unverändert."), 14, Color("#c03a2a"), true)
+		var tx := tr("Version 2 mit neuer Grafik und eigenem Spielstand.\nDein normales Spiel bleibt unverändert.") if Game.build_tag == "v2" \
+			else tr("Testversion mit eigenem Spielstand.\nDein normales Spiel bleibt unverändert.")
+		var tb := UiTheme.label(tx, 14, Color("#c03a2a"), true)
 		tb.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		v.add_child(tb)
 	if has_save:

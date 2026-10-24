@@ -386,13 +386,14 @@ func refresh() -> void:
 			t.texture = Data.object_tex("%s%d" % [tiles, stage])
 			t.modulate = Color(1, 1, 1, 1.0 if complete else 0.55)
 	else:
-		# Schmuck zeigt als Baustelle sein eigenes Bild halb durchsichtig (das Baugerüst wäre zu groß)
-		var name: String = def.sprite if complete or is_decor() else "construction"
+		# Baustellen zeigen ihr eigenes Bild halb durchsichtig (2.0.0: auch Gebäude, das alte Baugerüst
+		# passte nicht zu joshs Bildern; vorher nur Schmuck, dem das Gerüst zu groß war)
+		var name: String = def.sprite
 		var tex := Data.object_tex(name, 0)
 		_sprite.texture = tex
 		var sz := tex.region.size
 		_sprite.offset = Vector2(-sz.x / 2.0, -sz.y + 4 if sz.y > 16 else -sz.y + 6)
-		_sprite.modulate = Color.WHITE if complete or not is_decor() else Color(1, 1, 1, 0.45)
+		_sprite.modulate = Color.WHITE if complete else Color(1, 1, 1, 0.45)
 		for p in _props:
 			var ps: Sprite2D = p[0]
 			ps.texture = Data.object_tex(p[2])

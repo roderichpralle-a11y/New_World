@@ -1,10 +1,11 @@
 name: Web-Version bauen und veröffentlichen
 
 # main -> Spiel unter /, Testzweig -> Testversion unter /test/ (eigener Spielstand),
-# Umbau "Mehr Herausforderung" -> /neu/ (eigener Spielstand)
+# Umbau "Mehr Herausforderung" -> /neu/ (eigener Spielstand),
+# Version 2.0.0 mit joshs neuen Bildern -> /v2/ (eigener Spielstand, Zweig claude/project-thread-9zqobi)
 on:
   push:
-    branches: [main, claude/entwicklungsbaum-x33t1h, claude/project-thread-m73c7d]
+    branches: [main, claude/entwicklungsbaum-x33t1h, claude/project-thread-m73c7d, claude/project-thread-9zqobi]
   workflow_dispatch:
 
 permissions:
@@ -26,9 +27,12 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Versionsnummer setzen (1.0.N, N = Anzahl Stände auf dem Zweig)
+      - name: Versionsnummer setzen (1.0.N, N = Anzahl Stände auf dem Zweig; 2.0.N auf /v2/ ab 0)
         run: |
           n=$(git rev-list --count --first-parent HEAD)
+          if [ "${{ github.ref_name }}" = "claude/project-thread-9zqobi" ]; then
+            n=$(( $(git rev-list --count --first-parent origin/main..HEAD) - 1 ))
+          fi
           base=$(sed -n 's/^config\/version="\([0-9]*\.[0-9]*\)\..*"/\1/p' project.godot)
           sed -i "s/^config\/version=\".*\"/config\/version=\"$base.$n\"/" project.godot
           grep '^config/version' project.godot
@@ -62,6 +66,6 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: build/web
-          destination_dir: ${{ github.ref_name == 'main' && '.' || (github.ref_name == 'claude/project-thread-m73c7d' && 'neu' || 'test') }}
+          destination_dir: ${{ github.ref_name == 'main' && '.' || (github.ref_name == 'claude/project-thread-m73c7d' && 'neu' || (github.ref_name == 'claude/project-thread-9zqobi' && 'v2' || 'test')) }}
           keep_files: true
           commit_message: Web-Version (${{ github.ref_name }})

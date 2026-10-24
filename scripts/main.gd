@@ -549,6 +549,8 @@ func _maybe_autotest() -> void:
 		if args.has("look"):
 			Game.select(null)
 			camera.focus(world.cell_to_pos(world.center))
+		if args.has("zoom"):  # Testhilfe 2.0.0: Bildschirmfoto mit festem Zoom (Details der neuen Bilder)
+			camera.zoom = Vector2.ONE * float(args.zoom)
 		if args.has("rulesdialog"):
 			# Bildschirmfoto des Fensters "Neue Regeln" (ohne alten Spielstand mit Beispielzeilen)
 			hud.show_rules_dialog(Game.rules_lines if not Game.rules_lines.is_empty() else _sample_rules_lines(), Callable(), false)

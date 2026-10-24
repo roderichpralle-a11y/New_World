@@ -8,18 +8,8 @@ const SKIN := ["#f2c9a0", "#e0ac7e", "#c68a5e", "#9a6440", "#6e4630"]
 const HAIR := ["#3a2a22", "#6b4226", "#a8642e", "#d9a650", "#f0d890", "#2b2b38", "#b84a2e", "#8c8c94"]
 const SHIRT := ["#4f8fd6", "#d65f4f", "#58b06a", "#e0b040", "#9a68c8", "#e08a40", "#40b0b0", "#f0f0e8"]
 const PANTS := ["#5a4a7a", "#4a5a3a", "#6a4a3a", "#3a4a6a", "#7a6a5a"]
-## Berufskleidung (josh 2026-10-20): Farben für Hemd/Hose und Überlagerungen (assets/sprites/settler_<name>.png,
-## tools/gen_art_outfits.py). Nur Erwachsene und nur während der Arbeit (josh 2026-10-21); in der Freizeit,
-## beim Essen, Schlafen und ohne Arbeit die eigene Kleidung.
-const OUTFIT := {
-	"handwerker": {"shirt": "#4c72ae", "pants": "#3e5e96"},  # blauer Overall
-	"bauer": {"pants": "#7a5434", "over": ["cap"]},
-	"koch": {"pants": "#f2eee6", "over": ["chefhat"]},
-	"forscher": {"shirt": "#f2f0ea"},  # weißes Hemd (josh 2026-10-21, statt Brille)
-	"jaeger": {"over": ["hunthat", "rifle"]},
-	"steinmetz": {"over": ["apron"]},
-	"foerster": {"over": ["saw"]},
-}
+## Berufskleidung (josh 2026-10-20) zeigt seit 2.0.0 die Figur des Berufs aus joshs Bögen (fig_sheet),
+## nur Erwachsene und nur während der Arbeit (josh 2026-10-21).
 const DIR_DOWN := 0
 const DIR_UP := 1
 const DIR_SIDE := 2
@@ -96,8 +86,25 @@ static var _sheets: Dictionary = {}
 
 static func sheet(name: String) -> Texture2D:
 	if not _sheets.has(name):
-		_sheets[name] = load("res://assets/sprites/settler_%s.png" % name)
+		_sheets[name] = Data.hd("settler_" + name)
 	return _sheets[name]
+
+
+## Figur je Beruf (Zellen 24x28, Füße bei y=26; Zeilen: vorn, seitlich (auch nach oben), seitlich).
+const FIG_OFFSET := Vector2(-12, -26)
+## Diese Figuren halten ihr Werkzeug schon in der Hand: beim Arbeiten schwingt dann kein zweites.
+const FIG_HOLDS := ["holzfaeller", "steinmetz", "sammler", "fischer", "bauer", "koch", "forscher", "jaeger",
+	"verwalter", "seemann", "foerster"]
+
+
+static func fig_sheet(p_job: String, p_sex: String) -> Texture2D:
+	var sx := "f" if p_sex == "f" else "m"
+	var key := "fig_%s_%s" % [p_job, sx]
+	if not ResourceLoader.exists("res://assets/sprites_hd/%s.png" % key):
+		key = "fig_frei_" + sx
+	if not _sheets.has(key):
+		_sheets[key] = Data.hd(key)
+	return _sheets[key]
 
 
 func setup(p_world, data: Dictionary) -> void:
@@ -147,30 +154,16 @@ func _build_visual() -> void:
 	add_child(_shadow)
 	_body = Node2D.new()
 	add_child(_body)
-	var style := int(look.get("style", 0))
-	var order := [["pants", "pants"], ["shirt", "shirt"], ["skin", "skin"],
-		["hair_%d" % style, "hair"], ["fixed_bun" if style == 2 else "fixed", ""]]
-	for o in order:
-		var s := Sprite2D.new()
-		s.texture = sheet(o[0])
-		s.hframes = 4
-		s.vframes = 3
-		s.centered = false
-		s.offset = Vector2(-8, -22)
-		if o[1] != "":
-			s.modulate = Color(look.get(o[1], "#ffffff"))
-		_body.add_child(s)
-		_layers[o[0]] = s
-	for o in ["apron", "glasses", "cap", "chefhat", "hunthat", "saw", "rifle"]:  # Berufskleidung, unsichtbar bis _apply_outfit
-		var s := Sprite2D.new()
-		s.texture = sheet(o)
-		s.hframes = 4
-		s.vframes = 3
-		s.centered = false
-		s.offset = Vector2(-8, -22)
-		s.visible = false
-		_body.add_child(s)
-		_layers[o] = s
+	# 2.0.0 (josh 2026-10-24): ganze Figuren aus joshs Bildbögen je Beruf und Geschlecht statt
+	# eingefärbter Schichten (assets/sprites_hd/fig_<beruf>_<m|f>.png, tools/art_v2/build.py)
+	var s := Sprite2D.new()
+	s.texture = fig_sheet("frei", sex)
+	s.hframes = 4
+	s.vframes = 3
+	s.centered = false
+	s.offset = FIG_OFFSET
+	_body.add_child(s)
+	_layers["fig"] = s
 	_tool = Sprite2D.new()
 	_tool.visible = false
 	_tool.position = Vector2(5, -8)
@@ -258,17 +251,13 @@ var _outfit_job := "?"
 var by_admin := false  # Beruf vom Verwalter zugewiesen (josh 2026-10-21)
 
 
-## Kleidung zum Beruf (OUTFIT): Hemd und Hose einfärben, Mützen, Brille, Schürze, Gewehr und Säge zeigen.
+## Kleidung zum Beruf: bei der Arbeit die Figur des Berufs, sonst die freie Figur.
 func _apply_outfit() -> void:
 	_outfit_job = _outfit_key()
-	if not _layers.has("shirt"):
+	if not _layers.has("fig"):
 		return  # Droiden haben ein eigenes Bild
-	var o: Dictionary = OUTFIT.get(job, {}) if _at_work() else {}
-	_layers["shirt"].modulate = Color(o.get("shirt", look.get("shirt", "#ffffff")))
-	_layers["pants"].modulate = Color(o.get("pants", look.get("pants", "#ffffff")))
-	var over: Array = o.get("over", [])
-	for k in ["apron", "glasses", "cap", "chefhat", "hunthat", "saw", "rifle"]:
-		_layers[k].visible = k in over
+	# Berufskleidung nur bei der Arbeit (josh 2026-10-21), Kinder immer in Freizeitkleidung
+	_layers["fig"].texture = fig_sheet(job if _at_work() else "frei", sex)
 
 
 ## Arbeitet gerade (im Beruf oder als Helfer), nicht beim Essen, Schlafen, in der Freizeit oder ohne Arbeit.
@@ -1756,7 +1745,6 @@ func _animate(delta: float) -> void:
 		var s: Sprite2D = _layers[k]
 		s.frame = _dir * 4 + frame
 		s.flip_h = _flip and _dir == DIR_SIDE
-		s.offset.x = -8 if not s.flip_h else -8
 	# Werkzeug schwingen
 	var battle: bool = _battle_tool != "" and not _plan.is_empty() and _plan[0].get("defend", false) and not _working
 	var reading: String = _plan[0].get("read", "") if not _plan.is_empty() and _plan[0].a == "wait" and not _moving else ""
@@ -1793,6 +1781,8 @@ func _animate(delta: float) -> void:
 		_tool.flip_h = _flip and _dir == DIR_SIDE
 		_tool.z_index = -1 if _dir == DIR_UP else 0
 		_body.position.y = -abs(swing) * 0.8 if not sleeping else _body.position.y
+		if _layers.has("fig") and job in FIG_HOLDS and _at_work():
+			_tool.texture = null  # die Figur hält ihr Werkzeug selbst, sie wippt nur im Takt
 	elif not sleeping:
 		var sitting: bool = not _plan.is_empty() and _plan[0].a == "wait" and _plan[0].has("sit") and not _moving
 		_body.position.y = 2 if sitting else 0

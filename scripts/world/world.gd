@@ -74,6 +74,8 @@ var sunk: Array = []
 
 func _ready() -> void:
 	_rng.randomize()
+	# 2.0.0: Bilder in vierfacher Auflösung, beim Herauszoomen weich verkleinert (Data.hd)
+	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 
 
 # ================================================================== Aufbau
@@ -221,6 +223,7 @@ func _build_terrain(island: Dictionary) -> void:
 	for i in 3:
 		var l := TileMapLayer.new()
 		l.tile_set = ts
+		l.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST  # Kacheln ohne Rand: keine Nähte beim Filtern
 		add_child(l)
 		_layers.append(l)
 	# Jede Inselart hat ihren eigenen Grünton
@@ -256,6 +259,7 @@ func _make_tileset() -> TileSet:
 	ts.tile_size = Vector2i(T, T)
 	var src := TileSetAtlasSource.new()
 	src.texture = Data.tex_terrain
+	src.use_texture_padding = false  # das Bild ist größer als gemeldet (Data.hd)
 	src.texture_region_size = Vector2i(T, T)
 	# Wasser animiert (4 Frames ab 0,0)
 	src.create_tile(Vector2i(0, 0))

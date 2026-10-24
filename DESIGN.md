@@ -8,6 +8,38 @@ Sommer, Inselstärken mit Gewürzen und fremden Händlern, Bedürfnisstufen der 
 angekündigte Ereignisse, Forschung mit Schriften (Tontafeln, Papier, Strom), Prüfungen beim
 Zeitalterwechsel mit Wertung und Aufträge mit Wahl. Überblick und Zusammenspiel: „Regeln ab Version 2“.
 
+## Version 2.0.0: neue Grafik aus joshs Bildbögen (josh 2026-10-24)
+
+Eigener Zweig `claude/project-thread-9zqobi`, Web-Adresse `/v2/` (web.yml nur auf diesem Zweig),
+eigener Spielstand (`Game.build_tag = "v2"`), Version 2.0.N (N = Stände seit main). main und /neu/
+bleiben bei der alten Grafik; dieser Zweig wird nicht nach main gemischt, solange josh es nicht sagt.
+
+- **Bögen:** `tools/art_v2/src/*.png` (23 Bögen von josh: Figuren je Beruf, Gebäude, Boden, Wege,
+  Rohstoffe, Symbole, Tiere und Piraten, Oberfläche). Sie werden nicht neu gezeichnet:
+  `tools/art_v2/build.py` stellt jedes Bild frei (`cut.py`: Papier per Flutfüllung vom Rand,
+  Beschriftungen und Bodenschatten weg), verkleinert es und setzt es in die bekannten Atlanten.
+- **Vierfache Auflösung:** `assets/sprites_hd/<atlas>.png` sind 4x so groß wie `assets/sprites/`.
+  `Data.hd(name)` lädt sie als ImageTexture mit Mipmaps und meldet per `set_size_override` die alte
+  Größe; darum gelten alle Regionen, Zellen und Versätze im Code unverändert. Die Welt zeichnet mit
+  `TEXTURE_FILTER_LINEAR_WITH_MIPMAPS` (weich beim Herauszoomen, bei Zoom 4 Pixel für Pixel), die
+  Bodenkacheln mit NEAREST und ohne Texture-Padding (keine Nähte). Fehlt ein HD-Bild, gilt das alte.
+- **Figuren:** ganze Figuren je Beruf und Geschlecht (`fig_<beruf>_<m|f>.png`, Zellen 24x28, Füße bei
+  y=26, `Settler.FIG_OFFSET`); Zeilen vorn, seitlich (auch für „nach oben“), seitlich; 4 Laufbilder
+  entstehen aus dem Standbild (Bein gehoben bzw. Beine geschert, Körper wippt). Bei der Arbeit die
+  Berufsfigur, sonst die freie (`_apply_outfit`). Figuren mit Werkzeug in der Hand (`FIG_HOLDS`)
+  schwingen kein zweites Werkzeug, sie wippen nur. Die alten Farbschichten nutzen nur noch die
+  Fest- und Protest-Videos.
+- **Bewegungen aus den Bildern:** Mühlenflügel drehen sich (`anim_mill`), Lagerfeuer flackert, Fahne
+  weht, Springbrunnen glitzert, Hologramm flimmert, Leuchtfeuer, Schiffe schaukeln, Fischgrund und Wasser.
+- **Baustellen** zeigen das fertige Bild halb durchsichtig (das alte Baugerüst passte nicht dazu).
+- **Neu:** eigene Bilder für Große und Königliche Werft (`shipyard2`/`shipyard3`, Zellen 92/93),
+  Fichte als vierter Baum (`tree3`). Die Extra-Bäume der Parkanlage (`park_tree`) sind leer, das Parkbild
+  hat seine Bäume selbst.
+- **Noch alte Grafik** (keine Bögen dazu): Stahlwerk, Fabrik, Kraftwerk, Elektronikwerk, Droidenfabrik,
+  Solarpark, Fusionsreaktor, Droiden, Schubkarre, Grab, Pfeil, Werkzeuge Spitzhacke/Sichel/Löffel/
+  Mistgabel/Keule.
+- Neu bauen: `python3 tools/art_v2/build.py`, Bildschirmfoto mit festem Zoom: `--zoom=4` (Testhilfe).
+
 ## Spielregeln (Etappe 1)
 
 - Start: eine zufällige Insel aus einem Seed, Lagerfeuer und eine Hütte, zwei Siedler

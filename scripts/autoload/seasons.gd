@@ -11,7 +11,7 @@ signal climate_announced(kind: String, type: String)
 
 enum {SPRING, SUMMER, AUTUMN, WINTER}
 const KEYS := ["fruehling", "sommer", "herbst", "winter"]
-const TEX := preload("res://assets/sprites/seasons.png")
+var TEX: Texture2D = Data.hd("seasons")
 
 var cfg: Dictionary = {}
 ## Spieltage, die im aktuellen Frame vergangen sind (0 bei Pause). Für Wachstum und Verderb.

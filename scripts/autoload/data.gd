@@ -18,23 +18,43 @@ var animals: Dictionary = {}
 var goals: Dictionary = {}  # Einfuehrung und Ziele
 var people: Dictionary = {}  # Charaktere: Eigenschaften, Krankheiten, Laune, Freizeit
 
-var tex_terrain: Texture2D = preload("res://assets/sprites/terrain.png")
-var tex_objects: Texture2D = preload("res://assets/sprites/objects.png")
-var tex_buildings: Texture2D = preload("res://assets/sprites/buildings.png")
-var tex_icons: Texture2D = preload("res://assets/sprites/icons.png")
-var tex_tools: Texture2D = preload("res://assets/sprites/tools.png")
-var tex_ui: Texture2D = preload("res://assets/sprites/ui.png")
-var tex_objects2: Texture2D = preload("res://assets/sprites/objects2.png")
-var tex_animals: Texture2D = preload("res://assets/sprites/animals.png")
-var tex_objects3: Texture2D = preload("res://assets/sprites/objects3.png")
-var tex_cart: Texture2D = preload("res://assets/sprites/cart.png")
+var tex_terrain: Texture2D = hd("terrain")
+var tex_objects: Texture2D = hd("objects")
+var tex_buildings: Texture2D = hd("buildings")
+var tex_icons: Texture2D = hd("icons")
+var tex_tools: Texture2D = hd("tools")
+var tex_ui: Texture2D = hd("ui")
+var tex_objects2: Texture2D = hd("objects2")
+var tex_animals: Texture2D = hd("animals")
+var tex_objects3: Texture2D = hd("objects3")
+var tex_cart: Texture2D = hd("cart")
 var font_regular: Font = preload("res://assets/fonts/pixelify-sans-latin-400-normal.woff2")
 var font_bold: Font = preload("res://assets/fonts/pixelify-sans-latin-700-normal.woff2")
+
+## Version 2.0.0 (josh 2026-10-24): Bilder in vierfacher Auflösung aus joshs Bildbögen
+## (assets/sprites_hd, erzeugt von tools/art_v2/build.py). Die Textur meldet die alte Größe
+## (size_override), darum bleiben alle Regionen, Zellen und Versätze im Code gleich; gezeichnet
+## wird mit allen Details. Fehlt ein HD-Bild, gilt das alte aus assets/sprites.
+const HD := 4
+
+
+static func hd(name: String) -> Texture2D:
+	var path := "res://assets/sprites_hd/%s.png" % name
+	if not ResourceLoader.exists(path):
+		return load("res://assets/sprites/%s.png" % name)
+	var img: Image = (load(path) as Texture2D).get_image()
+	if img.is_compressed():
+		img.decompress()
+	img.generate_mipmaps()
+	var t := ImageTexture.create_from_image(img)
+	t.set_size_override(Vector2i(img.get_width() / HD, img.get_height() / HD))
+	return t
+
 
 ## Regionen in objects.png: name -> [x, y, w, h, frames]
 const OBJECT_REGIONS := {
 	"tree0": [0, 0, 32, 48, 1], "tree1": [32, 0, 32, 48, 1], "tree2": [64, 0, 32, 48, 1],
-	"stump": [96, 0, 32, 48, 1], "sapling": [128, 0, 32, 48, 1],
+	"stump": [96, 0, 32, 48, 1], "sapling": [128, 0, 32, 48, 1], "tree3": [160, 0, 32, 48, 1],  # tree3: Fichte (2.0.0)
 	"hut": [0, 48, 48, 48, 1], "storehouse": [48, 48, 48, 48, 1], "construction": [96, 48, 48, 48, 1],
 	"rock_big": [0, 96, 16, 16, 1], "rock_small": [16, 96, 16, 16, 1],
 	"bush_full": [32, 96, 16, 16, 1], "bush_empty": [48, 96, 16, 16, 1],
@@ -75,6 +95,7 @@ const BUILDING_CELLS := {
 	"statue_bronze": [84, 1], "street_lamp": [85, 1], "hologram": [86, 4],
 	"radio": [90, 1],  # Rundfunkanstalt (tools/gen_art_machines.py, josh 2026-10-21)
 	"plan_automaton": [91, 1],  # Planungsautomat (tools/gen_art_machines.py, josh 2026-10-21)
+	"shipyard2": [92, 1], "shipyard3": [93, 1],  # Große und Königliche Werft (2.0.0, eigene Bilder)
 }
 ## Etappe 3 in objects2.png: name -> [x, y, w, h, frames]
 const OBJECT2_REGIONS := {
