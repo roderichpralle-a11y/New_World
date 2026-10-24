@@ -186,13 +186,13 @@ class Pose:
 
 
 # Maße (Einheiten)
-HIP_Y = 7.4
-THIGH, SHIN = 3.7, 3.5
+HIP_Y = 6.9
+THIGH, SHIN = 3.45, 3.25
 UPPER, FORE = 3.0, 2.8
-SHOULDER_Y = 12.9  # über der Hüfte gemessen absolut im Stand
-NECK_Y = 13.6
-HEAD_C = 17.6
-HEAD_RX, HEAD_RY = 4.7, 4.5
+SHOULDER_Y = 12.3  # über der Hüfte gemessen absolut im Stand
+NECK_Y = 13.0
+HEAD_C = 17.3
+HEAD_RX, HEAD_RY = 5.0, 4.7
 HEAD_RZ = 3.0
 
 
@@ -256,92 +256,62 @@ def build(fig, pose, view):
 
 
 def draw_figure(cv, fig, pose, b, view):
+    """Stil nach josh' Vorlage (Handyansicht.png, 2026-10-24): Hemd, lange Hose, Stiefel, kräftige Farben."""
     k = b["k"]
     legs, arms = b["legs"], b["arms"]
     up = b["up"]
-    # Beine: Oberschenkel in Hosen, Unterschenkel Haut mit Fußwickeln
+    # Beine: lange Hose, Stiefel
     for side in (1, -1):
         hip, knee, ank = legs[side]
         g = "leg%d" % side
-        cv.capsule(hip, knee, 1.25 * k, "pants", g, r2=1.1 * k)
-        cv.capsule(knee, ank, 1.02 * k, "skin", g, r2=0.92 * k)
-        # Wickel um den Knöchel und Fuß (Leder)
-        wrap0 = add(ank, mul(sub(knee, ank), 0.38))
-        cv.capsule(wrap0, ank, 1.08 * k, "fixed:wrap", g, dbias=0.01)
-        toe = add(ank, (0.0, -0.15, 1.55 * k))
-        cv.capsule(add(ank, (0, -0.2, -0.25)), toe, 0.88 * k, "fixed:wrap", g, dbias=0.02)
-        # Wickelstreifen
-        for t in (0.3, 0.65):
-            p = add(ank, mul(sub(wrap0, ank), t))
-            cv.line(add(p, (-1.0 * k, 0, 0.0)) if view != "side" else add(p, (0, 0, -1.0 * k)),
-                    add(p, (1.0 * k, -0.25, 0.0)) if view != "side" else add(p, (0, -0.25, 1.0 * k)),
-                    "fixed:wrap", 1, g, dbias=0.03)
-    # Rumpf: Kittel aus Leder/Fell
+        cv.capsule(hip, knee, 1.32 * k, "pants", g, r2=1.18 * k)
+        cv.capsule(knee, ank, 1.15 * k, "pants", g, r2=1.05 * k)
+        boot0 = add(ank, mul(sub(knee, ank), 0.3))
+        cv.capsule(boot0, ank, 1.12 * k, "fixed:boot", g, dbias=0.01)
+        toe = add(ank, (0.0, -0.2, 1.5 * k))
+        cv.capsule(add(ank, (0, -0.25, -0.3)), toe, 0.95 * k, "fixed:boot", g, dbias=0.02)
+    # Rumpf: Hemd bis über die Hüfte
     torso_group = "torso"
-    hw_sh, hw_hip = 2.75 * k, 2.55 * k
-    depth_half = 2.1 * k
-    hip_y = b["hip"][1]
-    neck = b["neck"]
-    # Rumpf als Folge von Querschnitten (Ellipsen) zwischen Hüfte und Hals
-    steps = 14
+    hw_sh, hw_hip = 3.0 * k, 2.8 * k
+    depth_half = 2.6 * k
+    top = (SHOULDER_Y - HIP_Y) * (0.82 if fig.child else 1.0) * 1.02
+    hem = -0.9 if not fig.dress else -2.6
+    steps = 16
     for i in range(steps + 1):
         t = i / steps
-        y_rel = HIP_Y * k + (neck[1] - hip_y + HIP_Y * k - HIP_Y * k) * 0  # ungenutzt
-        p = up((0.0, HIP_Y * k + t * ((SHOULDER_Y - HIP_Y) * (0.82 if fig.child else 1.0)) * 1.02, 0.0))
-        p = add(p, (0, b["hip"][1] - HIP_Y * k - (b["hip"][1] - HIP_Y * k), 0))
-        hw = hw_hip + (hw_sh - hw_hip) * min(1.0, t * 1.4)
-        if t > 0.86:
-            hw *= 1.0 - (t - 0.86) * 1.6
-        hd = depth_half * (1.0 + 0.12 * math.sin(t * math.pi))
-        _torso_slice(cv, p, hw, hd, view, torso_group)
-    # Rock des Kittels über die Oberschenkel
-    hem = 4.6 * k if fig.dress else 5.6 * k
-    skirt_top = up((0.0, HIP_Y * k + 0.6, 0.0))
-    for i in range(7):
-        t = i / 6
-        y = HIP_Y * k + 0.6 - t * (HIP_Y * k + 0.6 - hem)
+        y = HIP_Y * k + hem + t * (top - hem)
         p = up((0.0, y, 0.0))
-        hw = hw_hip * (1.0 + 0.16 * t) + (0.25 * t if fig.dress else 0.0)
-        hd = depth_half * (1.05 + 0.2 * t)
-        _torso_slice(cv, p, hw, hd, view, torso_group, hem=(i == 6))
-    _ = skirt_top
-    # Gürtel (Schnur) und Fellfransen am Saum, Halskette
-    belt_y = HIP_Y * k + 0.9
-    _ring(cv, up, belt_y, hw_hip * 1.02, depth_half * 1.08, "fixed:rope", torso_group, view)
-    knot = up((0.9 * k, belt_y - 0.2, depth_half * 1.1))
+        tt = (y - HIP_Y * k) / top
+        hw = hw_hip + (hw_sh - hw_hip) * max(0.0, min(1.0, tt * 1.4))
+        if tt > 0.86:
+            hw *= 1.0 - (tt - 0.86) * 1.6
+        if tt < 0:
+            hw *= 1.0 - tt * 0.18
+        hd = depth_half * (1.0 + 0.1 * math.sin(max(0.0, tt) * math.pi))
+        _torso_slice(cv, p, hw, hd, view, torso_group)
+    # Gürtel aus Leder mit Schnalle
+    belt_y = HIP_Y * k + (0.25 if not fig.dress else 0.6)
+    _ring(cv, up, belt_y, hw_hip * 1.03, depth_half * 1.08, "fixed:belt", torso_group, view)
     if view == "down":
-        cv.dot(knot, "fixed:rope", 1, torso_group, 0.3)
-        cv.dot(knot, "fixed:rope", 1, torso_group, 0.3, dy=1)
-        cv.dot(knot, "fixed:rope", 1, torso_group, 0.3, dx=1, dy=2)
-    _fringe(cv, up, hem, hw_hip * (1.16 if not fig.dress else 1.26), depth_half * 1.25, view, torso_group)
-    # Kragen/Ausschnitt
+        bk = up((0.0, belt_y, depth_half * 1.1))
+        for dx in (-1, 0, 1):
+            cv.dot(bk, "fixed:buckle", 3 if dx else 4, torso_group, 0.5, dx=dx)
+            cv.dot(bk, "fixed:buckle", 2, torso_group, 0.5, dx=dx, dy=1)
+    # Kragen
     if view == "down":
-        sh_top = up((0.0, (SHOULDER_Y - 0.2) * (1 if not fig.child else 0.9) - (HIP_Y - HIP_Y * k), 0.0))
-        for dx, dyy in ((-1, 0), (0, 0), (1, 0), (0, 1), (-1, -1), (1, -1)):
-            pass
-        vneck = [add(sh_top, (-0.95 * k, 0.6, depth_half + 0.1)), add(sh_top, (0.95 * k, 0.6, depth_half + 0.1)),
-                 add(sh_top, (0.0, -1.3 * k, depth_half + 0.25))]
-        cv.poly(vneck, "skin", torso_group, dbias=0.2, shade=3)
-        # Kette mit Zahn
-        for i in range(-3, 4):
-            p = add(sh_top, (i * 0.42 * k, -0.95 * k - 0.07 * (9 - i * i) * 0.25 + 0.4, depth_half + 0.35))
-            cv.dot(p, "fixed:bone", 3 if i % 2 else 2, torso_group, 0.5)
-        tooth = add(sh_top, (0.0, -1.55 * k, depth_half + 0.4))
-        cv.dot(tooth, "fixed:bone", 4, torso_group, 0.6)
-        cv.dot(tooth, "fixed:bone", 3, torso_group, 0.6, dy=1)
-    # Arme: Oberarm mit Fellärmel, Unterarm Haut, Hand
+        sh_top = up((0.0, HIP_Y * k + top - 0.25, 0.0))
+        vneck = [add(sh_top, (-1.05 * k, 0.5, depth_half + 0.1)), add(sh_top, (1.05 * k, 0.5, depth_half + 0.1)),
+                 add(sh_top, (0.0, -1.1 * k, depth_half + 0.25))]
+        cv.poly(vneck, "skin", torso_group, dbias=0.2, shade=2)
+    # Arme: kurze Ärmel, Unterarm Haut, Hand
     for side in (1, -1):
         sh, el, hand, d2 = arms[side]
         g = "arm%d" % side
-        sleeve_end = add(sh, mul(sub(el, sh), 0.55))
-        cv.capsule(add(sh, (0, -0.2, 0)), sleeve_end, 1.2 * k, "shirt", g, dbias=0.15, r2=1.08 * k)
-        cv.capsule(sleeve_end, el, 0.92 * k, "skin", g, dbias=0.12)
-        cv.capsule(el, hand, 0.86 * k, "skin", g, dbias=0.12, r2=0.8 * k)
-        cv.ellipse(add(hand, mul(d2, 0.35)), 0.95 * k, 0.95 * k, "skin", g, dbias=0.13)
-        # Fellsaum am Ärmel
-        cv.capsule(sleeve_end, add(sleeve_end, mul(sub(el, sh), 0.08)), 1.18 * k, "shirt", g, dbias=0.16,
-                   shade_fn=lambda lum, t: 2)
-    # Werkzeug und Gegenstände
+        sleeve_end = add(sh, mul(sub(el, sh), 0.7))
+        cv.capsule(add(sh, (0, -0.2, 0)), sleeve_end, 1.28 * k, "shirt", g, dbias=0.15, r2=1.15 * k)
+        cv.capsule(sleeve_end, el, 0.95 * k, "skin", g, dbias=0.12)
+        cv.capsule(el, hand, 0.9 * k, "skin", g, dbias=0.12, r2=0.84 * k)
+        cv.ellipse(add(hand, mul(d2, 0.35)), 1.0 * k, 1.0 * k, "skin", g, dbias=0.13)
     if pose.tool:
         draw_tool(cv, pose.tool, arms, view, k)
     if pose.item:
@@ -372,15 +342,14 @@ def _torso_slice(cv, p, hw, hd, view, group, hem=False):
 
 
 def _ring(cv, up, y, hw, hd, layer, group, view):
-    for i in range(40):
-        a = i / 40 * 2 * math.pi
+    for i in range(160):
+        a = i / 160 * 2 * math.pi
         p = up((math.cos(a) * hw, y, math.sin(a) * hd))
         x, yy, d = cv.proj(p)
         front = (d > cv.proj(up((0, y, 0)))[2] - 0.01)
         if front:
-            sh = 3 if (i % 4) < 2 else 2
-            cv.put(int(x), int(yy), d + 0.4, layer, sh, group)
-            cv.put(int(x), int(yy) + 1, d + 0.4, layer, 1, group)
+            cv.put(int(x), int(yy), d + 0.4, layer, 3, group)
+            cv.put(int(x), int(yy) + 1, d + 0.4, layer, 2, group)
 
 
 def _fringe(cv, up, y, hw, hd, view, group):
@@ -739,13 +708,16 @@ def ramp(base, hue_shadow=(-18, -10, 22), hue_light=(22, 16, -6)):
 
 
 FIXED = {
+    "boot": ramp((92, 58, 38)),
+    "belt": ramp((70, 46, 32)),
+    "buckle": ramp((200, 176, 110)),
     "wrap": ramp((140, 96, 62)),
     "rope": ramp((196, 168, 112)),
     "bone": ramp((236, 226, 200)),
     "eye": [(34, 22, 34)] * 5,
     "eyewhite": [(250, 250, 250)] * 5,
     "mouth": [(120, 50, 50), (150, 64, 60), (172, 84, 76), (190, 100, 90), (210, 120, 110)],
-    "blush": [(232, 130, 120)] * 5,
+    "blush": [(236, 150, 128)] * 5,
 }
 TOOLS = dict(TOOL_COL)
 TOOLS["fire"] = [(120, 30, 10), (200, 70, 20), (240, 130, 30), (255, 190, 60), (255, 240, 150)]
@@ -760,6 +732,8 @@ def to_image(px, look):
             col = TOOLS[layer[5:]][sh]
         else:
             col = look[layer][sh]
+        if sh == 0:  # Kontur: dunkles Braun wie in der Vorlage, leicht in der Farbe der Fläche
+            col = tuple((c + o) // 2 for c, o in zip(col, (52, 32, 30)))
         im.putpixel((x, y), tuple(col) + (255,))
     return im
 
@@ -827,9 +801,9 @@ def _swing(frames, tool, impact_lean, item=None, legs=None):
 
 def anim_chop():
     # Ausholen über den Kopf, Schlag nach vorn, kurz halten
-    fr = [(110, 30, 0, 175), (165, 25, -5, 225), (195, 15, -7, 250), (150, 10, 4, 175), (90, 8, 12, 105),
-          (80, 10, 14, 95)]
-    return _swing(fr, "axe", 12)
+    fr = [(100, 30, 6, 170), (160, 25, 0, 225), (190, 15, -3, 250), (130, 10, 12, 150), (60, 8, 24, 65),
+          (52, 10, 26, 55)]
+    return _swing(fr, "axe", 24, legs={1: [34, 30], -1: [-26, 12]})
 
 
 def anim_mine():
@@ -847,16 +821,16 @@ def anim_hammer():
 
 
 def anim_gather():
+    """Wie in der Vorlage: Korb in der vorderen Hand, die andere pflückt vorn am Strauch."""
     out = []
-    reach = [(75, 10), (85, 5), (88, 8), (80, 30), (40, 60), (30, 70)]
+    reach = [(60, 20), (75, 10), (80, 8), (70, 30), (45, 55), (40, 60)]
     for i, (af, el) in enumerate(reach):
-        out.append(Pose(lean=32, head_nod=6, leg={1: [30, 40], -1: [-6, 22]}, item=("basket", "hip"),
-                        arm={-1: [af, 8, el], 1: [30, 10, 40]}))
+        out.append(Pose(lean=12, head_nod=4, leg={1: [24, 22], -1: [-14, 10]}, item=("basket", -1),
+                        arm={1: [af, 8, el], -1: [18, 12, 70]}))
         if i in (2, 3):
-            out[-1].extra = [lambda cv, b, v: cv.ellipse(add(b["arms"][-1][2], (0, 0.1, 0.4)), 0.6, 0.6, "tool:berry",
+            out[-1].extra = [lambda cv, b, v: cv.ellipse(add(b["arms"][1][2], (0, 0.1, 0.4)), 0.6, 0.6, "tool:berry",
                                                           "item", dbias=0.6)]
     return out
-
 
 def anim_fish():
     out = []
