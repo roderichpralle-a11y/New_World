@@ -4,3 +4,4 @@ tools/preview/
 *.tmp
 tools/__pycache__/
 data/i18n/missing.json
+tools/art_v2/__pycache__/
