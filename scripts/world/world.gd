@@ -95,13 +95,13 @@ func build_new(seed_value: int) -> void:
 		"skills": {"nahrung": 4, "bauen": 3, "holz": 1, "stein": 1}, "job": "sammler",
 		"traits": {"iq": 7.0, "konst": 7.0, "fleiss": 6.0, "gemuet": 7.5},
 		"talents": {"nahrung": 1.4, "bauen": 1.2, "wissen": 1.3, "holz": 0.8, "stein": 0.7, "handwerk": 1.0, "jagd": 0.8},
-		"look": {"skin": "#f2c9a0", "hair": "#a8642e", "style": 1, "shirt": "#d65f4f", "pants": "#5a4a7a"},
+		"look": {"skin": "#f2c9a0", "hair": "#a8642e", "style": 1, "shirt": "#d65f4f", "pants": "#5a4a7a", "home_portrait": "lena"},
 		"x": center.x + 1, "y": center.y + 1})
 	var jonas := spawn_settler({"name": "Jonas", "sex": "m", "age": 21.0, "max_age": 44.0,
 		"skills": {"holz": 4, "stein": 3, "nahrung": 1, "bauen": 2}, "job": "holzfaeller",
 		"traits": {"iq": 5.0, "konst": 8.0, "fleiss": 8.0, "gemuet": 5.0},
 		"talents": {"holz": 1.5, "stein": 1.3, "handwerk": 1.4, "jagd": 1.2, "nahrung": 0.8, "bauen": 1.0, "wissen": 0.7},
-		"look": {"skin": "#e0ac7e", "hair": "#3a2a22", "style": 0, "shirt": "#4f8fd6", "pants": "#4a5a3a"},
+		"look": {"skin": "#e0ac7e", "hair": "#3a2a22", "style": 0, "shirt": "#4f8fd6", "pants": "#4a5a3a", "home_portrait": "jonas"},
 		"x": center.x - 1, "y": center.y + 1})
 	lena.home_id = hut.id
 	jonas.home_id = hut.id
@@ -1490,6 +1490,9 @@ func _make_season_materials() -> void:
 	var sh: Shader = preload("res://assets/shaders/season.gdshader")
 	_mat_ground = ShaderMaterial.new()
 	_mat_ground.shader = sh
+	if HomeArt.active(self):
+		_mat_ground.shader = preload("res://assets/shaders/home_meadow.gdshader")
+		_mat_ground.set_shader_parameter("meadow", HomeArt.MEADOW)
 	_mat_leaf = ShaderMaterial.new()
 	_mat_leaf.shader = sh
 	_mat_needle = ShaderMaterial.new()
@@ -1567,6 +1570,9 @@ func _update_ghost() -> void:
 	if _ghost_sprite.visible:
 		var r: Vector2 = _ghost_sprite.texture.region.size
 		_ghost_sprite.offset = Vector2(-r.x / 2.0, -r.y + 4)
+		_ghost_sprite.scale = Vector2.ONE
+		if HomeArt.active(self) and HomeArt.OBJECTS.has(def.sprite):
+			HomeArt.apply(_ghost_sprite, def.sprite)
 	var ok := can_place(_placing, _ghost_cell, _move_b)
 	_ghost_sprite.modulate = Color(1, 1, 1, 0.7) if ok else Color(1, 0.45, 0.4, 0.7)
 	_ghost.queue_redraw()

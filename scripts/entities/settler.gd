@@ -23,6 +23,7 @@ const OUTFIT := {
 const DIR_DOWN := 0
 const DIR_UP := 1
 const DIR_SIDE := 2
+const WALK_CYCLE_DISTANCE := 20.0
 
 var id: int
 var display_name: String
@@ -89,14 +90,18 @@ var _cart_roll: float = 0.0
 var _cart_last: Vector2
 var _bubble: Sprite2D
 var _zzz: Label
+var _work_prop: Sprite2D
 var _shadow: Sprite2D
+var _home_sprite: Sprite2D
+var _side_walk_sprite: Sprite2D
+var _walk_distance := 0.0
 
 static var _sheets: Dictionary = {}
 
 
 static func sheet(name: String) -> Texture2D:
 	if not _sheets.has(name):
-		_sheets[name] = load("res://assets/sprites/settler_%s.png" % name)
+		_sheets[name] = load("res://assets/sprites_fine/settler_%s.png" % name)
 	return _sheets[name]
 
 
@@ -120,6 +125,12 @@ func setup(p_world, data: Dictionary) -> void:
 	by_admin = bool(data.get("by_admin", false))
 	home_id = int(data.get("home", 0))
 	look = data.get("look", random_look(_rng))
+	# Upgrade the two existing founders in preview saves as well as in new games.
+	if not look.has("home_portrait") and data.get("parents", []).is_empty():
+		if display_name == "Lena" and sex == "f":
+			look["home_portrait"] = "lena"
+		elif display_name == "Jonas" and sex == "m":
+			look["home_portrait"] = "jonas"
 	carry_res = data.get("carry_res", "")
 	carry_n = int(data.get("carry_n", 0))
 	birth_cooldown_until = float(data.get("birth_cd", 0.0))
@@ -154,9 +165,10 @@ func _build_visual() -> void:
 		var s := Sprite2D.new()
 		s.texture = sheet(o[0])
 		s.hframes = 4
-		s.vframes = 3
+		s.vframes = 42
 		s.centered = false
-		s.offset = Vector2(-8, -22)
+		s.offset = Vector2(-24, -66)
+		s.scale = Vector2.ONE / 3.0
 		if o[1] != "":
 			s.modulate = Color(look.get(o[1], "#ffffff"))
 		_body.add_child(s)
@@ -165,12 +177,43 @@ func _build_visual() -> void:
 		var s := Sprite2D.new()
 		s.texture = sheet(o)
 		s.hframes = 4
-		s.vframes = 3
+		s.vframes = 42
 		s.centered = false
-		s.offset = Vector2(-8, -22)
+		s.offset = Vector2(-24, -66)
+		s.scale = Vector2.ONE / 3.0
 		s.visible = false
 		_body.add_child(s)
 		_layers[o] = s
+	var portrait := HomeArt.portrait(look)
+	if portrait != null:
+		_home_sprite = Sprite2D.new()
+		_home_sprite.texture = portrait
+		_home_sprite.hframes = 4
+		_home_sprite.vframes = 6
+		_home_sprite.centered = false
+		_home_sprite.offset = Vector2(-80, -136)
+		_home_sprite.scale = HomeArt.SCALE
+		_body.add_child(_home_sprite)
+		# Every frame is a complete figure: no separate leg/arm geometry.
+		_side_walk_sprite = Sprite2D.new()
+		_side_walk_sprite.texture = HomeArt.side_walk(look)
+		_side_walk_sprite.hframes = HomeArt.WALK_FRAMES
+		_side_walk_sprite.vframes = 1
+		_side_walk_sprite.centered = false
+		_side_walk_sprite.offset = Vector2(-80, -136)
+		_side_walk_sprite.scale = HomeArt.SCALE
+		_side_walk_sprite.visible = false
+		_body.add_child(_side_walk_sprite)
+	_work_prop = Sprite2D.new()
+	_work_prop.centered = false
+	_work_prop.position = Vector2(5, -8)
+	_work_prop.scale = Vector2.ONE / 2.0
+	_work_prop.visible = false
+	add_child(_work_prop)
+	if _home_sprite != null:
+		# Draw the stump before the body: the axe blade must stay visible in front
+		# of the split wood at contact, rather than disappearing behind the prop.
+		move_child(_work_prop, _body.get_index())
 	_tool = Sprite2D.new()
 	_tool.visible = false
 	_tool.position = Vector2(5, -8)
@@ -623,8 +666,8 @@ func _do_sleep_inside() -> void:
 
 func _do_sleep_outside() -> void:
 	sleeping = true
-	_body.rotation = -PI / 2
-	_body.position = Vector2(-6, -4)
+	_body.rotation = 0
+	_body.position = Vector2.ZERO
 	_zzz.visible = true
 	activity = tr("Schläft unter freiem Himmel")
 
@@ -1366,6 +1409,7 @@ func _walk(delta: float, mult: float = 1.0) -> void:
 		spd *= 0.8
 	var to := target - position
 	var step := spd * delta
+	_walk_distance = fposmod(_walk_distance + minf(step, to.length()), WALK_CYCLE_DISTANCE)
 	if to.length() <= step:
 		position = target
 		cell = world.pos_to_cell(target)
@@ -1752,11 +1796,21 @@ func _animate(delta: float) -> void:
 	var frame := 0
 	if _moving:
 		frame = int(_anim_t * 8.0) % 4
+	var action := "walk"
+	if sleeping:
+		action = "sleep"
+	elif _working and _cur_tool != "":
+		action = _cur_tool if _cur_tool in ["axe", "pick", "sickle", "hammer", "basket", "rod", "spoon", "book", "shovel", "spear"] else "hammer"
+		frame = int(_anim_t * 5.0) % 4
+	elif carry_n > 0:
+		action = "carry"
+	var actions := ["walk", "axe", "pick", "sickle", "hammer", "basket", "rod", "spoon", "book", "shovel", "spear", "sleep", "eat", "carry"]
+	var action_row: int = actions.find(action) * 3
 	for k in _layers:
 		var s: Sprite2D = _layers[k]
-		s.frame = _dir * 4 + frame
+		s.frame = (action_row + _dir) * 4 + frame
 		s.flip_h = _flip and _dir == DIR_SIDE
-		s.offset.x = -8 if not s.flip_h else -8
+		s.offset.x = -24
 	# Werkzeug schwingen
 	var battle: bool = _battle_tool != "" and not _plan.is_empty() and _plan[0].get("defend", false) and not _working
 	var reading: String = _plan[0].get("read", "") if not _plan.is_empty() and _plan[0].a == "wait" and not _moving else ""
@@ -1789,13 +1843,24 @@ func _animate(delta: float) -> void:
 		_tool.texture = Data.tool_tex(_cur_tool)
 		var swing := sin(_anim_t * 9.0)
 		_tool.rotation = -0.9 + swing * 0.9 if _cur_tool != "rod" else -0.3 + swing * 0.08
-		_tool.position = Vector2(-5 if (_flip and _dir == DIR_SIDE) else 5, -9)
+		var hand_y: float = [-13.5, -15.0, -8.0, -7.0][frame]
+		_tool.position = Vector2(-4 if (_flip and _dir == DIR_SIDE) else 4, hand_y if action in ["axe", "pick", "hammer", "sickle", "shovel", "spear"] else -7.0)
 		_tool.flip_h = _flip and _dir == DIR_SIDE
 		_tool.z_index = -1 if _dir == DIR_UP else 0
 		_body.position.y = -abs(swing) * 0.8 if not sleeping else _body.position.y
 	elif not sleeping:
 		var sitting: bool = not _plan.is_empty() and _plan[0].a == "wait" and _plan[0].has("sit") and not _moving
 		_body.position.y = 2 if sitting else 0
+	_work_prop.visible = _working and not sleeping and action in ["axe", "hammer"]
+	_work_prop.scale = Vector2.ONE / 2.0
+	_work_prop.offset = Vector2.ZERO
+	_work_prop.position = Vector2(5, -8)
+	if _work_prop.visible:
+		var prop := AtlasTexture.new()
+		prop.atlas = preload("res://assets/sprites_fine/work_props.png")
+		prop.region = Rect2(frame * 32, 0 if action == "axe" else 32, 32, 32)
+		_work_prop.texture = prop
+		_work_prop.flip_h = _flip and _dir == DIR_SIDE
 	_hurt -= delta
 	_body.modulate = Color(1, 0.5, 0.5) if _hurt > 0.0 else Color.WHITE
 	_carry_icon.visible = carry_n > 0 and not sleeping
@@ -1807,10 +1872,47 @@ func _animate(delta: float) -> void:
 			_carry_icon.scale = Vector2(0.75, 0.75)
 			_carry_icon.show_behind_parent = false
 	_bubble.visible = hunger < 20.0 and not sleeping and int(_anim_t * 2.0) % 3 != 0
-	_zzz.visible = sleeping and visible and _body.rotation != 0
+	_zzz.visible = sleeping and visible
 	if _zzz.visible:
 		_zzz.position.y = -30 + sin(_anim_t * 2.0) * 2.0
+	_animate_home()
 	queue_redraw()
+
+
+func _animate_home() -> void:
+	if _home_sprite == null:
+		return
+	# The body, hands, basket and axe are one registered drawing, so grips cannot
+	# drift when another layer or an independently timed tool rotates.
+	for layer in _layers.values():
+		layer.visible = false
+	var action_work: bool = _working and ((look.home_portrait == "jonas" and _cur_tool == "axe") or (look.home_portrait == "lena" and _cur_tool == "basket"))
+	var phase := int(_work_t * 3.2) % 4 if action_work else (int(_anim_t * 7.0) % 4 if _moving else 0)
+	_home_sprite.frame = (_dir + (3 if action_work else 0)) * 4 + phase
+	_home_sprite.flip_h = _flip and _dir == DIR_SIDE
+	_home_sprite.rotation = -PI / 2.0 if sleeping else 0.0
+	_home_sprite.position = Vector2(8, -4) if sleeping else Vector2.ZERO
+	var walking := _moving and not _working and not sleeping and _dir == DIR_SIDE
+	_home_sprite.visible = not walking
+	_side_walk_sprite.visible = walking
+	if walking:
+		_side_walk_sprite.frame = int(_walk_distance / WALK_CYCLE_DISTANCE * HomeArt.WALK_FRAMES) % HomeArt.WALK_FRAMES
+		_side_walk_sprite.flip_h = _flip
+		_body.position.y = 0.0
+	# Preserve the seat offset selected by the normal animator. Only the baked
+	# work poses replace its independently calculated tool/body bob.
+	if action_work or sleeping:
+		_body.position.y = 0.0
+	if action_work:
+		_tool.visible = false
+	_carry_icon.visible = false
+	_work_prop.visible = action_work and _cur_tool == "axe"
+	if _work_prop.visible:
+		_work_prop.texture = HomeArt.chop_prop(phase)
+		_work_prop.scale = Vector2.ONE / 8.0
+		_work_prop.offset = Vector2(-80, -120)
+		_work_prop.position = Vector2(-14 if _home_sprite.flip_h else 14, 3)
+		_work_prop.flip_h = _home_sprite.flip_h
 
 
 ## Mit Handkarren schieben Erwachsene ihre Last in einer Schubkarre vor sich her: seitlich voraus,

@@ -1,0 +1,5083 @@
+{
+  "repository": "roderichpralle-a11y/New_World",
+  "commit": "d61c35e1b4d09c6ade5461bf8ac179d6a9dceb33",
+  "date": "2026-10-22",
+  "kind": "Designreferenzen; keine direkt austauschbaren Godot-Atlanten",
+  "buildings": {
+    "lagerfeuer": {
+      "name": "Lagerfeuer",
+      "desc": "Herz der Siedlung. Hier wird gelagert, gegessen und gewärmt. Forscher denken hier nach, solange es keine Schreibstube gibt.",
+      "size": [
+        1,
+        1
+      ],
+      "sprite": "campfire",
+      "buildable": false,
+      "category": "lager",
+      "storage": 200,
+      "light": true,
+      "work": 0,
+      "cost": {},
+      "research": {
+        "factor": 0.5,
+        "slots": 2
+      }
+    },
+    "huette": {
+      "name": "Hütte",
+      "desc": "Wohnraum für 2 Siedler. Mehr Wohnraum bedeutet mehr Nachwuchs.",
+      "size": [
+        3,
+        2
+      ],
+      "sprite": "hut",
+      "buildable": true,
+      "category": "wohnen",
+      "housing": 2,
+      "work": 18,
+      "cost": {
+        "holz": 16
+      },
+      "light": true,
+      "upgrade": "holzhaus",
+      "level": 1
+    },
+    "holzhaus": {
+      "name": "Holzhaus",
+      "desc": "Ein solides Haus aus Brettern für 4 Siedler. Wer hier wohnt, bekommt 40 % öfter Kinder. Hütten lassen sich dazu ausbauen.",
+      "birth_bonus": 1.4,
+      "size": [
+        3,
+        2
+      ],
+      "sprite": "house_wood",
+      "buildable": true,
+      "category": "wohnen",
+      "requires": "zimmerei",
+      "housing": 4,
+      "work": 30,
+      "cost": {
+        "holz": 8,
+        "bretter": 12
+      },
+      "light": true,
+      "upgrade": "steinhaus",
+      "level": 2
+    },
+    "steinhaus": {
+      "name": "Steinhaus",
+      "desc": "Ein großes Haus mit Ziegeldach für 6 Siedler. Wer hier wohnt, bekommt 80 % öfter Kinder.",
+      "birth_bonus": 1.8,
+      "size": [
+        3,
+        2
+      ],
+      "sprite": "house_stone",
+      "buildable": true,
+      "category": "wohnen",
+      "requires": "maurerei",
+      "housing": 6,
+      "work": 44,
+      "cost": {
+        "bretter": 8,
+        "stein": 12,
+        "ziegel": 16
+      },
+      "light": true,
+      "level": 3,
+      "upgrade": "mietshaus"
+    },
+    "lager": {
+      "name": "Lagerhaus",
+      "desc": "Stauraum 400 für Vorräte. Große Waren wie Bretter brauchen mehr Raum als kleine wie Beeren. Außerdem ein weiterer Ablageplatz.",
+      "size": [
+        3,
+        2
+      ],
+      "sprite": "storehouse",
+      "buildable": true,
+      "category": "lager",
+      "storage": 400,
+      "work": 26,
+      "cost": {
+        "holz": 16,
+        "stein": 8
+      }
+    },
+    "grosslager": {
+      "name": "Großes Lager",
+      "desc": "Ein steinerner Speicher mit Stauraum 1000 für alle Waren.",
+      "size": [
+        4,
+        2
+      ],
+      "sprite": "store_big",
+      "buildable": true,
+      "category": "lager",
+      "requires": "maurerei",
+      "storage": 1000,
+      "work": 40,
+      "cost": {
+        "bretter": 16,
+        "stein": 10,
+        "ziegel": 14
+      }
+    },
+    "feld": {
+      "name": "Getreidefeld",
+      "desc": "Ein Bauer sät und erntet hier regelmäßig Getreide.",
+      "size": [
+        1,
+        1
+      ],
+      "sprite": "field",
+      "buildable": true,
+      "ground": true,
+      "category": "nahrung",
+      "work": 6,
+      "cost": {
+        "holz": 4
+      },
+      "farm": {
+        "yield": "weizen",
+        "amount": 8,
+        "grow_days": 1.5,
+        "sow_time": 3,
+        "harvest_time": 1.2,
+        "tiles": "field",
+        "sow_verb": "Sät Getreide",
+        "harvest_verb": "Erntet Getreide"
+      }
+    },
+    "obstgarten": {
+      "name": "Obstgarten",
+      "desc": "Apfelbäume, die ein Bauer pflegt. Wächst langsamer als Getreide, bringt aber viel Obst.",
+      "size": [
+        2,
+        2
+      ],
+      "sprite": "orchard",
+      "buildable": true,
+      "ground": true,
+      "category": "nahrung",
+      "requires": "gartenbau",
+      "work": 10,
+      "cost": {
+        "holz": 8
+      },
+      "farm": {
+        "yield": "aepfel",
+        "amount": 12,
+        "grow_days": 2.5,
+        "sow_time": 4,
+        "harvest_time": 1.5,
+        "tiles": "orchard",
+        "sow_verb": "Pflegt die Apfelbäume",
+        "harvest_verb": "Pflückt Äpfel"
+      }
+    },
+    "muehle": {
+      "name": "Windmühle",
+      "desc": "Mahlt Getreide zu Mehl für die Bäckerei.",
+      "size": [
+        2,
+        2
+      ],
+      "sprite": "mill",
+      "buildable": true,
+      "category": "nahrung",
+      "requires": "muehlenbau",
+      "work": 30,
+      "cost": {
+        "holz": 10,
+        "bretter": 10,
+        "stein": 6
+      },
+      "production": {
+        "job": "kueche",
+        "inputs": {
+          "weizen": 3
+        },
+        "outputs": {
+          "mehl": 2
+        },
+        "time": 4,
+        "skill": "nahrung",
+        "verb": "Mahlt Getreide"
+      }
+    },
+    "baeckerei": {
+      "name": "Bäckerei",
+      "desc": "Backt aus Mehl Brot, das sehr lange satt macht.",
+      "size": [
+        3,
+        2
+      ],
+      "sprite": "bakery",
+      "buildable": true,
+      "category": "nahrung",
+      "requires": "backkunst",
+      "work": 34,
+      "cost": {
+        "bretter": 10,
+        "stein": 8,
+        "ziegel": 6
+      },
+      "light": true,
+      "production": {
+        "job": "kueche",
+        "inputs": {
+          "mehl": 2,
+          "holz": 1
+        },
+        "outputs": {
+          "brot": 2
+        },
+        "time": 5,
+        "skill": "nahrung",
+        "verb": "Backt Brot",
+        "smoke": [
+          10,
+          -40
+        ]
+      }
+    },
+    "raeucherei": {
+      "name": "Räucherei",
+      "desc": "Räuchert Fisch, damit er viel länger satt macht.",
+      "size": [
+        2,
+        2
+      ],
+      "sprite": "smokehouse",
+      "buildable": true,
+      "category": "nahrung",
+      "requires": "raeuchern",
+      "work": 22,
+      "cost": {
+        "holz": 12,
+        "stein": 6
+      },
+      "production": {
+        "job": "kueche",
+        "inputs": {
+          "fisch": 2,
+          "holz": 1
+        },
+        "outputs": {
+          "raeucherfisch": 2
+        },
+        "time": 4,
+        "skill": "nahrung",
+        "verb": "Räuchert Fisch",
+        "smoke": [
+          0,
+          -34
+        ]
+      },
+      "biome_bonus": {
+        "tropen": 1.5
+      }
+    },
+    "huehnerhof": {
+      "name": "Hühnerhof",
+      "desc": "Hühner werden mit Getreide gefüttert und legen Eier. Ein Bauer versorgt sie.",
+      "size": [
+        3,
+        2
+      ],
+      "sprite": "henhouse",
+      "buildable": true,
+      "category": "nahrung",
+      "requires": "tierhaltung",
+      "work": 24,
+      "cost": {
+        "holz": 10,
+        "bretter": 8
+      },
+      "production": {
+        "job": "stall",
+        "inputs": {
+          "weizen": 1
+        },
+        "outputs": {
+          "eier": 2
+        },
+        "time": 5,
+        "skill": "nahrung",
+        "verb": "Füttert die Hühner"
+      }
+    },
+    "schweinestall": {
+      "name": "Schweinestall",
+      "desc": "Schweine werden mit Getreide gemästet und geben Fleisch, das gut satt macht. Ein Bauer versorgt sie.",
+      "size": [
+        3,
+        2
+      ],
+      "sprite": "pigsty",
+      "buildable": true,
+      "category": "nahrung",
+      "requires": "bergbau",
+      "work": 24,
+      "cost": {
+        "holz": 12,
+        "bretter": 10,
+        "stein": 6
+      },
+      "production": {
+        "job": "stall",
+        "inputs": {
+          "weizen": 3
+        },
+        "outputs": {
+          "fleisch": 3
+        },
+        "time": 8,
+        "skill": "nahrung",
+        "verb": "Füttert die Schweine"
+      }
+    },
+    "kuhstall": {
+      "name": "Kuhstall",
+      "desc": "Kühe fressen Getreide und Heu und geben jeden Tag Milch, die satt macht und Vitamine hat. Ein Bauer melkt sie.",
+      "size": [
+        3,
+        2
+      ],
+      "sprite": "cowshed",
+      "buildable": true,
+      "category": "nahrung",
+      "requires": "bergbau",
+      "work": 30,
+      "cost": {
+        "holz": 10,
+        "bretter": 14,
+        "stein": 8
+      },
+      "production": {
+        "job": "stall",
+        "inputs": {
+          "weizen": 2
+        },
+        "outputs": {
+          "milch": 3
+        },
+        "time": 7,
+        "skill": "nahrung",
+        "verb": "Melkt die Kühe"
+      }
+    },
+    "saegegrube": {
+      "name": "Sägegrube",
+      "desc": "Hier wird Holz zu Brettern zersägt.",
+      "size": [
+        2,
+        2
+      ],
+      "sprite": "sawpit",
+      "buildable": true,
+      "category": "handwerk",
+      "requires": "holzbearbeitung",
+      "work": 20,
+      "cost": {
+        "holz": 14,
+        "stein": 4
+      },
+      "production": {
+        "job": "handwerk",
+        "inputs": {
+          "holz": 3
+        },
+        "outputs": {
+          "bretter": 2
+        },
+        "time": 4,
+        "skill": "handwerk",
+        "verb": "Sägt Bretter"
+      },
+      "sound": "saege",
+      "biome_bonus": {
+        "wald": 1.5
+      }
+    },
+    "lehmgrube": {
+      "name": "Lehmgrube",
+      "desc": "Ein Steinmetz sticht hier Lehm für Ziegel.",
+      "size": [
+        2,
+        2
+      ],
+      "sprite": "claypit",
+      "buildable": true,
+      "category": "handwerk",
+      "requires": "toepferei",
+      "work": 14,
+      "cost": {
+        "holz": 8
+      },
+      "production": {
+        "job": "stein",
+        "inputs": {},
+        "outputs": {
+          "lehm": 2
+        },
+        "time": 4,
+        "skill": "stein",
+        "verb": "Sticht Lehm",
+        "tool": "shovel"
+      }
+    },
+    "ziegelei": {
+      "name": "Ziegelei",
+      "desc": "Brennt Lehm im Ofen zu festen Ziegeln.",
+      "size": [
+        3,
+        2
+      ],
+      "sprite": "brickworks",
+      "buildable": true,
+      "category": "handwerk",
+      "requires": "toepferei",
+      "work": 28,
+      "cost": {
+        "holz": 10,
+        "stein": 12,
+        "bretter": 4
+      },
+      "production": {
+        "job": "handwerk",
+        "inputs": {
+          "lehm": 2,
+          "holz": 1
+        },
+        "outputs": {
+          "ziegel": 2
+        },
+        "time": 5,
+        "skill": "handwerk",
+        "verb": "Brennt Ziegel",
+        "smoke": [
+          14,
+          -40
+        ]
+      }
+    },
+    "steinbruch": {
+      "name": "Steinbruch",
+      "desc": "Liefert endlos Stein, auch wenn die Felsen der Insel verbraucht sind.",
+      "size": [
+        2,
+        2
+      ],
+      "sprite": "quarry",
+      "buildable": true,
+      "category": "handwerk",
+      "requires": "steinbruch",
+      "work": 20,
+      "cost": {
+        "holz": 16,
+        "bretter": 4
+      },
+      "production": {
+        "job": "stein",
+        "inputs": {},
+        "outputs": {
+          "stein": 2
+        },
+        "time": 5,
+        "skill": "stein",
+        "verb": "Bricht Stein",
+        "tool": "pick"
+      },
+      "biome_bonus": {
+        "berg": 1.5
+      }
+    },
+    "koehlerei": {
+      "name": "Köhlerei",
+      "desc": "Ein Meiler verwandelt Holz in heiße Holzkohle.",
+      "size": [
+        2,
+        2
+      ],
+      "sprite": "charcoal",
+      "buildable": true,
+      "category": "handwerk",
+      "requires": "koehlerei",
+      "work": 20,
+      "cost": {
+        "holz": 10,
+        "stein": 8,
+        "lehm": 6
+      },
+      "production": {
+        "job": "handwerk",
+        "inputs": {
+          "holz": 4
+        },
+        "outputs": {
+          "kohle": 2
+        },
+        "time": 6,
+        "skill": "handwerk",
+        "verb": "Brennt Kohle",
+        "smoke": [
+          0,
+          -26
+        ]
+      },
+      "biome_bonus": {
+        "wald": 1.5
+      }
+    },
+    "mine": {
+      "name": "Erzmine",
+      "desc": "Ein Stollen in den Fels. Liefert Erz und etwas Stein.",
+      "size": [
+        2,
+        2
+      ],
+      "sprite": "mine",
+      "buildable": true,
+      "category": "handwerk",
+      "requires": "bergbau",
+      "work": 30,
+      "cost": {
+        "bretter": 12,
+        "stein": 6
+      },
+      "production": {
+        "job": "stein",
+        "inputs": {},
+        "outputs": {
+          "erz": 2,
+          "stein": 1
+        },
+        "time": 6,
+        "skill": "stein",
+        "verb": "Hackt Erz",
+        "tool": "pick"
+      },
+      "biome_bonus": {
+        "berg": 2
+      }
+    },
+    "schmelze": {
+      "name": "Schmelzofen",
+      "desc": "Schmilzt Erz mit Kohle zu Eisen.",
+      "size": [
+        2,
+        2
+      ],
+      "sprite": "smelter",
+      "buildable": true,
+      "category": "handwerk",
+      "requires": "eisenverhuettung",
+      "work": 34,
+      "cost": {
+        "stein": 16,
+        "ziegel": 12
+      },
+      "light": true,
+      "production": {
+        "job": "handwerk",
+        "inputs": {
+          "erz": 2,
+          "kohle": 2
+        },
+        "outputs": {
+          "eisen": 1
+        },
+        "time": 6,
+        "skill": "handwerk",
+        "verb": "Schmilzt Eisen",
+        "smoke": [
+          6,
+          -46
+        ]
+      },
+      "worker_level": 2
+    },
+    "schmiede": {
+      "name": "Schmiede",
+      "desc": "Schmiedet aus Eisen und Brettern gute Werkzeuge.",
+      "size": [
+        3,
+        2
+      ],
+      "sprite": "smithy",
+      "buildable": true,
+      "category": "handwerk",
+      "requires": "schmiedekunst",
+      "work": 36,
+      "cost": {
+        "stein": 10,
+        "ziegel": 10,
+        "bretter": 10
+      },
+      "light": true,
+      "production": {
+        "job": "handwerk",
+        "inputs": {
+          "eisen": 1,
+          "bretter": 1
+        },
+        "outputs": {
+          "werkzeug": 2
+        },
+        "time": 6,
+        "skill": "handwerk",
+        "verb": "Schmiedet Werkzeug",
+        "smoke": [
+          14,
+          -42
+        ]
+      },
+      "worker_level": 2
+    },
+    "waffenschmiede": {
+      "name": "Waffenschmiede",
+      "desc": "Schmiedet aus Eisen und Holz Speere und Säbel. Bei einem Piratenüberfall holen sich die Siedler die Waffen aus dem Lager und kämpfen damit doppelt so gut wie mit Mistgabel und Werkzeug.",
+      "size": [
+        3,
+        2
+      ],
+      "sprite": "armory",
+      "buildable": true,
+      "category": "handwerk",
+      "requires": "schmiedekunst",
+      "work": 36,
+      "cost": {
+        "stein": 12,
+        "ziegel": 10,
+        "bretter": 10,
+        "eisen": 4
+      },
+      "light": true,
+      "production": {
+        "job": "handwerk",
+        "inputs": {
+          "eisen": 2,
+          "holz": 1
+        },
+        "outputs": {
+          "waffen": 1
+        },
+        "time": 8,
+        "skill": "handwerk",
+        "verb": "Schmiedet Waffen",
+        "smoke": [
+          -16,
+          -44
+        ]
+      },
+      "worker_level": 2
+    },
+    "schreibstube": {
+      "name": "Schreibstube",
+      "desc": "Hier forschen zwei Forscher doppelt so schnell wie am Lagerfeuer. Lässt sich in drei teuren Stufen ausbauen.",
+      "size": [
+        3,
+        2
+      ],
+      "sprite": "scriptorium",
+      "buildable": true,
+      "category": "wissen",
+      "requires": "schrift",
+      "work": 26,
+      "cost": {
+        "holz": 16,
+        "stein": 8
+      },
+      "light": true,
+      "research": {
+        "factor": 1,
+        "slots": 2
+      },
+      "upgrade": "schreibstube2"
+    },
+    "schreibstube2": {
+      "name": "Große Schreibstube",
+      "desc": "Ausgebaute Schreibstube (Stufe 2): drei Forscher, 40 % schneller als Stufe 1.",
+      "sprite": "scriptorium2",
+      "size": [
+        3,
+        2
+      ],
+      "buildable": false,
+      "category": "wissen",
+      "light": true,
+      "base": "schreibstube",
+      "work": 40,
+      "cost": {
+        "holz": 40,
+        "bretter": 30,
+        "stein": 30,
+        "ziegel": 20
+      },
+      "research": {
+        "factor": 1.4,
+        "slots": 3
+      },
+      "upgrade": "schreibstube3"
+    },
+    "schreibstube3": {
+      "name": "Gelehrtenstube",
+      "desc": "Schreibstube Stufe 3: drei Forscher, fast doppelt so schnell wie Stufe 1.",
+      "sprite": "scriptorium3",
+      "size": [
+        3,
+        2
+      ],
+      "buildable": false,
+      "category": "wissen",
+      "light": true,
+      "base": "schreibstube",
+      "requires": "gelehrsamkeit",
+      "work": 60,
+      "cost": {
+        "bretter": 50,
+        "stein": 40,
+        "ziegel": 40,
+        "werkzeug": 10
+      },
+      "research": {
+        "factor": 1.9,
+        "slots": 3
+      },
+      "upgrade": "schreibstube4",
+      "worker_level": 2
+    },
+    "schreibstube4": {
+      "name": "Akademie",
+      "desc": "Schreibstube Stufe 4: vier Forscher arbeiten hier mehr als zweieinhalbmal so schnell wie in Stufe 1.",
+      "sprite": "scriptorium4",
+      "size": [
+        3,
+        2
+      ],
+      "buildable": false,
+      "category": "wissen",
+      "light": true,
+      "base": "schreibstube",
+      "requires": "schmiedekunst",
+      "work": 90,
+      "cost": {
+        "bretter": 80,
+        "ziegel": 70,
+        "eisen": 25,
+        "werkzeug": 25
+      },
+      "research": {
+        "factor": 2.6,
+        "slots": 4
+      },
+      "worker_level": 2
+    },
+    "bibliothek": {
+      "name": "Bibliothek",
+      "desc": "Das Haus des Wissens: drei Forscher arbeiten hier fast doppelt so schnell wie in der Schreibstube.",
+      "size": [
+        3,
+        2
+      ],
+      "sprite": "library",
+      "buildable": true,
+      "category": "wissen",
+      "requires": "gelehrsamkeit",
+      "work": 46,
+      "cost": {
+        "bretter": 16,
+        "ziegel": 18,
+        "stein": 10
+      },
+      "light": true,
+      "research": {
+        "factor": 1.8,
+        "slots": 3
+      },
+      "worker_level": 2
+    },
+    "tafelmacherei": {
+      "name": "Tafelmacherei",
+      "desc": "Ein Handwerker formt aus Lehm Tontafeln zum Schreiben. Ab der Antike wird ohne Tontafeln nur mit 20 % des Tempos geforscht.",
+      "size": [
+        2,
+        2
+      ],
+      "sprite": "tablets",
+      "buildable": true,
+      "category": "wissen",
+      "requires": "toepferei",
+      "work": 20,
+      "cost": {
+        "holz": 12,
+        "stein": 6
+      },
+      "production": {
+        "job": "handwerk",
+        "inputs": {
+          "lehm": 2
+        },
+        "outputs": {
+          "tontafel": 3
+        },
+        "time": 4,
+        "skill": "handwerk",
+        "verb": "Formt Tontafeln",
+        "tool": "hammer"
+      }
+    },
+    "verwaltung": {
+      "name": "Verwaltung",
+      "desc": "Sitz des Verwalters. Gibt es nur einmal. Mit Verwalter: Vertretung in Werkstätten, Überstunden und Schichtarbeit.",
+      "size": [
+        2,
+        2
+      ],
+      "sprite": "office",
+      "buildable": true,
+      "category": "wissen",
+      "requires": "gelehrsamkeit",
+      "work": 40,
+      "cost": {
+        "bretter": 20,
+        "ziegel": 20,
+        "tontafel": 10
+      },
+      "light": true,
+      "unique": true,
+      "office": true
+    },
+    "rundfunk": {
+      "name": "Rundfunkanstalt",
+      "desc": "Sendemast und Funkstube: Über sie sprechen die Verwalter der Inseln miteinander. Für den Inselverbund braucht jede beteiligte Insel eine, auch die Heimatinsel.",
+      "size": [
+        2,
+        2
+      ],
+      "sprite": "radio",
+      "buildable": true,
+      "category": "wissen",
+      "requires": "papier",
+      "work": 36,
+      "cost": {
+        "bretter": 14,
+        "ziegel": 12,
+        "papier": 8,
+        "eisen": 4
+      },
+      "light": true,
+      "radio": true
+    },
+    "rechenautomat": {
+      "name": "Rechenautomat",
+      "desc": "Zahnräder und Lochstreifen rechnen für den Verwalter: auf dieser Insel steuert er die Berufe auch bei mehr als 60 Siedlern.",
+      "size": [
+        3,
+        2
+      ],
+      "sprite": "automaton",
+      "buildable": true,
+      "category": "wissen",
+      "requires": "uhrwerk",
+      "work": 50,
+      "cost": {
+        "bretter": 24,
+        "eisen": 16,
+        "werkzeug": 8,
+        "glas": 4
+      },
+      "light": true,
+      "automaton": true
+    },
+    "planautomat": {
+      "name": "Planungsautomat",
+      "desc": "Steht direkt vor der Verwaltung. Der Verwalter rechnet damit aus, was wo gebaut wird, welche Waren entstehen und welche Schiffe fahren: erst Essen und Wärme, dann Vorrat für den Winter, Häuser, Lager, Werkstätten und immer weiter Forschung. Gibt es nur einmal, ab der Industrialisierung.",
+      "size": [
+        2,
+        1
+      ],
+      "sprite": "plan_automaton",
+      "buildable": true,
+      "category": "wissen",
+      "requires": "dampfmaschine",
+      "work": 30,
+      "cost": {
+        "eisen": 14,
+        "bretter": 10,
+        "glas": 4,
+        "papier": 6
+      },
+      "light": true,
+      "unique": true,
+      "planner": true
+    },
+    "werft": {
+      "name": "Werft",
+      "desc": "Am Ufer bauen Handwerker Schiffe, aber nur die, die du im Fenster in Auftrag gibst. Stufe 1 baut Ruderboote; ausgebaut auch größere Schiffe. Die Werft hat einen Liegeplatz für ein Ruderboot.",
+      "size": [
+        3,
+        2
+      ],
+      "sprite": "shipyard",
+      "buildable": true,
+      "category": "see",
+      "requires": "schiffsbau",
+      "coast": true,
+      "work": 40,
+      "cost": {
+        "bretter": 20,
+        "holz": 10,
+        "werkzeug": 4
+      },
+      "production": {
+        "job": "handwerk",
+        "inputs": {
+          "bretter": 8,
+          "holz": 4,
+          "werkzeug": 1
+        },
+        "outputs": {
+          "boot": 1
+        },
+        "time": 18,
+        "skill": "handwerk",
+        "verb": "Baut ein Boot",
+        "tool": "hammer"
+      },
+      "harbor": {
+        "level": 1,
+        "berths": [
+          1
+        ],
+        "rate": 25
+      },
+      "ships": true,
+      "worker_level": 2,
+      "yard": 1,
+      "upgrade": "werft2"
+    },
+    "werft2": {
+      "name": "Große Werft",
+      "desc": "Ausgebaute Werft (Stufe 2): baut auch Koggen. Liegeplatz für ein Ruderboot.",
+      "size": [
+        3,
+        2
+      ],
+      "sprite": "shipyard",
+      "buildable": false,
+      "category": "see",
+      "requires": "navigation",
+      "coast": true,
+      "work": 50,
+      "cost": {
+        "bretter": 40,
+        "stein": 20,
+        "werkzeug": 8,
+        "eisen": 4
+      },
+      "production": {
+        "job": "handwerk",
+        "inputs": {
+          "bretter": 8,
+          "holz": 4,
+          "werkzeug": 1
+        },
+        "outputs": {
+          "boot": 1
+        },
+        "time": 18,
+        "skill": "handwerk",
+        "verb": "Baut ein Boot",
+        "tool": "hammer"
+      },
+      "harbor": {
+        "level": 1,
+        "berths": [
+          1
+        ],
+        "rate": 25
+      },
+      "ships": true,
+      "worker_level": 2,
+      "yard": 2,
+      "upgrade": "werft3",
+      "base": "werft"
+    },
+    "werft3": {
+      "name": "Königliche Werft",
+      "desc": "Ausgebaute Werft (Stufe 3): baut alle Schiffe, auch Schnellsegler und Galeonen. Liegeplatz für ein Ruderboot.",
+      "size": [
+        3,
+        2
+      ],
+      "sprite": "shipyard",
+      "buildable": false,
+      "category": "see",
+      "requires": "seehandel",
+      "coast": true,
+      "work": 70,
+      "cost": {
+        "bretter": 80,
+        "ziegel": 30,
+        "eisen": 12,
+        "werkzeug": 12,
+        "gold": 4
+      },
+      "production": {
+        "job": "handwerk",
+        "inputs": {
+          "bretter": 8,
+          "holz": 4,
+          "werkzeug": 1
+        },
+        "outputs": {
+          "boot": 1
+        },
+        "time": 18,
+        "skill": "handwerk",
+        "verb": "Baut ein Boot",
+        "tool": "hammer"
+      },
+      "harbor": {
+        "level": 1,
+        "berths": [
+          1
+        ],
+        "rate": 25
+      },
+      "ships": true,
+      "worker_level": 2,
+      "yard": 3,
+      "base": "werft"
+    },
+    "anlegesteg": {
+      "name": "Anlegesteg",
+      "desc": "Ein Holzsteg ins Wasser: 2 Liegeplätze für Ruderboote, Laden geht schneller als am Strand.",
+      "size": [
+        2,
+        1
+      ],
+      "sprite": "jetty",
+      "buildable": true,
+      "category": "see",
+      "requires": "schiffsbau",
+      "coast": true,
+      "work": 20,
+      "cost": {
+        "holz": 14,
+        "bretter": 8
+      },
+      "harbor": {
+        "level": 1,
+        "berths": [
+          1,
+          1
+        ],
+        "rate": 35
+      }
+    },
+    "hafen": {
+      "name": "Hafen",
+      "desc": "Kaimauer mit Kran: 2 Liegeplätze für Koggen und Schnellsegler, schnelles Laden. Erst mit Hafen können mittlere Schiffe die Insel anlaufen.",
+      "size": [
+        3,
+        2
+      ],
+      "sprite": "harbor",
+      "buildable": true,
+      "category": "see",
+      "requires": "navigation",
+      "coast": true,
+      "work": 45,
+      "cost": {
+        "bretter": 30,
+        "stein": 24,
+        "werkzeug": 4
+      },
+      "harbor": {
+        "level": 2,
+        "berths": [
+          2,
+          2
+        ],
+        "rate": 70
+      }
+    },
+    "grosser_hafen": {
+      "name": "Großer Hafen",
+      "desc": "Tiefes Becken und zwei Kräne: 3 Liegeplätze, auch für Galeonen. Sehr schnelles Laden.",
+      "size": [
+        4,
+        2
+      ],
+      "sprite": "harbor_big",
+      "buildable": true,
+      "category": "see",
+      "requires": "seehandel",
+      "coast": true,
+      "work": 70,
+      "cost": {
+        "stein": 40,
+        "ziegel": 30,
+        "bretter": 30,
+        "eisen": 8
+      },
+      "harbor": {
+        "level": 3,
+        "berths": [
+          3,
+          3,
+          2
+        ],
+        "rate": 120
+      }
+    },
+    "holzkai": {
+      "name": "Holzkai",
+      "desc": "Kai für Holz, Bretter und Kohle: diese Waren werden hier dreimal so schnell verladen. 1 Liegeplatz für mittlere Schiffe.",
+      "size": [
+        3,
+        2
+      ],
+      "sprite": "quay_wood",
+      "buildable": true,
+      "category": "see",
+      "requires": "seehandel",
+      "coast": true,
+      "work": 40,
+      "cost": {
+        "bretter": 24,
+        "stein": 16,
+        "werkzeug": 2
+      },
+      "harbor": {
+        "level": 2,
+        "berths": [
+          2
+        ],
+        "rate": 70,
+        "goods": [
+          "holz",
+          "bretter",
+          "kohle"
+        ],
+        "goods_rate": 210
+      }
+    },
+    "steinkai": {
+      "name": "Erzkai",
+      "desc": "Kai mit Rutschen für Stein, Lehm, Ziegel, Erz, Eisen, Gold und Werkzeug: dreimal so schnell verladen. 1 Liegeplatz für mittlere Schiffe.",
+      "size": [
+        3,
+        2
+      ],
+      "sprite": "quay_ore",
+      "buildable": true,
+      "category": "see",
+      "requires": "seehandel",
+      "coast": true,
+      "work": 40,
+      "cost": {
+        "stein": 30,
+        "bretter": 12,
+        "werkzeug": 2
+      },
+      "harbor": {
+        "level": 2,
+        "berths": [
+          2
+        ],
+        "rate": 70,
+        "goods": [
+          "stein",
+          "lehm",
+          "ziegel",
+          "erz",
+          "eisen",
+          "gold",
+          "werkzeug"
+        ],
+        "goods_rate": 210
+      }
+    },
+    "proviantkai": {
+      "name": "Proviantkai",
+      "desc": "Kai mit Kühlkeller für alle Lebensmittel: dreimal so schnell verladen. 1 Liegeplatz für mittlere Schiffe.",
+      "size": [
+        3,
+        2
+      ],
+      "sprite": "quay_food",
+      "buildable": true,
+      "category": "see",
+      "requires": "seehandel",
+      "coast": true,
+      "work": 40,
+      "cost": {
+        "bretter": 20,
+        "stein": 16,
+        "ziegel": 8
+      },
+      "harbor": {
+        "level": 2,
+        "berths": [
+          2
+        ],
+        "rate": 70,
+        "goods": [
+          "beeren",
+          "fisch",
+          "weizen",
+          "aepfel",
+          "eier",
+          "raeucherfisch",
+          "brot",
+          "fleisch",
+          "kokos",
+          "pilze",
+          "milch"
+        ],
+        "goods_rate": 210
+      }
+    },
+    "wachturm": {
+      "name": "Wachturm",
+      "desc": "Ein Bogenschütze hält Wache und schießt auf wilde Tiere in der Nähe. Siedler fliehen bei Gefahr hierher.",
+      "size": [
+        1,
+        1
+      ],
+      "sprite": "tower",
+      "buildable": true,
+      "category": "see",
+      "requires": "waffenkunde",
+      "work": 30,
+      "cost": {
+        "stein": 12,
+        "bretter": 8,
+        "eisen": 2
+      },
+      "light": true,
+      "defense": {
+        "range": 7,
+        "damage": 9,
+        "interval": 1.4
+      }
+    },
+    "leuchtturm": {
+      "name": "Leuchtturm",
+      "desc": "Sein Feuer führt die Boote: Erkundungen dauern nur halb so lange und alle Boote fahren schneller.",
+      "size": [
+        2,
+        2
+      ],
+      "sprite": "lighthouse",
+      "buildable": true,
+      "category": "see",
+      "requires": "leuchtfeuer",
+      "coast": true,
+      "work": 50,
+      "cost": {
+        "stein": 24,
+        "ziegel": 14,
+        "gold": 4
+      },
+      "light": true,
+      "effects": {
+        "explore": 1,
+        "ship_speed": 0.25
+      }
+    },
+    "denkmal": {
+      "name": "Denkmal",
+      "desc": "Ein goldenes Denkmal für die Gründer. Auf allen Inseln kommen öfter Kinder zur Welt und alle leben 6 Tage länger.",
+      "size": [
+        2,
+        2
+      ],
+      "sprite": "monument",
+      "buildable": true,
+      "category": "see",
+      "requires": "goldenes_zeitalter",
+      "work": 60,
+      "cost": {
+        "stein": 30,
+        "ziegel": 20,
+        "gold": 16,
+        "eisen": 6
+      },
+      "effects": {
+        "birth": 0.5,
+        "life": 6
+      }
+    },
+    "schule": {
+      "name": "Schule",
+      "desc": "Hier lernen die Kinder der Insel lesen und rechnen. Bis zu 8 Schulkinder werden doppelt so schnell erwachsen.",
+      "size": [
+        3,
+        2
+      ],
+      "sprite": "school",
+      "buildable": true,
+      "category": "wohnen",
+      "requires": "unterricht",
+      "work": 32,
+      "cost": {
+        "holz": 10,
+        "bretter": 14,
+        "stein": 8
+      },
+      "light": true,
+      "school": {
+        "growth": 2,
+        "slots": 8
+      }
+    },
+    "glashuette": {
+      "name": "Glashütte",
+      "desc": "Im heißen Ofen wird aus Lehm und Kohle Glas.",
+      "size": [
+        3,
+        2
+      ],
+      "sprite": "glassworks",
+      "buildable": true,
+      "category": "handwerk",
+      "requires": "glasmacherei",
+      "work": 36,
+      "cost": {
+        "ziegel": 16,
+        "stein": 12,
+        "bretter": 8
+      },
+      "light": true,
+      "production": {
+        "job": "handwerk",
+        "inputs": {
+          "lehm": 2,
+          "kohle": 1
+        },
+        "outputs": {
+          "glas": 2
+        },
+        "time": 5,
+        "skill": "handwerk",
+        "verb": "Bläst Glas",
+        "smoke": [
+          16,
+          -44
+        ]
+      },
+      "worker_level": 3
+    },
+    "papiermuehle": {
+      "name": "Papiermühle",
+      "desc": "Das Wasserrad stampft Holz zu Brei, daraus wird Papier.",
+      "size": [
+        3,
+        2
+      ],
+      "sprite": "papermill",
+      "buildable": true,
+      "category": "handwerk",
+      "requires": "papier",
+      "work": 30,
+      "cost": {
+        "bretter": 16,
+        "stein": 10,
+        "holz": 10
+      },
+      "production": {
+        "job": "handwerk",
+        "inputs": {
+          "holz": 3
+        },
+        "outputs": {
+          "papier": 2
+        },
+        "time": 4,
+        "skill": "handwerk",
+        "verb": "Schöpft Papier"
+      },
+      "worker_level": 3,
+      "biome_bonus": {
+        "wald": 1.5
+      }
+    },
+    "druckerei": {
+      "name": "Druckerei",
+      "desc": "Druckt aus Papier Bücher und Zeitungen. Bewohner von Steinhäusern brauchen Lesestoff. Wer liest, macht etwas längere Pausen, dafür lernen die Kinder schneller.",
+      "size": [
+        3,
+        2
+      ],
+      "sprite": "printshop",
+      "buildable": true,
+      "category": "handwerk",
+      "requires": "papier",
+      "work": 28,
+      "cost": {
+        "bretter": 14,
+        "ziegel": 8,
+        "werkzeug": 2
+      },
+      "light": true,
+      "production": {
+        "job": "handwerk",
+        "inputs": {
+          "papier": 3
+        },
+        "outputs": {
+          "zeitungen": 2,
+          "buecher": 1
+        },
+        "time": 5,
+        "skill": "handwerk",
+        "verb": "Druckt Bücher und Zeitungen"
+      },
+      "worker_level": 3
+    },
+    "universitaet": {
+      "name": "Universität",
+      "desc": "Gelehrte aller Fächer: vier Forscher arbeiten hier dreieinhalbmal so schnell wie in der Schreibstube.",
+      "size": [
+        4,
+        2
+      ],
+      "sprite": "university",
+      "buildable": true,
+      "category": "wissen",
+      "requires": "hochschule",
+      "work": 80,
+      "cost": {
+        "ziegel": 40,
+        "stein": 30,
+        "glas": 12,
+        "papier": 20
+      },
+      "light": true,
+      "research": {
+        "factor": 3.5,
+        "slots": 4
+      },
+      "worker_level": 3
+    },
+    "stahlwerk": {
+      "name": "Stahlwerk",
+      "desc": "Im Hochofen wird aus Eisen und viel Kohle harter Stahl.",
+      "size": [
+        3,
+        2
+      ],
+      "sprite": "steelworks",
+      "buildable": true,
+      "category": "handwerk",
+      "requires": "stahl",
+      "work": 50,
+      "cost": {
+        "ziegel": 30,
+        "stein": 30,
+        "eisen": 10
+      },
+      "light": true,
+      "production": {
+        "job": "handwerk",
+        "inputs": {
+          "eisen": 2,
+          "kohle": 2
+        },
+        "outputs": {
+          "stahl": 1
+        },
+        "time": 6,
+        "skill": "handwerk",
+        "verb": "Gießt Stahl",
+        "smoke": [
+          -12,
+          -44
+        ]
+      },
+      "sound": "hammer",
+      "worker_level": 3,
+      "biome_bonus": {
+        "berg": 1.5
+      }
+    },
+    "fabrik": {
+      "name": "Fabrik",
+      "desc": "Dampfgetriebene Maschinen bauen neue Maschinen aus Stahl und Holz.",
+      "size": [
+        4,
+        2
+      ],
+      "sprite": "factory",
+      "buildable": true,
+      "category": "handwerk",
+      "requires": "fabrik",
+      "work": 60,
+      "cost": {
+        "ziegel": 40,
+        "stahl": 12,
+        "bretter": 20
+      },
+      "light": true,
+      "production": {
+        "job": "handwerk",
+        "inputs": {
+          "stahl": 2,
+          "holz": 2
+        },
+        "outputs": {
+          "maschinen": 1
+        },
+        "time": 7,
+        "skill": "handwerk",
+        "verb": "Baut Maschinen",
+        "smoke": [
+          24,
+          -48
+        ]
+      },
+      "worker_level": 4
+    },
+    "konservenfabrik": {
+      "name": "Konservenfabrik",
+      "desc": "Fisch in Blechdosen: sättigt gut und verdirbt nie.",
+      "size": [
+        3,
+        2
+      ],
+      "sprite": "cannery",
+      "buildable": true,
+      "category": "nahrung",
+      "requires": "konservendose",
+      "work": 40,
+      "cost": {
+        "ziegel": 20,
+        "eisen": 8,
+        "bretter": 12
+      },
+      "production": {
+        "job": "kueche",
+        "inputs": {
+          "fisch": 3,
+          "eisen": 1
+        },
+        "outputs": {
+          "konserven": 4
+        },
+        "time": 5,
+        "skill": "nahrung",
+        "verb": "Füllt Dosen"
+      },
+      "worker_level": 3,
+      "biome_bonus": {
+        "tropen": 1.5
+      }
+    },
+    "mietshaus": {
+      "name": "Mietshaus",
+      "desc": "Drei Stockwerke Backstein für 10 Siedler. Wer hier wohnt, bekommt 80 % öfter Kinder. Steinhäuser lassen sich dazu ausbauen.",
+      "birth_bonus": 1.8,
+      "size": [
+        3,
+        2
+      ],
+      "sprite": "tenement",
+      "buildable": true,
+      "category": "wohnen",
+      "requires": "mietshaus",
+      "housing": 10,
+      "work": 60,
+      "cost": {
+        "ziegel": 30,
+        "stahl": 10,
+        "bretter": 20
+      },
+      "light": true,
+      "level": 4,
+      "upgrade": "wohnblock"
+    },
+    "kraftwerk": {
+      "name": "Kraftwerk",
+      "desc": "Verbrennt Kohle und erzeugt Strom für Fabriken, Labore und Rechner.",
+      "size": [
+        4,
+        2
+      ],
+      "sprite": "powerplant",
+      "buildable": true,
+      "category": "handwerk",
+      "requires": "elektrizitaet",
+      "work": 60,
+      "cost": {
+        "ziegel": 30,
+        "stahl": 20,
+        "maschinen": 6
+      },
+      "light": true,
+      "production": {
+        "job": "handwerk",
+        "inputs": {
+          "kohle": 2
+        },
+        "outputs": {
+          "strom": 6
+        },
+        "time": 5,
+        "skill": "handwerk",
+        "verb": "Heizt die Kessel"
+      },
+      "worker_level": 4
+    },
+    "gewaechshaus": {
+      "name": "Gewächshaus",
+      "desc": "Unter Glas wachsen Äpfel das ganze Jahr, auch im Winter.",
+      "size": [
+        3,
+        2
+      ],
+      "sprite": "greenhouse",
+      "buildable": true,
+      "ground": false,
+      "category": "nahrung",
+      "requires": "gewaechshaus",
+      "work": 30,
+      "cost": {
+        "glas": 20,
+        "stahl": 6,
+        "bretter": 10
+      },
+      "farm": {
+        "yield": "aepfel",
+        "amount": 12,
+        "grow_days": 2,
+        "sow_time": 3,
+        "harvest_time": 1.2,
+        "tiles": "orchard",
+        "sow_verb": "Pflegt die Pflanzen",
+        "harvest_verb": "Erntet im Gewächshaus"
+      }
+    },
+    "wohnblock": {
+      "name": "Wohnblock",
+      "desc": "Ein Hochhaus aus Beton und Glas für 16 Siedler. Wer hier wohnt, bekommt doppelt so oft Kinder. Mietshäuser lassen sich dazu ausbauen.",
+      "birth_bonus": 2,
+      "size": [
+        3,
+        2
+      ],
+      "sprite": "apartment",
+      "buildable": true,
+      "category": "wohnen",
+      "requires": "wohnblock",
+      "housing": 16,
+      "work": 80,
+      "cost": {
+        "stahl": 20,
+        "glas": 16,
+        "ziegel": 30,
+        "maschinen": 4
+      },
+      "light": true,
+      "level": 5
+    },
+    "elektronikwerk": {
+      "name": "Elektronikwerk",
+      "desc": "Im Reinraum entstehen Chips aus Glas, Stahl und Strom.",
+      "size": [
+        4,
+        2
+      ],
+      "sprite": "electronics",
+      "buildable": true,
+      "category": "handwerk",
+      "requires": "computer",
+      "work": 70,
+      "cost": {
+        "stahl": 20,
+        "glas": 16,
+        "maschinen": 8
+      },
+      "light": true,
+      "production": {
+        "job": "handwerk",
+        "inputs": {
+          "glas": 1,
+          "stahl": 1,
+          "strom": 2
+        },
+        "outputs": {
+          "elektronik": 1
+        },
+        "time": 7,
+        "skill": "handwerk",
+        "verb": "Fertigt Chips"
+      },
+      "worker_level": 4
+    },
+    "droidenfabrik": {
+      "name": "Droidenfabrik",
+      "desc": "Baut aus Elektronik, Stahl, Maschinen und Strom Droiden. Jeder Droide übernimmt die Arbeit eines Siedlers und braucht 1 Strom am Tag.",
+      "size": [
+        3,
+        2
+      ],
+      "sprite": "droid_factory",
+      "buildable": true,
+      "category": "handwerk",
+      "requires": "computer",
+      "work": 80,
+      "cost": {
+        "stahl": 30,
+        "ziegel": 20,
+        "elektronik": 12,
+        "maschinen": 8
+      },
+      "light": true,
+      "production": {
+        "job": "handwerk",
+        "inputs": {
+          "elektronik": 4,
+          "stahl": 4,
+          "maschinen": 2,
+          "strom": 6
+        },
+        "outputs": {
+          "droide": 1
+        },
+        "time": 14,
+        "skill": "handwerk",
+        "verb": "Baut einen Droiden"
+      },
+      "worker_level": 4
+    },
+    "solarpark": {
+      "name": "Solarpark",
+      "desc": "Sonnenlicht wird zu Strom, ganz ohne Kohle. Ein Handwerker hält die Paneele sauber.",
+      "size": [
+        4,
+        2
+      ],
+      "sprite": "solarpark",
+      "buildable": true,
+      "ground": true,
+      "category": "handwerk",
+      "requires": "solarenergie",
+      "work": 40,
+      "cost": {
+        "glas": 20,
+        "elektronik": 6,
+        "stahl": 8
+      },
+      "production": {
+        "job": "handwerk",
+        "inputs": {},
+        "outputs": {
+          "strom": 4
+        },
+        "time": 6,
+        "skill": "handwerk",
+        "verb": "Wartet die Paneele"
+      },
+      "worker_level": 5,
+      "biome_bonus": {
+        "tropen": 1.5
+      }
+    },
+    "labor": {
+      "name": "Forschungslabor",
+      "desc": "Mikroskope, Rechner und Antennen: vier Forscher arbeiten hier sechsmal so schnell wie in der Schreibstube.",
+      "size": [
+        4,
+        2
+      ],
+      "sprite": "lab",
+      "buildable": true,
+      "category": "wissen",
+      "requires": "internet",
+      "work": 90,
+      "cost": {
+        "stahl": 30,
+        "glas": 30,
+        "elektronik": 12
+      },
+      "light": true,
+      "research": {
+        "factor": 6,
+        "slots": 4
+      },
+      "worker_level": 4
+    },
+    "ki_zentrum": {
+      "name": "KI-Zentrum",
+      "desc": "Eine künstliche Intelligenz forscht mit: vier Forscher zehnmal so schnell wie in der Schreibstube. Die KI verteilt freie Siedler auf die Berufe, die gerade fehlen, und alle arbeiten 20 % schneller.",
+      "size": [
+        4,
+        2
+      ],
+      "sprite": "ai_center",
+      "buildable": true,
+      "category": "wissen",
+      "requires": "ki",
+      "work": 120,
+      "cost": {
+        "stahl": 40,
+        "glas": 30,
+        "elektronik": 30,
+        "strom": 40
+      },
+      "light": true,
+      "research": {
+        "factor": 10,
+        "slots": 4
+      },
+      "effects": {
+        "work": 0.2,
+        "ai_jobs": 1
+      },
+      "worker_level": 5
+    },
+    "fusionsreaktor": {
+      "name": "Fusionsreaktor",
+      "desc": "Eine kleine Sonne in der Halle: sehr viel Strom ohne Kohle.",
+      "size": [
+        4,
+        2
+      ],
+      "sprite": "fusion",
+      "buildable": true,
+      "category": "handwerk",
+      "requires": "fusionsenergie",
+      "work": 120,
+      "cost": {
+        "stahl": 60,
+        "elektronik": 30,
+        "maschinen": 20
+      },
+      "light": true,
+      "production": {
+        "job": "handwerk",
+        "inputs": {},
+        "outputs": {
+          "strom": 16
+        },
+        "time": 5,
+        "skill": "handwerk",
+        "verb": "Überwacht das Plasma"
+      },
+      "worker_level": 5
+    },
+    "zukunftsstadt": {
+      "name": "Zukunftsstadt",
+      "desc": "Gläserne Türme, grüne Dächer und eine Rakete: das Ziel aller Zeitalter. Auf allen Inseln kommen doppelt so oft Kinder, alle leben 20 Tage länger und arbeiten 30 % schneller.",
+      "size": [
+        4,
+        2
+      ],
+      "sprite": "future_city",
+      "buildable": true,
+      "category": "wissen",
+      "requires": "zukunftsstadt",
+      "work": 200,
+      "cost": {
+        "stahl": 60,
+        "glas": 60,
+        "elektronik": 40,
+        "gold": 20,
+        "strom": 60
+      },
+      "light": true,
+      "effects": {
+        "birth": 1,
+        "life": 20,
+        "work": 0.3
+      }
+    },
+    "strasse": {
+      "name": "Straße",
+      "desc": "Gepflasterter Weg, 1 Feld. Siedler laufen darauf 1,5-mal so schnell. Der Baumeister legt sie an.",
+      "size": [
+        1,
+        1
+      ],
+      "sprite": "road10",
+      "tile": "road",
+      "buildable": true,
+      "ground": true,
+      "category": "land",
+      "requires": "wegebau",
+      "work": 4,
+      "cost": {
+        "stein": 20
+      },
+      "repeat": true
+    },
+    "zaun": {
+      "name": "Zaun",
+      "desc": "Holzzaun, 1 Feld. Siedler steigen darüber, wilde Tiere kommen nicht hindurch. Ein ganz umschlossenes Stück Land ist ein Gehege: Tiere darin bleiben drin und vermehren sich dort.",
+      "size": [
+        1,
+        1
+      ],
+      "sprite": "fence10",
+      "tile": "fence",
+      "buildable": true,
+      "ground": true,
+      "category": "land",
+      "requires": "tierhaltung",
+      "work": 3,
+      "cost": {
+        "holz": 3
+      },
+      "repeat": true
+    },
+    "jagdhuette": {
+      "name": "Jagdhütte",
+      "desc": "Wird als Teil des Zauns direkt ans Gehege gebaut, die Tür nach draußen. Gibt es eine Jagdhütte, jagt der Jäger nur noch hier: Er lauert in der Hütte und erlegt ein Tier im Gehege, die anderen laufen davon. Dann holt er das Fleisch. Von jeder Art bleiben 2 Tiere übrig.",
+      "size": [
+        2,
+        2
+      ],
+      "sprite": "lodge",
+      "buildable": true,
+      "category": "nahrung",
+      "requires": "waffenkunde",
+      "lodge": true,
+      "work": 18,
+      "cost": {
+        "holz": 14,
+        "bretter": 6
+      }
+    },
+    "deich": {
+      "name": "Deich",
+      "desc": "Wall aus Stein, Holz und Lehm, 1 Feld, auch im Wasser am Ufer. Ist Wasser am Ufer ganz von Deichen umschlossen, wird daraus Land. Eine Sturmflut kann einen Deich brechen.",
+      "size": [
+        1,
+        1
+      ],
+      "sprite": "dike10",
+      "tile": "dike",
+      "buildable": true,
+      "ground": true,
+      "water_ok": true,
+      "category": "land",
+      "requires": "deichbau",
+      "work": 8,
+      "cost": {
+        "stein": 6,
+        "holz": 3,
+        "lehm": 6
+      },
+      "repeat": true
+    },
+    "setzling": {
+      "name": "Baum pflanzen",
+      "desc": "Der Förster setzt hier einen jungen Baum, der in ein paar Tagen heranwächst.",
+      "size": [
+        1,
+        1
+      ],
+      "sprite": "sapling",
+      "tile": "plant_mark",
+      "buildable": true,
+      "ground": true,
+      "category": "land",
+      "requires": "steinwerkzeuge",
+      "work": 3,
+      "cost": {},
+      "builder": "foerster",
+      "repeat": true
+    },
+    "kiesweg": {
+      "name": "Kiesweg",
+      "desc": "Heller Weg aus Kies, 1 Feld. Siedler laufen darauf 1,2-mal so schnell. Billig, aber nicht so schnell wie eine Straße.",
+      "size": [
+        1,
+        1
+      ],
+      "sprite": "gravel10",
+      "tile": "gravel",
+      "buildable": true,
+      "ground": true,
+      "category": "schmuck",
+      "requires": "steinwerkzeuge",
+      "work": 2,
+      "cost": {
+        "stein": 2
+      },
+      "repeat": true,
+      "path_speed": 1.2
+    },
+    "blumenbeet_rot": {
+      "name": "Rotes Blumenbeet",
+      "desc": "Ein kleines Beet mit roten Blumen. Wer in der Nähe wohnt, freut sich.",
+      "size": [
+        1,
+        1
+      ],
+      "sprite": "flowerbed_red",
+      "buildable": true,
+      "category": "schmuck",
+      "requires": "gartenbau",
+      "work": 3,
+      "cost": {
+        "holz": 2
+      },
+      "repeat": true,
+      "decor": 1,
+      "flat": true,
+      "icon_size": 32
+    },
+    "blumenbeet_gelb": {
+      "name": "Gelbes Blumenbeet",
+      "desc": "Ein kleines Beet mit gelben Blumen. Wer in der Nähe wohnt, freut sich.",
+      "size": [
+        1,
+        1
+      ],
+      "sprite": "flowerbed_yellow",
+      "buildable": true,
+      "category": "schmuck",
+      "requires": "gartenbau",
+      "work": 3,
+      "cost": {
+        "holz": 2
+      },
+      "repeat": true,
+      "decor": 1,
+      "flat": true,
+      "icon_size": 32
+    },
+    "hecke": {
+      "name": "Hecke",
+      "desc": "Gestutzte Hecke, 1 Feld. Sieht ordentlich aus, Siedler steigen darüber, wilde Tiere kommen nicht hindurch (wie ein Zaun).",
+      "size": [
+        1,
+        1
+      ],
+      "sprite": "hedge10",
+      "tile": "hedge",
+      "buildable": true,
+      "ground": true,
+      "category": "schmuck",
+      "requires": "gartenbau",
+      "work": 2,
+      "cost": {
+        "holz": 2
+      },
+      "repeat": true,
+      "decor": 0.5,
+      "animal_wall": true
+    },
+    "holzbank": {
+      "name": "Holzbank",
+      "desc": "Eine Bank zum Ausruhen. In der Freizeit setzen sich Siedler gern darauf.",
+      "size": [
+        1,
+        1
+      ],
+      "sprite": "bench",
+      "buildable": true,
+      "category": "schmuck",
+      "requires": "holzbearbeitung",
+      "work": 4,
+      "cost": {
+        "holz": 4
+      },
+      "decor": 1,
+      "leisure": "bench",
+      "icon_size": 40
+    },
+    "menhir": {
+      "name": "Menhir",
+      "desc": "Ein aufgerichteter Stein mit eingeritzter Spirale, so alt wie die Siedlung.",
+      "size": [
+        1,
+        1
+      ],
+      "sprite": "menhir",
+      "buildable": true,
+      "category": "schmuck",
+      "requires": "steinwerkzeuge",
+      "work": 6,
+      "cost": {
+        "stein": 8
+      },
+      "decor": 1.5,
+      "icon_size": 40
+    },
+    "fahnenmast": {
+      "name": "Fahnenmast",
+      "desc": "Die Fahne der Insel weht im Wind. Wer in der Nähe wohnt, ist stolz darauf.",
+      "size": [
+        1,
+        1
+      ],
+      "sprite": "flagpole",
+      "buildable": true,
+      "category": "schmuck",
+      "requires": "zimmerei",
+      "work": 6,
+      "cost": {
+        "holz": 4,
+        "bretter": 4
+      },
+      "decor": 1.5,
+      "anim": 5
+    },
+    "steinstatue": {
+      "name": "Steinstatue",
+      "desc": "Eine Figur aus hellem Stein auf einem Sockel.",
+      "size": [
+        1,
+        1
+      ],
+      "sprite": "statue_stone",
+      "buildable": true,
+      "category": "schmuck",
+      "requires": "steinbruch",
+      "work": 12,
+      "cost": {
+        "stein": 16
+      },
+      "decor": 3,
+      "icon_size": 48
+    },
+    "blumenkuebel": {
+      "name": "Blumenkübel",
+      "desc": "Ein Tontopf voller bunter Blumen.",
+      "size": [
+        1,
+        1
+      ],
+      "sprite": "flower_tub",
+      "buildable": true,
+      "category": "schmuck",
+      "requires": "toepferei",
+      "work": 3,
+      "cost": {
+        "lehm": 4,
+        "holz": 1
+      },
+      "repeat": true,
+      "decor": 1,
+      "icon_size": 32
+    },
+    "ziegelweg": {
+      "name": "Ziegelweg",
+      "desc": "Weg aus roten Klinkern, 1 Feld. Siedler laufen darauf 1,3-mal so schnell.",
+      "size": [
+        1,
+        1
+      ],
+      "sprite": "bricks10",
+      "tile": "bricks",
+      "buildable": true,
+      "ground": true,
+      "category": "schmuck",
+      "requires": "maurerei",
+      "work": 3,
+      "cost": {
+        "ziegel": 3
+      },
+      "repeat": true,
+      "path_speed": 1.3
+    },
+    "springbrunnen": {
+      "name": "Springbrunnen",
+      "desc": "Ein Brunnen mit Wasserspiel in einer runden Steinschale. Schmückt die ganze Umgebung.",
+      "size": [
+        2,
+        2
+      ],
+      "sprite": "fountain",
+      "buildable": true,
+      "category": "schmuck",
+      "requires": "maurerei",
+      "work": 20,
+      "cost": {
+        "stein": 16,
+        "ziegel": 10
+      },
+      "decor": 4,
+      "anim": 6,
+      "icon_size": 48
+    },
+    "blumenbeet_blau": {
+      "name": "Blaues Blumenbeet",
+      "desc": "Ein kleines Beet mit blauen Blumen. Wer in der Nähe wohnt, freut sich.",
+      "size": [
+        1,
+        1
+      ],
+      "sprite": "flowerbed_blue",
+      "buildable": true,
+      "category": "schmuck",
+      "requires": "bewaesserung",
+      "work": 3,
+      "cost": {
+        "holz": 2,
+        "lehm": 1
+      },
+      "repeat": true,
+      "decor": 1,
+      "flat": true,
+      "icon_size": 32
+    },
+    "teich": {
+      "name": "Seerosenteich",
+      "desc": "Ein kleiner Teich mit Seerosen und Schilf.",
+      "size": [
+        2,
+        2
+      ],
+      "sprite": "pond",
+      "buildable": true,
+      "category": "schmuck",
+      "requires": "bewaesserung",
+      "work": 12,
+      "cost": {
+        "stein": 6,
+        "lehm": 6
+      },
+      "decor": 3,
+      "flat": true,
+      "icon_size": 48
+    },
+    "parkanlage": {
+      "name": "Parkanlage",
+      "desc": "Rasen mit Kieswegen, Blumen und zwei Zierbäumen, 3x3 Felder. Siedler gehen in der Freizeit gern langsam hindurch.",
+      "size": [
+        3,
+        3
+      ],
+      "sprite": "park",
+      "buildable": true,
+      "ground": true,
+      "category": "schmuck",
+      "requires": "heilkunde",
+      "work": 15,
+      "cost": {
+        "holz": 10,
+        "stein": 6
+      },
+      "decor": 5,
+      "leisure": "park",
+      "props": [
+        [
+          "park_tree",
+          0,
+          0
+        ],
+        [
+          "park_tree",
+          2,
+          0
+        ]
+      ]
+    },
+    "rosenbogen": {
+      "name": "Rosenbogen",
+      "desc": "Ein Bogen aus Holz und Eisen, über den Rosen ranken.",
+      "size": [
+        1,
+        1
+      ],
+      "sprite": "rose_arch",
+      "buildable": true,
+      "category": "schmuck",
+      "requires": "schmiedekunst",
+      "work": 5,
+      "cost": {
+        "holz": 4,
+        "eisen": 2
+      },
+      "decor": 2,
+      "icon_size": 48
+    },
+    "sonnenuhr": {
+      "name": "Sonnenuhr",
+      "desc": "Zeigt mit ihrem Schatten die Stunde.",
+      "size": [
+        1,
+        1
+      ],
+      "sprite": "sundial",
+      "buildable": true,
+      "category": "schmuck",
+      "requires": "gelehrsamkeit",
+      "work": 8,
+      "cost": {
+        "stein": 10,
+        "ziegel": 4
+      },
+      "decor": 2,
+      "icon_size": 40
+    },
+    "laterne": {
+      "name": "Laterne",
+      "desc": "Eine Öllampe auf einem Eisenpfahl. Leuchtet nachts.",
+      "size": [
+        1,
+        1
+      ],
+      "sprite": "lantern",
+      "buildable": true,
+      "category": "schmuck",
+      "requires": "eisenwerkzeuge",
+      "work": 5,
+      "cost": {
+        "eisen": 3,
+        "bretter": 2
+      },
+      "decor": 1,
+      "light": true,
+      "light_y": -38,
+      "icon_size": 56
+    },
+    "pavillon": {
+      "name": "Pavillon",
+      "desc": "Ein offenes Gartenhaus mit Kupferdach. In der Freizeit sitzen Siedler gern darin.",
+      "size": [
+        2,
+        2
+      ],
+      "sprite": "pavilion",
+      "buildable": true,
+      "category": "schmuck",
+      "requires": "baumeisterkunst",
+      "work": 20,
+      "cost": {
+        "bretter": 16,
+        "ziegel": 10,
+        "werkzeug": 2
+      },
+      "decor": 4,
+      "leisure": "pavilion"
+    },
+    "reiterdenkmal": {
+      "name": "Reiterdenkmal",
+      "desc": "Ein Reiter mit erhobenem Säbel aus Bronze, auf einem Granitsockel.",
+      "size": [
+        2,
+        2
+      ],
+      "sprite": "equestrian",
+      "buildable": true,
+      "category": "schmuck",
+      "requires": "befestigung",
+      "work": 30,
+      "cost": {
+        "stein": 24,
+        "eisen": 10
+      },
+      "decor": 5
+    },
+    "obelisk": {
+      "name": "Obelisk",
+      "desc": "Ein hoher Steinpfeiler mit goldener Spitze und Zeichen der Sternkundigen.",
+      "size": [
+        1,
+        1
+      ],
+      "sprite": "obelisk",
+      "buildable": true,
+      "category": "schmuck",
+      "requires": "astronomie",
+      "work": 20,
+      "cost": {
+        "stein": 24,
+        "gold": 2
+      },
+      "decor": 4
+    },
+    "bronzestatue": {
+      "name": "Bronzestatue",
+      "desc": "Eine Gelehrte mit Buch, in Bronze gegossen, auf einem Marmorsockel.",
+      "size": [
+        1,
+        1
+      ],
+      "sprite": "statue_bronze",
+      "buildable": true,
+      "category": "schmuck",
+      "requires": "hochschule",
+      "work": 16,
+      "cost": {
+        "eisen": 12,
+        "stein": 8
+      },
+      "decor": 4,
+      "icon_size": 56
+    },
+    "strassenlaterne": {
+      "name": "Straßenlaterne",
+      "desc": "Elektrisches Licht mit zwei Lampen. Macht die Nacht hell.",
+      "size": [
+        1,
+        1
+      ],
+      "sprite": "street_lamp",
+      "buildable": true,
+      "category": "schmuck",
+      "requires": "elektrizitaet",
+      "work": 6,
+      "cost": {
+        "stahl": 4,
+        "glas": 2
+      },
+      "decor": 1.5,
+      "light": true,
+      "light_y": -48
+    },
+    "hologramm": {
+      "name": "Hologramm-Statue",
+      "desc": "Ein Lichtbild einer Figur schwebt über dem Sockel und flimmert leise.",
+      "size": [
+        1,
+        1
+      ],
+      "sprite": "hologram",
+      "buildable": true,
+      "category": "schmuck",
+      "requires": "computer",
+      "work": 12,
+      "cost": {
+        "stahl": 4,
+        "glas": 6,
+        "elektronik": 6
+      },
+      "decor": 6,
+      "anim": 5,
+      "light": true,
+      "light_y": -26,
+      "icon_size": 48
+    }
+  },
+  "nodes": {
+    "baum": {
+      "name": "Baum",
+      "yield": "holz",
+      "capacity": 5,
+      "work_time": 4.5,
+      "skill": "holz",
+      "terrain": "grass",
+      "solid": true,
+      "regrow_days": 5,
+      "sprites": {
+        "full": [
+          "tree0",
+          "tree1",
+          "tree2"
+        ],
+        "empty": "stump",
+        "growing": "sapling"
+      },
+      "on_empty": "regrow"
+    },
+    "fels": {
+      "name": "Felsen",
+      "yield": "stein",
+      "capacity": 10,
+      "work_time": 5.5,
+      "skill": "stein",
+      "terrain": "land",
+      "solid": true,
+      "regrow_days": 0,
+      "sprites": {
+        "full": [
+          "rock_big"
+        ],
+        "low": "rock_small"
+      },
+      "on_empty": "remove"
+    },
+    "busch": {
+      "name": "Beerenstrauch",
+      "yield": "beeren",
+      "capacity": 3,
+      "work_time": 6,
+      "skill": "nahrung",
+      "terrain": "grass",
+      "solid": true,
+      "regrow_days": 2.5,
+      "sprites": {
+        "full": [
+          "bush_full"
+        ],
+        "empty": "bush_empty"
+      },
+      "on_empty": "regrow"
+    },
+    "fischgrund": {
+      "name": "Fischgrund",
+      "yield": "fisch",
+      "capacity": 6,
+      "work_time": 8,
+      "skill": "nahrung",
+      "terrain": "shore_water",
+      "solid": false,
+      "regrow_days": 1.5,
+      "sprites": {
+        "full": [
+          "fish_anim"
+        ],
+        "empty": ""
+      },
+      "on_empty": "regrow"
+    },
+    "palme": {
+      "name": "Kokospalme",
+      "yield": "kokos",
+      "capacity": 3,
+      "work_time": 6,
+      "skill": "nahrung",
+      "terrain": "land",
+      "solid": true,
+      "regrow_days": 3,
+      "sprites": {
+        "full": [
+          "palm0",
+          "palm1"
+        ],
+        "empty": "palm_empty"
+      },
+      "on_empty": "regrow"
+    },
+    "pilzkreis": {
+      "name": "Pilzkreis",
+      "yield": "pilze",
+      "capacity": 3,
+      "work_time": 5,
+      "skill": "nahrung",
+      "terrain": "grass",
+      "solid": false,
+      "regrow_days": 2,
+      "sprites": {
+        "full": [
+          "mushrooms"
+        ],
+        "empty": ""
+      },
+      "on_empty": "regrow"
+    },
+    "gewuerzstrauch": {
+      "name": "Gewürzstrauch",
+      "yield": "gewuerze",
+      "capacity": 2,
+      "work_time": 7,
+      "skill": "nahrung",
+      "terrain": "grass",
+      "solid": true,
+      "regrow_days": 4,
+      "sprites": {
+        "full": [
+          "spice_full"
+        ],
+        "empty": "spice_empty"
+      },
+      "on_empty": "regrow"
+    },
+    "erzader": {
+      "name": "Erzader",
+      "yield": "erz",
+      "capacity": 8,
+      "work_time": 6,
+      "skill": "stein",
+      "terrain": "land",
+      "solid": true,
+      "regrow_days": 0,
+      "sprites": {
+        "full": [
+          "ore_rock"
+        ],
+        "low": "rock_small"
+      },
+      "on_empty": "remove"
+    },
+    "goldader": {
+      "name": "Goldader",
+      "yield": "gold",
+      "capacity": 6,
+      "work_time": 7,
+      "skill": "stein",
+      "terrain": "land",
+      "solid": true,
+      "regrow_days": 0,
+      "sprites": {
+        "full": [
+          "gold_rock"
+        ],
+        "low": "rock_small"
+      },
+      "on_empty": "remove"
+    },
+    "wolfsbau": {
+      "name": "Wolfsbau",
+      "yield": "felle",
+      "capacity": 6,
+      "work_time": 3,
+      "skill": "jagd",
+      "terrain": "grass",
+      "solid": true,
+      "regrow_days": 0,
+      "spawns": "wolf",
+      "den_cap": 3,
+      "sprites": {
+        "full": [
+          "den"
+        ]
+      },
+      "on_empty": "remove"
+    },
+    "eberbau": {
+      "name": "Wildschweinsuhle",
+      "yield": "felle",
+      "capacity": 5,
+      "work_time": 3,
+      "skill": "jagd",
+      "terrain": "grass",
+      "solid": true,
+      "regrow_days": 0,
+      "spawns": "eber",
+      "den_cap": 2,
+      "sprites": {
+        "full": [
+          "wallow"
+        ]
+      },
+      "on_empty": "remove"
+    },
+    "baerenhoehle": {
+      "name": "Bärenhöhle",
+      "yield": "felle",
+      "capacity": 8,
+      "work_time": 3.5,
+      "skill": "jagd",
+      "terrain": "land",
+      "solid": true,
+      "regrow_days": 0,
+      "spawns": "baer",
+      "den_cap": 2,
+      "sprites": {
+        "full": [
+          "cave"
+        ]
+      },
+      "on_empty": "remove"
+    },
+    "beute": {
+      "name": "Erlegtes Tier",
+      "yield": "fleisch",
+      "capacity": 5,
+      "work_time": 1.6,
+      "skill": "jagd",
+      "terrain": "land",
+      "solid": false,
+      "regrow_days": 0,
+      "decay_days": 2,
+      "sprites": {
+        "full": [
+          "carcass"
+        ]
+      },
+      "on_empty": "remove"
+    }
+  },
+  "jobs": {
+    "frei": {
+      "name": "Frei",
+      "desc": "Hilft dort, wo es gerade nötig ist.",
+      "skill": "",
+      "tool": "",
+      "targets": []
+    },
+    "holzfaeller": {
+      "name": "Holzfäller",
+      "desc": "Fällt Bäume und bringt Holz.",
+      "skill": "holz",
+      "tool": "axe",
+      "targets": [
+        "baum"
+      ]
+    },
+    "steinmetz": {
+      "name": "Steinmetz",
+      "desc": "Schlägt Steine, Erz und Gold aus Felsen, arbeitet in Steinbruch, Lehmgrube und Mine.",
+      "skill": "stein",
+      "tool": "pick",
+      "targets": [
+        "prod:stein",
+        "fels",
+        "erzader",
+        "goldader"
+      ]
+    },
+    "sammler": {
+      "name": "Sammler",
+      "desc": "Pflückt Beeren, Kokosnüsse, Pilze und Gewürze.",
+      "skill": "nahrung",
+      "tool": "basket",
+      "targets": [
+        "busch",
+        "palme",
+        "pilzkreis",
+        "gewuerzstrauch"
+      ]
+    },
+    "fischer": {
+      "name": "Fischer",
+      "desc": "Angelt an Fischgründen am Ufer.",
+      "skill": "nahrung",
+      "tool": "rod",
+      "targets": [
+        "fischgrund"
+      ]
+    },
+    "bauer": {
+      "name": "Bauer",
+      "desc": "Bestellt Getreidefelder und Obstgärten und versorgt die Tiere in Hühnerhof, Schweinestall und Kuhstall.",
+      "skill": "nahrung",
+      "tool": "sickle",
+      "targets": [
+        "farm",
+        "prod:stall"
+      ]
+    },
+    "koch": {
+      "name": "Koch",
+      "desc": "Arbeitet in Mühle, Bäckerei und Räucherei.",
+      "skill": "nahrung",
+      "tool": "spoon",
+      "targets": [
+        "prod:kueche"
+      ]
+    },
+    "handwerker": {
+      "name": "Handwerker",
+      "desc": "Arbeitet in Sägegrube, Ziegelei, Tafelmacherei, Köhlerei, Schmelze, Schmiede und Werft.",
+      "skill": "handwerk",
+      "tool": "hammer",
+      "targets": [
+        "prod:handwerk"
+      ]
+    },
+    "baumeister": {
+      "name": "Baumeister",
+      "desc": "Bringt Material und errichtet Gebäude.",
+      "skill": "bauen",
+      "tool": "hammer",
+      "targets": [
+        "construction"
+      ]
+    },
+    "forscher": {
+      "name": "Forscher",
+      "desc": "Forscht am Lagerfeuer oder in Schreibstube und Bibliothek. Ab der Antike verbraucht er Tontafeln, später Papier und Strom; fehlen sie, forscht er nur mit 20 % des Tempos.",
+      "skill": "wissen",
+      "tool": "book",
+      "targets": [
+        "research"
+      ]
+    },
+    "jaeger": {
+      "name": "Jäger",
+      "desc": "Jagt wilde Tiere, bringt Fleisch und Felle und räumt Tierbauten aus.",
+      "skill": "jagd",
+      "tool": "spear",
+      "targets": [
+        "hunt",
+        "beute",
+        "wolfsbau",
+        "eberbau",
+        "baerenhoehle"
+      ],
+      "requires": "waffenkunde"
+    },
+    "verwalter": {
+      "name": "Verwalter",
+      "desc": "Leitet die Verwaltung. Es gibt nur einen. Meldet, wo Leute fehlen, und schlägt Überstunden oder Schichtarbeit vor.",
+      "skill": "wissen",
+      "talent_star": false,
+      "tool": "book",
+      "targets": [],
+      "requires": "gelehrsamkeit"
+    },
+    "seemann": {
+      "name": "Seemann",
+      "desc": "Fährt als Besatzung auf den Schiffen mit. Ohne Seeleute legt kein Schiff ab. An Land angelt er.",
+      "skill": "nahrung",
+      "talent_star": false,
+      "tool": "rod",
+      "targets": [
+        "fischgrund"
+      ],
+      "requires": "schiffsbau"
+    },
+    "foerster": {
+      "name": "Förster",
+      "desc": "Rodet markierte Bäume und Sträucher und pflanzt neue Bäume. So lässt sich das Gelände neu gestalten.",
+      "skill": "holz",
+      "tool": "shovel",
+      "targets": [],
+      "requires": "steinwerkzeuge"
+    }
+  },
+  "ships": {
+    "boot": {
+      "name": "Ruderboot",
+      "desc": "Klein und billig. Landet an jedem Strand, auch ohne Hafen.",
+      "size": 1,
+      "crew": 1,
+      "passengers": 4,
+      "cargo": 40,
+      "speed": 1,
+      "requires": "schiffsbau",
+      "build": {
+        "inputs": {
+          "bretter": 8,
+          "holz": 4,
+          "werkzeug": 1
+        },
+        "time": 18
+      },
+      "icon": "boot",
+      "sprite": "boat",
+      "yard": 1
+    },
+    "kogge": {
+      "name": "Kogge",
+      "desc": "Bauchiges Lastschiff: viel Laderaum, aber gemächlich. Braucht einen Hafen.",
+      "size": 2,
+      "crew": 2,
+      "passengers": 6,
+      "cargo": 200,
+      "speed": 0.85,
+      "requires": "navigation",
+      "build": {
+        "inputs": {
+          "bretter": 30,
+          "holz": 10,
+          "werkzeug": 4,
+          "eisen": 2,
+          "felle": 6
+        },
+        "time": 40
+      },
+      "icon": "kogge",
+      "sprite": "ship_kogge",
+      "yard": 2
+    },
+    "schnellsegler": {
+      "name": "Schnellsegler",
+      "desc": "Schlank und doppelt so schnell, aber mit wenig Laderaum und großer Besatzung. Braucht einen Hafen.",
+      "size": 2,
+      "crew": 3,
+      "passengers": 4,
+      "cargo": 80,
+      "speed": 1.9,
+      "requires": "seehandel",
+      "build": {
+        "inputs": {
+          "bretter": 30,
+          "eisen": 4,
+          "werkzeug": 6,
+          "felle": 8,
+          "gold": 2
+        },
+        "time": 40
+      },
+      "icon": "schnellsegler",
+      "sprite": "ship_fast",
+      "yard": 3
+    },
+    "galeone": {
+      "name": "Galeone",
+      "desc": "Riesiges Handelsschiff mit enormem Laderaum. Fährt nur in große Häfen.",
+      "size": 3,
+      "crew": 5,
+      "passengers": 12,
+      "cargo": 500,
+      "speed": 1.05,
+      "requires": "seehandel",
+      "build": {
+        "inputs": {
+          "bretter": 70,
+          "holz": 20,
+          "eisen": 12,
+          "werkzeug": 10,
+          "felle": 16,
+          "gold": 6
+        },
+        "time": 80
+      },
+      "icon": "galeone",
+      "sprite": "ship_galleon",
+      "yard": 3
+    }
+  },
+  "animals": {
+    "wolf": {
+      "name": "Wolf",
+      "plural": "Wölfe",
+      "plural_dat": "Wölfen",
+      "by": "von einem Wolf",
+      "hp": 34,
+      "damage": 9,
+      "speed": 44,
+      "aggro": 4.5,
+      "night_aggro": 8,
+      "attack_time": 1,
+      "meat": 3,
+      "felle": 1,
+      "leash": 12,
+      "row": 0,
+      "sound": "heulen",
+      "food": {
+        "baum": false,
+        "beute": true
+      },
+      "food_name": "Wild im Wald und Aas",
+      "food_per_animal": 6,
+      "litter": [
+        1,
+        3
+      ],
+      "den_max": 6,
+      "adult_days": 2
+    },
+    "eber": {
+      "name": "Wildschwein",
+      "plural": "Wildschweine",
+      "plural_dat": "Wildschweinen",
+      "by": "von einem Wildschwein",
+      "hp": 46,
+      "damage": 11,
+      "speed": 36,
+      "aggro": 1.6,
+      "night_aggro": 1.6,
+      "attack_time": 1.2,
+      "meat": 5,
+      "felle": 1,
+      "leash": 9,
+      "row": 1,
+      "sound": "grunzen",
+      "food": {
+        "busch": true,
+        "pilzkreis": true,
+        "palme": true
+      },
+      "winter_food": [
+        "baum"
+      ],
+      "food_name": "Beeren, Pilze und Kokosnüsse, im Winter Eicheln und Wurzeln",
+      "food_per_animal": 2,
+      "litter": [
+        2,
+        4
+      ],
+      "den_max": 7,
+      "adult_days": 1.5
+    },
+    "baer": {
+      "name": "Bär",
+      "plural": "Bären",
+      "plural_dat": "Bären",
+      "by": "von einem Bären",
+      "hp": 110,
+      "damage": 20,
+      "speed": 30,
+      "aggro": 4,
+      "night_aggro": 4,
+      "attack_time": 1.6,
+      "meat": 8,
+      "felle": 2,
+      "leash": 10,
+      "row": 2,
+      "sound": "knurren",
+      "food": {
+        "busch": true,
+        "pilzkreis": true,
+        "beute": true,
+        "baum": false
+      },
+      "hibernate": true,
+      "food_name": "Beeren, Pilze, Aas und Kleintiere",
+      "food_per_animal": 4,
+      "roam": 14,
+      "litter": [
+        1,
+        2
+      ],
+      "den_max": 4,
+      "adult_days": 3
+    }
+  },
+  "resources": {
+    "holz": {
+      "name": "Holz",
+      "icon": "holz",
+      "category": "material",
+      "size": 2,
+      "order": 0,
+      "price": 0.1
+    },
+    "stein": {
+      "name": "Stein",
+      "icon": "stein",
+      "category": "material",
+      "size": 2,
+      "order": 1,
+      "price": 0.1
+    },
+    "bretter": {
+      "name": "Bretter",
+      "icon": "bretter",
+      "category": "material",
+      "size": 3,
+      "order": 2,
+      "price": 0.25
+    },
+    "lehm": {
+      "name": "Lehm",
+      "icon": "lehm",
+      "category": "material",
+      "size": 2,
+      "order": 3,
+      "price": 0.1
+    },
+    "ziegel": {
+      "name": "Ziegel",
+      "icon": "ziegel",
+      "category": "material",
+      "size": 2,
+      "order": 4,
+      "price": 0.3
+    },
+    "tontafel": {
+      "name": "Tontafeln",
+      "icon": "tontafel",
+      "category": "material",
+      "size": 1,
+      "order": 4.5,
+      "price": 0.3
+    },
+    "kohle": {
+      "name": "Kohle",
+      "icon": "kohle",
+      "category": "material",
+      "size": 1,
+      "order": 5,
+      "price": 0.3
+    },
+    "erz": {
+      "name": "Erz",
+      "icon": "erz",
+      "category": "material",
+      "size": 2,
+      "order": 6,
+      "price": 0.3
+    },
+    "eisen": {
+      "name": "Eisen",
+      "icon": "eisen",
+      "category": "material",
+      "size": 1,
+      "order": 7,
+      "price": 1
+    },
+    "werkzeug": {
+      "name": "Werkzeug",
+      "icon": "werkzeug",
+      "category": "material",
+      "size": 2,
+      "order": 8,
+      "price": 1.5
+    },
+    "waffen": {
+      "name": "Waffen",
+      "icon": "waffen",
+      "category": "material",
+      "size": 2,
+      "order": 8.5,
+      "price": 2
+    },
+    "mehl": {
+      "name": "Mehl",
+      "icon": "mehl",
+      "category": "material",
+      "size": 1,
+      "order": 9,
+      "price": 0.2
+    },
+    "beeren": {
+      "name": "Beeren",
+      "icon": "beeren",
+      "category": "food",
+      "nutrition": 12,
+      "vitamins": 22,
+      "size": 1,
+      "order": 10,
+      "price": 0.1
+    },
+    "fisch": {
+      "name": "Fisch",
+      "icon": "fisch",
+      "category": "food",
+      "nutrition": 22,
+      "vitamins": 6,
+      "size": 1,
+      "order": 11,
+      "price": 0.15
+    },
+    "weizen": {
+      "name": "Getreide",
+      "icon": "weizen",
+      "category": "food",
+      "nutrition": 10,
+      "vitamins": 3,
+      "size": 1,
+      "order": 12,
+      "price": 0.1
+    },
+    "aepfel": {
+      "name": "Äpfel",
+      "icon": "aepfel",
+      "category": "food",
+      "nutrition": 28,
+      "vitamins": 40,
+      "size": 1,
+      "order": 13,
+      "price": 0.2
+    },
+    "eier": {
+      "name": "Eier",
+      "icon": "eier",
+      "category": "food",
+      "nutrition": 20,
+      "vitamins": 8,
+      "size": 1,
+      "order": 14,
+      "price": 0.2
+    },
+    "raeucherfisch": {
+      "name": "Räucherfisch",
+      "icon": "raeucherfisch",
+      "category": "food",
+      "nutrition": 34,
+      "vitamins": 5,
+      "size": 1,
+      "order": 15,
+      "price": 0.3
+    },
+    "brot": {
+      "name": "Brot",
+      "icon": "brot",
+      "category": "food",
+      "nutrition": 84,
+      "vitamins": 6,
+      "size": 1,
+      "order": 16,
+      "price": 0.4
+    },
+    "felle": {
+      "name": "Felle",
+      "icon": "felle",
+      "category": "material",
+      "size": 2,
+      "order": 9.2,
+      "price": 0.5
+    },
+    "gold": {
+      "name": "Gold",
+      "icon": "gold",
+      "category": "material",
+      "size": 1,
+      "order": 9.4,
+      "price": 1
+    },
+    "gewuerze": {
+      "name": "Gewürze",
+      "icon": "gewuerze",
+      "category": "material",
+      "size": 1,
+      "order": 9.45,
+      "price": 1.5
+    },
+    "boot": {
+      "name": "Ruderboot",
+      "icon": "boot",
+      "category": "ship",
+      "size": 0,
+      "order": 9.6
+    },
+    "kogge": {
+      "name": "Kogge",
+      "icon": "kogge",
+      "category": "ship",
+      "size": 0,
+      "order": 9.61
+    },
+    "schnellsegler": {
+      "name": "Schnellsegler",
+      "icon": "schnellsegler",
+      "category": "ship",
+      "size": 0,
+      "order": 9.62
+    },
+    "galeone": {
+      "name": "Galeone",
+      "icon": "galeone",
+      "category": "ship",
+      "size": 0,
+      "order": 9.63
+    },
+    "fleisch": {
+      "name": "Fleisch",
+      "icon": "fleisch",
+      "category": "food",
+      "nutrition": 44,
+      "vitamins": 4,
+      "size": 1,
+      "order": 17,
+      "price": 0.2
+    },
+    "milch": {
+      "name": "Milch",
+      "icon": "milch",
+      "category": "food",
+      "nutrition": 36,
+      "vitamins": 12,
+      "size": 1,
+      "order": 17.5,
+      "price": 0.25
+    },
+    "kokos": {
+      "name": "Kokosnüsse",
+      "icon": "kokos",
+      "category": "food",
+      "nutrition": 18,
+      "vitamins": 14,
+      "size": 1,
+      "order": 18,
+      "price": 0.15
+    },
+    "pilze": {
+      "name": "Pilze",
+      "icon": "pilze",
+      "category": "food",
+      "nutrition": 12,
+      "vitamins": 12,
+      "size": 1,
+      "order": 19,
+      "price": 0.1
+    },
+    "glas": {
+      "name": "Glas",
+      "icon": "glas",
+      "category": "material",
+      "size": 2,
+      "order": 9.7,
+      "price": 1
+    },
+    "papier": {
+      "name": "Papier",
+      "icon": "papier",
+      "category": "material",
+      "size": 1,
+      "order": 9.71,
+      "price": 0.8
+    },
+    "buecher": {
+      "name": "Bücher",
+      "icon": "buecher",
+      "category": "material",
+      "size": 1,
+      "order": 9.72,
+      "price": 1.5
+    },
+    "zeitungen": {
+      "name": "Zeitungen",
+      "icon": "zeitungen",
+      "category": "material",
+      "size": 1,
+      "order": 9.73,
+      "price": 0.6
+    },
+    "stahl": {
+      "name": "Stahl",
+      "icon": "stahl",
+      "category": "material",
+      "size": 2,
+      "order": 9.72,
+      "price": 2.5
+    },
+    "maschinen": {
+      "name": "Maschinen",
+      "icon": "maschinen",
+      "category": "material",
+      "size": 3,
+      "order": 9.73,
+      "price": 6
+    },
+    "strom": {
+      "name": "Strom",
+      "icon": "strom",
+      "category": "material",
+      "size": 0,
+      "order": 9.74
+    },
+    "elektronik": {
+      "name": "Elektronik",
+      "icon": "elektronik",
+      "category": "material",
+      "size": 1,
+      "order": 9.75,
+      "price": 8
+    },
+    "droide": {
+      "name": "Droide",
+      "icon": "roboter",
+      "category": "material",
+      "size": 3,
+      "order": 9.76
+    },
+    "konserven": {
+      "name": "Konserven",
+      "icon": "konserven",
+      "category": "food",
+      "nutrition": 30,
+      "vitamins": 8,
+      "size": 1,
+      "order": 19.5,
+      "price": 0.6
+    }
+  },
+  "icons": [
+    "holz",
+    "stein",
+    "beeren",
+    "fisch",
+    "weizen",
+    "nahrung",
+    "person",
+    "haus",
+    "hammer",
+    "herz",
+    "sonne",
+    "mond",
+    "pause",
+    "play",
+    "schnell",
+    "menu",
+    "abriss",
+    "bretter",
+    "lehm",
+    "ziegel",
+    "kohle",
+    "erz",
+    "eisen",
+    "werkzeug",
+    "mehl",
+    "aepfel",
+    "eier",
+    "raeucherfisch",
+    "brot",
+    "wissen",
+    "axt",
+    "korb",
+    "wasser",
+    "karren",
+    "pflug",
+    "schiff",
+    "schwert",
+    "kiste",
+    "fleisch",
+    "felle",
+    "kokos",
+    "pilze",
+    "gold",
+    "boot",
+    "kompass",
+    "schild",
+    "wolf",
+    "eber",
+    "baer",
+    "musik",
+    "glocke",
+    "vollbild",
+    "ziel",
+    "haken",
+    "zeiger",
+    "kogge",
+    "schnellsegler",
+    "galeone",
+    "anker",
+    "glas",
+    "papier",
+    "stahl",
+    "maschinen",
+    "konserven",
+    "strom",
+    "elektronik",
+    "uhr",
+    "fernrohr",
+    "dampf",
+    "zug",
+    "spritze",
+    "schnee",
+    "motor",
+    "computer",
+    "netz",
+    "dna",
+    "ki",
+    "roboter",
+    "atom",
+    "zeitalter",
+    "tontafel",
+    "gewuerze",
+    "ereignis",
+    "haendler",
+    "feuer",
+    "ratte",
+    "sehr_schnell",
+    "weg",
+    "waffen",
+    "milch",
+    "buecher",
+    "zeitungen",
+    "schmuck"
+  ],
+  "sprite_files": [
+    "assets/sprites/animals.png",
+    "assets/sprites/buildings.png",
+    "assets/sprites/cart.png",
+    "assets/sprites/icons.png",
+    "assets/sprites/menu_icons.png",
+    "assets/sprites/objects.png",
+    "assets/sprites/objects2.png",
+    "assets/sprites/objects3.png",
+    "assets/sprites/seasons.png",
+    "assets/sprites/settler_apron.png",
+    "assets/sprites/settler_cap.png",
+    "assets/sprites/settler_chefhat.png",
+    "assets/sprites/settler_droid.png",
+    "assets/sprites/settler_fixed.png",
+    "assets/sprites/settler_fixed_bun.png",
+    "assets/sprites/settler_glasses.png",
+    "assets/sprites/settler_hair_0.png",
+    "assets/sprites/settler_hair_1.png",
+    "assets/sprites/settler_hair_2.png",
+    "assets/sprites/settler_hunthat.png",
+    "assets/sprites/settler_pants.png",
+    "assets/sprites/settler_rifle.png",
+    "assets/sprites/settler_saw.png",
+    "assets/sprites/settler_shirt.png",
+    "assets/sprites/settler_skin.png",
+    "assets/sprites/terrain.png",
+    "assets/sprites/tools.png",
+    "assets/sprites/ui.png"
+  ],
+  "plan": [
+    {
+      "id": "gebaeude_lager_1",
+      "title": "Lager und Feuer 1",
+      "items": [
+        {
+          "id": "lagerfeuer",
+          "name": "Lagerfeuer",
+          "sprite": "campfire",
+          "footprint": [
+            1,
+            1
+          ]
+        },
+        {
+          "id": "lager",
+          "name": "Lagerhaus",
+          "sprite": "storehouse",
+          "footprint": [
+            3,
+            2
+          ]
+        },
+        {
+          "id": "grosslager",
+          "name": "Großes Lager",
+          "sprite": "store_big",
+          "footprint": [
+            4,
+            2
+          ]
+        }
+      ],
+      "detail": "One separate reference drawing per listed ID. Preserve each building identity and era. Construction footprint is [[\"lagerfeuer\",[1,1]],[\"lager\",[3,2]],[\"grosslager\",[4,2]]]. Do not confuse the pigsty with the henhouse. Fields occupy one tile. Upgrade levels remain distinguishable; shipyards have three levels sharing an old sprite, show three restrained upgrade options. Decorative items are small relative to houses.",
+      "status": "generated_design_reference",
+      "file": "entwuerfe/gebaeude_lager_1.png",
+      "production_ready": false
+    },
+    {
+      "id": "gebaeude_wohnen_1",
+      "title": "Wohnen und Schule 1",
+      "items": [
+        {
+          "id": "huette",
+          "name": "Hütte",
+          "sprite": "hut",
+          "footprint": [
+            3,
+            2
+          ]
+        },
+        {
+          "id": "holzhaus",
+          "name": "Holzhaus",
+          "sprite": "house_wood",
+          "footprint": [
+            3,
+            2
+          ]
+        },
+        {
+          "id": "steinhaus",
+          "name": "Steinhaus",
+          "sprite": "house_stone",
+          "footprint": [
+            3,
+            2
+          ]
+        },
+        {
+          "id": "schule",
+          "name": "Schule",
+          "sprite": "school",
+          "footprint": [
+            3,
+            2
+          ]
+        },
+        {
+          "id": "mietshaus",
+          "name": "Mietshaus",
+          "sprite": "tenement",
+          "footprint": [
+            3,
+            2
+          ]
+        },
+        {
+          "id": "wohnblock",
+          "name": "Wohnblock",
+          "sprite": "apartment",
+          "footprint": [
+            3,
+            2
+          ]
+        }
+      ],
+      "detail": "One separate reference drawing per listed ID. Preserve each building identity and era. Construction footprint is [[\"huette\",[3,2]],[\"holzhaus\",[3,2]],[\"steinhaus\",[3,2]],[\"schule\",[3,2]],[\"mietshaus\",[3,2]],[\"wohnblock\",[3,2]]]. Do not confuse the pigsty with the henhouse. Fields occupy one tile. Upgrade levels remain distinguishable; shipyards have three levels sharing an old sprite, show three restrained upgrade options. Decorative items are small relative to houses.",
+      "status": "generated_design_reference",
+      "file": "entwuerfe/gebaeude_wohnen_1.png",
+      "production_ready": false
+    },
+    {
+      "id": "gebaeude_nahrung_1",
+      "title": "Nahrung und Landwirtschaft 1",
+      "items": [
+        {
+          "id": "feld",
+          "name": "Getreidefeld",
+          "sprite": "field",
+          "footprint": [
+            1,
+            1
+          ]
+        },
+        {
+          "id": "obstgarten",
+          "name": "Obstgarten",
+          "sprite": "orchard",
+          "footprint": [
+            2,
+            2
+          ]
+        },
+        {
+          "id": "muehle",
+          "name": "Windmühle",
+          "sprite": "mill",
+          "footprint": [
+            2,
+            2
+          ]
+        },
+        {
+          "id": "baeckerei",
+          "name": "Bäckerei",
+          "sprite": "bakery",
+          "footprint": [
+            3,
+            2
+          ]
+        },
+        {
+          "id": "raeucherei",
+          "name": "Räucherei",
+          "sprite": "smokehouse",
+          "footprint": [
+            2,
+            2
+          ]
+        },
+        {
+          "id": "huehnerhof",
+          "name": "Hühnerhof",
+          "sprite": "henhouse",
+          "footprint": [
+            3,
+            2
+          ]
+        },
+        {
+          "id": "schweinestall",
+          "name": "Schweinestall",
+          "sprite": "pigsty",
+          "footprint": [
+            3,
+            2
+          ]
+        },
+        {
+          "id": "kuhstall",
+          "name": "Kuhstall",
+          "sprite": "cowshed",
+          "footprint": [
+            3,
+            2
+          ]
+        },
+        {
+          "id": "konservenfabrik",
+          "name": "Konservenfabrik",
+          "sprite": "cannery",
+          "footprint": [
+            3,
+            2
+          ]
+        },
+        {
+          "id": "gewaechshaus",
+          "name": "Gewächshaus",
+          "sprite": "greenhouse",
+          "footprint": [
+            3,
+            2
+          ]
+        },
+        {
+          "id": "jagdhuette",
+          "name": "Jagdhütte",
+          "sprite": "lodge",
+          "footprint": [
+            2,
+            2
+          ]
+        }
+      ],
+      "detail": "One separate reference drawing per listed ID. Preserve each building identity and era. Construction footprint is [[\"feld\",[1,1]],[\"obstgarten\",[2,2]],[\"muehle\",[2,2]],[\"baeckerei\",[3,2]],[\"raeucherei\",[2,2]],[\"huehnerhof\",[3,2]],[\"schweinestall\",[3,2]],[\"kuhstall\",[3,2]],[\"konservenfabrik\",[3,2]],[\"gewaechshaus\",[3,2]],[\"jagdhuette\",[2,2]]]. Do not confuse the pigsty with the henhouse. Fields occupy one tile. Upgrade levels remain distinguishable; shipyards have three levels sharing an old sprite, show three restrained upgrade options. Decorative items are small relative to houses.",
+      "status": "generated_design_reference",
+      "file": "entwuerfe/gebaeude_nahrung_1.png",
+      "production_ready": false
+    },
+    {
+      "id": "gebaeude_handwerk_1",
+      "title": "Handwerk und Industrie 1",
+      "items": [
+        {
+          "id": "saegegrube",
+          "name": "Sägegrube",
+          "sprite": "sawpit",
+          "footprint": [
+            2,
+            2
+          ]
+        },
+        {
+          "id": "lehmgrube",
+          "name": "Lehmgrube",
+          "sprite": "claypit",
+          "footprint": [
+            2,
+            2
+          ]
+        },
+        {
+          "id": "ziegelei",
+          "name": "Ziegelei",
+          "sprite": "brickworks",
+          "footprint": [
+            3,
+            2
+          ]
+        },
+        {
+          "id": "steinbruch",
+          "name": "Steinbruch",
+          "sprite": "quarry",
+          "footprint": [
+            2,
+            2
+          ]
+        },
+        {
+          "id": "koehlerei",
+          "name": "Köhlerei",
+          "sprite": "charcoal",
+          "footprint": [
+            2,
+            2
+          ]
+        },
+        {
+          "id": "mine",
+          "name": "Erzmine",
+          "sprite": "mine",
+          "footprint": [
+            2,
+            2
+          ]
+        },
+        {
+          "id": "schmelze",
+          "name": "Schmelzofen",
+          "sprite": "smelter",
+          "footprint": [
+            2,
+            2
+          ]
+        },
+        {
+          "id": "schmiede",
+          "name": "Schmiede",
+          "sprite": "smithy",
+          "footprint": [
+            3,
+            2
+          ]
+        },
+        {
+          "id": "waffenschmiede",
+          "name": "Waffenschmiede",
+          "sprite": "armory",
+          "footprint": [
+            3,
+            2
+          ]
+        },
+        {
+          "id": "glashuette",
+          "name": "Glashütte",
+          "sprite": "glassworks",
+          "footprint": [
+            3,
+            2
+          ]
+        },
+        {
+          "id": "papiermuehle",
+          "name": "Papiermühle",
+          "sprite": "papermill",
+          "footprint": [
+            3,
+            2
+          ]
+        },
+        {
+          "id": "druckerei",
+          "name": "Druckerei",
+          "sprite": "printshop",
+          "footprint": [
+            3,
+            2
+          ]
+        }
+      ],
+      "detail": "One separate reference drawing per listed ID. Preserve each building identity and era. Construction footprint is [[\"saegegrube\",[2,2]],[\"lehmgrube\",[2,2]],[\"ziegelei\",[3,2]],[\"steinbruch\",[2,2]],[\"koehlerei\",[2,2]],[\"mine\",[2,2]],[\"schmelze\",[2,2]],[\"schmiede\",[3,2]],[\"waffenschmiede\",[3,2]],[\"glashuette\",[3,2]],[\"papiermuehle\",[3,2]],[\"druckerei\",[3,2]]]. Do not confuse the pigsty with the henhouse. Fields occupy one tile. Upgrade levels remain distinguishable; shipyards have three levels sharing an old sprite, show three restrained upgrade options. Decorative items are small relative to houses.",
+      "status": "generated_design_reference",
+      "file": "entwuerfe/gebaeude_handwerk_1.png",
+      "production_ready": false
+    },
+    {
+      "id": "gebaeude_handwerk_2",
+      "title": "Handwerk und Industrie 2",
+      "items": [
+        {
+          "id": "stahlwerk",
+          "name": "Stahlwerk",
+          "sprite": "steelworks",
+          "footprint": [
+            3,
+            2
+          ]
+        },
+        {
+          "id": "fabrik",
+          "name": "Fabrik",
+          "sprite": "factory",
+          "footprint": [
+            4,
+            2
+          ]
+        },
+        {
+          "id": "kraftwerk",
+          "name": "Kraftwerk",
+          "sprite": "powerplant",
+          "footprint": [
+            4,
+            2
+          ]
+        },
+        {
+          "id": "elektronikwerk",
+          "name": "Elektronikwerk",
+          "sprite": "electronics",
+          "footprint": [
+            4,
+            2
+          ]
+        },
+        {
+          "id": "droidenfabrik",
+          "name": "Droidenfabrik",
+          "sprite": "droid_factory",
+          "footprint": [
+            3,
+            2
+          ]
+        },
+        {
+          "id": "solarpark",
+          "name": "Solarpark",
+          "sprite": "solarpark",
+          "footprint": [
+            4,
+            2
+          ]
+        },
+        {
+          "id": "fusionsreaktor",
+          "name": "Fusionsreaktor",
+          "sprite": "fusion",
+          "footprint": [
+            4,
+            2
+          ]
+        }
+      ],
+      "detail": "One separate reference drawing per listed ID. Preserve each building identity and era. Construction footprint is [[\"stahlwerk\",[3,2]],[\"fabrik\",[4,2]],[\"kraftwerk\",[4,2]],[\"elektronikwerk\",[4,2]],[\"droidenfabrik\",[3,2]],[\"solarpark\",[4,2]],[\"fusionsreaktor\",[4,2]]]. Do not confuse the pigsty with the henhouse. Fields occupy one tile. Upgrade levels remain distinguishable; shipyards have three levels sharing an old sprite, show three restrained upgrade options. Decorative items are small relative to houses.",
+      "status": "generated_design_reference",
+      "file": "entwuerfe/gebaeude_handwerk_2.png",
+      "production_ready": false
+    },
+    {
+      "id": "gebaeude_wissen_1",
+      "title": "Wissen Verwaltung Zukunft 1",
+      "items": [
+        {
+          "id": "schreibstube",
+          "name": "Schreibstube",
+          "sprite": "scriptorium",
+          "footprint": [
+            3,
+            2
+          ]
+        },
+        {
+          "id": "schreibstube2",
+          "name": "Große Schreibstube",
+          "sprite": "scriptorium2",
+          "footprint": [
+            3,
+            2
+          ]
+        },
+        {
+          "id": "schreibstube3",
+          "name": "Gelehrtenstube",
+          "sprite": "scriptorium3",
+          "footprint": [
+            3,
+            2
+          ]
+        },
+        {
+          "id": "schreibstube4",
+          "name": "Akademie",
+          "sprite": "scriptorium4",
+          "footprint": [
+            3,
+            2
+          ]
+        },
+        {
+          "id": "bibliothek",
+          "name": "Bibliothek",
+          "sprite": "library",
+          "footprint": [
+            3,
+            2
+          ]
+        },
+        {
+          "id": "tafelmacherei",
+          "name": "Tafelmacherei",
+          "sprite": "tablets",
+          "footprint": [
+            2,
+            2
+          ]
+        },
+        {
+          "id": "verwaltung",
+          "name": "Verwaltung",
+          "sprite": "office",
+          "footprint": [
+            2,
+            2
+          ]
+        },
+        {
+          "id": "rundfunk",
+          "name": "Rundfunkanstalt",
+          "sprite": "radio",
+          "footprint": [
+            2,
+            2
+          ]
+        },
+        {
+          "id": "rechenautomat",
+          "name": "Rechenautomat",
+          "sprite": "automaton",
+          "footprint": [
+            3,
+            2
+          ]
+        },
+        {
+          "id": "planautomat",
+          "name": "Planungsautomat",
+          "sprite": "plan_automaton",
+          "footprint": [
+            2,
+            1
+          ]
+        },
+        {
+          "id": "universitaet",
+          "name": "Universität",
+          "sprite": "university",
+          "footprint": [
+            4,
+            2
+          ]
+        },
+        {
+          "id": "labor",
+          "name": "Forschungslabor",
+          "sprite": "lab",
+          "footprint": [
+            4,
+            2
+          ]
+        }
+      ],
+      "detail": "One separate reference drawing per listed ID. Preserve each building identity and era. Construction footprint is [[\"schreibstube\",[3,2]],[\"schreibstube2\",[3,2]],[\"schreibstube3\",[3,2]],[\"schreibstube4\",[3,2]],[\"bibliothek\",[3,2]],[\"tafelmacherei\",[2,2]],[\"verwaltung\",[2,2]],[\"rundfunk\",[2,2]],[\"rechenautomat\",[3,2]],[\"planautomat\",[2,1]],[\"universitaet\",[4,2]],[\"labor\",[4,2]]]. Do not confuse the pigsty with the henhouse. Fields occupy one tile. Upgrade levels remain distinguishable; shipyards have three levels sharing an old sprite, show three restrained upgrade options. Decorative items are small relative to houses.",
+      "status": "generated_design_reference",
+      "file": "entwuerfe/gebaeude_wissen_1.png",
+      "production_ready": false
+    },
+    {
+      "id": "gebaeude_wissen_2",
+      "title": "Wissen Verwaltung Zukunft 2",
+      "items": [
+        {
+          "id": "ki_zentrum",
+          "name": "KI-Zentrum",
+          "sprite": "ai_center",
+          "footprint": [
+            4,
+            2
+          ]
+        },
+        {
+          "id": "zukunftsstadt",
+          "name": "Zukunftsstadt",
+          "sprite": "future_city",
+          "footprint": [
+            4,
+            2
+          ]
+        }
+      ],
+      "detail": "One separate reference drawing per listed ID. Preserve each building identity and era. Construction footprint is [[\"ki_zentrum\",[4,2]],[\"zukunftsstadt\",[4,2]]]. Do not confuse the pigsty with the henhouse. Fields occupy one tile. Upgrade levels remain distinguishable; shipyards have three levels sharing an old sprite, show three restrained upgrade options. Decorative items are small relative to houses.",
+      "status": "generated_design_reference",
+      "file": "entwuerfe/gebaeude_wissen_2.png",
+      "production_ready": false
+    },
+    {
+      "id": "gebaeude_see_1",
+      "title": "Seefahrt und Schutz 1",
+      "items": [
+        {
+          "id": "werft",
+          "name": "Werft",
+          "sprite": "shipyard",
+          "footprint": [
+            3,
+            2
+          ]
+        },
+        {
+          "id": "werft2",
+          "name": "Große Werft",
+          "sprite": "shipyard",
+          "footprint": [
+            3,
+            2
+          ]
+        },
+        {
+          "id": "werft3",
+          "name": "Königliche Werft",
+          "sprite": "shipyard",
+          "footprint": [
+            3,
+            2
+          ]
+        },
+        {
+          "id": "anlegesteg",
+          "name": "Anlegesteg",
+          "sprite": "jetty",
+          "footprint": [
+            2,
+            1
+          ]
+        },
+        {
+          "id": "hafen",
+          "name": "Hafen",
+          "sprite": "harbor",
+          "footprint": [
+            3,
+            2
+          ]
+        },
+        {
+          "id": "grosser_hafen",
+          "name": "Großer Hafen",
+          "sprite": "harbor_big",
+          "footprint": [
+            4,
+            2
+          ]
+        },
+        {
+          "id": "holzkai",
+          "name": "Holzkai",
+          "sprite": "quay_wood",
+          "footprint": [
+            3,
+            2
+          ]
+        },
+        {
+          "id": "steinkai",
+          "name": "Erzkai",
+          "sprite": "quay_ore",
+          "footprint": [
+            3,
+            2
+          ]
+        },
+        {
+          "id": "proviantkai",
+          "name": "Proviantkai",
+          "sprite": "quay_food",
+          "footprint": [
+            3,
+            2
+          ]
+        },
+        {
+          "id": "wachturm",
+          "name": "Wachturm",
+          "sprite": "tower",
+          "footprint": [
+            1,
+            1
+          ]
+        },
+        {
+          "id": "leuchtturm",
+          "name": "Leuchtturm",
+          "sprite": "lighthouse",
+          "footprint": [
+            2,
+            2
+          ]
+        },
+        {
+          "id": "denkmal",
+          "name": "Denkmal",
+          "sprite": "monument",
+          "footprint": [
+            2,
+            2
+          ]
+        }
+      ],
+      "detail": "One separate reference drawing per listed ID. Preserve each building identity and era. Construction footprint is [[\"werft\",[3,2]],[\"werft2\",[3,2]],[\"werft3\",[3,2]],[\"anlegesteg\",[2,1]],[\"hafen\",[3,2]],[\"grosser_hafen\",[4,2]],[\"holzkai\",[3,2]],[\"steinkai\",[3,2]],[\"proviantkai\",[3,2]],[\"wachturm\",[1,1]],[\"leuchtturm\",[2,2]],[\"denkmal\",[2,2]]]. Do not confuse the pigsty with the henhouse. Fields occupy one tile. Upgrade levels remain distinguishable; shipyards have three levels sharing an old sprite, show three restrained upgrade options. Decorative items are small relative to houses.",
+      "status": "generated_design_reference",
+      "file": "entwuerfe/gebaeude_see_1.png",
+      "production_ready": false
+    },
+    {
+      "id": "gebaeude_land_1",
+      "title": "Wege Deiche und Zäune 1",
+      "items": [
+        {
+          "id": "strasse",
+          "name": "Straße",
+          "sprite": "road10",
+          "footprint": [
+            1,
+            1
+          ]
+        },
+        {
+          "id": "zaun",
+          "name": "Zaun",
+          "sprite": "fence10",
+          "footprint": [
+            1,
+            1
+          ]
+        },
+        {
+          "id": "deich",
+          "name": "Deich",
+          "sprite": "dike10",
+          "footprint": [
+            1,
+            1
+          ]
+        },
+        {
+          "id": "setzling",
+          "name": "Baum pflanzen",
+          "sprite": "sapling",
+          "footprint": [
+            1,
+            1
+          ]
+        }
+      ],
+      "detail": "One separate reference drawing per listed ID. Preserve each building identity and era. Construction footprint is [[\"strasse\",[1,1]],[\"zaun\",[1,1]],[\"deich\",[1,1]],[\"setzling\",[1,1]]]. Do not confuse the pigsty with the henhouse. Fields occupy one tile. Upgrade levels remain distinguishable; shipyards have three levels sharing an old sprite, show three restrained upgrade options. Decorative items are small relative to houses.",
+      "status": "generated_design_reference",
+      "file": "entwuerfe/gebaeude_land_1.png",
+      "production_ready": false
+    },
+    {
+      "id": "gebaeude_schmuck_1",
+      "title": "Schmuck und Parks 1",
+      "items": [
+        {
+          "id": "kiesweg",
+          "name": "Kiesweg",
+          "sprite": "gravel10",
+          "footprint": [
+            1,
+            1
+          ]
+        },
+        {
+          "id": "blumenbeet_rot",
+          "name": "Rotes Blumenbeet",
+          "sprite": "flowerbed_red",
+          "footprint": [
+            1,
+            1
+          ]
+        },
+        {
+          "id": "blumenbeet_gelb",
+          "name": "Gelbes Blumenbeet",
+          "sprite": "flowerbed_yellow",
+          "footprint": [
+            1,
+            1
+          ]
+        },
+        {
+          "id": "hecke",
+          "name": "Hecke",
+          "sprite": "hedge10",
+          "footprint": [
+            1,
+            1
+          ]
+        },
+        {
+          "id": "holzbank",
+          "name": "Holzbank",
+          "sprite": "bench",
+          "footprint": [
+            1,
+            1
+          ]
+        },
+        {
+          "id": "menhir",
+          "name": "Menhir",
+          "sprite": "menhir",
+          "footprint": [
+            1,
+            1
+          ]
+        },
+        {
+          "id": "fahnenmast",
+          "name": "Fahnenmast",
+          "sprite": "flagpole",
+          "footprint": [
+            1,
+            1
+          ]
+        },
+        {
+          "id": "steinstatue",
+          "name": "Steinstatue",
+          "sprite": "statue_stone",
+          "footprint": [
+            1,
+            1
+          ]
+        },
+        {
+          "id": "blumenkuebel",
+          "name": "Blumenkübel",
+          "sprite": "flower_tub",
+          "footprint": [
+            1,
+            1
+          ]
+        },
+        {
+          "id": "ziegelweg",
+          "name": "Ziegelweg",
+          "sprite": "bricks10",
+          "footprint": [
+            1,
+            1
+          ]
+        },
+        {
+          "id": "springbrunnen",
+          "name": "Springbrunnen",
+          "sprite": "fountain",
+          "footprint": [
+            2,
+            2
+          ]
+        },
+        {
+          "id": "blumenbeet_blau",
+          "name": "Blaues Blumenbeet",
+          "sprite": "flowerbed_blue",
+          "footprint": [
+            1,
+            1
+          ]
+        }
+      ],
+      "detail": "One separate reference drawing per listed ID. Preserve each building identity and era. Construction footprint is [[\"kiesweg\",[1,1]],[\"blumenbeet_rot\",[1,1]],[\"blumenbeet_gelb\",[1,1]],[\"hecke\",[1,1]],[\"holzbank\",[1,1]],[\"menhir\",[1,1]],[\"fahnenmast\",[1,1]],[\"steinstatue\",[1,1]],[\"blumenkuebel\",[1,1]],[\"ziegelweg\",[1,1]],[\"springbrunnen\",[2,2]],[\"blumenbeet_blau\",[1,1]]]. Do not confuse the pigsty with the henhouse. Fields occupy one tile. Upgrade levels remain distinguishable; shipyards have three levels sharing an old sprite, show three restrained upgrade options. Decorative items are small relative to houses.",
+      "status": "generated_design_reference",
+      "file": "entwuerfe/gebaeude_schmuck_1.png",
+      "production_ready": false
+    },
+    {
+      "id": "gebaeude_schmuck_2",
+      "title": "Schmuck und Parks 2",
+      "items": [
+        {
+          "id": "teich",
+          "name": "Seerosenteich",
+          "sprite": "pond",
+          "footprint": [
+            2,
+            2
+          ]
+        },
+        {
+          "id": "parkanlage",
+          "name": "Parkanlage",
+          "sprite": "park",
+          "footprint": [
+            3,
+            3
+          ]
+        },
+        {
+          "id": "rosenbogen",
+          "name": "Rosenbogen",
+          "sprite": "rose_arch",
+          "footprint": [
+            1,
+            1
+          ]
+        },
+        {
+          "id": "sonnenuhr",
+          "name": "Sonnenuhr",
+          "sprite": "sundial",
+          "footprint": [
+            1,
+            1
+          ]
+        },
+        {
+          "id": "laterne",
+          "name": "Laterne",
+          "sprite": "lantern",
+          "footprint": [
+            1,
+            1
+          ]
+        },
+        {
+          "id": "pavillon",
+          "name": "Pavillon",
+          "sprite": "pavilion",
+          "footprint": [
+            2,
+            2
+          ]
+        },
+        {
+          "id": "reiterdenkmal",
+          "name": "Reiterdenkmal",
+          "sprite": "equestrian",
+          "footprint": [
+            2,
+            2
+          ]
+        },
+        {
+          "id": "obelisk",
+          "name": "Obelisk",
+          "sprite": "obelisk",
+          "footprint": [
+            1,
+            1
+          ]
+        },
+        {
+          "id": "bronzestatue",
+          "name": "Bronzestatue",
+          "sprite": "statue_bronze",
+          "footprint": [
+            1,
+            1
+          ]
+        },
+        {
+          "id": "strassenlaterne",
+          "name": "Straßenlaterne",
+          "sprite": "street_lamp",
+          "footprint": [
+            1,
+            1
+          ]
+        },
+        {
+          "id": "hologramm",
+          "name": "Hologramm-Statue",
+          "sprite": "hologram",
+          "footprint": [
+            1,
+            1
+          ]
+        }
+      ],
+      "detail": "One separate reference drawing per listed ID. Preserve each building identity and era. Construction footprint is [[\"teich\",[2,2]],[\"parkanlage\",[3,3]],[\"rosenbogen\",[1,1]],[\"sonnenuhr\",[1,1]],[\"laterne\",[1,1]],[\"pavillon\",[2,2]],[\"reiterdenkmal\",[2,2]],[\"obelisk\",[1,1]],[\"bronzestatue\",[1,1]],[\"strassenlaterne\",[1,1]],[\"hologramm\",[1,1]]]. Do not confuse the pigsty with the henhouse. Fields occupy one tile. Upgrade levels remain distinguishable; shipyards have three levels sharing an old sprite, show three restrained upgrade options. Decorative items are small relative to houses.",
+      "status": "generated_design_reference",
+      "file": "entwuerfe/gebaeude_schmuck_2.png",
+      "production_ready": false
+    },
+    {
+      "id": "landschaft_boden",
+      "title": "Boden und Übergänge",
+      "items": [
+        "grass temperate",
+        "grass tropical",
+        "grass forest",
+        "mountain grass",
+        "sand",
+        "shallow water",
+        "deep water",
+        "shore sand-water",
+        "shore grass-sand",
+        "rocky coast",
+        "land reclaimed behind dike",
+        "dirt path"
+      ],
+      "detail": "A terrain material reference board including a small seamless tiling sample per material, unobtrusive details, calm centers, crisp transitions. Explain visually transitions; not an executable dual-grid tileset.",
+      "status": "generated_design_reference",
+      "file": "entwuerfe/landschaft_boden.png",
+      "production_ready": false
+    },
+    {
+      "id": "landschaft_rohstoffe",
+      "title": "Bäume und Rohstoffquellen",
+      "items": [
+        {
+          "id": "baum",
+          "name": "Baum",
+          "states": {
+            "full": [
+              "tree0",
+              "tree1",
+              "tree2"
+            ],
+            "empty": "stump",
+            "growing": "sapling"
+          }
+        },
+        {
+          "id": "fels",
+          "name": "Felsen",
+          "states": {
+            "full": [
+              "rock_big"
+            ],
+            "low": "rock_small"
+          }
+        },
+        {
+          "id": "busch",
+          "name": "Beerenstrauch",
+          "states": {
+            "full": [
+              "bush_full"
+            ],
+            "empty": "bush_empty"
+          }
+        },
+        {
+          "id": "fischgrund",
+          "name": "Fischgrund",
+          "states": {
+            "full": [
+              "fish_anim"
+            ],
+            "empty": ""
+          }
+        },
+        {
+          "id": "palme",
+          "name": "Kokospalme",
+          "states": {
+            "full": [
+              "palm0",
+              "palm1"
+            ],
+            "empty": "palm_empty"
+          }
+        },
+        {
+          "id": "pilzkreis",
+          "name": "Pilzkreis",
+          "states": {
+            "full": [
+              "mushrooms"
+            ],
+            "empty": ""
+          }
+        },
+        {
+          "id": "gewuerzstrauch",
+          "name": "Gewürzstrauch",
+          "states": {
+            "full": [
+              "spice_full"
+            ],
+            "empty": "spice_empty"
+          }
+        },
+        {
+          "id": "erzader",
+          "name": "Erzader",
+          "states": {
+            "full": [
+              "ore_rock"
+            ],
+            "low": "rock_small"
+          }
+        },
+        {
+          "id": "goldader",
+          "name": "Goldader",
+          "states": {
+            "full": [
+              "gold_rock"
+            ],
+            "low": "rock_small"
+          }
+        },
+        {
+          "id": "wolfsbau",
+          "name": "Wolfsbau",
+          "states": {
+            "full": [
+              "den"
+            ]
+          }
+        },
+        {
+          "id": "eberbau",
+          "name": "Wildschweinsuhle",
+          "states": {
+            "full": [
+              "wallow"
+            ]
+          }
+        },
+        {
+          "id": "baerenhoehle",
+          "name": "Bärenhöhle",
+          "states": {
+            "full": [
+              "cave"
+            ]
+          }
+        },
+        {
+          "id": "beute",
+          "name": "Erlegtes Tier",
+          "states": {
+            "full": [
+              "carcass"
+            ]
+          }
+        }
+      ],
+      "detail": "Every node in the list must be shown with small secondary states (full/depleted/regrowing) where applicable. Deciduous trees 3 varieties, spruce, young tree, stump; coconut palms full and picked, berries full and empty, mushrooms, spices full and picked, ore/gold, dens and carcass. No gore.",
+      "status": "generated_design_reference",
+      "file": "entwuerfe/landschaft_rohstoffe.png",
+      "production_ready": false
+    },
+    {
+      "id": "landschaft_verbindungen",
+      "title": "Straßen und Verbindungen",
+      "items": [
+        "road",
+        "dike",
+        "fence",
+        "gravel",
+        "bricks",
+        "hedge",
+        "plant_mark",
+        "clear_mark"
+      ],
+      "detail": "For each of the six connecting families show isolated, straight, corner, T, crossing and end cap; labels family ID only. Technical integration must later cover ALL sixteen N/E/S/W bitmask combinations, not just these examples. Planting and clear marks visually distinct.",
+      "status": "generated_design_reference",
+      "file": "entwuerfe/landschaft_verbindungen.png",
+      "production_ready": false
+    },
+    {
+      "id": "landschaft_jahreszeiten",
+      "title": "Jahreszeiten und Biome",
+      "items": [
+        "temperate spring",
+        "temperate summer",
+        "temperate autumn",
+        "temperate winter",
+        "tropical spring",
+        "tropical summer",
+        "tropical autumn",
+        "tropical winter",
+        "forest island",
+        "mountain island",
+        "hard winter",
+        "drought"
+      ],
+      "detail": "Twelve identical small ground/tree/building vignettes. Tropical islands do not get snow. Snow should be a material overlay not a new map. Autumn golden foliage, unobtrusive snow; preserve legibility.",
+      "status": "generated_design_reference",
+      "file": "entwuerfe/landschaft_jahreszeiten.png",
+      "production_ready": false
+    },
+    {
+      "id": "figuren_berufe_1",
+      "title": "Siedler Berufe 1",
+      "items": [
+        {
+          "id": "frei",
+          "name": "Frei",
+          "tool": ""
+        },
+        {
+          "id": "holzfaeller",
+          "name": "Holzfäller",
+          "tool": "axe"
+        },
+        {
+          "id": "steinmetz",
+          "name": "Steinmetz",
+          "tool": "pick"
+        },
+        {
+          "id": "sammler",
+          "name": "Sammler",
+          "tool": "basket"
+        },
+        {
+          "id": "fischer",
+          "name": "Fischer",
+          "tool": "rod"
+        },
+        {
+          "id": "bauer",
+          "name": "Bauer",
+          "tool": "sickle"
+        },
+        {
+          "id": "koch",
+          "name": "Koch",
+          "tool": "spoon"
+        }
+      ],
+      "detail": "Show front and side 3/4 views for each profession, matched displayed body height; men and women, varied existing skin/hair/clothes colors. Farmer cap and brown trousers; cook white trousers and chef hat; researcher white shirt without glasses; hunter feather cap and rifle overlay/spear appropriate to task; forester spade and chainsaw late era; craftsman blue overall; mason gray apron. Preserve separation of colored skin/shirt/pants/hair and equipment concept. No oversized fantasy costumes.",
+      "status": "generated_design_reference",
+      "file": "entwuerfe/figuren_berufe_1.png",
+      "production_ready": false
+    },
+    {
+      "id": "figuren_berufe_2",
+      "title": "Siedler Berufe 2",
+      "items": [
+        {
+          "id": "handwerker",
+          "name": "Handwerker",
+          "tool": "hammer"
+        },
+        {
+          "id": "baumeister",
+          "name": "Baumeister",
+          "tool": "hammer"
+        },
+        {
+          "id": "forscher",
+          "name": "Forscher",
+          "tool": "book"
+        },
+        {
+          "id": "jaeger",
+          "name": "Jäger",
+          "tool": "spear"
+        },
+        {
+          "id": "verwalter",
+          "name": "Verwalter",
+          "tool": "book"
+        },
+        {
+          "id": "seemann",
+          "name": "Seemann",
+          "tool": "rod"
+        },
+        {
+          "id": "foerster",
+          "name": "Förster",
+          "tool": "shovel"
+        }
+      ],
+      "detail": "Show front and side 3/4 views for each profession, matched displayed body height; men and women, varied existing skin/hair/clothes colors. Farmer cap and brown trousers; cook white trousers and chef hat; researcher white shirt without glasses; hunter feather cap and rifle overlay/spear appropriate to task; forester spade and chainsaw late era; craftsman blue overall; mason gray apron. Preserve separation of colored skin/shirt/pants/hair and equipment concept. No oversized fantasy costumes.",
+      "status": "generated_design_reference",
+      "file": "entwuerfe/figuren_berufe_2.png",
+      "production_ready": false
+    },
+    {
+      "id": "figuren_varianten",
+      "title": "Alter Haare und Droiden",
+      "items": [
+        "female adult bun",
+        "female adult shoulder hair",
+        "male adult short hair",
+        "child",
+        "elderly woman",
+        "elderly man",
+        "sick/resting",
+        "sleeping",
+        "droid front",
+        "droid back",
+        "droid side",
+        "pirate"
+      ],
+      "detail": "Same human base proportions as approved reference. Show three hairstyle designs, existing range skin tones and clothing. Children smaller using same visual family. Droid small friendly industrial robot matching human height and old behavior. Pirate stylized not scary. Sleeping/hurt natural poses, no gore.",
+      "status": "generated_design_reference",
+      "file": "entwuerfe/figuren_varianten.png",
+      "production_ready": false
+    },
+    {
+      "id": "animationen_arbeit",
+      "title": "Natürliche Arbeit",
+      "items": [
+        "axe chop",
+        "pick mine",
+        "sickle harvest",
+        "hammer build",
+        "basket gather",
+        "fishing rod"
+      ],
+      "detail": "Six rows of four sequential poses each, anticipation, action, contact, recovery; same person blue shirt, human scale. Natural knees elbows and torso weight shift; correct two-handed tool grips and contact point. Fish rod line continuous. Timing reference only, not claimed pixel-aligned sprite sheet.",
+      "status": "generated_design_reference",
+      "file": "entwuerfe/animationen_arbeit.png",
+      "production_ready": false
+    },
+    {
+      "id": "animationen_alltag",
+      "title": "Bewegung und Alltag",
+      "items": [
+        "walk carrying",
+        "push wheelbarrow",
+        "eat",
+        "read book/newspaper",
+        "rest/sleep",
+        "hunt/defend"
+      ],
+      "detail": "Six rows four sequential poses each, human scale same person; cart behind/in front occlusion; four-direction intent down up side and mirrored side to be generated in integration, this board shows action cycles. No gore.",
+      "status": "generated_design_reference",
+      "file": "entwuerfe/animationen_alltag.png",
+      "production_ready": false
+    },
+    {
+      "id": "tiere_piraten",
+      "title": "Tiere und Piraten",
+      "items": [
+        "wolf",
+        "wild boar",
+        "bear",
+        "wolf juvenile",
+        "boar juvenile",
+        "bear juvenile",
+        "pirate"
+      ],
+      "detail": "Each row 4 walking phases and one attack/action phase, consistent animal identity, clean silhouettes, not photoreal. 3 animal species plus scaled juvenile poses (do not imply new animal data species), pirate last row. No gore.",
+      "status": "generated_design_reference",
+      "file": "entwuerfe/tiere_piraten.png",
+      "production_ready": false
+    },
+    {
+      "id": "schiffe",
+      "title": "Schiffe und Boote",
+      "items": [
+        {
+          "id": "boot",
+          "name": "Ruderboot",
+          "sprite": "boat"
+        },
+        {
+          "id": "kogge",
+          "name": "Kogge",
+          "sprite": "ship_kogge"
+        },
+        {
+          "id": "schnellsegler",
+          "name": "Schnellsegler",
+          "sprite": "ship_fast"
+        },
+        {
+          "id": "galeone",
+          "name": "Galeone",
+          "sprite": "ship_galleon"
+        }
+      ],
+      "detail": "Four isolated boats with waterline: small rowboat, round-bellied merchant cog, sleek fast sailboat, large galleon. Show second gentle rocking/sail frame each, plus subdued wrecked/arrival water splash only as effects reference; not new gameplay. Match top-down/front world projection; sizes small medium medium large.",
+      "status": "generated_design_reference",
+      "file": "entwuerfe/schiffe.png",
+      "production_ready": false
+    },
+    {
+      "id": "werkzeuge_transport",
+      "title": "Werkzeuge und Karren",
+      "items": [
+        "axe",
+        "pick",
+        "basket",
+        "rod",
+        "hammer",
+        "sickle",
+        "spoon",
+        "book",
+        "shovel",
+        "spear",
+        "saber",
+        "pitchfork",
+        "club",
+        "newspaper",
+        "cart down",
+        "cart up",
+        "cart side",
+        "arrow"
+      ],
+      "detail": "Small pixel tools with clear handgrip pivots, all 14 tool IDs. Three cart directions with front wall separate drawing and 4 small wheel-rotation states; cart loads wood stone grain. Include projectile arrow. Do not add mechanisms to gameplay.",
+      "status": "generated_design_reference",
+      "file": "entwuerfe/werkzeuge_transport.png",
+      "production_ready": false
+    },
+    {
+      "id": "symbole_1",
+      "title": "Symbole 1",
+      "items": [
+        "holz",
+        "stein",
+        "beeren",
+        "fisch",
+        "weizen",
+        "nahrung",
+        "person",
+        "haus",
+        "hammer",
+        "herz",
+        "sonne",
+        "mond",
+        "pause",
+        "play",
+        "schnell",
+        "menu",
+        "abriss",
+        "bretter",
+        "lehm",
+        "ziegel",
+        "kohle",
+        "erz",
+        "eisen",
+        "werkzeug"
+      ],
+      "detail": "Uniform 6 columns, up to 4 rows; each icon in its own plain card with the exact ID label below outside artwork. Clearly distinguish resources, people, technology, actions; legible at intended 32x32 pixels. Limited palette, plain backgrounds no illustrative scenes.",
+      "status": "generated_design_reference",
+      "file": "entwuerfe/symbole_1.png",
+      "production_ready": false
+    },
+    {
+      "id": "symbole_2",
+      "title": "Symbole 2",
+      "items": [
+        "mehl",
+        "aepfel",
+        "eier",
+        "raeucherfisch",
+        "brot",
+        "wissen",
+        "axt",
+        "korb",
+        "wasser",
+        "karren",
+        "pflug",
+        "schiff",
+        "schwert",
+        "kiste",
+        "fleisch",
+        "felle",
+        "kokos",
+        "pilze",
+        "gold",
+        "boot",
+        "kompass",
+        "schild",
+        "wolf",
+        "eber"
+      ],
+      "detail": "Uniform 6 columns, up to 4 rows; each icon in its own plain card with the exact ID label below outside artwork. Clearly distinguish resources, people, technology, actions; legible at intended 32x32 pixels. Limited palette, plain backgrounds no illustrative scenes.",
+      "status": "generated_design_reference",
+      "file": "entwuerfe/symbole_2.png",
+      "production_ready": false
+    },
+    {
+      "id": "symbole_3",
+      "title": "Symbole 3",
+      "items": [
+        "baer",
+        "musik",
+        "glocke",
+        "vollbild",
+        "ziel",
+        "haken",
+        "zeiger",
+        "kogge",
+        "schnellsegler",
+        "galeone",
+        "anker",
+        "glas",
+        "papier",
+        "stahl",
+        "maschinen",
+        "konserven",
+        "strom",
+        "elektronik",
+        "uhr",
+        "fernrohr",
+        "dampf",
+        "zug",
+        "spritze",
+        "schnee"
+      ],
+      "detail": "Uniform 6 columns, up to 4 rows; each icon in its own plain card with the exact ID label below outside artwork. Clearly distinguish resources, people, technology, actions; legible at intended 32x32 pixels. Limited palette, plain backgrounds no illustrative scenes.",
+      "status": "generated_design_reference",
+      "file": "entwuerfe/symbole_3.png",
+      "production_ready": false
+    },
+    {
+      "id": "symbole_4",
+      "title": "Symbole 4",
+      "items": [
+        "motor",
+        "computer",
+        "netz",
+        "dna",
+        "ki",
+        "roboter",
+        "atom",
+        "zeitalter",
+        "tontafel",
+        "gewuerze",
+        "ereignis",
+        "haendler",
+        "feuer",
+        "ratte",
+        "sehr_schnell",
+        "weg",
+        "waffen",
+        "milch",
+        "buecher",
+        "zeitungen",
+        "schmuck"
+      ],
+      "detail": "Uniform 6 columns, up to 4 rows; each icon in its own plain card with the exact ID label below outside artwork. Clearly distinguish resources, people, technology, actions; legible at intended 32x32 pixels. Limited palette, plain backgrounds no illustrative scenes.",
+      "status": "generated_design_reference",
+      "file": "entwuerfe/symbole_4.png",
+      "production_ready": false
+    },
+    {
+      "id": "oberflaeche",
+      "title": "Fenster und Bedienung",
+      "items": [
+        "panel frame",
+        "button normal",
+        "button hover",
+        "button pressed",
+        "button disabled",
+        "scrollbar track",
+        "scrollbar thumb",
+        "progress bar",
+        "tooltip",
+        "menu buttons",
+        "tabs",
+        "selection ring"
+      ],
+      "detail": "Cohesive readable wood/parchment UI design kit matching existing game. 9-slice corner edge center samples, distinct button states, high contrast moving scrollbar handle, touch-friendly. Keep current font Pixelify Sans; no new decorative fonts. Show explicit scrollbar not hidden.",
+      "status": "generated_design_reference",
+      "file": "entwuerfe/oberflaeche.png",
+      "production_ready": false
+    },
+    {
+      "id": "effekte",
+      "title": "Wetter Feuer und Markierungen",
+      "items": [
+        "campfire 4 phases",
+        "fish spot 4 phases",
+        "windmill 4 phases",
+        "lighthouse 2 phases",
+        "flag 4 phases",
+        "fountain 4 phases",
+        "hologram 4 phases",
+        "smoke",
+        "snowflake",
+        "fall leaf",
+        "construction scaffold",
+        "grave",
+        "shadow small",
+        "shadow large",
+        "placement allowed",
+        "placement blocked"
+      ],
+      "detail": "A compact effects reference board, separate rows grouped into animated strips with exact requested phase counts wherever listed. Day/night warm light, no baked full-screen light. Shadows neutral translucent; scaffold, grave simple. No gore. Also include the four field growth stages, four orchard growth stages, four season icons (spring blossom, summer sun, autumn leaf, winter snowflake). Park tree is a separate park-tree object distinct from wild trees. All six menu buttons get build, research, settlers, islands, menu, administrator symbols on the UI board.",
+      "status": "generated_design_reference",
+      "file": "entwuerfe/effekte.png",
+      "production_ready": false
+    },
+    {
+      "id": "seekarte_szenen",
+      "title": "Seekarte Fest Protest und Ende",
+      "items": [
+        "island map home",
+        "island map tropical",
+        "island map forest",
+        "island map mountain",
+        "route/port/ship markers",
+        "celebration",
+        "peaceful worker protest",
+        "two settlers last campfire ending"
+      ],
+      "detail": "Eight small storyboard panels: four island-type map thumbnails in first row; route marker legend, modest village celebration, peaceful worker protest, quiet future ending with two survivors by campfire and machines. Keep current story, no extra plot. Effects/maps/fest/protest are code-drawn in source, reference only for redraw. No political slogans or text in scenes.",
+      "status": "generated_design_reference",
+      "file": "entwuerfe/seekarte_szenen.png",
+      "production_ready": false
+    },
+    {
+      "id": "app_icon",
+      "title": "Spiel-Icon",
+      "items": [
+        "Insel-Siedler app icon"
+      ],
+      "detail": "One crisp square app icon: cozy tiny island, red roof timber house, blue-shirt settler, turquoise shore, legible small, centered safe margins, no words, no logo copying. Opaque background.",
+      "status": "generated_design_reference",
+      "file": "entwuerfe/app_icon.png",
+      "production_ready": false
+    },
+    {
+      "id": "figuren_schichten",
+      "title": "Figuren-Layer und Berufsausrüstung",
+      "items": [
+        "skin mask",
+        "shirt mask",
+        "pants mask",
+        "hair short mask",
+        "hair shoulder mask",
+        "hair bun mask",
+        "fixed outlines",
+        "apron",
+        "farmer cap",
+        "chefhat",
+        "hunthat",
+        "rifle",
+        "saw",
+        "skin palette 5 tones",
+        "clothing palette"
+      ],
+      "detail": "Separate layer-design examples, no complete character sprites claimed; all mask examples same body silhouette alignment. Equipment overlays isolated: grey mason apron, yellow farmer cap, white chef hat, green hunter hat with feather, plain shoulder-carried hunting rifle and a small forester chainsaw in hand. Three hairstyles. Grayscale tintable base layers and 5 existing skin palette swatches. Fixed outline/shoe pieces. No glasses (obsolete).",
+      "status": "generated_design_reference",
+      "file": "entwuerfe/figuren_schichten.png",
+      "production_ready": false
+    }
+  ]
+}

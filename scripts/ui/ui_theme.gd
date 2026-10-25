@@ -115,7 +115,33 @@ static func make() -> Theme:
 	tip.set_content_margin_all(6)
 	t.set_stylebox("panel", "TooltipPanel", tip)
 	t.set_color("font_color", "TooltipLabel", TEXT)
+	# The artwork defines both the visible grip and its actual minimum hit area.
+	# This track has no arrow buttons. Default theme arrows would consume nearly
+	# the entire track in the compact mobile lists and prevent dragging.
+	var blank_image := Image.create(1, 1, false, Image.FORMAT_RGBA8)
+	blank_image.fill(Color.TRANSPARENT)
+	var blank_arrow := ImageTexture.create_from_image(blank_image)
+	for cls in ["VScrollBar", "HScrollBar"]:
+		var vertical: bool = cls == "VScrollBar"
+		for state in ["increment", "increment_highlight", "increment_pressed", "decrement", "decrement_highlight", "decrement_pressed"]:
+			t.set_icon(state, cls, blank_arrow)
+		t.set_stylebox("scroll", cls, _fine_scroll_box(Rect2(0, 0, 24, 64) if vertical else Rect2(0, 96, 64, 24), vertical, true))
+		t.set_stylebox("grabber", cls, _fine_scroll_box(Rect2(24, 0, 24, 48) if vertical else Rect2(0, 72, 48, 24), vertical))
+		t.set_stylebox("grabber_highlight", cls, _fine_scroll_box(Rect2(24, 0, 24, 48) if vertical else Rect2(0, 72, 48, 24), vertical))
+		t.set_stylebox("grabber_pressed", cls, _fine_scroll_box(Rect2(48, 0, 24, 48) if vertical else Rect2(64, 72, 48, 24), vertical))
 	return t
+
+
+static func _fine_scroll_box(region: Rect2, vertical: bool, track: bool = false) -> StyleBoxTexture:
+	var tex := AtlasTexture.new()
+	tex.atlas = preload("res://assets/sprites_fine/scrollbars.png")
+	tex.region = region
+	var sb := StyleBoxTexture.new()
+	sb.texture = tex
+	for side in [SIDE_LEFT, SIDE_TOP, SIDE_RIGHT, SIDE_BOTTOM]:
+		sb.set_texture_margin(side, 5.0)
+		sb.set_content_margin(side, 12.0 if (vertical and side in [SIDE_LEFT, SIDE_RIGHT]) or (not vertical and side in [SIDE_TOP, SIDE_BOTTOM]) else (3.0 if track else 18.0))
+	return sb
 
 
 static func bar(color: Color, height: float = 8.0) -> ProgressBar:

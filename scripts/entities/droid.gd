@@ -28,9 +28,10 @@ func _build_visual() -> void:
 	var s := Sprite2D.new()
 	s.texture = Settler.sheet("droid")
 	s.hframes = 4
-	s.vframes = 3
+	s.vframes = 42
 	s.centered = false
-	s.offset = Vector2(-8, -22)
+	s.offset = Vector2(-24, -66)
+	s.scale = Vector2.ONE / 3.0
 	_body.add_child(s)
 	_body.move_child(s, 0)
 	_layers["droid"] = s

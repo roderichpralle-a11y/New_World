@@ -383,7 +383,7 @@ func _draw_dancer(i: int, a: float, cx: float, gy: float, rx: float) -> void:
 	var look: Dictionary = _looks[i]
 	var style := int(look.get("style", 0))
 	var frame := dir * 4 + (int(t * 9.0) + i) % 4
-	var src := Rect2((frame % 4) * 16, (frame / 4) * 24, 16, 24)
+	var src := Rect2((frame % 4) * 48, (frame / 4) * 72, 48, 72)
 	var dst := Rect2(Vector2(floorf(x) - 8.0, floorf(y) - 22.0 - hop) * _k, Vector2(16, 24) * _k)
 	if flip:
 		dst = Rect2(dst.position + Vector2(dst.size.x, 0), Vector2(-dst.size.x, dst.size.y))

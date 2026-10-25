@@ -134,6 +134,13 @@ func _maybe_autotest() -> void:
 	if args.has("season"):
 		# Testhilfe: Start in einer Jahreszeit (0 Frühling .. 3 Winter)
 		Seasons.jump_to_season(int(args.season))
+	if args.has("finecheck"):
+		await FineTest.run(self)
+		if FineTest.fails > 0:
+			get_tree().quit(1)
+			return
+	if args.has("finegallery"):
+		FineTest.gallery(self, str(args.finegallery))
 	if args.has("foodtest"):
 		_autotest_food()
 	if args.has("slottest"):
@@ -552,6 +559,10 @@ func _maybe_autotest() -> void:
 		if args.has("rulesdialog"):
 			# Bildschirmfoto des Fensters "Neue Regeln" (ohne alten Spielstand mit Beispielzeilen)
 			hud.show_rules_dialog(Game.rules_lines if not Game.rules_lines.is_empty() else _sample_rules_lines(), Callable(), false)
+		if args.has("homeview"):
+			HomeArtTest.scene(self, int(args.get("homephase", "2")))
+		if args.has("homewalk"):
+			HomeArtTest.walk_scene(self,int(args.get("walkframe","0")),args.has("walkflip"))
 		await get_tree().create_timer(0.5).timeout
 		await RenderingServer.frame_post_draw
 		get_viewport().get_texture().get_image().save_png(args.shot)
