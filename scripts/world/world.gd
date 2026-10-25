@@ -1279,9 +1279,19 @@ func remove_settler(s: Settler) -> void:
 	assign_homes()
 
 
+## Die letzten MIN_ALIVE Siedler des Spiels sterben nicht (josh 2026-10-25): statt zu sterben überleben sie
+## knapp (spare_settler). Alte Spielstände mit weniger Siedlern bekommen beim Laden welche dazu
+## (Game.ensure_min_people).
+const MIN_ALIVE := 2
+var _spared_note: Dictionary = {}  # Siedler-ID -> Spieltag der letzten Meldung „überlebt knapp“
+
+
 ## reason: Anzeigetext, cause: Schluessel der Todesart ("starve", "sick", "old", "killed").
 func kill_settler(s: Settler, reason: String, cause: String = "") -> void:
 	if not settlers.has(s):
+		return
+	if Sea.total_people() <= MIN_ALIVE:
+		spare_settler(s, cause)
 		return
 	s.abort_plan()
 	settlers.erase(s)
@@ -1292,6 +1302,21 @@ func kill_settler(s: Settler, reason: String, cause: String = "") -> void:
 	s.queue_free()
 	assign_homes()
 	Game.on_settler_died(s, reason, cause)
+
+
+## Einer der letzten Siedler: er überlebt knapp (etwas Gesundheit und Sättigung, Krankheit vorbei, im Alter
+## noch ein paar Jahre). Meldung höchstens einmal am Tag.
+func spare_settler(s: Settler, cause: String) -> void:
+	s.health = maxf(s.health, 40.0)
+	s.hunger = maxf(s.hunger, 40.0)
+	if s.mind.sick != "":
+		s.mind.sick = ""
+		s.mind.sick_left = 0.0
+	if cause == "old":
+		s.max_age = s.age - Game.eff_add("life") + 3.0
+	if Game.time_days - float(_spared_note.get(s.id, -99.0)) >= 1.0:
+		_spared_note[s.id] = Game.time_days
+		Game.notify_at(self, tr("%s überlebt knapp. Die letzten zwei Siedler sterben nicht.") % s.display_name, "herz", "gesundheit")
 
 
 func _add_grave(p: Vector2, until: float) -> void:

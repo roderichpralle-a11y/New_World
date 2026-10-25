@@ -2376,5 +2376,7 @@
  "Die Insel ist jetzt sicherer. Mach einen Jäger zum Holzfäller und lass dann ein Haus bauen, damit die Siedler ein Dach über dem Kopf haben. Ein Baumeister baut es. Danach kann die Siedlung wachsen.": "The island is safer now. Make one hunter a woodcutter and then have a house built so the settlers have a roof over their heads. A builder builds it. Then the settlement can grow.",
  "Tippe in der Liste auf Baumeister. Der Siedler hört dann mit seiner Arbeit auf, holt das Holz und baut die Hütte. Ein Stern neben einem Beruf heißt: Er passt zu seinem Talent.": "Tap Builder in the list. The settler then stops their work, fetches the wood and builds the hut. A star next to a job means: it suits their talent.",
  "Anzeigegröße": "Display size",
- "Kleiner zeigt mehr vom Spiel und von den Menüs. Gilt nur auf diesem Gerät.": "Smaller shows more of the game and the menus. Applies only to this device."
+ "Kleiner zeigt mehr vom Spiel und von den Menüs. Gilt nur auf diesem Gerät.": "Smaller shows more of the game and the menus. Applies only to this device.",
+ "%s überlebt knapp. Die letzten zwei Siedler sterben nicht.": "%s barely survives. The last two settlers do not die.",
+ "Auf %s leben wieder zwei Siedler: %s kommen dazu.": "Two settlers live on %s again: %s join."
 }

@@ -318,6 +318,8 @@ func autotest_setup(args: Dictionary, main) -> void:
 		_food_test(w)
 	if args.has("tutdone"):
 		_tut_test()
+	if args.has("lasttest"):
+		_last_two_test(w)
 	if args.has("cartshot"):
 		await CartTest.run(main, args)
 
@@ -442,3 +444,41 @@ func _tut_test() -> void:
 	for s in w.settlers.slice(before[0]):
 		var home = w.building_by_id(s.home_id)
 		print("   neu: %s (%s), Zuhause %s" % [s.display_name, s.sex, home.type if home else "-"])
+
+
+## --lasttest=1: die letzten zwei Siedler sterben nicht (Hunger, Alter, Tiere), ein dritter schon; ein
+## Spielstand mit einem Siedler bekommt beim Laden einen dazu. Druckt „Letzte zwei OK/FEHLER“.
+func _last_two_test(w) -> void:
+	var fails := 0
+	while w.settlers.size() < 3:
+		w.spawn_settler({"name": "Extra", "sex": "m", "age": 25.0, "x": 30, "y": 30})
+	while w.settlers.size() > 3:
+		w.settlers.pop_back().queue_free()
+	var third = w.settlers[2]
+	w.kill_settler(third, "test", "starve")
+	var ok1: bool = w.settlers.size() == 2 and not w.settlers.has(third)
+	print("Letzte zwei ", "OK" if ok1 else "FEHLER", " ein dritter stirbt (%d leben)" % w.settlers.size())
+	var a = w.settlers[0]
+	a.health = 0.0
+	a.hunger = 0.0
+	w.kill_settler(a, "verhungert", "starve")
+	var ok2: bool = w.settlers.has(a) and a.health >= 40.0 and a.hunger >= 40.0
+	print("Letzte zwei ", "OK" if ok2 else "FEHLER", " verhungert nicht (Gesundheit %d)" % int(a.health))
+	a.age = a.max_age + 1.0
+	w.kill_settler(a, "alt", "old")
+	var ok3: bool = w.settlers.has(a) and a.age < a.max_age + Game.eff_add("life")
+	print("Letzte zwei ", "OK" if ok3 else "FEHLER", " stirbt nicht an Alter")
+	a.take_damage(500.0, null)
+	var ok4: bool = w.settlers.has(a) and not Game.is_over
+	print("Letzte zwei ", "OK" if ok4 else "FEHLER", " überlebt Angriff")
+	# Spielstand mit nur einem Siedler
+	var b = w.settlers[1]
+	w.settlers.erase(b)
+	b.queue_free()
+	Game.ensure_min_people()
+	var ok5: bool = w.settlers.size() == 2 and w.settlers.all(func(x): return x.is_adult())
+	print("Letzte zwei ", "OK" if ok5 else "FEHLER", " alter Spielstand: wieder 2 Erwachsene (%d)" % w.settlers.size())
+	for o in [ok1, ok2, ok3, ok4, ok5]:
+		if not o:
+			fails += 1
+	print("Letzte zwei ", "OK" if fails == 0 else "FEHLER", " (%d Fehler)" % fails)

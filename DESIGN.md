@@ -1637,6 +1637,14 @@ Bildschirmseite (400 bis 540) durch die Anzeigegröße, höchstens so viele wie 
 dass die lange Seite `UI_MIN_LONG` (860) virtuelle Pixel hat (125 % auf 16:10 sonst zu schmal). 75 % zeigt mehr
 vom Spiel und den Menüs. Die Karte lässt sich weiter herauszoomen (`GameCamera.ZOOM_MIN` 0,5 statt 1).
 
+## Die letzten zwei Siedler sterben nicht (josh 2026-10-25)
+`World.kill_settler`: leben im ganzen Spiel (`Sea.total_people`, mit Schiffen) höchstens `World.MIN_ALIVE` (2)
+Siedler, stirbt keiner mehr. `spare_settler` gibt Gesundheit und Sättigung 40, beendet die Krankheit und schiebt
+bei Altersschwäche das Lebensende 3 Jahre hinaus; Meldung „überlebt knapp“ höchstens einmal am Tag. So endet
+das Spiel nicht mehr durch Tod. Beim Laden (`Game.after_load` → `ensure_min_people`) bekommt ein Spielstand mit
+weniger als 2 Siedlern auf der Heimatinsel am Lagerfeuer erwachsene Siedler (20 Jahre, frei) dazu. Test
+`--lasttest=1` („Letzte zwei OK/FEHLER“).
+
 ## Straßen, Deiche und Förster (josh 2026-10-11, `scripts/world/land.gd`)
 
 Bau-Reiter „Land und Wege“ (Kategorie `land`, Symbol `weg`). Alle drei sind 1x1-Bodengebäude mit
