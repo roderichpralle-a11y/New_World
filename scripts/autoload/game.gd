@@ -1522,6 +1522,7 @@ func after_load(data: Dictionary) -> void:
 	_restore_backup_world()
 	state_load.emit(data, rules_old)
 	Retired.give_back()
+	ensure_min_people()
 	if rules_old < RULES:
 		rules_due = true
 	else:
@@ -1533,6 +1534,32 @@ func after_load(data: Dictionary) -> void:
 			rules_lines = lines
 			rules_due = true
 	rules = RULES
+
+
+## Alter Spielstand mit weniger als World.MIN_ALIVE Siedlern (josh 2026-10-25): auf der Heimatinsel kommen
+## erwachsene Siedler am Lagerfeuer dazu, bis es wieder zwei sind.
+func ensure_min_people() -> void:
+	var w = Sea.main_world()
+	if w == null or not is_instance_valid(w):
+		return
+	var c: Vector2i = w.landing_cell()
+	for b in w.buildings:
+		if b.type == "lagerfeuer":
+			c = b.cell + Vector2i(1, 2)
+			break
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	var added := []
+	while Sea.total_people() < World.MIN_ALIVE:
+		var sex := "f" if added.size() % 2 == 0 else "m"
+		var s = w.spawn_settler({"name": w.unique_name(sex, rng), "sex": sex, "age": 20.0 + added.size(), "job": "frei",
+			"x": c.x + added.size(), "y": c.y})
+		added.append(s.display_name)
+	if added.is_empty():
+		return
+	w.assign_homes()
+	queue_note(tr("Auf %s leben wieder zwei Siedler: %s kommen dazu.") % [Sea.island_name(w), tr(" und ").join(added)], "person")
+	on_population_changed()
 
 
 ## Das Fenster "Neue Regeln" ist gezeigt (oder im Selbsttest ausgegeben) worden.
