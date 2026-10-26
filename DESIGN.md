@@ -31,6 +31,13 @@ bleiben bei der alten Grafik; dieser Zweig wird nicht nach main gemischt, solang
   Fest- und Protest-Videos.
 - **Bewegungen aus den Bildern:** Mühlenflügel drehen sich (`anim_mill`), Lagerfeuer flackert, Fahne
   weht, Springbrunnen glitzert, Hologramm flimmert, Leuchtfeuer, Schiffe schaukeln, Fischgrund und Wasser.
+- **Böden (josh 2026-10-26):** Gras einfarbig im Grün der Hausränder (126, 176, 52), Sand nur sandfarben.
+  Zeile 3 von `terrain.png`: Sand 0..3 mit einzelnen Steinen/Kieseln, Gras 4..15 mit Grasbüscheln und
+  Blumen aus dem Bodenbogen in halber Größe, zufällig verstreut (`World._paint_tile`: 62 % glattes Gras).
+  `terrain_season.png`: Zeilen 0..7 ein nahtloses Schneefeld aus 8x8 Kacheln (Kachel x mod 8, y mod 8),
+  Zeile 8 Laub. Zwei eigene Ebenen (`_snow_layer` auf vollem Sand und Gras, `_leaf_layer` auf vollem Gras),
+  `_update_season_look` blendet sie ein (Laub im Herbst, Schnee im Winter). `season.gdshader` nimmt nur
+  noch `COLOR` (vorher Bild mal COLOR: alles mit dem Shader war doppelt abgedunkelt).
 - **Baustellen** zeigen das fertige Bild halb durchsichtig (das alte Baugerüst passte nicht dazu).
 - **Neu:** eigene Bilder für Große und Königliche Werft (`shipyard2`/`shipyard3`, Zellen 92/93),
   Fichte als vierter Baum (`tree3`). Die Extra-Bäume der Parkanlage (`park_tree`) sind leer, das Parkbild

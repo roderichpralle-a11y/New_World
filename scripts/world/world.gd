@@ -45,6 +45,9 @@ var _mat_leaf: ShaderMaterial
 var _mat_needle: ShaderMaterial
 
 var _layers: Array = []
+# Jahreszeiten-Auflagen über Sand und Gras: Schnee im Winter, Laub im Herbst (terrain_season.png)
+var _snow_layer: TileMapLayer
+var _leaf_layer: TileMapLayer
 var _unreachable: Dictionary = {}
 var _storage_warn_time: float = -10.0
 ## Forschung braucht Schriften (Writing): angefangene Einheiten je Ware (nicht gespeichert), letzte Meldung
@@ -230,6 +233,15 @@ func _build_terrain(island: Dictionary) -> void:
 	_layers[2].modulate = Color(Data.islands.get(biome, {}).get("tint", "#ffffff"))
 	_make_season_materials()
 	_layers[2].material = _mat_ground
+	var sts := _make_season_tileset()
+	_snow_layer = TileMapLayer.new()
+	_leaf_layer = TileMapLayer.new()
+	for l in [_leaf_layer, _snow_layer]:
+		l.tile_set = sts
+		l.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		l.modulate.a = 0.0
+		l.visible = false
+		add_child(l)
 	ground = Node2D.new()
 	add_child(ground)
 	entities = Node2D.new()
@@ -270,8 +282,22 @@ func _make_tileset() -> TileSet:
 	for m in 16:
 		src.create_tile(Vector2i(m, 1))
 		src.create_tile(Vector2i(m, 2))
-	for v in 8:
+	for v in 16:
 		src.create_tile(Vector2i(v, 3))
+	ts.add_source(src, 0)
+	return ts
+
+
+func _make_season_tileset() -> TileSet:
+	var ts := TileSet.new()
+	ts.tile_size = Vector2i(T, T)
+	var src := TileSetAtlasSource.new()
+	src.texture = Data.hd("terrain_season")
+	src.use_texture_padding = false
+	src.texture_region_size = Vector2i(T, T)
+	for r in 9:  # Zeilen 0..7 Schnee (ein nahtloses 8x8-Feld), Zeile 8 Laub
+		for v in 8:
+			src.create_tile(Vector2i(v, r))
 	ts.add_source(src, 0)
 	return ts
 
@@ -315,12 +341,24 @@ func _paint_tile(x: int, y: int, sand: TileMapLayer, grass: TileMapLayer) -> voi
 	else:
 		sand.erase_cell(Vector2i(x, y))
 	if mg == 15:
-		var v := Vector2i(15, 2) if h < 45 else Vector2i(4 + h % 4, 3)
+		# glattes Grün, dazwischen unregelmäßig Kacheln mit Grasbüscheln und Blumen
+		var v := Vector2i(15, 2) if h < 62 else Vector2i(4 + h % 12, 3)
 		grass.set_cell(Vector2i(x, y), 0, v)
 	elif mg > 0:
 		grass.set_cell(Vector2i(x, y), 0, Vector2i(mg, 2))
 	else:
 		grass.erase_cell(Vector2i(x, y))
+	if _snow_layer == null:
+		return
+	var h2 := (hash(Vector2i(y, x) * 7) & 0xffff) % 100
+	if ms == 15:
+		_snow_layer.set_cell(Vector2i(x, y), 0, Vector2i(posmod(x, 8), posmod(y, 8)))
+	else:
+		_snow_layer.erase_cell(Vector2i(x, y))
+	if mg == 15 and h2 >= 30:
+		_leaf_layer.set_cell(Vector2i(x, y), 0, Vector2i(h2 % 8, 8))
+	else:
+		_leaf_layer.erase_cell(Vector2i(x, y))
 
 
 ## Gelände einer Zelle ändern (Neuland hinter Deichen, Überflutung): Wegfindung und Kacheln.
@@ -1492,7 +1530,11 @@ func _update_season_look() -> void:
 	# Auf Palmeninseln fällt kein Schnee
 	var snow := Seasons.snow_amount() * float(Seasons.cfg.get("snow_biomes", {}).get(biome, 1.0))
 	var autumn := Seasons.autumn_amount()
-	_mat_ground.set_shader_parameter("snow", snow * 0.85)
+	_mat_ground.set_shader_parameter("snow", snow * 0.3)
+	_snow_layer.modulate.a = clampf(snow * 2.0, 0.0, 1.0)
+	_snow_layer.visible = snow > 0.01
+	_leaf_layer.modulate.a = clampf(autumn, 0.0, 1.0) * (1.0 - clampf(snow * 2.0, 0.0, 1.0))
+	_leaf_layer.visible = _leaf_layer.modulate.a > 0.01
 	_mat_leaf.set_shader_parameter("snow", snow * 0.7)
 	_mat_leaf.set_shader_parameter("autumn", autumn)
 	_mat_needle.set_shader_parameter("snow", snow * 0.5)

@@ -4,7 +4,8 @@ uniform float snow : hint_range(0.0, 1.0) = 0.0;
 uniform float autumn : hint_range(0.0, 1.0) = 0.0;
 
 void fragment() {
-	vec4 c = texture(TEXTURE, UV) * COLOR;
+	// COLOR enthält schon Bild mal Modulate; noch einmal mit TEXTURE malnehmen würde alles abdunkeln
+	vec4 c = COLOR;
 	vec3 rgb = c.rgb;
 	float l = dot(rgb, vec3(0.3, 0.59, 0.11));
 	float green = clamp((rgb.g - max(rgb.r, rgb.b)) * 5.0, 0.0, 1.0);

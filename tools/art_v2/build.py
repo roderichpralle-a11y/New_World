@@ -16,7 +16,7 @@ import os
 import sys
 
 import numpy as np
-from PIL import Image, ImageFilter
+from PIL import Image, ImageDraw, ImageFilter
 from scipy import ndimage
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -920,55 +920,140 @@ def _noise(seed, n=16):
     return z
 
 
+# Böden (josh 2026-10-26): Gras einfarbig im Grün der Gebäudesockel, Grasbüschel und Blumen halb so groß
+# wie im Bogen und unregelmäßig verstreut; Strand nur sandfarben mit vereinzelten Steinen und Kieseln.
+GRASS_GREEN = (126, 176, 52)  # Median des Grases an den Hausrändern (Hütte, Holzhaus)
+SAND_COLOR = (246, 224, 162)
+DECAL_SCALE = 0.286  # halb so groß wie bisher (bisher 112 Bogenpixel auf 64 HD-Pixel)
+
+
+def _decals(rect, base, min_d=55, min_px=12, max_px=900):
+    """Einzelteile (Büschel, Blumen, Steine) aus einem Bodenstück des Bogens: alles, was sich deutlich
+    von der Grundfarbe abhebt, als freigestelltes Bild in halber Größe."""
+    a = np.asarray(sheet(BODEN).crop(rect).convert("RGB")).astype(int)
+    d = np.sqrt(((a - np.array(base)) ** 2).sum(axis=2))
+    m = ndimage.binary_closing(d > min_d, iterations=1)
+    lab, n = ndimage.label(m)
+    out = []
+    for i, sl in enumerate(ndimage.find_objects(lab)):
+        part = lab[sl] == i + 1
+        if not (min_px <= part.sum() <= max_px):
+            continue
+        rgba = np.dstack([a[sl], np.where(part, 255, 0)]).astype(np.uint8)
+        img = Image.fromarray(rgba, "RGBA")
+        img = scale(img, DECAL_SCALE * S / 2.0 * 2.0)
+        if img.getbbox():
+            out.append(img.crop(img.getbbox()))
+    return out
+
+
+def _scatter(tile, decals, rnd, n, margin=3):
+    """n Teile zufällig auf die Kachel setzen, ohne über den Rand zu ragen (Kacheln bleiben nahtlos)."""
+    for _ in range(n):
+        dc = decals[rnd.randrange(len(decals))]
+        if dc.width + 2 * margin >= tile.width or dc.height + 2 * margin >= tile.height:
+            continue
+        x = rnd.randint(margin, tile.width - dc.width - margin)
+        y = rnd.randint(margin, tile.height - dc.height - margin)
+        tile.alpha_composite(dc, (x, y))
+    return tile
+
+
 def gen_terrain():
+    import random
     atlas = old_hd("terrain")
     T = 16 * S
-    # Grundstoffe: je Kachel ein 112-Pixel-Stück des Bogens (ein Spielfeld = 2,3 Bogen-Pixel je Spielpixel)
-    grass = [_texture((24 + i * 52, 190 + j * 60, 24 + i * 52 + 110, 190 + j * 60 + 110))
-             for i, j in ((0, 0), (1, 1), (0, 1), (1, 0), (0, 2))]
-    sand = [_texture((1040 + i * 50, 190 + j * 70, 1040 + i * 50 + 110, 190 + j * 70 + 110))
-            for i, j in ((0, 0), (1, 1), (0, 1), (1, 0), (0, 2))]
+    rnd = random.Random(2026)
+    tufts = _decals((24, 190, 240, 445), (119, 179, 55))
+    flowers = [t for t in tufts if np.asarray(t)[:, :, :3].min(axis=2).mean() > 150]
+    grass_bits = [t for t in tufts if t not in flowers]
+    stones = _decals((1040, 190, 1262, 445), (253, 231, 171), min_d=45)
+    plain_g = Image.new("RGBA", (T, T), (*GRASS_GREEN, 255))
+    plain_s = Image.new("RGBA", (T, T), (*SAND_COLOR, 255))
     deep = sheet(BODEN).crop((24, 568, 240, 846)).convert("RGBA")
-    # Wasser: 4 Bilder, Wellen wandern (Ausschnitt verschiebt sich)
     deep = _seamless(deep.resize((T * 2, T * 2), Image.LANCZOS))
     for f in range(4):
         d = f * T // 8
-        fr = deep.crop((d, d // 2, d + T, d // 2 + T))
-        atlas.paste(fr, (f * T, 0))
-    # Dual-Grid-Masken (Ecken TL=1, TR=2, BL=4, BR=8), Ränder rau, in 2-Pixel-Stufen
+        atlas.paste(deep.crop((d, d // 2, d + T, d // 2 + T)), (f * T, 0))
     n = 32
     noise_s = (_noise(101, n // 2) - 0.5) * 0.36
     noise_g = (_noise(202, n // 2) - 0.5) * 0.36
     u = (np.arange(n) + 0.5) / n
     U, Vv = np.meshgrid(u, u)
-    wet = np.array([196, 170, 120, 255], np.uint8)
+    wet = np.array([214, 190, 132, 255], np.uint8)
     foam = np.array([235, 248, 255, 210], np.uint8)
-    grass_edge = np.array([70, 128, 44, 255], np.uint8)
+    g_edge = np.array([int(c * 0.82) for c in GRASS_GREEN] + [255], np.uint8)
     for m in range(16):
         tl, tr, bl, br = [(1.0 if m & b else 0.0) for b in (1, 2, 4, 8)]
         cv = (tl * (1 - U) + tr * U) * (1 - Vv) + (bl * (1 - U) + br * U) * Vv
         for kind, row in (("sand", 1), ("grass", 2)):
             v = cv + (noise_s if kind == "sand" else noise_g)
             v = np.kron(v, np.ones((T // n, T // n)))
-            tex = np.asarray(sand[0] if kind == "sand" else grass[0])
             out = np.zeros((T, T, 4), np.uint8)
             inside = v > 0.5
-            out[inside] = tex[inside]
             if kind == "sand":
+                out[inside] = (*SAND_COLOR, 255)
                 out[(v > 0.40) & ~inside] = wet
                 out[(v > 0.31) & (v <= 0.40)] = foam
             else:
-                band = (v > 0.5) & (v < 0.56)
-                out[band] = (tex[band].astype(int) * 0.75).astype(np.uint8)
-                out[band, 3] = 255
-                out[(v > 0.44) & (v <= 0.5)] = np.array([214, 190, 130, 255], np.uint8)
+                out[inside] = (*GRASS_GREEN, 255)
+                out[(v > 0.5) & (v < 0.545)] = g_edge
             atlas.paste(Image.fromarray(out, "RGBA"), (m * T, row * T))
-    # Varianten: Zeile 3, Sand 0..3 und Gras 4..7
+    # Zeile 3: Sand 0..3 mit einzelnen Steinen, Gras 4..15 mit Büscheln und Blumen (World._paint_tile)
     for v in range(4):
-        atlas.paste(sand[v + 1], (v * T, 3 * T))
-        atlas.paste(grass[v + 1], ((4 + v) * T, 3 * T))
-    # volle Kacheln (Maske 15) aus dem ersten Stück, damit sie zu den Rändern passen
+        t = _scatter(plain_s.copy(), stones, rnd, 1 + (v == 3))
+        atlas.paste(t, (v * T, 3 * T))
+    for v in range(12):
+        t = plain_g.copy()
+        _scatter(t, grass_bits, rnd, rnd.choice([1, 1, 2, 3]))
+        if flowers and v % 3 == 0:
+            _scatter(t, flowers, rnd, 1)
+        atlas.paste(t, ((4 + v) * T, 3 * T))
     save(atlas, "terrain")
+    gen_season_ground()
+
+
+def gen_season_ground():
+    """terrain_season.png: Zeilen 0..7 Schnee als ein nahtloses Feld aus 8x8 Kacheln (World legt Kachel
+    (x mod 8, y mod 8), so laufen die Schneewehen über die Kachelgrenzen), Zeile 8 Laub (8 Kacheln).
+    World legt beides als eigene Ebenen über Gras und Sand und blendet sie mit der Jahreszeit ein."""
+    import random
+    T = 16 * S
+    N = 8
+    rnd = random.Random(77)
+    atlas = Image.new("RGBA", (N * T, (N + 1) * T), (0, 0, 0, 0))
+    # periodisches Rauschen: Zufall im Frequenzraum tiefpassgefiltert, dadurch an den Rändern nahtlos
+    W = N * T // 2
+    rs = np.random.RandomState(31)
+    fy = np.fft.fftfreq(W)[:, None]
+    fx = np.fft.fftfreq(W)[None, :]
+    r = np.sqrt(fx ** 2 + fy ** 2)
+    spec = np.fft.fft2(rs.randn(W, W)) * np.exp(-(r / 0.018) ** 2)
+    f = np.real(np.fft.ifft2(spec))
+    spec2 = np.fft.fft2(rs.randn(W, W)) * np.exp(-(r / 0.06) ** 2)
+    f = f / f.std() + 0.35 * np.real(np.fft.ifft2(spec2)) / np.real(np.fft.ifft2(spec2)).std()
+    f = np.kron(f, np.ones((2, 2)))  # 2-Pixel-Stufen wie die übrige Pixelgrafik
+    a = np.zeros(f.shape + (4,), np.uint8)
+    a[f > 0.1] = (226, 236, 250, 255)
+    a[f > 0.35] = (246, 250, 255, 255)
+    a[(f > 0.1) & (f < 0.2)] = (200, 216, 240, 255)
+    atlas.paste(Image.fromarray(a, "RGBA"), (0, 0))
+    for v in range(N):
+        # Laub: drei bis sieben kleine Blätter in Herbstfarben
+        leaf = Image.new("RGBA", (T, T), (0, 0, 0, 0))
+        d = ImageDraw.Draw(leaf)
+        cols = [(214, 104, 38), (232, 156, 46), (178, 64, 34), (150, 92, 44), (240, 188, 70)]
+        for _ in range(rnd.randint(3, 7)):
+            x, y = rnd.randint(4, T - 10), rnd.randint(4, T - 8)
+            c = cols[rnd.randrange(len(cols))]
+            dark = tuple(int(k * 0.7) for k in c)
+            w, h = rnd.choice([(6, 4), (4, 6), (6, 6), (8, 4)])
+            d.ellipse((x, y, x + w, y + h), fill=c + (255,))
+            d.line((x, y + h // 2, x + w, y + h // 2), fill=dark + (255,))
+        atlas.paste(leaf, (v * T, N * T))
+    atlas.save(os.path.join(OUT, "terrain_season.png"))
+    print("   terrain_season", atlas.size, "Schnee %.0f %%" % (100 * (f > 0.1).mean()))
+
 
 
 # ------------------------------------------------------------------ Oberfläche
