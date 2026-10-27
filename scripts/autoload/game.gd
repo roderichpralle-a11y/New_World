@@ -119,6 +119,8 @@ func _detect_test_build() -> void:
 		path = "/neu/"
 	if "/neu/" in path:  # Umbau "Mehr Herausforderung": eigener Spielstand
 		build_tag = "neu"
+	elif "/ios/" in path:  # Test gegen Abstürze auf iPhone/iPad: eigener Spielstand (Kopie des normalen)
+		build_tag = "ios"
 	elif "/test" in path:  # /test/ und /test-en/
 		build_tag = "test"
 	else:

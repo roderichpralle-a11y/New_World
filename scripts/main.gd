@@ -7,6 +7,9 @@ var hud: Hud
 
 
 func _ready() -> void:
+	# Handy und Tablet im Browser: höchstens 30 Bilder pro Sekunde (josh 2026-10-27, Abstürze auf iPhone/iPad)
+	if OS.has_feature("web") and DisplayServer.is_touchscreen_available():
+		Engine.max_fps = 30
 	get_window().size_changed.connect(_update_ui_scale)
 	Game.ui_size_changed.connect(_update_ui_scale)
 	_update_ui_scale()
