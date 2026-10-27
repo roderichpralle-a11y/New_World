@@ -297,13 +297,35 @@ func job_name() -> String:
 
 
 # ================================================================== Simulation
+## Hunger, Laune, Alter und Auslastung ändern sich langsam: sie laufen nur jedes NEEDS_FRAMES-te Bild
+## mit der aufgelaufenen Zeit (etwa 5-mal pro Sekunde, josh 2026-10-27: weniger Last auf iPhone/iPad).
+const NEEDS_FRAMES := 12
+var _needs_days: float = 0.0
+var _busy_days: float = 0.0
+var _needs_frame: int = -1
+var _shows_mark: bool = false  # Auswahlpfeil gezeichnet (siehe _draw)
+
+
 func _process(delta: float) -> void:
 	if Game.is_over:
 		return
 	var days := delta / float(Data.bal("day_length"))
-	_needs(days)
-	if not is_instance_valid(self) or is_queued_for_deletion():
-		return
+	_needs_days += days
+	if is_adult() and not Game.is_night():
+		_busy_days += days
+	if _needs_frame < 0:
+		_needs_frame = id % NEEDS_FRAMES  # verteilt die Siedler auf verschiedene Bilder
+	_needs_frame += 1
+	if _needs_frame >= NEEDS_FRAMES:
+		_needs_frame = 0
+		var nd := _needs_days
+		_needs_days = 0.0
+		_needs(nd)
+		if not is_instance_valid(self) or is_queued_for_deletion():
+			return
+		if _busy_days > 0.0:
+			_count_busy(_busy_days)
+			_busy_days = 0.0
 	if not world.animals.is_empty():
 		_check_danger(delta)
 	if _plan.is_empty():
@@ -312,9 +334,19 @@ func _process(delta: float) -> void:
 			_think()
 	else:
 		_run_action(delta)
-	if is_adult() and not Game.is_night():
-		_count_busy(days)
-	_animate(delta)
+	_hurt -= delta
+	if _on_screen():
+		_animate(delta)
+	elif _shows_mark:
+		queue_redraw()
+
+
+## Nur sichtbare Siedler werden animiert: nicht auf anderen Inseln, nicht im Haus, nicht weit außerhalb
+## des Bildausschnitts. Kommt einer ins Bild, stellt das erste _animate alles richtig.
+func _on_screen() -> bool:
+	if not is_visible_in_tree():
+		return false
+	return world.view_rect().has_point(global_position)
 
 
 func _count_busy(days: float) -> void:
@@ -1796,7 +1828,6 @@ func _animate(delta: float) -> void:
 	elif not sleeping:
 		var sitting: bool = not _plan.is_empty() and _plan[0].a == "wait" and _plan[0].has("sit") and not _moving
 		_body.position.y = 2 if sitting else 0
-	_hurt -= delta
 	_body.modulate = Color(1, 0.5, 0.5) if _hurt > 0.0 else Color.WHITE
 	_carry_icon.visible = carry_n > 0 and not sleeping
 	var pushing := _animate_cart(frame)
@@ -1810,7 +1841,8 @@ func _animate(delta: float) -> void:
 	_zzz.visible = sleeping and visible and _body.rotation != 0
 	if _zzz.visible:
 		_zzz.position.y = -30 + sin(_anim_t * 2.0) * 2.0
-	queue_redraw()
+	if Game.selected == self or _shows_mark:
+		queue_redraw()  # nur der Auswahlpfeil wird gezeichnet
 
 
 ## Mit Handkarren schieben Erwachsene ihre Last in einer Schubkarre vor sich her: seitlich voraus,
@@ -1848,7 +1880,8 @@ func pushes_cart() -> bool:
 
 
 func _draw() -> void:
-	if Game.selected == self:
+	_shows_mark = Game.selected == self
+	if _shows_mark:
 		var y := -32.0 + sin(_anim_t * 5.0) * 2.0
 		if not is_adult():
 			y += 8.0

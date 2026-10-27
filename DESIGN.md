@@ -3,6 +3,14 @@
 Gemütliches Aufbauspiel in Pixel-Grafik (Godot 4.7, GDScript, Compatibility-Renderer,
 Web-Export ohne Threads). Spielbar im Browser auf PC und Handy.
 
+**Rechenlast (josh 2026-10-27, Abstürze auf iPhone/iPad):** `Settler._process` ruft `_needs` (Hunger, Gesundheit,
+Laune, Alter) und `_count_busy` (Auslastung) nur jedes `NEEDS_FRAMES`-te Bild (12, etwa 5-mal pro Sekunde) mit der
+aufgelaufenen Zeit auf, je Siedler versetzt (`id % NEEDS_FRAMES`). `_animate` läuft nur für Siedler im Bild
+(`Settler._on_screen`: sichtbar im Baum, also nicht auf anderen Inseln oder im Haus, und innerhalb von
+`World.view_rect()`, dem Kartenausschnitt mit 96 px Rand, einmal je Bild berechnet); `queue_redraw` nur für den
+Auswahlpfeil. Denken (`_think`) und Laufen (`_run_action`) laufen weiter jedes Bild. Messung (5 Inseln, 230 Siedler,
+schneller PC): normales Tempo 27 → 18 ms je Bild, 8x 58 → 37 ms. Bericht: /mnt/project-files/analyse/iphone_abstuerze.md.
+
 Seit der Erweiterung „Mehr Herausforderung“ (Regeln ab Version 2) kommen dazu: wechselnde Winter und
 Sommer, Inselstärken mit Gewürzen und fremden Händlern, Bedürfnisstufen der Häuser mit Fachkräften,
 angekündigte Ereignisse, Forschung mit Schriften (Tontafeln, Papier, Strom), Prüfungen beim

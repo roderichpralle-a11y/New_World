@@ -1434,6 +1434,23 @@ func use_writing(rates: Dictionary, pts: float) -> float:
 	return Writing.consume(self, rates, pts)
 
 
+## Sichtbarer Kartenausschnitt in Weltkoordinaten mit Rand (einmal je Bild berechnet). Siedler außerhalb
+## werden nicht animiert (Settler._on_screen).
+const VIEW_MARGIN := 96.0
+var _view_rect := Rect2()
+var _view_frame: int = -1
+
+
+func view_rect() -> Rect2:
+	var f := Engine.get_process_frames()
+	if f != _view_frame:
+		_view_frame = f
+		var vp := get_viewport()
+		var r := vp.get_canvas_transform().affine_inverse() * vp.get_visible_rect()
+		_view_rect = r.grow(VIEW_MARGIN)
+	return _view_rect
+
+
 # ================================================================== Tag und Nacht
 func night_factor() -> float:
 	var t := Game.time_of_day()
