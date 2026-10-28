@@ -606,6 +606,14 @@ func _v2_test(w) -> void:
 			if Data.buildings.has(t):
 				info.append("%s %d" % [t, Building.roof_offsets(t).size()])
 		print("V2 ", "OK" if ok_roof else "FEHLER", " Dachfelder gesperrt und nach Abriss frei (%s)" % ", ".join(info))
+	# Log des Verwalters (josh 2026-10-28): jede Verwaltungsmeldung landet im Log und im Spielstand
+	var n0: int = Admin.log_entries.size()
+	Game.notify("Test: Der Verwalter ordnet etwas an.", "wissen", "verwaltung")
+	var sd := {}
+	Admin._on_save(sd)
+	var ok_log: bool = Admin.log_entries.size() == n0 + 1 and (sd.admin.log as Array).size() == n0 + 1
+	all_ok = all_ok and ok_log
+	print("V2 ", "OK" if ok_log else "FEHLER", " Log hat %d Einträge, gespeichert %d" % [Admin.log_entries.size(), (sd.admin.log as Array).size()])
 	print("V2 ", "OK" if all_ok else "FEHLER", " (Ende)")
 
 

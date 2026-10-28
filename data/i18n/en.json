@@ -1992,7 +1992,7 @@
  "Erzeugte Waren: Jahr %d · bisher Jahr %d": "Goods produced: year %d · year %d so far",
  "Erzeugte Waren im Jahr %d (bisher)": "Goods produced in year %d (so far)",
  "Noch nichts gezählt. Gezählt wird, was gesammelt, geerntet, gejagt und in Werkstätten hergestellt wird.": "Nothing counted yet. Counted is everything gathered, harvested, hunted and made in workshops.",
- "Unter „Verwalter“ siehst du, wer die Verwaltung leitet, und schaltest die automatische Neuzuweisung freier Berufe. Unter „Schichten“ ordnest du für einen Beruf Schichtarbeit rund um die Uhr an, unter „Nachtschicht“ siehst du, wer nachts arbeitet, unter „Überstunden“ lässt du einen Beruf länger arbeiten.\n\nUnter „Statistik“ steht, wie ausgelastet jeder Beruf ist (Anteil der Zeit, in der die Leute in ihrem Beruf arbeiten) und wie viel von jeder Ware im letzten Jahr und im laufenden Jahr erzeugt wurde.": "Under “Administrator” you see who runs the administration and switch automatic reassignment of free jobs. Under “Shifts” you order round-the-clock shift work for a job, under “Night shift” you see who works at night, under “Overtime” you let a job work longer.\n\nUnder “Statistics” you see how busy each job is (share of time people spend working in their job) and how much of each good was produced last year and this year.",
+ "Unter „Verwalter“ siehst du, wer die Verwaltung leitet, und schaltest die automatische Neuzuweisung freier Berufe. Unter „Schichten“ ordnest du für einen Beruf Schichtarbeit rund um die Uhr an, unter „Nachtschicht“ siehst du, wer nachts arbeitet, unter „Überstunden“ lässt du einen Beruf länger arbeiten.\n\nUnter „Statistik“ steht, wie ausgelastet jeder Beruf ist (Anteil der Zeit, in der die Leute in ihrem Beruf arbeiten) und wie viel von jeder Ware in den letzten 5 Jahren und im laufenden Jahr erzeugt wurde.\n\nUnter „Log“ stehen alle Entscheidungen des Verwalters, neueste oben.": "Under “Administrator” you see who runs the administration and switch automatic reassignment of free jobs. Under “Shifts” you order round-the-clock shift work for a job, under “Night shift” you see who works at night, under “Overtime” you let a job work longer.\n\nUnder “Statistics” you see how busy each job is (share of time people spend working in their job) and how much of each good was produced in the last 5 years and this year.\n\nUnder “Log” you find every decision of the steward, newest first.",
  "Siedler: %d": "Settlers: %d",
  "Zahlen für die Insel %s.": "Figures for the island %s.",
  "hilft aus %d %%, nichts zu tun %d %%": "helping out %d %%, idle %d %%",
@@ -2393,5 +2393,11 @@
  "Die %s wird zerlegt: %s für 3 Hütten, einen Hafen, ein Lagerhaus, Brennholz und mitgebrachtes Essen.": "The %s is taken apart: %s for 3 huts, a harbor, a storehouse, firewood and the food brought along.",
  "Das Expeditionsschiff legt erst ab, wenn Essen für 3 Tage an Bord ist. Es fehlt noch Essen für etwa %d Beeren.": "The expedition ship only sets sail with food for 3 days on board. Food worth about %d berries is still missing.",
  "Essen an Bord: %d von %d (3 Tage für die Fahrgäste)": "Food on board: %d of %d (3 days for the passengers)",
- "Der neue Deich schließt %d alte Deichfelder ein. Sie werden abgerissen und sind jetzt Land.": "The new dike encloses %d old dike tiles. They are demolished and are now land."
+ "Der neue Deich schließt %d alte Deichfelder ein. Sie werden abgerissen und sind jetzt Land.": "The new dike encloses %d old dike tiles. They are demolished and are now land.",
+ "Log": "Log",
+ "J. %d": "Y. %d",
+ "J. = Jahr, * = laufendes Jahr bis jetzt.": "Y. = year, * = current year so far.",
+ "Noch keine Entscheidungen. Hier steht später alles, was der Verwalter (und später Automat und KI) anordnet oder umstellt.": "No decisions yet. Everything the steward (and later the automaton and AI) orders or changes will be listed here.",
+ "Die letzten %d Entscheidungen, neueste oben.": "The last %d decisions, newest first.",
+ "Jahr %d, %s Tag %d, %d Uhr": "Year %d, %s day %d, %d:00"
 }

@@ -45,9 +45,10 @@ static func _count(job: String, w) -> int:
 	return w.settlers.filter(func(s): return s.job == job and s.is_adult()).size()
 
 
-static var _tab := 0  # Reiter im Fenster Verwalter: 0 Verwalter, 1 Schichten, 2 Nachtschicht, 3 Überstunden, 4 Statistik, 5 Inseln
+static var _tab := 0  # Reiter im Fenster Verwalter: 0 Verwalter, 1 Schichten, 2 Nachtschicht, 3 Überstunden, 4 Statistik, 5 Inseln, 6 Log
 static var _task_island := -1  # Reiter Inseln: für diese Insel ist die Auswahl der Spezialisierung offen
 const TAB_ISLANDS := 5
+const TAB_LOG := 6
 static var _box: Container  # hierhin bauen die Reiter ihre Zeilen (Fenster Verwalter oder Infofenster)
 static var _rebuild: Callable  # baut das Fenster neu auf
 
@@ -68,14 +69,14 @@ static func office_rows(hud, b) -> void:
 static func fill_window(hud, b, box: Container, rebuild: Callable, ft: Dictionary) -> void:
 	_box = box
 	_rebuild = rebuild
-	var names := [Loc.t("Verwalter"), Loc.t("Schichten"), Loc.t("Nachtschicht"), Loc.t("Überstunden"), Loc.t("Statistik"), Loc.t("Inseln")]
+	var names := [Loc.t("Verwalter"), Loc.t("Schichten"), Loc.t("Nachtschicht"), Loc.t("Überstunden"), Loc.t("Statistik"), Loc.t("Inseln"), Loc.t("Log")]
 	box.add_child(Win.tabs(names, _tab, func(i):
 		_tab = i
 		rebuild.call()))
 	var m = Admin.local_manager()
 	ft.left.text = Loc.t("Verwalter: %s") % m.display_name if m else Loc.t("Kein Verwalter")
 	Win.set_left2(ft, Sea.island_name(b.world) if b != null and Sea.settled_islands().size() > 1 else "")
-	if b == null and _tab < 4 and _tab != TAB_ISLANDS:
+	if b == null and _tab < 4:
 		var l := UiTheme.label(Loc.t("Baue zuerst die Verwaltung (Bauen, Reiter Wissen). Dann findest du hier den Verwalter, Schichten und Überstunden."), 14, UiTheme.BAD)
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		box.add_child(l)
@@ -86,6 +87,7 @@ static func fill_window(hud, b, box: Container, rebuild: Callable, ft: Dictionar
 		2: _night_tab(hud, b)
 		3: _orders_tab(hud, b, "ot")
 		TAB_ISLANDS: _islands_tab(hud)
+		TAB_LOG: _log_tab()
 		_: _stats_tab(hud, b)
 
 
@@ -348,38 +350,66 @@ static func _stats_tab(_hud, b) -> void:
 	var hint := UiTheme.label(Loc.t("Die große Zahl ist der Anteil der Arbeitszeit im eigenen Beruf. Essen, Schlafen und Freizeit zählen nicht mit."), 12, DIM)
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_box.add_child(hint)
+	# Die letzten 5 Jahre und das laufende Jahr (josh 2026-10-28)
 	var y := Seasons.year()
-	var last := Admin.produced_in(y - 1, w)
-	var now := Admin.produced_in(y, w)
+	var years := []
+	for k in range(maxi(1, y - 5), y + 1):
+		years.append(k)
+	var per := {}
+	for k in years:
+		per[k] = Admin.produced_in(k, w)
 	_box.add_child(UiTheme.label(Loc.t("Erzeugte Waren"), 15, UiTheme.TEXT, true))
 	var goods := []
 	for id in Data.sorted_resource_ids():
-		if int(last.get(id, 0)) > 0 or int(now.get(id, 0)) > 0:
+		if years.any(func(k): return int(per[k].get(id, 0)) > 0):
 			goods.append(id)
 	if goods.is_empty():
 		var e := UiTheme.label(Loc.t("Noch nichts gezählt. Gezählt wird, was gesammelt, geerntet, gejagt und in Werkstätten hergestellt wird."), 13, DIM)
 		e.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_box.add_child(e)
 		return
-	# Kopfzeile mit zwei Spalten: Vorjahr und laufendes Jahr
 	var head := Win.row(null, "", "", {})
 	head.box.self_modulate = Color(1, 1, 1, 0)
-	_cols(head.h, Loc.t("Jahr %d") % (y - 1) if y > 1 else "", Loc.t("Jahr %d bisher") % y, DIM)
+	_cols(head.h, years.map(func(k): return (Loc.t("J. %d") % k) + ("*" if k == y else "")), DIM)
 	_box.add_child(head.box)
 	for id in goods:
 		var r := Win.row(Data.res_icon(id), Data.resource_name(id), "", {"icon_px": 24})
-		_cols(r.h, str(int(last.get(id, 0))) if y > 1 else "", str(int(now.get(id, 0))), UiTheme.TEXT)
+		_cols(r.h, years.map(func(k): return str(int(per[k].get(id, 0)))), UiTheme.TEXT)
 		_box.add_child(r.box)
+	var star := UiTheme.label(Loc.t("J. = Jahr, * = laufendes Jahr bis jetzt."), 12, DIM)
+	_box.add_child(star)
 	var note := UiTheme.label(Loc.t("Gezählt wird seit dem Update vom 20. Oktober, was auf dieser Insel gesammelt, geerntet, gejagt und in Werkstätten hergestellt wird, nicht was Schiffe bringen oder Händler verkaufen. Ein Jahr hat vier Jahreszeiten."), 12, DIM)
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_box.add_child(note)
 
 
-## Zwei rechtsbündige Zahlenspalten fester Breite am Ende einer Zeile.
-static func _cols(h: Container, a: String, c: String, col: Color) -> void:
-	for t in [a, c]:
-		var l := UiTheme.label(t, 14 if col == UiTheme.TEXT else 12, col, col == UiTheme.TEXT)
-		l.custom_minimum_size.x = 84
+## Reiter Log (josh 2026-10-28): was Verwalter, Automat, KI und Droiden entschieden haben, neueste zuerst.
+static func _log_tab() -> void:
+	var entries: Array = Admin.log_entries
+	if entries.is_empty():
+		_note(Loc.t("Noch keine Entscheidungen. Hier steht später alles, was der Verwalter (und später Automat und KI) anordnet oder umstellt."))
+		return
+	var hint := UiTheme.label(Loc.t("Die letzten %d Entscheidungen, neueste oben.") % entries.size(), 12, DIM)
+	_box.add_child(hint)
+	for i in range(entries.size() - 1, -1, -1):
+		var e: Array = entries[i]
+		var t: float = e[0]
+		var hour := int(fposmod(t, 1.0) * 24.0)
+		var when := Loc.t("Jahr %d, %s Tag %d, %d Uhr") % [Seasons.year(t), Seasons.season_name(Seasons.season(t)), Seasons.day_in_season(t), hour]
+		var v := VBoxContainer.new()
+		v.add_theme_constant_override("separation", 0)
+		v.add_child(UiTheme.label(when, 11, DIM))
+		var l := UiTheme.label(str(e[2]), 13)
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(l)
+		_box.add_child(v)
+
+
+## Rechtsbündige Zahlenspalten fester Breite am Ende einer Zeile (bis zu 6 Jahre).
+static func _cols(h: Container, texts: Array, col: Color) -> void:
+	for t in texts:
+		var l := UiTheme.label(str(t), 13 if col == UiTheme.TEXT else 12, col, col == UiTheme.TEXT)
+		l.custom_minimum_size.x = 48
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		h.add_child(l)
 

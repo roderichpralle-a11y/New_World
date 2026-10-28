@@ -459,8 +459,8 @@ func note_produced(res: String, n: int, w = null) -> void:
 	var key := str(Seasons.year())
 	if not produced.has(key):
 		produced[key] = {}
-		for k in produced.keys():  # nur die letzten 3 Jahre aufheben
-			if int(k) < Seasons.year() - 2:
+		for k in produced.keys():  # die letzten 5 Jahre und das laufende aufheben (josh 2026-10-28)
+			if int(k) < Seasons.year() - 5:
 				produced.erase(k)
 	var isl := _isl(w)
 	if not produced[key].has(isl):
@@ -475,6 +475,19 @@ static func _isl(w) -> String:
 
 
 ## Erzeugte Menge je Ware im Jahr y (Seasons.year()) auf der Insel w (null: Hauptinsel).
+# ---------------------------------------------------------------- Log (josh 2026-10-28)
+## Entscheidungen von Verwalter, Automat, KI und Droiden: jede Meldung der Art „verwaltung“ (Game.notify),
+## auch wenn der Spieler diese Meldungen ausgeschaltet hat. [Spielzeit in Tagen, Insel, Text], neueste zuletzt.
+const LOG_MAX := 300
+var log_entries: Array = []
+
+
+func add_log(text: String) -> void:
+	log_entries.append([Game.time_days, "", text])
+	if log_entries.size() > LOG_MAX:
+		log_entries = log_entries.slice(log_entries.size() - LOG_MAX)
+
+
 func produced_in(y: int, w = null) -> Dictionary:
 	return produced.get(str(y), {}).get(_isl(w), {})
 
@@ -507,6 +520,7 @@ func job_load(w = null) -> Dictionary:
 # ---------------------------------------------------------------- Spielstand
 func _on_reset() -> void:
 	produced = {}
+	log_entries = []
 	orders = {}
 	protest = {}
 	reported = {}
@@ -522,7 +536,7 @@ func _on_reset() -> void:
 
 
 func _on_save(d: Dictionary) -> void:
-	d["admin"] = {"orders": orders.duplicate(true), "protest": protest.duplicate(), "reported": reported.duplicate(), "auto": auto_reassign, "pending": pending_jobs.duplicate(), "produced": produced.duplicate(true), "self_orders": self_orders, "auto_orders": auto_orders.keys()}
+	d["admin"] = {"orders": orders.duplicate(true), "protest": protest.duplicate(), "reported": reported.duplicate(), "auto": auto_reassign, "pending": pending_jobs.duplicate(), "produced": produced.duplicate(true), "self_orders": self_orders, "auto_orders": auto_orders.keys(), "log": log_entries.duplicate(true)}
 
 
 func _on_load(data: Dictionary, old_rules: int) -> void:
@@ -539,6 +553,11 @@ func _on_load(data: Dictionary, old_rules: int) -> void:
 		for j in ao:
 			if Data.jobs.has(str(j)):
 				auto_orders[str(j)] = true
+	var lg = e.get("log", [])
+	if lg is Array:
+		for it in lg:
+			if it is Array and it.size() >= 3:
+				log_entries.append([float(it[0]), str(it[1]), str(it[2])])
 	var pr = e.get("produced", {})
 	if pr is Dictionary:
 		for y in pr:

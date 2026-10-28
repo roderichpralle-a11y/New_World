@@ -594,6 +594,8 @@ var hints_on: bool = true  # Hinweis-Fenster bei Neuem (Hints), sonst nur als Me
 
 
 func notify(text: String, icon: String = "", cat: String = "") -> void:
+	if cat == "verwaltung":
+		Admin.add_log(text)  # Reiter Log im Fenster Verwalter (josh 2026-10-28)
 	if cat == "":
 		cat = NOTIFY_ICON_CAT.get(icon, "tag")
 	if notify_off.get(cat, false):
