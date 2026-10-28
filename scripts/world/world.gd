@@ -23,6 +23,8 @@ var nodes: Array = []
 var node_at: Dictionary = {}
 var buildings: Array = []
 var building_at: Dictionary = {}
+## Dachfelder: Zelle -> Gebäude, dessen Dach sie bedeckt (Building.roof_cells); gesperrt wie die Grundfläche.
+var roof_at: Dictionary = {}
 var settlers: Array = []
 var droids: Array = []  # Droiden (scripts/entities/droid.gd, Droids): keine Siedler, zählen nicht zur Bevölkerung
 var graves: Array = []  # [Sprite2D, bis_tag]
@@ -791,6 +793,8 @@ func _set_solid(c: Vector2i, solid: bool) -> void:
 		return
 	if is_water(c) and not dike_at(c):  # fertige Deiche im Wasser sind begehbar
 		solid = true
+	if roof_at.has(c):
+		solid = true
 	astar.set_point_solid(c, solid)
 	_sync_animal(c)
 
@@ -903,8 +907,12 @@ func place_building(type: String, c: Vector2i, complete: bool, bid: int = 0) -> 
 	buildings.append(b)
 	for cc in b.cells():
 		building_at[cc] = b
+		_drop_roof(cc)
 		if b.blocks_cell(cc):
 			_set_solid(cc, true)
+	if not b.is_ground():
+		_drop_roof(b.entrance_cell())  # alte Spielstände: keine Tür unter einem fremden Dach
+	_claim_roof(b)
 	if b.is_decor():
 		decor_dirty()
 	if complete and b.housing() > 0:
@@ -914,6 +922,35 @@ func place_building(type: String, c: Vector2i, complete: bool, bid: int = 0) -> 
 			_set_solid(b.cell, false)  # fertiger Deich im Wasser: begehbar
 		refresh_tiles_around(b.cell)
 	return b
+
+
+## Dachfelder eines Gebäudes sperren; frei bleiben Felder anderer Gebäude, Türen und Wasser.
+func _claim_roof(b: Building) -> void:
+	var doors := {}
+	for o in buildings:
+		if o != b and not o.is_ground():
+			doors[o.entrance_cell()] = true
+	for rc in b.roof_cells():
+		if not is_inside(rc) or building_at.has(rc) or roof_at.has(rc) or doors.has(rc) or is_water(rc):
+			continue
+		roof_at[rc] = b
+		_set_solid(rc, true)
+
+
+func _release_roof(b: Building) -> void:
+	for rc in b.roof_cells():
+		if roof_at.get(rc) == b:
+			_drop_roof(rc)
+
+
+func _drop_roof(c: Vector2i) -> void:
+	if not roof_at.has(c):
+		return
+	roof_at.erase(c)
+	var solid: bool = node_at.has(c) and node_at[c].blocks_path()
+	if building_at.has(c) and building_at[c].blocks_cell(c):
+		solid = true
+	_set_solid(c, solid)
 
 
 ## ignore: Gebaeude, dessen eigene Felder als frei gelten (beim Verschieben).
@@ -930,6 +967,8 @@ func can_place(type: String, c: Vector2i, ignore = null) -> bool:
 				return false
 			if node_at.has(cc) or (building_at.has(cc) and building_at[cc] != ignore):
 				return false
+			if roof_at.has(cc) and roof_at[cc] != ignore and not def.has("tile") and not def.get("ground", false):
+				return false  # nicht unter das Dach eines anderen Gebäudes bauen
 	if def.get("water_ok", false) and not Land.dike_allowed(self, c):  # Deich: an Land oder an einem Deich
 		return false
 	if def.has("decor") and not def.get("ground", false):
@@ -937,6 +976,15 @@ func can_place(type: String, c: Vector2i, ignore = null) -> bool:
 		var rc := Rect2i(c, Vector2i(int(def.size[0]), int(def.size[1])))
 		for o in buildings:
 			if o != ignore and not o.is_ground() and not o.is_decor() and rc.has_point(o.entrance_cell()):
+				return false
+	# Das eigene Dach darf kein anderes Haus und keine fremde Tür überdecken
+	for o in Building.roof_offsets(type):
+		var rc: Vector2i = c + o
+		var ob = building_at.get(rc)
+		if ob != null and ob != ignore and not ob.is_ground() and not ob.def.has("tile") and not ob.is_decor():
+			return false
+		for ob2 in buildings:
+			if ob2 != ignore and not ob2.is_ground() and ob2.entrance_cell() == rc:
 				return false
 	# Eingang muss frei sein; eine Straße vor der Tür ist erlaubt (josh 2026-10-16)
 	if not def.get("ground", false):
@@ -1002,6 +1050,7 @@ func demolish(b: Building) -> void:
 	for d in droids:
 		if d._reserved == b or d._incoming.any(func(i): return i[0] == b):
 			d.abort_plan()
+	_release_roof(b)
 	buildings.erase(b)
 	if b.is_decor():
 		decor_dirty()
@@ -1202,6 +1251,7 @@ func upgrade_building(b: Building) -> Building:
 	for d in droids:
 		if d._reserved == b or d._incoming.any(func(i): return i[0] == b):
 			d.abort_plan()
+	_release_roof(b)
 	buildings.erase(b)
 	for cc in b.cells():
 		building_at.erase(cc)
@@ -1233,6 +1283,7 @@ func move_building(b: Building, c: Vector2i) -> bool:
 		for dy in range(-1, 2):
 			for dx in range(-1, 2):
 				near[cc + Vector2i(dx, dy)] = true
+	_release_roof(b)
 	for cc in old_cells:
 		building_at.erase(cc)
 		_set_solid(cc, node_at.has(cc) and node_at[cc].blocks_path())
@@ -1240,8 +1291,10 @@ func move_building(b: Building, c: Vector2i) -> bool:
 	b.position = b.foot_pos()
 	for cc in b.cells():
 		building_at[cc] = b
+		_drop_roof(cc)
 		if b.blocks_cell(cc):
 			_set_solid(cc, true)
+	_claim_roof(b)
 	if b.is_decor():
 		decor_dirty()
 		b.refresh()  # Bilder auf einzelnen Feldern (Park) ziehen mit

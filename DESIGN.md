@@ -1760,6 +1760,8 @@ nicht mehr halb durchsichtig.
 - Leere Häuser verbrauchen nichts: Hausbedürfnisse zählen nur Bewohner, Häuser ohne Bewohner zählen auch nicht
   bei den Meldungen (`HouseNeeds.tick`). Heizen rechnet ohnehin je Siedler.
 
+- **Dach sperrt (josh 2026-10-28):** `Building.roof_offsets(type)` berechnet aus dem Gebäudebild die Felder über und neben der Grundfläche, die es zu mehr als der Hälfte bedeckt (4x4 Stichproben je Feld). `World.roof_at` sperrt sie für die Wegfindung (`_set_solid`); frei bleiben Felder anderer Gebäude, fremde Türen und Wasser (alte Spielstände). `can_place`: nicht unter ein fremdes Dach bauen, das eigene Dach überdeckt kein Haus und keine Tür. Nicht für Boden, Straßen, Deiche und Schmuck. Test in `--v2test=1`.
+
 ## Straßen, Deiche und Förster (josh 2026-10-11, `scripts/world/land.gd`)
 
 Bau-Reiter „Land und Wege“ (Kategorie `land`, Symbol `weg`). Alle drei sind 1x1-Bodengebäude mit

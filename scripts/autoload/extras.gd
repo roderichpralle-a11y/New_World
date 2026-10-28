@@ -580,6 +580,32 @@ func _v2_test(w) -> void:
 		print("V2 übersprungen: keine Küste für den Deichtest")
 		ok8 = true
 	all_ok = all_ok and ok8
+	# Dach sperrt (josh 2026-10-28): Hütte hat Dachfelder über der Grundfläche, dort kein Durchgang
+	var rspot := Vector2i(-1, -1)
+	for y in range(10, w.size - 10):
+		for x in range(10, w.size - 10):
+			if rspot.x < 0 and w.can_place("huette", Vector2i(x, y)):
+				rspot = Vector2i(x, y)
+	var hb = w.place_building("huette", rspot, true) if rspot.x >= 0 else null
+	if hb:
+		var rc: Array = hb.roof_cells()
+		var blocked := rc.size() > 0
+		for c in rc:
+			if w.is_inside(c) and w.roof_at.get(c) == hb and w.is_walkable(c):
+				blocked = false
+		var no_under: bool = rc.is_empty() or not w.can_place("brunnen" if Data.buildings.has("brunnen") else "lager", rc[0])
+		w.demolish(hb)
+		var freed := true
+		for c in rc:
+			if w.roof_at.has(c):
+				freed = false
+		var ok_roof: bool = blocked and freed and no_under
+		all_ok = all_ok and ok_roof
+		var info := []
+		for t in ["huette", "holzhaus", "steinhaus", "lager", "schreibstube"]:
+			if Data.buildings.has(t):
+				info.append("%s %d" % [t, Building.roof_offsets(t).size()])
+		print("V2 ", "OK" if ok_roof else "FEHLER", " Dachfelder gesperrt und nach Abriss frei (%s)" % ", ".join(info))
 	print("V2 ", "OK" if all_ok else "FEHLER", " (Ende)")
 
 

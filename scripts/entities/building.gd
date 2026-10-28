@@ -146,6 +146,67 @@ func cells() -> Array:
 	return out
 
 
+## Dachfelder (josh 2026-10-28): Felder über und neben der Grundfläche, die das Gebäudebild zu mehr als
+## der Hälfte bedeckt. Siedler laufen dort nicht mehr durch das Dach (World.roof_at). Nicht für Boden,
+## Straßen, Deiche und Schmuck.
+static var _roof_cache: Dictionary = {}
+static var _img_cache: Dictionary = {}
+
+
+func roof_cells() -> Array:
+	var out := []
+	for o in roof_offsets(type):
+		out.append(cell + o)
+	return out
+
+
+static func roof_offsets(t: String) -> Array:
+	if _roof_cache.has(t):
+		return _roof_cache[t]
+	var d: Dictionary = Data.buildings[t]
+	var res := []
+	_roof_cache[t] = res
+	if d.get("ground", false) or d.has("tile") or d.has("decor") or d.get("flat", false) or not d.has("sprite"):
+		return res
+	var at := Data.object_tex(String(d.sprite), 0)
+	if at == null or at.atlas == null:
+		return res
+	var key := at.atlas.get_rid()
+	if not _img_cache.has(key):
+		var img := at.atlas.get_image()
+		if img == null:
+			return res
+		if img.is_compressed():
+			img.decompress()
+		_img_cache[key] = img
+	var img: Image = _img_cache[key]
+	var k := float(img.get_width()) / maxf(1.0, at.atlas.get_width())
+	var sz := at.region.size
+	var sx := int(d.size[0])
+	var sy := int(d.size[1])
+	# Bild wie in refresh(): Unterkante Mitte der Grundfläche, Versatz nach oben
+	var left := -8.0 + sx * 8.0 - sz.x / 2.0
+	var top := -8.0 + sy * 16.0 + (-sz.y + 4 if sz.y > 16 else -sz.y + 6)
+	for dy in range(floori((top + 8.0) / 16.0) - 1, sy):
+		for dx in range(floori((left + 8.0) / 16.0) - 1, ceili((left + sz.x + 8.0) / 16.0) + 1):
+			if dx >= 0 and dx < sx and dy >= 0:
+				continue  # Grundfläche sperrt ohnehin
+			var hit := 0
+			for j in 4:
+				for i in 4:
+					var u := dx * 16.0 - 8.0 + 2.0 + i * 4.0 - left
+					var v := dy * 16.0 - 8.0 + 2.0 + j * 4.0 - top
+					if u < 0 or v < 0 or u >= sz.x or v >= sz.y:
+						continue
+					var px := int((at.region.position.x + u) * k)
+					var py := int((at.region.position.y + v) * k)
+					if px < img.get_width() and py < img.get_height() and img.get_pixel(px, py).a > 0.5:
+						hit += 1
+			if hit >= 8:
+				res.append(Vector2i(dx, dy))
+	return res
+
+
 func entrance_cell() -> Vector2i:
 	return cell + Vector2i(size.x / 2, size.y)
 
