@@ -145,7 +145,7 @@ func reset_state(new_seed: int) -> void:
 	next_id = 1
 	stats = {"births": 0, "deaths": 0, "max_pop": 0, "starved": 0, "starve_day": time_days}
 	lineage = {}
-	research = {"current": "", "progress": {}, "done": [], "paid": []}
+	research = {"current": "", "next": "", "progress": {}, "done": [], "paid": []}
 	goals = {"tut": 0, "ms": 0, "tv": 8, "mv": 2}
 	rules = RULES
 	rules_old = RULES
@@ -1062,6 +1062,24 @@ func start_research(t: String) -> String:
 	return ""
 
 
+## Vormerken (josh 2026-10-28): Startet der Spieler eine Forschung, während eine andere läuft, kommt sie als
+## nächste dran (research.next, nur eine). Bezahlt wird erst beim Start (_finish_research -> start_research).
+## Nochmal antippen nimmt die Vormerkung zurück. Gibt einen Text für die Meldung zurück.
+func queue_research(t: String) -> String:
+	if research.current == "" or research.current == t:
+		var err := start_research(t)
+		return err if err != "" else tr("Forschung gestartet: %s") % Data.techs[t].name
+	if research.get("next", "") == t:
+		research.next = ""
+		research_changed.emit()
+		return tr("%s ist nicht mehr vorgemerkt.") % Data.techs[t].name
+	if tech_state(t) != "available":
+		return start_research(t)  # Grund, warum es nicht geht
+	research.next = t
+	research_changed.emit()
+	return tr("%s kommt als Nächstes dran, wenn %s fertig ist.") % [Data.techs[t].name, Data.techs[research.current].name]
+
+
 func has_research_goal() -> bool:
 	return research.current != ""
 
@@ -1117,6 +1135,14 @@ func _finish_research(t: String) -> void:
 		text += tr(" Neu zu bauen: ") + ", ".join(unlocks) + "."
 	notify(text, "wissen")
 	Sound.play("forschung")
+	var nx := str(research.get("next", ""))
+	research.next = ""
+	if nx != "" and tech_state(nx) == "available":
+		var err := start_research(nx)
+		if err == "":
+			notify(tr("Jetzt wird %s erforscht (vorgemerkt).") % Data.techs[nx].name, "wissen")
+		else:
+			notify(tr("Die vorgemerkte Forschung %s kann nicht starten: %s") % [Data.techs[nx].name, err], "wissen")
 	research_changed.emit()
 	stock_changed.emit()
 
@@ -1450,9 +1476,12 @@ func apply_save_header(d: Dictionary) -> void:
 		"progress": r.get("progress", {}),
 		"done": Array(r.get("done", [])).filter(func(x): return Data.techs.has(x)),
 		"paid": Array(r.get("paid", [])),
+		"next": str(r.get("next", "")),
 	}
 	if not Data.techs.has(research.current):
 		research.current = ""
+	if not Data.techs.has(research.next):
+		research.next = ""
 	# Aeltere Spielstaende kennen keine Ziele: Einfuehrung ueberspringen, erreichte Ziele nachholen
 	var g = d.get("goals", null)
 	if g is Dictionary:

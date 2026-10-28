@@ -7,6 +7,8 @@ const TEXT_LIGHT := Color("#fff6e0")
 const ACCENT := Color("#d8902f")
 const GOOD := Color("#5aa852")
 const BAD := Color("#d0484a")
+## Schrift auf inaktiven (braunen) Knöpfen: helles Beige, damit sie lesbar bleibt (josh 2026-10-28)
+const TEXT_DISABLED := Color("#f3e6c8")
 
 
 static func _box(region: Rect2, margin: int = 6, content: int = 8) -> StyleBoxTexture:
@@ -37,7 +39,7 @@ static func make() -> Theme:
 	var bh := _box(Rect2(48, 0, 24, 24), 6, 8)
 	var bp := _box(Rect2(72, 0, 24, 24), 6, 8)
 	var bd := _box(Rect2(24, 0, 24, 24), 6, 8)
-	bd.modulate_color = Color(1, 1, 1, 0.5)
+	bd.modulate_color = Color(0.62, 0.5, 0.42)  # dunkleres Braun, darauf helle Schrift (josh 2026-10-28)
 	for cls in ["Button", "OptionButton"]:
 		t.set_stylebox("normal", cls, bn)
 		t.set_stylebox("hover", cls, bh)
@@ -49,7 +51,7 @@ static func make() -> Theme:
 		t.set_color("font_hover_color", cls, TEXT)
 		t.set_color("font_pressed_color", cls, TEXT_LIGHT)
 		t.set_color("font_hover_pressed_color", cls, TEXT_LIGHT)
-		t.set_color("font_disabled_color", cls, Color(TEXT, 0.5))
+		t.set_color("font_disabled_color", cls, TEXT_DISABLED)
 		t.set_color("icon_normal_color", cls, Color.WHITE)
 		t.set_constant("h_separation", cls, 6)
 	# Aufklappliste (Beruf in der Siedlerliste) im selben Holzrahmen

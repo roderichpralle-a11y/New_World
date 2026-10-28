@@ -322,6 +322,8 @@ func autotest_setup(args: Dictionary, main) -> void:
 		_last_two_test(w)
 	if args.has("nametest"):
 		_name_test(w)
+	if args.has("queuetest"):
+		_queue_test(w)
 	if args.has("cartshot"):
 		await CartTest.run(main, args)
 
@@ -511,3 +513,32 @@ func _name_test(w) -> void:
 		and three[1].display_name.begins_with("Lena ") and not three[1].display_name.ends_with(" III")
 	print("Namen ", "OK" if ok2 else "FEHLER", " dreimal Lena III bereinigt: %s, %s, %s" % [three[0].display_name, three[1].display_name, three[2].display_name])
 	print("Namen ", "OK" if dup == 0 and ok2 else "FEHLER", " (Ende)")
+
+
+## --queuetest=1: zweite Forschung während einer laufenden wird vorgemerkt und startet danach; nochmal antippen
+## nimmt sie zurück; Speichern behält sie. Druckt „Vormerken OK/FEHLER“.
+func _queue_test(w) -> void:
+	for id in ["holz", "stein", "beeren", "tontafel", "felle", "fisch"]:
+		w.stock[id] = 999
+	var av: Array = Data.sorted_tech_ids().filter(func(t): return Game.tech_state(t) == "available")
+	var ok := av.size() >= 2
+	print("Vormerken ", "OK" if ok else "FEHLER", " zwei Forschungen wählbar: %s" % [av.slice(0, 3)])
+	if not ok:
+		return
+	Game.research.current = ""
+	Game.queue_research(av[0])
+	Game.queue_research(av[1])
+	var ok1: bool = Game.research.current == av[0] and Game.research.next == av[1]
+	print("Vormerken ", "OK" if ok1 else "FEHLER", " läuft %s, als Nächstes %s" % [Game.research.current, Game.research.next])
+	Game.queue_research(av[1])
+	var ok2: bool = Game.research.next == ""
+	Game.queue_research(av[1])
+	var d := {}
+	Game.state_save.emit(d)
+	var ok3: bool = Game.research.next == av[1]
+	Game.research.progress[av[0]] = Game.tech_points(av[0]) + 1.0
+	Game.add_research(1.0, false)
+	var ok4: bool = Game.is_researched(av[0]) and Game.research.current == av[1] and Game.research.next == ""
+	print("Vormerken ", "OK" if ok2 else "FEHLER", " nochmal antippen nimmt es zurück")
+	print("Vormerken ", "OK" if ok4 else "FEHLER", " nach %s startet %s (jetzt %s)" % [av[0], av[1], Game.research.current])
+	print("Vormerken ", "OK" if ok1 and ok2 and ok3 and ok4 else "FEHLER", " (Ende)")
