@@ -1741,6 +1741,8 @@ nicht mehr halb durchsichtig.
   24 Stein, 4 Werkzeug), 3 Tage Essen für 6 (6 x 75 x 3 / 12 = 113 Beeren) und 3 Tage Winterheizung für 6
   (18 Holz). Am Ziel `Sea._break_up`: das Schiff verschwindet, genau diese Waren kommen ins Lager (über den
   Stauraum hinaus). Fährt keine Routen und erkundet nicht.
+- Gras der ganzen Insel wie an den Hausrändern: `terrain_grasstex.png` (build.py `gen_grass_texture`), ein
+  nahtloses 8x8-Feld mit weichen Grünflecken und Büscheln, als eigene Ebene `_gtex_layer` über vollen Grasfeldern.
 - Leere Häuser verbrauchen nichts: Hausbedürfnisse zählen nur Bewohner, Häuser ohne Bewohner zählen auch nicht
   bei den Meldungen (`HouseNeeds.tick`). Heizen rechnet ohnehin je Siedler.
 

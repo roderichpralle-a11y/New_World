@@ -47,6 +47,7 @@ var _mat_needle: ShaderMaterial
 var _layers: Array = []
 # Jahreszeiten-Auflagen über Sand und Gras: Schnee im Winter, Laub im Herbst (terrain_season.png)
 var _snow_layer: TileMapLayer
+var _gtex_layer: TileMapLayer  # Grasmuster über vollen Grasfeldern (josh 2026-10-28)
 var _deco_layer: TileMapLayer  # feine Grasbüschel und Blumen (terrain_deco.png, josh 2026-10-28)
 var _mat_water: ShaderMaterial
 var _leaf_layer: TileMapLayer
@@ -239,6 +240,11 @@ func _build_terrain(island: Dictionary) -> void:
 	_mat_water = ShaderMaterial.new()
 	_mat_water.shader = preload("res://assets/shaders/water.gdshader")
 	_layers[0].material = _mat_water
+	_gtex_layer = TileMapLayer.new()
+	_gtex_layer.tile_set = _make_grid_tileset("terrain_grasstex", 8)
+	_gtex_layer.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_gtex_layer.material = _mat_ground
+	add_child(_gtex_layer)
 	_deco_layer = TileMapLayer.new()
 	_deco_layer.tile_set = _make_deco_tileset()
 	_deco_layer.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS  # fein, ohne Flimmern
@@ -309,6 +315,21 @@ func _make_deco_tileset() -> TileSet:
 	src.texture_region_size = Vector2i(T, T)
 	for v in 16:
 		src.create_tile(Vector2i(v, 0))
+	ts.add_source(src, 0)
+	return ts
+
+
+## Kacheln aus einem nahtlosen Feld (n x n Kacheln) wie Schnee und Grasmuster.
+func _make_grid_tileset(tex: String, n: int) -> TileSet:
+	var ts := TileSet.new()
+	ts.tile_size = Vector2i(T, T)
+	var src := TileSetAtlasSource.new()
+	src.texture = Data.hd(tex)
+	src.use_texture_padding = false
+	src.texture_region_size = Vector2i(T, T)
+	for r in n:
+		for v in n:
+			src.create_tile(Vector2i(v, r))
 	ts.add_source(src, 0)
 	return ts
 
@@ -424,6 +445,11 @@ func _paint_tile(x: int, y: int, sand: TileMapLayer, grass: TileMapLayer) -> voi
 		grass.set_cell(Vector2i(x, y), 0, Vector2i(mg, 2))
 	else:
 		grass.erase_cell(Vector2i(x, y))
+	if _gtex_layer != null:
+		if mg == 15:
+			_gtex_layer.set_cell(Vector2i(x, y), 0, Vector2i(posmod(x, 8), posmod(y, 8)))
+		else:
+			_gtex_layer.erase_cell(Vector2i(x, y))
 	if _deco_layer != null:
 		if mg == 15 and h >= 40:
 			_deco_layer.set_cell(Vector2i(x, y), 0, Vector2i(h % 16, 0))
