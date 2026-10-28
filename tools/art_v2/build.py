@@ -1294,55 +1294,15 @@ def gen_grass_deco():
 
 
 def gen_grass_texture():
-    """terrain_grasstex.png (josh 2026-10-28): das Gras der ganzen Insel so lebendig wie an den Hausrändern der
-    Bögen. Ein nahtloses Feld aus 8x8 Kacheln (World legt Kachel (x mod 8, y mod 8) auf volle Grasfelder):
-    weiche Flecken in dunklerem und hellerem Grün, dicht gestreute kurze Halme (dunkler Fuß, helle Spitze) und
-    ein paar gelbgrüne Tupfer. Gezeichnet in halben Spielpixeln, sonst durchsichtig (darunter das Grundgrün)."""
-    import random
-    T = 16 * S
-    N = 8
-    W = N * T // 2  # Zeichenraster: halbe Spielpixel
-    rnd = random.Random(2810)
-    rs = np.random.RandomState(57)
-    fy = np.fft.fftfreq(W)[:, None]
-    fx = np.fft.fftfreq(W)[None, :]
-    r = np.sqrt(fx ** 2 + fy ** 2)
-    f = np.real(np.fft.ifft2(np.fft.fft2(rs.randn(W, W)) * np.exp(-(r / 0.03) ** 2)))
-    f = f / f.std()
-    g = np.real(np.fft.ifft2(np.fft.fft2(rs.randn(W, W)) * np.exp(-(r / 0.12) ** 2)))
-    f = f + 0.45 * g / g.std()
-    a = np.zeros((W, W, 4), np.uint8)
-    a[f < -0.95] = (114, 166, 48, 255)
-    a[f < -1.6] = (104, 156, 44, 255)
-    a[f > 0.55] = (138, 190, 60, 255)
-    a[f > 1.2] = (152, 200, 68, 255)
-    img = Image.fromarray(a, "RGBA").copy()
-    px = img.load()
-    dark, mid, light, tip = (78, 132, 38), (100, 156, 44), (146, 196, 66), (176, 214, 92)
-
-    def put(x, y, c):
-        px[x % W, y % W] = c + (255,)
-    # Büschel wie an den Hausrändern: 2 bis 5 Halme, 2 bis 5 Pixel hoch, dunkler Fuß, helle Spitzen
-    for _ in range(W * W // 70):
-        x, y = rnd.randrange(W), rnd.randrange(W)
-        on_light = f[y % W, x % W] > 0.2
-        for b in range(rnd.randint(2, 5)):
-            bx = x + rnd.randint(-2, 2)
-            h = rnd.randint(2, 5)
-            lean = rnd.choice([-1, 0, 0, 1])
-            for k in range(h):
-                xx = bx + (lean if k >= h - 2 and h > 2 else 0)
-                c = dark if k == 0 else (mid if k < h - 1 else (light if on_light or b % 2 else mid))
-                put(xx, y - k, c)
-            if rnd.random() < 0.3:
-                put(bx + lean, y - h, tip)
-    # ein paar helle Tupfer
-    for _ in range(W * W // 600):
-        x, y = rnd.randrange(W), rnd.randrange(W)
-        put(x, y, rnd.choice([(186, 210, 90), (200, 220, 120)]))
-    img = img.resize((W * 2, W * 2), Image.NEAREST)
-    img.save(os.path.join(OUT, "terrain_grasstex.png"))
-    print("   terrain_grasstex", img.size)
+    """terrain_grasstex.png (josh 2026-10-28, zweite Fassung „feiner“): Gras der ganzen Insel in voller
+    HD-Auflösung (1 Bildpixel = Viertel-Spielpixel): weiche Grünflecken mit Raster-Übergängen, dünne Halme,
+    die nach oben heller werden, und Blumen mit fünf Blütenblättern. Ein nahtloses Feld aus 8x8 Kacheln
+    (World legt Kachel (x mod 8, y mod 8) auf volle Grasfelder). Gezeichnet von gras_fein.py; die alten
+    Büschel und Blumen (terrain_deco) zeigt World nicht mehr."""
+    import subprocess
+    subprocess.run([sys.executable, "-I", os.path.join(ROOT, "tools", "art_v2", "gras_fein.py"),
+                    os.path.join(OUT, "terrain_grasstex.png")], check=True)
+    print("   terrain_grasstex (fein)")
 
 
 def gen_dikes():

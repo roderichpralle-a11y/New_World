@@ -1742,8 +1742,9 @@ nicht mehr halb durchsichtig.
   (18 Holz); kein Essen in den Baukosten. Essen für 3 Tage (`Sea.expedition_food_need`) muss als Ladung an
   Bord sein (Laderaum 150), sonst legt es nicht ab. Am Ziel `Sea._break_up`: das Schiff verschwindet, Baumaterial
   und Ladung kommen ins Lager (über den Stauraum hinaus). Fährt keine Routen und erkundet nicht.
-- Gras der ganzen Insel wie an den Hausrändern: `terrain_grasstex.png` (build.py `gen_grass_texture`), ein
-  nahtloses 8x8-Feld mit weichen Grünflecken und Büscheln, als eigene Ebene `_gtex_layer` über vollen Grasfeldern.
+- Gras der ganzen Insel: `terrain_grasstex.png` (build.py `gen_grass_texture` ruft `tools/art_v2/gras_fein.py`),
+  ein nahtloses 8x8-Feld in voller HD-Auflösung mit weichen Grünflecken, dünnen Halmen und Blumen, als eigene
+  Ebene `_gtex_layer` über vollen Grasfeldern. Die alte Ebene mit Büscheln (`terrain_deco`) bleibt leer.
 - Deiche (`dike_tiles.png`, build.py `gen_dikes`): durchgehender Grasrücken, Steinböschung nur zu Seiten mit
   offenem Wasser, Innenecken bei nur schräg liegendem Wasser (`World.dike_mask`, 8 Bit, Spalte m & 15, Zeile
   m >> 4). Ein fertiger Deich im Wasser, der an kein offenes Wasser mehr grenzt, wird von selbst abgerissen und

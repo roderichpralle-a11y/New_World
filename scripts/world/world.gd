@@ -471,7 +471,7 @@ func _paint_tile(x: int, y: int, sand: TileMapLayer, grass: TileMapLayer) -> voi
 		else:
 			_gtex_layer.erase_cell(Vector2i(x, y))
 	if _deco_layer != null:
-		if mg == 15 and h >= 40:
+		if false and mg == 15 and h >= 40:  # 2.0.15: Büschel und Blumen stecken im feinen Grasmuster (josh 2026-10-28)
 			_deco_layer.set_cell(Vector2i(x, y), 0, Vector2i(h % 16, 0))
 		else:
 			_deco_layer.erase_cell(Vector2i(x, y))
