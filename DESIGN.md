@@ -1739,10 +1739,17 @@ nicht mehr halb durchsichtig.
 - Expeditionsschiff (ships.json `expedition`, `"once": true`): 6 Fahrgäste, keine Seeleute, Bau in der Werft
   Stufe 1 nach Schiffsbau. Baukosten genau: 3 Hütten (48 Holz), Lagerhaus (16 Holz, 8 Stein), Hafen (30 Bretter,
   24 Stein, 4 Werkzeug), 3 Tage Essen für 6 (6 x 75 x 3 / 12 = 113 Beeren) und 3 Tage Winterheizung für 6
-  (18 Holz). Am Ziel `Sea._break_up`: das Schiff verschwindet, genau diese Waren kommen ins Lager (über den
-  Stauraum hinaus). Fährt keine Routen und erkundet nicht.
+  (18 Holz); kein Essen in den Baukosten. Essen für 3 Tage (`Sea.expedition_food_need`) muss als Ladung an
+  Bord sein (Laderaum 150), sonst legt es nicht ab. Am Ziel `Sea._break_up`: das Schiff verschwindet, Baumaterial
+  und Ladung kommen ins Lager (über den Stauraum hinaus). Fährt keine Routen und erkundet nicht.
 - Gras der ganzen Insel wie an den Hausrändern: `terrain_grasstex.png` (build.py `gen_grass_texture`), ein
   nahtloses 8x8-Feld mit weichen Grünflecken und Büscheln, als eigene Ebene `_gtex_layer` über vollen Grasfeldern.
+- Deiche (`dike_tiles.png`, build.py `gen_dikes`): durchgehender Grasrücken, Steinböschung nur zu Seiten mit
+  offenem Wasser, Innenecken bei nur schräg liegendem Wasser (`World.dike_mask`, 8 Bit, Spalte m & 15, Zeile
+  m >> 4). Ein fertiger Deich im Wasser, der an kein offenes Wasser mehr grenzt, wird von selbst abgerissen und
+  Land (`Land.absorb_inner_dikes`). Fischgründe unter einem fertigen Deich verschwinden.
+- Bäume: nodes.json `"yield_per": 1.5`, abwechselnd 1 und 2 Holz je Arbeitsschritt (`ResNode.harvest_one`).
+- Grasmuster blendet zum Sand hin weich aus (`grass_tex.gdshader`, Maske `World._update_grass_mask`).
 - Leere Häuser verbrauchen nichts: Hausbedürfnisse zählen nur Bewohner, Häuser ohne Bewohner zählen auch nicht
   bei den Meldungen (`HouseNeeds.tick`). Heizen rechnet ohnehin je Siedler.
 

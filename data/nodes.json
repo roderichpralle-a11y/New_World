@@ -1,5 +1,5 @@
 {
-  "baum": {"name": "Baum", "yield": "holz", "capacity": 5, "work_time": 4.5, "skill": "holz", "terrain": "grass", "solid": true, "passable": true, "regrow_days": 5.0, "sprites": {"full": ["tree0", "tree1", "tree2", "tree3"], "empty": "stump", "growing": "sapling"}, "on_empty": "regrow"},
+  "baum": {"name": "Baum", "yield": "holz", "capacity": 5, "work_time": 4.5, "skill": "holz", "terrain": "grass", "solid": true, "passable": true, "yield_per": 1.5, "regrow_days": 5.0, "sprites": {"full": ["tree0", "tree1", "tree2", "tree3"], "empty": "stump", "growing": "sapling"}, "on_empty": "regrow"},
   "fels": {"name": "Felsen", "yield": "stein", "capacity": 10, "work_time": 5.5, "skill": "stein", "terrain": "land", "solid": true, "regrow_days": 0, "sprites": {"full": ["rock_big"], "low": "rock_small"}, "on_empty": "remove"},
   "busch": {"name": "Beerenstrauch", "yield": "beeren", "capacity": 3, "work_time": 6.0, "skill": "nahrung", "terrain": "grass", "solid": true, "regrow_days": 2.5, "sprites": {"full": ["bush_full"], "empty": "bush_empty"}, "on_empty": "regrow"},
   "fischgrund": {"name": "Fischgrund", "yield": "fisch", "capacity": 6, "work_time": 8.0, "skill": "nahrung", "terrain": "shore_water", "solid": false, "regrow_days": 1.5, "sprites": {"full": ["fish_anim"], "empty": ""}, "on_empty": "regrow"},

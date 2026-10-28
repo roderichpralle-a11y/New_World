@@ -528,8 +528,11 @@ func _v2_test(w) -> void:
 	Sea.islands.append(m)
 	var sh := Sea._new_ship("expedition", w.island_id)
 	var people: Array = w.settlers.filter(func(x): return x.is_adult()).slice(0, 6)
-	var err := Sea.send_ship(w, int(m.id), people, sh)
-	var ok5 := err == "" and Sea.voyages.size() > 0
+	var err0 := Sea.send_ship(w, int(m.id), people, sh)  # ohne Essen: legt nicht ab
+	w.stock["beeren"] = 200
+	var err := Sea.send_ship(w, int(m.id), people, sh, {"beeren": 113})
+	var ok5 := err0 != "" and err == "" and Sea.voyages.size() > 0
+	print("V2 ", "OK" if err0 != "" else "FEHLER", " ohne Essen: %s" % err0)
 	print("V2 ", "OK" if ok5 else "FEHLER", " Expeditionsschiff legt ohne Seeleute mit 6 Siedlern ab %s" % err)
 	var ok6 := false
 	if ok5:
@@ -537,12 +540,46 @@ func _v2_test(w) -> void:
 		Sea.voyages.erase(v)
 		Sea._arrive(v)
 		var nw = Sea.worlds.get(int(m.id))
-		var want: Dictionary = Data.ships.expedition.build.inputs
+		var want: Dictionary = Data.ships.expedition.build.inputs.duplicate()
+		want["beeren"] = 113
 		ok6 = nw != null and nw.settlers.size() >= 6 and not Sea.ships.has(sh)
 		for id in want:
 			ok6 = ok6 and int(nw.stock.get(id, 0)) >= int(want[id])
 		print("V2 ", "OK" if ok6 else "FEHLER", " Ankunft: %d Siedler, Schiff zerlegt, Lager %s" % [nw.settlers.size() if nw else -1, str(nw.stock) if nw else ""])
 	all_ok = all_ok and ok5 and ok6
+	# Baum: 1,5-mal so viel Holz
+	var t2 = w.spawn_node("baum", Vector2i(2, 2)) if not w.node_at.has(Vector2i(2, 2)) else w.node_at[Vector2i(2, 2)]
+	t2.amount = int(t2.def.capacity)
+	var wood := 0
+	for i in int(t2.def.capacity):
+		wood += t2.harvest_one()
+	var ok7 := wood >= int(floor(int(t2.def.capacity) * 1.5))
+	all_ok = all_ok and ok7
+	print("V2 ", "OK" if ok7 else "FEHLER", " Baum bringt %d Holz (früher %d)" % [wood, int(t2.def.capacity)])
+	# Deich: eingeschlossener alter Deich wird Land
+	var c0 := Vector2i(-1, -1)
+	for y in range(4, w.size - 4):
+		for x in range(4, w.size - 4):
+			var q := Vector2i(x, y)
+			if c0.x < 0 and w.is_water(q) and not w.is_water(q + Vector2i(0, -1)) and w.is_water(q + Vector2i(0, 2)) \
+					and w.is_water(q + Vector2i(-1, 0)) and w.is_water(q + Vector2i(1, 0)) and not w.building_at.has(q):
+				c0 = q
+	var ok8 := false
+	if c0.x >= 0:
+		var old = w.place_building("deich", c0, true)
+		Land.on_completed(w, old)
+		var m0: int = w.dike_mask(c0)
+		for d in [Vector2i(-1, 0), Vector2i(1, 0), Vector2i(0, 1)]:
+			if w.is_water(c0 + d) and not w.building_at.has(c0 + d):
+				var nb = w.place_building("deich", c0 + d, true)
+				Land.on_completed(w, nb)
+		ok8 = (m0 & 4) != 0 and not is_instance_valid(old) or (is_instance_valid(old) and not w.buildings.has(old))
+		ok8 = ok8 and not w.is_water(c0)
+		print("V2 ", "OK" if ok8 else "FEHLER", " Deich bei %s: Maske %d, eingeschlossen abgerissen, jetzt Land: %s" % [c0, m0, not w.is_water(c0)])
+	else:
+		print("V2 übersprungen: keine Küste für den Deichtest")
+		ok8 = true
+	all_ok = all_ok and ok8
 	print("V2 ", "OK" if all_ok else "FEHLER", " (Ende)")
 
 

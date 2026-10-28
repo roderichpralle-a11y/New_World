@@ -695,8 +695,24 @@ func _fill_send() -> void:
 		for id in _send_goods:
 			used += int(_send_goods[id]) * Data.good_size(id)
 		room_l.text = tr("Ladung: %d / %d Laderaum") % [used, int(sd.cargo)]
+	var food_l := UiTheme.label("", 13)
+	food_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var send_sh := Sea.ship_by_id(_send_ship)
+	var upd_food := func():  # Expeditionsschiff: Essen für 3 Tage muss an Bord (josh 2026-10-28)
+		if send_sh.is_empty() or not Sea.is_expedition(send_sh):
+			food_l.visible = false
+			return
+		var need := Sea.expedition_food_need(_send_sel)
+		var have := Sea.food_value(_send_goods)
+		food_l.text = tr("Essen an Bord: %d von %d (3 Tage für die Fahrgäste)") % [roundi(have), roundi(need)]
+		food_l.add_theme_color_override("font_color", UiTheme.GOOD if have >= need and need > 0 else UiTheme.BAD)
+	var upd0 := upd_room
+	upd_room = func():
+		upd0.call()
+		upd_food.call()
 	upd_room.call()
 	_details.add_child(room_l)
+	_details.add_child(food_l)
 	var any := false
 	for id in Data.sorted_resource_ids():
 		if Data.resources[id].get("category", "") == "ship" or Game.amount(id, from) <= 0:

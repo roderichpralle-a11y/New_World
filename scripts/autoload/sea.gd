@@ -241,6 +241,25 @@ func is_expedition(sh: Dictionary) -> bool:
 	return bool(ship_def(sh).get("once", false))
 
 
+## Essen für 3 Tage, das ein Expeditionsschiff an Bord haben muss (Sättigung, josh 2026-10-28):
+## Erwachsene hunger_per_day, Kinder child_hunger_factor davon.
+func expedition_food_need(people: Array) -> float:
+	var per := float(Data.bal("hunger_per_day"))
+	var n := 0.0
+	for s in people:
+		if is_instance_valid(s):
+			n += 1.0 if s.is_adult() else float(Data.bal("child_hunger_factor", 0.5))
+	return n * per * 3.0
+
+
+## Sättigung einer Ladung (nur Essen zählt).
+func food_value(goods: Dictionary) -> float:
+	var v := 0.0
+	for id in goods:
+		v += Data.food_satiety(str(id)) * int(goods[id])
+	return v
+
+
 func ship_label(sh: Dictionary) -> String:
 	return "%s (%s)" % [sh.name, ship_def(sh).get("name", tr("Schiff"))]
 
@@ -764,6 +783,11 @@ func send_ship(from_world, to_id: int, people: Array, sh: Dictionary, goods: Dic
 	var err := can_send(from_world, to_id, people, sh)
 	if err != "":
 		return err
+	if is_expedition(sh):
+		var need := expedition_food_need(people)
+		var have := food_value(goods)
+		if have < need:
+			return tr("Das Expeditionsschiff legt erst ab, wenn Essen für 3 Tage an Bord ist. Es fehlt noch Essen für etwa %d Beeren.") % ceili((need - have) / Data.food_satiety("beeren"))
 	sh.route = []
 	sh.paused = false
 	var got := load_goods(sh, goods)
@@ -886,12 +910,15 @@ func _arrive(v: Dictionary) -> void:
 ## auch wenn dort noch kein Platz ist (wie beim Abriss). Das Schiff gibt es danach nicht mehr.
 func _break_up(sh: Dictionary, w) -> void:
 	ships.erase(sh)
-	var got: Dictionary = ship_def(sh).get("build", {}).get("inputs", {})
+	var got: Dictionary = ship_def(sh).get("build", {}).get("inputs", {}).duplicate()
+	for id in sh.cargo:  # mitgebrachtes Essen und andere Ladung
+		got[id] = int(got.get(id, 0)) + int(sh.cargo[id])
+	sh.cargo = {}
 	for id in got:
 		Game.add_stock_over(str(id), int(got[id]), w)
 	w.sync_ships()
 	w.spawn_effect("dust", w.cell_to_pos(w.landing_cell()))
-	Game.notify_at(w, tr("Die %s wird zerlegt: %s für 3 Hütten, einen Hafen, ein Lagerhaus und 3 Tage Essen und Brennholz.") % [ship_label(sh), goods_text(got)], "kogge")
+	Game.notify_at(w, tr("Die %s wird zerlegt: %s für 3 Hütten, einen Hafen, ein Lagerhaus, Brennholz und mitgebrachtes Essen.") % [ship_label(sh), goods_text(got)], "kogge")
 
 
 ## Schiff legt an: Besatzung geht an Land.

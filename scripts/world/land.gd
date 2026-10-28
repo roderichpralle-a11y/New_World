@@ -71,11 +71,15 @@ static func dike_allowed(w, c: Vector2i) -> bool:
 static func on_completed(w, b) -> void:
 	match str(b.def.get("tile", "")):
 		"dike":
+			var fg = w.node_at.get(b.cell)
+			if fg != null and fg.type == "fischgrund":
+				w.remove_node(fg)  # unter dem Damm gibt es keinen Fischgrund mehr
 			w._set_solid(b.cell, false)
 			w.refresh_tiles_around(b.cell)
 			w.spawn_effect("dust", b.position)
 			Sound.play_at("hammer", w, b.position)
 			update_polders(w)
+			absorb_inner_dikes(w)
 		"plant_mark":
 			plant_tree(w, b)
 		_:
@@ -203,6 +207,46 @@ static func update_polders(w, quiet := false) -> int:
 		Sound.play_on("fertig", w)
 	Game.population_changed.emit()
 	return gained.size()
+
+
+## Eingeschlossene Deiche (josh 2026-10-28): Ein fertiger Deich im Wasser, der an kein offenes Wasser mehr
+## grenzt, weil ein neuer Deich weiter draußen ihn umschließt, wird von selbst abgerissen (70 % zurück wie
+## beim Abriss) und sein Feld wird Land. Gibt die Zahl der abgerissenen Deiche zurück.
+static func absorb_inner_dikes(w, quiet := false) -> int:
+	var n: int = w.size
+	var open := _open(w, false)
+	var inner: Array = []
+	for b in w.buildings:
+		if not (b.complete and b.def.get("tile", "") == "dike"):
+			continue
+		var c: Vector2i = b.cell
+		if w.terrain[c.y * n + c.x] != World.WATER:
+			continue  # Deiche an Land bleiben stehen
+		var outer := false
+		for d in DIRS:
+			var m: Vector2i = c + d
+			if not w.is_inside(m) or open[m.y * n + m.x] == 1:
+				outer = true
+		if not outer:
+			inner.append(b)
+	if inner.is_empty():
+		return 0
+	for b in inner:
+		var c: Vector2i = b.cell
+		var t := World.GRASS
+		for d in DIRS:
+			var m: Vector2i = c + d
+			if w.is_inside(m) and w.terrain[m.y * n + m.x] == World.WATER and not w.dike_at(m):
+				t = World.SAND
+		w.land_mod[c.y * n + c.x] = t
+		w.terrain[c.y * n + c.x] = t
+		w.demolish(b)
+		w.set_terrain(c, t)
+		w.refresh_tiles_around(c)
+	update_polders(w, true)  # Wasser, das nur am alten Deich hing, wird jetzt auch Land
+	if not quiet:
+		Game.notify_at(w, Loc.t("Der neue Deich schließt %d alte Deichfelder ein. Sie werden abgerissen und sind jetzt Land.") % inner.size(), "wasser")
+	return inner.size()
 
 
 ## Untergegangene Gebäude kommen als Baustelle zurück, wo wieder Platz ist.
@@ -444,7 +488,7 @@ static func _do_clear(s, nd) -> void:
 	var w = s.world
 	var wood := 0
 	if nd.type == "baum" and nd.amount > 0:
-		wood = int(nd.amount)
+		wood = roundi(int(nd.amount) * float(nd.def.get("yield_per", 1.0)))  # Baum 1,5-mal (josh 2026-10-28)
 	w.spawn_effect("leaves" if nd.type in ["baum", "palme"] else "dust", nd.position + Vector2(0, -8))
 	Sound.play_at("axt", w, nd.position)
 	w.remove_node(nd)

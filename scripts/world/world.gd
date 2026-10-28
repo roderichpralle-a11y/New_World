@@ -41,6 +41,7 @@ var fx: Node2D
 var day_tint: CanvasModulate
 ## Jahreszeit-Shader (Schnee, Herbstlaub): Boden, Laubbäume und Büsche, Nadelbäume
 var _mat_ground: ShaderMaterial
+var _mat_gtex: ShaderMaterial  # Grasmuster mit weichem Rand (grass_tex.gdshader)
 var _mat_leaf: ShaderMaterial
 var _mat_needle: ShaderMaterial
 
@@ -243,7 +244,9 @@ func _build_terrain(island: Dictionary) -> void:
 	_gtex_layer = TileMapLayer.new()
 	_gtex_layer.tile_set = _make_grid_tileset("terrain_grasstex", 8)
 	_gtex_layer.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	_gtex_layer.material = _mat_ground
+	_mat_gtex = ShaderMaterial.new()
+	_mat_gtex.shader = preload("res://assets/shaders/grass_tex.gdshader")
+	_gtex_layer.material = _mat_gtex
 	add_child(_gtex_layer)
 	_deco_layer = TileMapLayer.new()
 	_deco_layer.tile_set = _make_deco_tileset()
@@ -269,6 +272,7 @@ func _build_terrain(island: Dictionary) -> void:
 	add_child(fx)
 	_paint_terrain()
 	_update_shore()
+	_update_grass_mask()
 	_setup_astar()
 	day_tint = CanvasModulate.new()
 	add_child(day_tint)
@@ -346,6 +350,22 @@ func _make_season_tileset() -> TileSet:
 			src.create_tile(Vector2i(v, r))
 	ts.add_source(src, 0)
 	return ts
+
+
+## Maske fürs Grasmuster (grass_tex.gdshader): je Kachel 1 auf vollem Gras. Kachel (x, y) liegt im Bild bei
+## (x + 1, y + 1), weil das Gitter bei -1 beginnt.
+func _update_grass_mask() -> void:
+	if _mat_gtex == null or _gtex_layer == null:
+		return
+	var n := size + 1
+	var img := Image.create(n, n, false, Image.FORMAT_L8)
+	for y in range(-1, size):
+		for x in range(-1, size):
+			if _gtex_layer.get_cell_source_id(Vector2i(x, y)) >= 0:
+				img.set_pixel(x + 1, y + 1, Color(1, 1, 1))
+	_mat_gtex.set_shader_parameter("gmask", ImageTexture.create_from_image(img))
+	_mat_gtex.set_shader_parameter("gmask_size", Vector2(n, n))
+	_mat_gtex.set_shader_parameter("tile", float(T))
 
 
 ## Abstand jedes Geländepunkts (auch im Meer rund um die Insel) zum nächsten Land, in Feldern, als Bild für
@@ -483,6 +503,7 @@ func set_terrain(c: Vector2i, t: int) -> void:
 		for x in range(c.x - 1, c.x + 1):
 			_paint_tile(x, y, _layers[1], _layers[2])
 	_update_shore()
+	_update_grass_mask()
 
 
 func _setup_astar() -> void:
@@ -651,6 +672,8 @@ func leisure_spots(kind: String) -> Array:
 func tile_mask(b) -> int:
 	var m := 0
 	var kind: String = b.def.get("tile", "")
+	if kind == "dike":
+		return dike_mask(b.cell)
 	var dirs := [Vector2i(0, -1), Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 0)]
 	for i in 4:
 		var c: Vector2i = b.cell + dirs[i]
@@ -662,11 +685,34 @@ func tile_mask(b) -> int:
 	return m
 
 
+## Deichkachel (josh 2026-10-28): Steinböschung zu den Seiten mit offenem Wasser (N=1, O=2, S=4, W=8), dazu
+## Innenecken, wenn nur schräg Wasser liegt (NO=16, SO=32, SW=64, NW=128). Nachbardeiche und Land haben
+## keine Böschung, so läuft der Grasrücken durch. Kachel in dike_tiles.png: Spalte m & 15, Zeile m >> 4.
+func dike_mask(c: Vector2i) -> int:
+	var open := func(q: Vector2i) -> bool:
+		if not is_inside(q):
+			return true
+		var o = building_at.get(q)
+		return is_water(q) and not (o != null and o.def.get("tile", "") == "dike")
+	var m := 0
+	var dirs := [Vector2i(0, -1), Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 0)]
+	for i in 4:
+		if open.call(c + dirs[i]):
+			m |= 1 << i
+	var diag := [Vector2i(1, -1), Vector2i(1, 1), Vector2i(-1, 1), Vector2i(-1, -1)]
+	for k in 4:
+		var d: Vector2i = diag[k]
+		if open.call(c + d) and not open.call(c + Vector2i(d.x, 0)) and not open.call(c + Vector2i(0, d.y)):
+			m |= 16 << k
+	return m
+
+
 ## Straßen und Deiche ringsum neu zeichnen (nach Bau, Abriss, Neuland).
 func refresh_tiles_around(c: Vector2i) -> void:
 	_update_weight(c)
 	_sync_animal(c)
-	for d in [Vector2i(0, -1), Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 0), Vector2i.ZERO]:
+	for d in [Vector2i(0, -1), Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 0), Vector2i.ZERO,
+			Vector2i(1, -1), Vector2i(1, 1), Vector2i(-1, 1), Vector2i(-1, -1)]:  # schräg: Deich-Innenecken
 		var o = building_at.get(c + d)
 		if o != null and o.def.has("tile"):
 			o.refresh()
@@ -1692,6 +1738,9 @@ func _update_season_look() -> void:
 	var snow := Seasons.snow_amount() * float(Seasons.cfg.get("snow_biomes", {}).get(biome, 1.0))
 	var autumn := Seasons.autumn_amount()
 	_mat_ground.set_shader_parameter("snow", snow * 0.09)  # 70 % weniger Schnee am Boden (josh 2026-10-28)
+	if _mat_gtex != null:
+		_mat_gtex.set_shader_parameter("snow", snow * 0.09)
+		_mat_gtex.set_shader_parameter("autumn", autumn)
 	_snow_layer.modulate.a = clampf(snow * 2.0, 0.0, 1.0)
 	_snow_layer.visible = snow > 0.01
 	_leaf_layer.modulate.a = clampf(autumn, 0.0, 1.0) * (1.0 - clampf(snow * 2.0, 0.0, 1.0))

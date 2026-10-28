@@ -566,6 +566,22 @@ func _maybe_autotest() -> void:
 			while cc.x < world.size - 1 and world.terrain[cc.y * world.size + cc.x] != World.WATER:
 				cc.x += 1
 			camera.focus(world.cell_to_pos(cc + Vector2i(int(args.coast), 0)))
+			if args.has("dikeshot"):  # Testhilfe 2.0 (Deiche, josh 2026-10-28): Deichbogen vor der Küste
+				var made := []
+				for dy in range(-4, 5):
+					for dx in range(0, 4):
+						var q: Vector2i = cc + Vector2i(dx, dy)
+						var ring: bool = dx == 3 or absi(dy) == 4
+						if ring and world.is_water(q) and Land.dike_allowed(world, q) and not world.building_at.has(q):
+							made.append(world.place_building("deich", q, true))
+				for i in 3:  # Lücken am Ufer schließen
+					for dy in range(-4, 5):
+						var q: Vector2i = cc + Vector2i(3, dy)
+						if world.is_water(q) and not world.building_at.has(q) and Land.dike_allowed(world, q):
+							made.append(world.place_building("deich", q, true))
+				Land.update_polders(world, true)
+				for b in world.buildings:
+					b.refresh()
 		if args.has("zoom"):  # Testhilfe 2.0.0: Bildschirmfoto mit festem Zoom (Details der neuen Bilder)
 			camera.zoom = Vector2.ONE * float(args.zoom)
 		if args.has("rulesdialog"):

@@ -3508,7 +3508,8 @@ func _info_node(n: ResNode) -> void:
 	var res: String = n.def.yield
 	var h := HBoxContainer.new()
 	h.add_child(UiTheme.icon_rect(Data.icon(Data.resources[res].icon), 16))
-	h.add_child(UiTheme.label("%s: %d / %d" % [Data.resource_name(res), n.amount, int(n.def.capacity)], 14))
+	var yp := float(n.def.get("yield_per", 1.0))  # Baum: 1,5 Holz je Arbeitsschritt
+	h.add_child(UiTheme.label("%s: %d / %d" % [Data.resource_name(res), roundi(n.amount * yp), roundi(int(n.def.capacity) * yp)], 14))
 	_info_box.add_child(h)
 	if n.amount <= 0 and n.regrow_at >= 0.0:
 		var left: float = (n.regrow_at - Game.time_days) * 24.0

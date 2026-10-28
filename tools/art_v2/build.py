@@ -1107,6 +1107,7 @@ def gen_terrain():
     save(atlas, "terrain")
     gen_season_ground()
     gen_grass_texture()
+    gen_dikes()
     gen_grass_deco()
 
 
@@ -1216,6 +1217,98 @@ def gen_grass_texture():
     img = img.resize((W * 2, W * 2), Image.NEAREST)
     img.save(os.path.join(OUT, "terrain_grasstex.png"))
     print("   terrain_grasstex", img.size)
+
+
+def gen_dikes():
+    """dike_tiles.png (josh 2026-10-28): Deich als durchgehender Damm. Grasrücken überall, Steinböschung nur
+    an den Seiten zum Wasser. Kachel für Maske m: Wasser im N=1, O=2, S=4, W=8 und schräg NO=16, SO=32,
+    SW=64, NW=128 (nur zählt, wenn beide Nachbarn daneben kein Wasser sind: Innenecke). Spalte m & 15,
+    Zeile m >> 4, je 16x16 Spielpixel. Die Steine laufen mit der Kachelbreite durch, so passen
+    Nachbarkacheln ohne Fuge aneinander. Gezeichnet in halben Spielpixeln."""
+    import random
+    H = 32  # halbe Spielpixel je Kachel
+    B = 11  # Breite der Böschung (halbe Spielpixel)
+    grass, gdark, glight = (126, 176, 52), (96, 150, 42), (150, 196, 66)
+    st_dark, st_mid, st_light, st_hi = (74, 76, 86), (128, 130, 140), (160, 162, 172), (196, 198, 206)
+    wet = (60, 74, 86)
+
+    rnd = random.Random(1510)
+    # Steinband: H breit (nahtlos), B tief; Zeile 0 = Rasenkante, Zeile B-1 = Wasserkante
+    band = Image.new("RGBA", (H, B), (92, 94, 104, 255))
+    bd = ImageDraw.Draw(band)
+    x = 0
+    rows = [(0, 6), (5, 6)]
+    for ri, (y0, h) in enumerate(rows):
+        x = -rnd.randint(0, 3) - ri * 2
+        while x < H:
+            w = rnd.randint(6, 9)
+            tone = rnd.choice([(128, 130, 140), (140, 140, 148), (118, 122, 134), (150, 146, 140)])
+            lit = tuple(min(255, c + 30) for c in tone)
+            shade = tuple(c - 26 for c in tone)
+            for dx in (0, H, -H):  # nahtlos über den Rand; runde Feldsteine wie im Bogen
+                x0, x1, y1 = x + dx + 1, x + dx + w - 1, y0 + h - 1
+                bd.rectangle((x0, y0 + 1, x1, y1), fill=tone + (255,))
+                bd.line((x0, y1, x1, y1), fill=shade + (255,))
+                bd.line((x1, y0 + 1, x1, y1), fill=shade + (255,))
+                bd.line((x0 + 1, y0 + 1, x1 - 1, y0 + 1), fill=lit + (255,))
+                bd.point((x0 + 1, y0 + 2), fill=st_hi + (255,))
+                for cx, cy in ((x0, y0 + 1), (x1, y0 + 1), (x0, y1), (x1, y1)):
+                    bd.point((cx, cy), fill=st_dark + (255,))
+            x += w
+    bp = band.load()
+    for xx in range(H):
+        bp[xx, B - 1] = wet + (255,)
+        if xx % 5 == 0:
+            bp[xx, B - 2] = wet + (255,)
+    # Grasrücken (nahtlos): Grundgrün mit kurzen Halmen
+    crown = Image.new("RGBA", (H, H), grass + (255,))
+    cp = crown.load()
+    for _ in range(46):
+        x, y = rnd.randrange(H), rnd.randrange(H)
+        for k in range(rnd.randint(1, 3)):
+            cp[x % H, (y - k) % H] = (gdark if k == 0 else glight) + (255,)
+    # überhängende Grashalme an der Rasenkante der Böschung
+    lip = [rnd.random() < 0.45 for _ in range(H)]
+
+    def side(img, rot):
+        """Böschung an eine Seite: rot 0 = Norden (Band oben, Wasserkante außen), im Uhrzeigersinn."""
+        b = band.transpose(Image.FLIP_TOP_BOTTOM)  # Wasserkante oben (außen)
+        layer = Image.new("RGBA", (H, H), (0, 0, 0, 0))
+        layer.paste(b, (0, 0))
+        lp = layer.load()
+        for xx in range(H):
+            if lip[xx]:
+                lp[xx, B - 1] = gdark + (255,)
+        layer = layer.rotate(-90 * rot, expand=False)
+        img.alpha_composite(layer)
+
+    def corner(img, k):
+        """Innenecke k (0 NO, 1 SO, 2 SW, 3 NW): Viertelkreis aus Steinen."""
+        layer = Image.new("RGBA", (H, H), (0, 0, 0, 0))
+        d = ImageDraw.Draw(layer)
+        r = B
+        d.pieslice((H - r, -r, H + r, r), 90, 180, fill=st_dark + (255,))
+        for (cx, cy, w) in ((H - 4, 2, 4), (H - 8, 1, 3), (H - 3, 6, 3), (H - 7, 5, 3)):
+            d.rectangle((cx, cy, cx + w - 1, cy + 2), fill=st_mid + (255,))
+            d.point((cx, cy), fill=st_light + (255,))
+        d.arc((H - r, -r, H + r, r), 90, 180, fill=gdark + (255,))
+        for xx in range(H - 2, H):
+            layer.putpixel((xx, 0), wet + (255,))
+        img.alpha_composite(layer.rotate(-90 * k, expand=False))
+
+    T = 16 * S
+    atlas = Image.new("RGBA", (16 * T, 16 * T), (0, 0, 0, 0))
+    for m in range(256):
+        img = crown.copy()
+        for i in range(4):
+            if m & (1 << i):
+                side(img, i)
+        for k in range(4):
+            if m & (16 << k):
+                corner(img, k)
+        atlas.paste(img.resize((T, T), Image.NEAREST), ((m & 15) * T, (m >> 4) * T))
+    atlas.save(os.path.join(OUT, "dike_tiles.png"))
+    print("   dike_tiles", atlas.size)
 
 
 def gen_season_ground():

@@ -371,13 +371,27 @@ func is_active() -> bool:
 
 
 # ---------------------------------------------------------------- Darstellung
+static var _dike_atlas: Texture2D
+
+
+## Deichkachel aus dike_tiles.png (World.dike_mask, josh 2026-10-28).
+static func dike_tex(m: int) -> Texture2D:
+	if _dike_atlas == null:
+		_dike_atlas = Data.hd("dike_tiles")
+	var at := AtlasTexture.new()
+	at.atlas = _dike_atlas
+	at.region = Rect2((m & 15) * 16, (m >> 4) * 16, 16, 16)
+	return at
+
+
 func refresh() -> void:
 	if def.has("tile"):
 		# Straße und Deich: Kachel nach den Nachbarn (World.tile_mask), Setzling: Pflanzstelle
 		var kind: String = def.tile
 		var tname := "plant_mark" if kind == "plant_mark" else "%s%d" % [kind, world.tile_mask(self)]
+		var tex: Texture2D = Data.object_tex(tname) if kind != "dike" else dike_tex(world.tile_mask(self))
 		for t in _tiles:
-			t.texture = Data.object_tex(tname)
+			t.texture = tex
 			t.modulate = Color(1, 1, 1, 1.0 if complete or kind == "plant_mark" else 0.5)
 	elif is_ground() and _sprite == null:
 		var stage := farm_stage() if complete else 0

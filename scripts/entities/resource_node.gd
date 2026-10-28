@@ -99,23 +99,30 @@ func refresh() -> void:
 	_shadow.scale = Vector2(0.8, 1.0) if name in ["stump", "sapling"] else Vector2.ONE
 
 
-## Ein Arbeitsschritt; liefert geernteten Rohstoff (0 oder 1).
+var _yield_acc := 0.0  # Bruchteile von nodes.json "yield_per" (Baum 1,5: abwechselnd 1 und 2 Holz)
+
+
+## Ein Arbeitsschritt; liefert geernteten Rohstoff (meist 1; mit "yield_per" auch mehr, josh 2026-10-28:
+## Bäume bringen 1,5-mal so viel Holz).
 func harvest_one() -> int:
 	if amount <= 0:
 		return 0
 	amount -= 1
+	_yield_acc += float(def.get("yield_per", 1.0))
+	var got := maxi(1, int(_yield_acc))
+	_yield_acc -= float(got)
 	_shake = 0.25
 	if amount <= 0:
 		match def.get("on_empty", "regrow"):
 			"remove":
 				world.remove_node(self)
-				return 1
+				return got
 			_:
 				regrow_at = Game.time_days + float(def.regrow_days)
 				if type == "baum":
 					world.spawn_effect("leaves", position + Vector2(0, -16))
 	refresh()
-	return 1
+	return got
 
 
 func _process(delta: float) -> void:

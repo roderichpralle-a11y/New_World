@@ -2387,8 +2387,11 @@
  "vom Verwalter zugewiesen": "assigned by the administrator",
  "Gelb: nicht vom Spieler zugewiesen": "Yellow: not assigned by the player",
  "Expeditionsschiff": "Expedition ship",
- "Bringt 6 Siedler zu einer neuen Insel und braucht keine Seeleute. Bei der Landung wird es zerlegt: das Material reicht für 3 Hütten, einen Hafen, ein Lagerhaus, dazu Essen und Brennholz für 3 Tage.": "Carries 6 settlers to a new island and needs no sailors. On landing it is taken apart: the material is enough for 3 huts, a harbor, a storehouse, plus food and firewood for 3 days.",
+ "Bringt 6 Siedler zu einer neuen Insel und braucht keine Seeleute. Es legt erst ab, wenn Essen für 3 Tage an Bord ist. Bei der Landung wird es zerlegt: das Material reicht für 3 Hütten, einen Hafen und ein Lagerhaus, dazu Brennholz für 3 Tage.": "Carries 6 settlers to a new island and needs no sailors. It only sets sail with food for 3 days on board. On landing it is taken apart: the material is enough for 3 huts, a harbor and a storehouse, plus firewood for 3 days.",
  "Das Expeditionsschiff fährt keine Routen.": "The expedition ship does not sail routes.",
  "Das Expeditionsschiff erkundet nicht. Es bringt Siedler zu einer Insel, die schon entdeckt ist.": "The expedition ship does not explore. It carries settlers to an island that has already been discovered.",
- "Die %s wird zerlegt: %s für 3 Hütten, einen Hafen, ein Lagerhaus und 3 Tage Essen und Brennholz.": "The %s is taken apart: %s for 3 huts, a harbor, a storehouse and 3 days of food and firewood."
+ "Die %s wird zerlegt: %s für 3 Hütten, einen Hafen, ein Lagerhaus, Brennholz und mitgebrachtes Essen.": "The %s is taken apart: %s for 3 huts, a harbor, a storehouse, firewood and the food brought along.",
+ "Das Expeditionsschiff legt erst ab, wenn Essen für 3 Tage an Bord ist. Es fehlt noch Essen für etwa %d Beeren.": "The expedition ship only sets sail with food for 3 days on board. Food worth about %d berries is still missing.",
+ "Essen an Bord: %d von %d (3 Tage für die Fahrgäste)": "Food on board: %d of %d (3 days for the passengers)",
+ "Der neue Deich schließt %d alte Deichfelder ein. Sie werden abgerissen und sind jetzt Land.": "The new dike encloses %d old dike tiles. They are demolished and are now land."
 }
