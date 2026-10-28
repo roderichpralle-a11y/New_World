@@ -1247,15 +1247,68 @@ func spawn_child(mother, father) -> Settler:
 	return child
 
 
+## Ein Name, den im ganzen Spiel (alle Inseln und Schiffe) niemand trägt. Sind die Namen der Liste vergeben,
+## bekommt ein zufälliger die nächste freie Zahl: Lena II, Lena III ... (josh 2026-10-28: dreimal „Lena III“,
+## weil die Zahl zufällig war und nur die eigene Insel zählte).
 func unique_name(sex: String, rng: RandomNumberGenerator) -> String:
 	var pool: Array = Data.names.get(sex, ["Kim"])
-	var used := settlers.map(func(s): return s.display_name)
-	var name: String = pool[rng.randi() % pool.size()]
-	for i in 12:
-		if not name in used:
-			return name
-		name = pool[rng.randi() % pool.size()]
-	return name + " " + ["II", "III", "IV", "V"][rng.randi() % 4]
+	var used := World.used_names()
+	var free := pool.filter(func(n): return not used.has(n))
+	if not free.is_empty():
+		return free[rng.randi() % free.size()]
+	return World.next_free(pool[rng.randi() % pool.size()], used)
+
+
+const ROMAN := ["II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV",
+	"XVI", "XVII", "XVIII", "XIX", "XX"]
+
+
+## Alle Namen im Spiel: Siedler auf allen Inseln und auf Schiffen.
+static func used_names() -> Dictionary:
+	var used := {}
+	for w in Sea.all_worlds():
+		for s in w.settlers:
+			if is_instance_valid(s):
+				used[s.display_name] = true
+	for v in Sea.voyages:
+		for d in v.get("settlers", []) + v.get("crew", []):
+			if d is Dictionary:
+				used[str(d.get("name", ""))] = true
+	return used
+
+
+## base mit der kleinsten Zahl, die noch frei ist ("Lena" -> "Lena II"); eine alte Zahl am Ende fällt weg.
+static func next_free(base: String, used: Dictionary) -> String:
+	var parts := base.rsplit(" ", true, 1)
+	if parts.size() == 2 and (parts[1] in ROMAN or parts[1].is_valid_int()):
+		base = parts[0]
+	for r in ROMAN:
+		if not used.has(base + " " + r):
+			return base + " " + r
+	var n := ROMAN.size() + 2
+	while used.has("%s %d" % [base, n]):
+		n += 1
+	return "%s %d" % [base, n]
+
+
+## Alter Spielstand: doppelte Namen bekommen die nächste freie Zahl (der Ältere behält seinen Namen).
+static func fix_duplicate_names() -> int:
+	var all := []
+	for w in Sea.all_worlds():
+		all.append_array(w.settlers.filter(func(s): return is_instance_valid(s)))
+	all.sort_custom(func(a, b): return a.age > b.age)
+	var used := {}
+	for v in Sea.voyages:
+		for d in v.get("settlers", []) + v.get("crew", []):
+			if d is Dictionary:
+				used[str(d.get("name", ""))] = true
+	var n := 0
+	for s in all:
+		if used.has(s.display_name):
+			s.display_name = next_free(s.display_name, used)
+			n += 1
+		used[s.display_name] = true
+	return n
 
 
 ## Erwachsener Neuankoemmling am Strand (Schiffbruechige, Einwanderer). opts (Game.spawn_immigrants):

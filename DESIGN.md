@@ -1695,6 +1695,12 @@ Bildschirmseite (400 bis 540) durch die Anzeigegröße, höchstens so viele wie 
 dass die lange Seite `UI_MIN_LONG` (860) virtuelle Pixel hat (125 % auf 16:10 sonst zu schmal). 75 % zeigt mehr
 vom Spiel und den Menüs. Die Karte lässt sich weiter herauszoomen (`GameCamera.ZOOM_MIN` 0,5 statt 1).
 
+## Eindeutige Namen (josh 2026-10-28)
+`World.unique_name` wählt einen Namen, den im ganzen Spiel niemand trägt (`World.used_names`: alle Inseln und
+Schiffe). Sind alle Namen der Liste vergeben, bekommt ein zufälliger die nächste freie Zahl (`next_free`: II bis XX,
+dann 22, 23 …). Vorher war die Zahl zufällig und nur die eigene Insel zählte (dreimal „Lena III“). Beim Laden
+benennt `World.fix_duplicate_names` doppelte Namen um, der Älteste behält seinen. Test `--nametest=1`.
+
 ## Straßen, Deiche und Förster (josh 2026-10-11, `scripts/world/land.gd`)
 
 Bau-Reiter „Land und Wege“ (Kategorie `land`, Symbol `weg`). Alle drei sind 1x1-Bodengebäude mit
