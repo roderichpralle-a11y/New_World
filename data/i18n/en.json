@@ -2383,5 +2383,12 @@
  "Jetzt wird %s erforscht (vorgemerkt).": "Now researching %s (queued).",
  "Die vorgemerkte Forschung %s kann nicht starten: %s": "The queued research %s cannot start: %s",
  "Vorgemerkt: kommt als Nächstes dran. Antippen nimmt es zurück.": "Queued: comes next. Tap to unqueue.",
- "Vormerken: kommt als Nächstes dran": "Queue: comes next"
+ "Vormerken: kommt als Nächstes dran": "Queue: comes next",
+ "vom Verwalter zugewiesen": "assigned by the administrator",
+ "Gelb: nicht vom Spieler zugewiesen": "Yellow: not assigned by the player",
+ "Expeditionsschiff": "Expedition ship",
+ "Bringt 6 Siedler zu einer neuen Insel und braucht keine Seeleute. Bei der Landung wird es zerlegt: das Material reicht für 3 Hütten, einen Hafen, ein Lagerhaus, dazu Essen und Brennholz für 3 Tage.": "Carries 6 settlers to a new island and needs no sailors. On landing it is taken apart: the material is enough for 3 huts, a harbor, a storehouse, plus food and firewood for 3 days.",
+ "Das Expeditionsschiff fährt keine Routen.": "The expedition ship does not sail routes.",
+ "Das Expeditionsschiff erkundet nicht. Es bringt Siedler zu einer Insel, die schon entdeckt ist.": "The expedition ship does not explore. It carries settlers to an island that has already been discovered.",
+ "Die %s wird zerlegt: %s für 3 Hütten, einen Hafen, ein Lagerhaus und 3 Tage Essen und Brennholz.": "The %s is taken apart: %s for 3 huts, a harbor, a storehouse and 3 days of food and firewood."
 }

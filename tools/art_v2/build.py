@@ -1185,10 +1185,13 @@ def gen_season_ground():
     spec2 = np.fft.fft2(rs.randn(W, W)) * np.exp(-(r / 0.06) ** 2)
     f = f / f.std() + 0.35 * np.real(np.fft.ifft2(spec2)) / np.real(np.fft.ifft2(spec2)).std()
     f = np.kron(f, np.ones((2, 2)))  # 2-Pixel-Stufen wie die übrige Pixelgrafik
+    # josh 2026-10-28: 70 % weniger Schnee am Boden. Die Schwelle liegt so, dass nur noch 30 % der früheren
+    # Fläche (f > 0.1) bedeckt sind; die Wehen bleiben dieselben, nur kleiner.
+    t0 = float(np.quantile(f, 1.0 - 0.3 * (f > 0.1).mean()))
     a = np.zeros(f.shape + (4,), np.uint8)
-    a[f > 0.1] = (226, 236, 250, 255)
-    a[f > 0.35] = (246, 250, 255, 255)
-    a[(f > 0.1) & (f < 0.2)] = (200, 216, 240, 255)
+    a[f > t0] = (226, 236, 250, 255)
+    a[f > t0 + 0.25] = (246, 250, 255, 255)
+    a[(f > t0) & (f < t0 + 0.1)] = (200, 216, 240, 255)
     atlas.paste(Image.fromarray(a, "RGBA"), (0, 0))
     for v in range(N):
         # Laub: drei bis sieben kleine Blätter in Herbstfarben
@@ -1204,7 +1207,7 @@ def gen_season_ground():
             d.line((x, y + h // 2, x + w, y + h // 2), fill=dark + (255,))
         atlas.paste(leaf, (v * T, N * T))
     atlas.save(os.path.join(OUT, "terrain_season.png"))
-    print("   terrain_season", atlas.size, "Schnee %.0f %%" % (100 * (f > 0.1).mean()))
+    print("   terrain_season", atlas.size, "Schnee %.0f %%" % (100 * (f > t0).mean()))
 
 
 

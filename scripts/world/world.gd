@@ -448,7 +448,7 @@ func set_terrain(c: Vector2i, t: int) -> void:
 		return
 	terrain[c.y * size + c.x] = t
 	var solid := false
-	if node_at.has(c) and node_at[c].is_solid():
+	if node_at.has(c) and node_at[c].blocks_path():
 		solid = true
 	if building_at.has(c) and building_at[c].blocks_cell(c):
 		solid = true
@@ -787,7 +787,7 @@ func spawn_node(type: String, c: Vector2i, variant: int = -1) -> ResNode:
 	entities.add_child(n)
 	nodes.append(n)
 	node_at[c] = n
-	if n.is_solid():
+	if n.blocks_path():
 		_set_solid(c, true)
 	return n
 
@@ -915,11 +915,11 @@ func on_building_completed(b: Building) -> void:
 func demolish(b: Building) -> void:
 	if b.type == "lagerfeuer":
 		return
-	# Rueckerstattung: gelieferte Materialien bei Baustellen voll, sonst die Haelfte
+	# Rückerstattung: gelieferte Materialien bei Baustellen voll, sonst 70 %, auch über den Stauraum hinaus
 	var refund := {}
 	for res in b.def.cost:
 		var n := int(b.delivered.get(res, 0))
-		refund[res] = n if not b.complete else n / 2
+		refund[res] = n if not b.complete else int(round(n * 0.7))
 	for s in settlers:
 		if s.home_id == b.id:
 			s.home_id = 0
@@ -935,7 +935,7 @@ func demolish(b: Building) -> void:
 		decor_dirty()
 	for cc in b.cells():
 		building_at.erase(cc)
-		_set_solid(cc, node_at.has(cc) and node_at[cc].is_solid())
+		_set_solid(cc, node_at.has(cc) and node_at[cc].blocks_path())
 	if Game.selected == b:
 		Game.select(null)
 	spawn_effect("dust", b.position)
@@ -947,7 +947,7 @@ func demolish(b: Building) -> void:
 	if b.def.has("harbor"):
 		sync_ships.call_deferred()
 	for res in refund:
-		Game.add_stock(res, refund[res], self)
+		Game.add_stock_over(res, refund[res], self)
 	assign_homes()
 	if b.def.has("effects"):
 		Game.refresh_effects()
@@ -1163,7 +1163,7 @@ func move_building(b: Building, c: Vector2i) -> bool:
 				near[cc + Vector2i(dx, dy)] = true
 	for cc in old_cells:
 		building_at.erase(cc)
-		_set_solid(cc, node_at.has(cc) and node_at[cc].is_solid())
+		_set_solid(cc, node_at.has(cc) and node_at[cc].blocks_path())
 	b.cell = c
 	b.position = b.foot_pos()
 	for cc in b.cells():
@@ -1608,7 +1608,7 @@ func _process(delta: float) -> void:
 	var t := Game.time_of_day()
 	var day_col := Color(1, 1, 1)
 	var dusk := Color(1.0, 0.82, 0.7)
-	var night := Color(0.26, 0.3, 0.52)
+	var night := Color(0.42, 0.46, 0.66)  # heller als früher (0.26, 0.3, 0.52), josh 2026-10-28
 	var c := day_col
 	if nf > 0.0:
 		var is_evening := t > 0.5
@@ -1665,7 +1665,7 @@ func _update_season_look() -> void:
 	# Auf Palmeninseln fällt kein Schnee
 	var snow := Seasons.snow_amount() * float(Seasons.cfg.get("snow_biomes", {}).get(biome, 1.0))
 	var autumn := Seasons.autumn_amount()
-	_mat_ground.set_shader_parameter("snow", snow * 0.3)
+	_mat_ground.set_shader_parameter("snow", snow * 0.09)  # 70 % weniger Schnee am Boden (josh 2026-10-28)
 	_snow_layer.modulate.a = clampf(snow * 2.0, 0.0, 1.0)
 	_snow_layer.visible = snow > 0.01
 	_leaf_layer.modulate.a = clampf(autumn, 0.0, 1.0) * (1.0 - clampf(snow * 2.0, 0.0, 1.0))

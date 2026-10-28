@@ -49,6 +49,12 @@ func is_solid() -> bool:
 	return true
 
 
+## Versperrt die Zelle den Weg? Bäume mit "passable" nicht (josh 2026-10-28: Siedler gehen an Bäumen vorbei
+## wie an Obstbäumen); bebauen lässt sich die Zelle trotzdem nicht, und gefällt wird weiter vom Nachbarfeld aus.
+func blocks_path() -> bool:
+	return is_solid() and not def.get("passable", false)
+
+
 func sprite_name() -> String:
 	var s: Dictionary = def.sprites
 	if amount <= 0:

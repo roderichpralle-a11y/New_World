@@ -1762,7 +1762,7 @@ func _refresh_settler_list() -> void:
 	var jsig := str(Data.jobs.keys().filter(func(j): return Data.job_unlocked(j)).size())
 	var used := {}
 	for s in list:
-		var rk := "%s|%s|%s|%s|%s|%s" % [s.is_adult(), s.job, s.by_admin, s.world == world, narrow, jsig]
+		var rk := "%s|%s|%s|%s|%s|%s" % [s.is_adult(), s.job, s.job_by if s.by_admin else "", s.world == world, narrow, jsig]
 		var sid: int = s.get_instance_id()
 		var target: VBoxContainer = _settler_list if (s.is_adult() and s.job != "frei") else _settler_list_free
 		var cr = _settler_rows.get(sid, null)
@@ -1840,6 +1840,9 @@ func _refresh_settler_list() -> void:
 			ob.tooltip_text = tr("Beruf wählen") + (tr("\nStern: passt zum Talent (%s)") % TalentInfo.short_list(s.mind) if not s.mind.best_talents().is_empty() else "")
 			if s.by_admin:
 				UiTheme.mark_admin(ob)
+				var sel := ids.find(s.job)
+				if sel >= 0:
+					ob.set_item_text(sel, s.job_label(true))  # „Bauer (Verwalter)“, josh 2026-10-28
 			ob.get_popup().about_to_popup.connect(func(): Game.player_action.emit("job_list", ""))
 			ob.item_selected.connect(func(i):
 				JobDesk.assign(sref, ids[i], "spieler")  # Vergabestelle: Automatik überstimmt das eine Weile nicht
@@ -3066,9 +3069,9 @@ func _info_settler(s: Settler) -> void:
 	if not s.is_adult():
 		_info_box.add_child(UiTheme.label(tr("Kinder arbeiten noch nicht."), 13))
 	else:
-		_info_box.add_child(UiTheme.label(tr("Beruf"), 15, UiTheme.TEXT, true))
+		_info_text(tr("Beruf"), s.job_label())  # „Bauer (vom Verwalter zugewiesen)“, josh 2026-10-28
 		if s.by_admin:
-			_info_box.add_child(UiTheme.label(tr("Gelb: vom Verwalter zugewiesen"), 12, DIM))
+			_info_box.add_child(UiTheme.label(tr("Gelb: nicht vom Spieler zugewiesen"), 12, DIM))
 		var grid := GridContainer.new()
 		grid.columns = 2
 		grid.add_theme_constant_override("h_separation", 4)

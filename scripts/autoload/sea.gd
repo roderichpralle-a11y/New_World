@@ -236,6 +236,11 @@ func ship_by_id(id: int) -> Dictionary:
 	return {}
 
 
+## Expeditionsschiff (ships.json "once"): fährt nur einmal und wird am Ziel zu Baumaterial (josh 2026-10-28).
+func is_expedition(sh: Dictionary) -> bool:
+	return bool(ship_def(sh).get("once", false))
+
+
 func ship_label(sh: Dictionary) -> String:
 	return "%s (%s)" % [sh.name, ship_def(sh).get("name", tr("Schiff"))]
 
@@ -626,6 +631,9 @@ func _route_step(sh: Dictionary, w) -> void:
 	if sh.route.size() < 2:
 		sh.note = tr("Route braucht zwei Inseln")
 		return
+	if is_expedition(sh):
+		sh.note = tr("Das Expeditionsschiff fährt keine Routen.")
+		return
 	sh.leg = int(sh.leg) % sh.route.size()
 	var stop: Dictionary = sh.route[sh.leg]
 	var target := int(stop.island)
@@ -687,6 +695,8 @@ func idle_ships(island_id: int) -> Array:
 func explore_ship(from_world) -> Dictionary:
 	var best := {}
 	for sh in idle_ships(from_world.island_id):
+		if is_expedition(sh):
+			continue
 		if ship_blocker(sh) == "" and (best.is_empty() or float(ship_def(sh).speed) > float(ship_def(best).speed)):
 			best = sh
 	return best
@@ -700,6 +710,8 @@ func can_explore(from_world = null) -> String:
 	if idle_ships(from_world.island_id).is_empty():
 		return tr("Hier liegt kein freies Schiff. Baue eines in der Werft.")
 	if explore_ship(from_world).is_empty():
+		if idle_ships(from_world.island_id).all(func(sh): return is_expedition(sh)):
+			return tr("Das Expeditionsschiff erkundet nicht. Es bringt Siedler zu einer Insel, die schon entdeckt ist.")
 		return tr("Dem Schiff fehlen Seeleute. Gib Siedlern den Beruf Seemann.")
 	return ""
 
@@ -846,8 +858,13 @@ func _arrive(v: Dictionary) -> void:
 	var c: Vector2i = w.landing_cell()
 	_land(w, v.settlers, c)
 	w.assign_homes()
+	var broke := false
 	if sh.is_empty():
 		w.add_boat_decor(c)
+	elif is_expedition(sh):
+		_land(w, v.get("crew", []), c)
+		_break_up(sh, w)
+		broke = true
 	else:
 		_dock(sh, w, v.get("crew", []))
 	var n: int = v.settlers.size()
@@ -856,13 +873,25 @@ func _arrive(v: Dictionary) -> void:
 		Sound.play("entdeckt")
 	elif n > 0:
 		Game.notify(tr("%d Siedler sind auf %s angekommen.") % [n, m.name], "boot")
-	elif not sh.is_empty() and sh.route.is_empty():
+	elif not sh.is_empty() and sh.route.is_empty() and not broke:
 		Game.notify_at(w, tr("Die %s hat in %s angelegt.") % [ship_label(sh), m.name], "anker")
 	if Game.world == null or not is_instance_valid(Game.world) or Game.world.settlers.is_empty():
 		switch_to(dest)
 	if n > 0:
 		Game.on_population_changed()
 	islands_changed.emit()
+
+
+## Expeditionsschiff am Ziel: wird zerlegt, sein Baumaterial (genau die Baukosten) kommt ins Lager der Insel,
+## auch wenn dort noch kein Platz ist (wie beim Abriss). Das Schiff gibt es danach nicht mehr.
+func _break_up(sh: Dictionary, w) -> void:
+	ships.erase(sh)
+	var got: Dictionary = ship_def(sh).get("build", {}).get("inputs", {})
+	for id in got:
+		Game.add_stock_over(str(id), int(got[id]), w)
+	w.sync_ships()
+	w.spawn_effect("dust", w.cell_to_pos(w.landing_cell()))
+	Game.notify_at(w, tr("Die %s wird zerlegt: %s für 3 Hütten, einen Hafen, ein Lagerhaus und 3 Tage Essen und Brennholz.") % [ship_label(sh), goods_text(got)], "kogge")
 
 
 ## Schiff legt an: Besatzung geht an Land.

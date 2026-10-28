@@ -59,6 +59,8 @@ func assign(s, job: String, by: String, days: float = -1.0, force := false) -> b
 	if not force and not may(s, by):
 		return false
 	s.set_job(job, by != "spieler")
+	if s.by_admin:
+		s.job_by = by  # fürs Siedlermenü: „Bauer (Automat)“
 	hold(s, by, days)
 	if by == "spieler":
 		AiRule.player_changed("job:%d" % int(s.id))

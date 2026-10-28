@@ -310,11 +310,16 @@ func tick(w, dt: float) -> void:
 		var lv: int = b.house_level()
 		if lv > 0 and b.complete:
 			lvl_of[b.id] = lv
-			for k in range(1, mini(lv, n) + 1):
-				houses[k] += 1
+	# Leere Häuser verbrauchen nichts und zählen nicht mit (josh 2026-10-28): Verbrauch und Meldungen nur
+	# für Häuser mit Bewohnern.
 	var cw := float(cfg.get("child_weight", 0.5))
+	var counted := {}
 	for s in w.settlers:
 		var lv: int = int(lvl_of.get(s.home_id, 0))
+		if lv > 0 and not counted.has(s.home_id):
+			counted[s.home_id] = true
+			for k in range(1, mini(lv, n) + 1):
+				houses[k] += 1
 		if lv > 0:
 			var wgt := 1.0 if s.is_adult() else cw
 			for k in range(1, mini(lv, n) + 1):

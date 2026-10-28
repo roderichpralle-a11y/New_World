@@ -22,6 +22,7 @@
   "gold": {"name": "Gold", "icon": "gold", "category": "material", "size": 1, "order": 9.4, "price": 1},
   "gewuerze": {"name": "Gewürze", "icon": "gewuerze", "category": "material", "size": 1, "order": 9.45, "price": 1.5},
   "boot": {"name": "Ruderboot", "icon": "boot", "category": "ship", "size": 0, "order": 9.6},
+  "expedition": {"name": "Expeditionsschiff", "icon": "kogge", "category": "ship", "size": 0, "order": 9.605},
   "kogge": {"name": "Kogge", "icon": "kogge", "category": "ship", "size": 0, "order": 9.61},
   "schnellsegler": {"name": "Schnellsegler", "icon": "schnellsegler", "category": "ship", "size": 0, "order": 9.62},
   "galeone": {"name": "Galeone", "icon": "galeone", "category": "ship", "size": 0, "order": 9.63},

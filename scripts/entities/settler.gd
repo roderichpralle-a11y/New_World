@@ -156,6 +156,7 @@ func setup(p_world, data: Dictionary) -> void:
 	mind = SettlerMind.new(self, data)
 	job = data.get("job", "frei")
 	by_admin = bool(data.get("by_admin", false))
+	job_by = str(data.get("job_by", "verwalter" if by_admin else ""))
 	home_id = int(data.get("home", 0))
 	look = data.get("look", random_look(_rng))
 	carry_res = data.get("carry_res", "")
@@ -283,6 +284,7 @@ func best_job() -> String:
 
 var _outfit_job := "?"
 var by_admin := false  # Beruf vom Verwalter zugewiesen (josh 2026-10-21)
+var job_by := ""  # wer den Beruf vergeben hat (Rang der JobDesk: verwalter, automat, ki, zentrum); "" = Spieler
 
 
 ## Kleidung zum Beruf: bei der Arbeit die Figur des Berufs, sonst die freie Figur.
@@ -330,6 +332,7 @@ func _outfit_key() -> String:
 ## by_admin: der Verwalter (Admin, Steward, KI) hat den Beruf zugewiesen; die Listen zeigen ihn pastellgelb.
 func set_job(j: String, admin := false) -> void:
 	by_admin = admin and j != "frei"
+	job_by = ("verwalter" if by_admin else "")  # JobDesk.assign trägt danach den genauen Vergeber ein
 	if j == job:
 		return
 	job = j
@@ -341,6 +344,25 @@ func set_job(j: String, admin := false) -> void:
 
 func job_name() -> String:
 	return Data.jobs.get(job, {}).get("name", job)
+
+
+## Beruf mit Vergeber in Klammern (josh 2026-10-28): "Bauer" vom Spieler, sonst z. B. "Bauer (vom Verwalter
+## zugewiesen)" oder "Bauer (Automat)". short: kürzer für die Siedlerliste.
+func job_label(short := false) -> String:
+	var n: String = tr(job_name())
+	var by := job_by if by_admin else ""
+	match by:
+		"":
+			return n
+		"verwalter":
+			return n + (" (%s)" % tr("Verwalter") if short else " (%s)" % tr("vom Verwalter zugewiesen"))
+		"automat":
+			return n + " (%s)" % tr("Automat")
+		"ki":
+			return n + " (%s)" % tr("KI")
+		"zentrum":
+			return n + " (%s)" % tr("KI-Zentrum")
+	return n
 
 
 # ================================================================== Simulation
@@ -1945,7 +1967,7 @@ func serialize() -> Dictionary:
 	return {
 		"id": id, "name": display_name, "sex": sex, "age": snappedf(age, 0.001), "max_age": max_age,
 		"hunger": snappedf(hunger, 0.01), "health": snappedf(health, 0.01), "skills": skills,
-		"skill_xp": skill_xp, "job": job, "by_admin": by_admin, "home": home_id, "look": look,
+		"skill_xp": skill_xp, "job": job, "by_admin": by_admin, "job_by": job_by, "home": home_id, "look": look,
 		"carry_res": carry_res, "carry_n": carry_n, "birth_cd": birth_cooldown_until,
 		"parents": parents, "x": cell.x, "y": cell.y, "mind": mind.serialize(),
 		"busy": {"job": snappedf(float(busy.get("job", 0.0)), 0.001), "other": snappedf(float(busy.get("other", 0.0)), 0.001),

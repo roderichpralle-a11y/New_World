@@ -431,6 +431,15 @@ func add_stock(id: String, n: int, w = null) -> int:
 	return add
 
 
+## Wie add_stock, aber ohne Rücksicht auf den Stauraum (Abriss: die 70 % kommen immer an, josh 2026-10-28).
+## Ein übervolles Lager hält danach nur das Sammeln an, bis wieder Platz ist.
+func add_stock_over(id: String, n: int, w = null) -> void:
+	if _isle(w) == null or n <= 0:
+		return
+	_stock_of(w)[id] = amount(id, w) + n
+	stock_changed.emit()
+
+
 func take_stock(id: String, n: int, w = null) -> int:
 	var take: int = min(n, amount(id, w))
 	_stock_of(w)[id] = amount(id, w) - take

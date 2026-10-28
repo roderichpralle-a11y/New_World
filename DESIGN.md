@@ -1725,6 +1725,25 @@ die Platzierung offen, Abbrechen beendet sie.
 Holz lesbar bleibt (vorher halb durchsichtiges Dunkelbraun). Der Knopf selbst ist dafür dunkler (`bd.modulate_color`),
 nicht mehr halb durchsichtig.
 
+## Version 2: Wünsche vom 2026-10-28 (Test `--v2test=1`)
+- Abriss: fertige Gebäude geben 70 % der gelieferten Materialien zurück, Baustellen alles. Die Rückgabe kommt auch
+  über den Stauraum hinaus ins Lager (`Game.add_stock_over`); ein übervolles Lager hält nur das Sammeln an.
+- Straße kostet 5 Steine.
+- Nacht heller: Nachtfarbe in `World._process` (0.42, 0.46, 0.66).
+- Beruf mit Vergeber: `Settler.job_by` (verwalter, automat, ki, zentrum; "" = Spieler, im Spielstand) setzt
+  `JobDesk.assign`. `Settler.job_label()` zeigt „Bauer (vom Verwalter zugewiesen)“ oder „Bauer (Automat)“, in der
+  Siedlerliste kurz „Bauer (Verwalter)“.
+- Bäume (nodes.json `"passable": true`) versperren keinen Weg (`ResNode.blocks_path`), bebauen lässt sich das Feld
+  trotzdem nicht, und der Holzfäller fällt weiter vom Nachbarfeld aus.
+- Routen und Fahrten: Mengen mit −/+ in Einerschritten, die Zahl lässt sich auch eintippen (`SeaPanel._goods_row`).
+- Expeditionsschiff (ships.json `expedition`, `"once": true`): 6 Fahrgäste, keine Seeleute, Bau in der Werft
+  Stufe 1 nach Schiffsbau. Baukosten genau: 3 Hütten (48 Holz), Lagerhaus (16 Holz, 8 Stein), Hafen (30 Bretter,
+  24 Stein, 4 Werkzeug), 3 Tage Essen für 6 (6 x 75 x 3 / 12 = 113 Beeren) und 3 Tage Winterheizung für 6
+  (18 Holz). Am Ziel `Sea._break_up`: das Schiff verschwindet, genau diese Waren kommen ins Lager (über den
+  Stauraum hinaus). Fährt keine Routen und erkundet nicht.
+- Leere Häuser verbrauchen nichts: Hausbedürfnisse zählen nur Bewohner, Häuser ohne Bewohner zählen auch nicht
+  bei den Meldungen (`HouseNeeds.tick`). Heizen rechnet ohnehin je Siedler.
+
 ## Straßen, Deiche und Förster (josh 2026-10-11, `scripts/world/land.gd`)
 
 Bau-Reiter „Land und Wege“ (Kategorie `land`, Symbol `weg`). Alle drei sind 1x1-Bodengebäude mit

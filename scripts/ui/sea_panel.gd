@@ -563,8 +563,9 @@ func _fill_island() -> void:
 		_details.add_child(_hint(tr("Schiffe baut die Werft. Dafür braucht es die Forschung Schiffsbau.")))
 
 
-## Gemeinsame Zeile fuer eine Ware: Symbol, Name, Info, [-] Menge [+].
-func _goods_row(id: String, info: String, get_n: Callable, set_n: Callable, step: int = 10) -> HBoxContainer:
+## Gemeinsame Zeile fuer eine Ware: Symbol, Name, Info, [-] Menge [+]. Die Knöpfe zählen in Einerschritten,
+## die Menge lässt sich auch direkt als Zahl eintippen (josh 2026-10-28).
+func _goods_row(id: String, info: String, get_n: Callable, set_n: Callable, step: int = 1) -> HBoxContainer:
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 4)
 	h.add_child(UiTheme.icon_rect(Data.res_icon(id), 18))
@@ -579,9 +580,26 @@ func _goods_row(id: String, info: String, get_n: Callable, set_n: Callable, step
 	var minus := UiTheme.button("−", "", 30)
 	minus.custom_minimum_size.x = 30
 	minus.focus_mode = Control.FOCUS_NONE
-	var val := UiTheme.label(str(int(get_n.call())), 14, UiTheme.TEXT, true)
-	val.custom_minimum_size.x = 36
-	val.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var val := LineEdit.new()
+	val.text = str(int(get_n.call()))
+	val.custom_minimum_size.x = 48
+	val.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	val.virtual_keyboard_type = LineEdit.KEYBOARD_TYPE_NUMBER
+	val.select_all_on_focus = true
+	val.max_length = 5
+	val.add_theme_font_size_override("font_size", 14)
+	val.add_theme_color_override("font_color", UiTheme.TEXT)
+	var apply := func(_t = ""):
+		var digits := ""
+		for ch in val.text:
+			if ch >= "0" and ch <= "9":
+				digits += ch
+		set_n.call(max(0, int(digits) if digits != "" else 0))
+		val.text = str(int(get_n.call()))  # zeigt, was wirklich gilt (Laderaum, Lager)
+	val.text_submitted.connect(func(t):
+		apply.call(t)
+		val.release_focus())
+	val.focus_exited.connect(apply)
 	var plus := UiTheme.button("+", "", 30)
 	plus.custom_minimum_size.x = 30
 	plus.focus_mode = Control.FOCUS_NONE
@@ -698,7 +716,7 @@ func _fill_send() -> void:
 			else:
 				_send_goods[rid] = n
 			upd_room.call()
-		_details.add_child(_goods_row(id, tr("Lager %d") % Game.amount(id, from), get_n, set_n, 5))
+		_details.add_child(_goods_row(id, tr("Lager %d") % Game.amount(id, from), get_n, set_n))
 	if not any:
 		_details.add_child(_hint(tr("Im Lager ist nichts zum Mitnehmen.")))
 	var acts := HBoxContainer.new()
@@ -1309,7 +1327,7 @@ func _fill_trip() -> void:
 		var note := tr("dort %d") % Game.amount(id, w)
 		if _trip_to >= 0:
 			note += "\n" + tr("Ziel: Platz %d") % Sea.dest_room(id, _trip_to, sh)
-		_details.add_child(_goods_row(id, note, get_n, set_n, 10))
+		_details.add_child(_goods_row(id, note, get_n, set_n))
 	if not any:
 		_details.add_child(_hint(tr("Auf %s liegt nichts im Lager.") % Sea.meta(_trip_from).get("name", "?")))
 	# 3. Zielinsel
@@ -1556,7 +1574,7 @@ func _fill_stop() -> void:
 					drop.erase(rid)
 				else:
 					drop[rid] = v
-			_details.add_child(_goods_row(id, tr("Lager %d") % Game.amount(id, w) if w else "", get_n, set_n, 10))
+			_details.add_child(_goods_row(id, tr("Lager %d") % Game.amount(id, w) if w else "", get_n, set_n))
 	# Einladen
 	var load: Dictionary = st.load
 	var room_l := UiTheme.label("", 14, UiTheme.TEXT, true)
@@ -1589,7 +1607,7 @@ func _fill_stop() -> void:
 			else:
 				load[rid] = v
 			upd.call()
-		_details.add_child(_goods_row(id, tr("Lager %d") % Game.amount(id, w) if w else "", get_n, set_n, 10))
+		_details.add_child(_goods_row(id, tr("Lager %d") % Game.amount(id, w) if w else "", get_n, set_n))
 	if shown == 0:
 		_details.add_child(_hint(tr("Auf %s liegt gerade nichts im Lager.") % Sea.meta(int(st.island)).get("name", "?")))
 	var done2 := UiTheme.button(tr("Fertig"), "play", 40)

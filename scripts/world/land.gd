@@ -301,7 +301,7 @@ static func _sink(w, b) -> void:
 	w.buildings.erase(b)
 	for cc in b.cells():
 		w.building_at.erase(cc)
-		w._set_solid(cc, w.node_at.has(cc) and w.node_at[cc].is_solid())
+		w._set_solid(cc, w.node_at.has(cc) and w.node_at[cc].blocks_path())
 	if Game.selected == b:
 		Game.select(null)
 	w.sunk.append({"type": b.type, "x": b.cell.x, "y": b.cell.y})

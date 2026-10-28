@@ -20,6 +20,31 @@
     "sprite": "boat",
     "yard": 1
   },
+  "expedition": {
+    "name": "Expeditionsschiff",
+    "desc": "Bringt 6 Siedler zu einer neuen Insel und braucht keine Seeleute. Bei der Landung wird es zerlegt: das Material reicht für 3 Hütten, einen Hafen, ein Lagerhaus, dazu Essen und Brennholz für 3 Tage.",
+    "size": 1,
+    "crew": 0,
+    "passengers": 6,
+    "cargo": 0,
+    "speed": 0.8,
+    "requires": "schiffsbau",
+    "once": true,
+    "_once": "Fährt nur einmal: am Ziel zerfällt es in genau das Baumaterial (ships.json build.inputs), Sea._break_up. Keine Routen, keine Erkundung.",
+    "build": {
+      "inputs": {
+        "holz": 82,
+        "stein": 32,
+        "bretter": 30,
+        "werkzeug": 4,
+        "beeren": 113
+      },
+      "time": 30.0
+    },
+    "icon": "kogge",
+    "sprite": "ship_kogge",
+    "yard": 1
+  },
   "kogge": {
     "name": "Kogge",
     "desc": "Bauchiges Lastschiff: viel Laderaum, aber gemächlich. Braucht einen Hafen.",

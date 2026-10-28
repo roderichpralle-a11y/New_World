@@ -111,7 +111,7 @@ static func run(main) -> void:
 	var front := []
 	for x in range(-1, dh.size.x + 1):
 		front.append(dh.cell + Vector2i(x, dh.size.y))
-	var blocked := front.filter(func(c): return w.is_walkable(c) and not w.can_place("strasse", c))
+	var blocked := front.filter(func(c): return w.is_walkable(c) and not w.node_at.has(c) and not w.can_place("strasse", c))  # Bäume sind begehbar, aber nicht bebaubar
 	print("   Straße vor der Hütte: Tür %s, Reihe %s, gesperrt %s" % [dh.entrance_cell(), front, blocked])
 	_ok(blocked.is_empty(), "Straße vor dem ganzen Haus, auch auf dem Feld vor der Tür")
 	# Erst die Straße, dann das Haus mit der Tür auf der Straße
@@ -192,7 +192,7 @@ static func run(main) -> void:
 	dikes[1].delivered = dikes[1].def.cost.duplicate()
 	dikes[1].add_work(float(dikes[1].def.work) + 1.0)
 	var back = w.building_at.get(a)
-	_ok(not w.is_water(a) and back != null and not back.complete and int(back.delivered.get("stein", 0)) == 20 - 14,
+	_ok(not w.is_water(a) and back != null and not back.complete and int(back.delivered.get("stein", 0)) == int(back.def.cost.stein) - ceili(int(back.def.cost.stein) * 0.7),
 		"Deich steht wieder: Neuland und Straße als Baustelle %s" % [back.delivered if back else "-"])
 	# Sturmflut bricht einen äußeren Deich (Wahrscheinlichkeit erzwungen)
 	var sd: Dictionary = Events.type_def("sturmflut")

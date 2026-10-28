@@ -322,6 +322,8 @@ func autotest_setup(args: Dictionary, main) -> void:
 		_name_test(w)
 	if args.has("queuetest"):
 		_queue_test(w)
+	if args.has("v2test"):
+		_v2_test(w)
 	if args.has("cartshot"):
 		await CartTest.run(main, args)
 
@@ -473,6 +475,75 @@ func _name_test(w) -> void:
 		and three[1].display_name.begins_with("Lena ") and not three[1].display_name.ends_with(" III")
 	print("Namen ", "OK" if ok2 else "FEHLER", " dreimal Lena III bereinigt: %s, %s, %s" % [three[0].display_name, three[1].display_name, three[2].display_name])
 	print("Namen ", "OK" if dup == 0 and ok2 else "FEHLER", " (Ende)")
+
+
+## --v2test=1: Wünsche vom 2026-10-28 für Version 2: Abriss gibt 70 % auch bei vollem Lager, Straße kostet
+## 5 Steine, Beruf mit Vergeber, Bäume versperren keinen Weg, Expeditionsschiff zerfällt in sein Baumaterial.
+func _v2_test(w) -> void:
+	var all_ok := true
+	# Abriss: Lager voll, trotzdem 70 %
+	var free := Vector2i(-1, -1)
+	for y in range(8, w.size - 8):
+		for x in range(8, w.size - 8):
+			if free.x < 0 and w.can_place("huette", Vector2i(x, y)):
+				free = Vector2i(x, y)
+	var b = w.place_building("huette", free, true) if free.x >= 0 else null
+	if b:
+		b.delivered = {"holz": 16}
+		var vol: int = Game.storage_volume(w)
+		w.stock["stein"] = vol  # Lager übervoll
+		var before := int(w.stock.get("holz", 0))
+		w.demolish(b)
+		var got := int(w.stock.get("holz", 0)) - before
+		var ok1 := got == 11
+		all_ok = all_ok and ok1
+		print("V2 ", "OK" if ok1 else "FEHLER", " Abriss bei vollem Lager gibt %d von 16 Holz zurück" % got)
+		w.stock["stein"] = 0
+	var ok2 := int(Data.buildings.strasse.cost.stein) == 5
+	all_ok = all_ok and ok2
+	print("V2 ", "OK" if ok2 else "FEHLER", " Straße kostet %d Steine" % int(Data.buildings.strasse.cost.stein))
+	# Beruf mit Vergeber
+	var s0 = w.settlers.filter(func(x): return x.is_adult())[0]
+	JobDesk.release(int(s0.id))
+	JobDesk.assign(s0, "holzfaeller", "automat")
+	var l1: String = s0.job_label()
+	JobDesk.assign(s0, "sammler", "spieler")
+	var l2: String = s0.job_label()
+	var ok3 := l1.ends_with("(%s)" % tr("Automat")) and not l2.contains("(")
+	all_ok = all_ok and ok3
+	print("V2 ", "OK" if ok3 else "FEHLER", " Beruf: „%s“, dann „%s“" % [l1, l2])
+	# Bäume
+	var tree = null
+	for n in w.nodes:
+		if n.type == "baum" and n.amount > 0:
+			tree = n
+			break
+	var ok4: bool = tree != null and w.is_walkable(tree.cell) and not w.can_place("strasse", tree.cell)
+	all_ok = all_ok and ok4
+	print("V2 ", "OK" if ok4 else "FEHLER", " Siedler gehen über das Baumfeld, bauen lässt sich dort nicht")
+	# Expeditionsschiff
+	for i in 8:
+		w.spawn_settler({"name": w.unique_name("m" if i % 2 else "f", RandomNumberGenerator.new()), "sex": "m" if i % 2 else "f", "age": 25.0, "x": 30, "y": 30})
+	var m := Sea.make_island(Sea.islands.size())
+	Sea.islands.append(m)
+	var sh := Sea._new_ship("expedition", w.island_id)
+	var people: Array = w.settlers.filter(func(x): return x.is_adult()).slice(0, 6)
+	var err := Sea.send_ship(w, int(m.id), people, sh)
+	var ok5 := err == "" and Sea.voyages.size() > 0
+	print("V2 ", "OK" if ok5 else "FEHLER", " Expeditionsschiff legt ohne Seeleute mit 6 Siedlern ab %s" % err)
+	var ok6 := false
+	if ok5:
+		var v: Dictionary = Sea.voyages.back()
+		Sea.voyages.erase(v)
+		Sea._arrive(v)
+		var nw = Sea.worlds.get(int(m.id))
+		var want: Dictionary = Data.ships.expedition.build.inputs
+		ok6 = nw != null and nw.settlers.size() >= 6 and not Sea.ships.has(sh)
+		for id in want:
+			ok6 = ok6 and int(nw.stock.get(id, 0)) >= int(want[id])
+		print("V2 ", "OK" if ok6 else "FEHLER", " Ankunft: %d Siedler, Schiff zerlegt, Lager %s" % [nw.settlers.size() if nw else -1, str(nw.stock) if nw else ""])
+	all_ok = all_ok and ok5 and ok6
+	print("V2 ", "OK" if all_ok else "FEHLER", " (Ende)")
 
 
 ## --queuetest=1: zweite Forschung während einer laufenden wird vorgemerkt und startet danach; nochmal antippen
