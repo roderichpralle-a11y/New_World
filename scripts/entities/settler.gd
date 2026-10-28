@@ -104,11 +104,23 @@ static var sied_ok := ResourceLoader.exists("res://assets/sprites_hd/sied/frei_m
 var _sied_kind := ""  # "job", "frei" oder "kind", solange ein Siedler-Bogen gezeigt wird
 
 
-## Siedler-Bogen in doppelter Auflösung (Bild 60 Pixel je Kästchen, gemeldet 30); null, wenn es ihn nicht gibt.
+## iPhone und iPad (und andere Touch-Geräte) laden die kleinen Bögen (60 Pixel je Kästchen, 32 Punkte je Feld),
+## damit der Speicher reicht; PC und Mac die vollen aus sied_hd (120 Pixel, 64 Punkte je Feld wie Gebäude und Gras).
+static func small_sheets() -> bool:
+	return OS.has_feature("web_ios") or OS.has_feature("web_android") or OS.has_feature("mobile") \
+		or DisplayServer.is_touchscreen_available()
+
+
+## Siedler-Bogen (Bild 60 oder 120 Pixel je Kästchen, gemeldet 30); null, wenn es ihn nicht gibt.
 static func sied_sheet(name: String) -> Texture2D:
 	var key := "sied:" + name
 	if not _sheets.has(key):
 		var path := "res://assets/sprites_hd/sied/%s.png" % name
+		var div := 2
+		var hd_path := "res://assets/sprites_hd/sied_hd/%s.png" % name
+		if not small_sheets() and ResourceLoader.exists(hd_path):
+			path = hd_path
+			div = 4
 		if not ResourceLoader.exists(path):
 			return null
 		var img: Image = (load(path) as Texture2D).get_image()
@@ -116,7 +128,7 @@ static func sied_sheet(name: String) -> Texture2D:
 			img.decompress()
 		img.generate_mipmaps()
 		var t := ImageTexture.create_from_image(img)
-		t.set_size_override(Vector2i(img.get_width() / 2, img.get_height() / 2))
+		t.set_size_override(Vector2i(img.get_width() / div, img.get_height() / div))
 		_sheets[key] = t
 	return _sheets[key]
 

@@ -47,6 +47,8 @@ bleiben bei der alten Grafik; dieser Zweig wird nicht nach main gemischt, solang
   8 Bilder je Zeile, je Bewegung 3 Zeilen vorn/hinten/seitlich nach rechts, Schlafen 1 Zeile, Füße 8 Pixel
   über dem Rand). `gen_settler_sheets` verkleinert auf Kästchen 60 nach `assets/sprites_hd/sied/` (Speicher
   auf dem iPhone); `Settler.sied_sheet` meldet halbe Größe (Kästchen 30 Spielpixel, `SIED_OFFSET`).
+  PC und Mac laden statt dessen `assets/sprites_hd/sied_hd/` (Kästchen 120, 64 Punkte je Feld wie Gebäude und
+  Gras; josh 2026-10-28); `Settler.small_sheets()` wählt die kleinen bei iOS, Android oder Touchscreen.
   Berufe: Stehen, Gehen, Arbeiten, Kämpfen, Last, Schubkarre (`SIED_JOB`); freie Siedler zusätzlich Sitzen,
   Zeitung, Buch, Schlafen (`SIED_FREI`, 4 Farben nach id); Kinder eigene Figur (`SIED_KIND`).
   `_sied_frame` wählt die Bewegung; Werkzeug-, Karren- und Kippbilder sind dann aus. Fehlt ein Bogen,

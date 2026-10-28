@@ -647,20 +647,23 @@ def gen_figures():
 # Verkleinert auf Kästchen von 60 Pixeln (= 30 Spielpixel bei doppelter Auflösung, Settler.SIED_*),
 # damit 42 Bögen auch auf dem iPhone in den Speicher passen.
 SIED_SRC = os.path.join(ROOT, "tools", "art_v2", "src", "siedler")
+# Zweiter Satz sied_hd mit 120 Pixeln (= 64 Punkte je Feld wie Gebäude und Gras) für PC und Mac (josh 2026-10-28).
 SIED_CELL = 60
+SIED_CELL_HD = 120
 
 
 def gen_settler_sheets():
-    out_dir = os.path.join(OUT, "sied")
-    os.makedirs(out_dir, exist_ok=True)
-    for f in sorted(os.listdir(SIED_SRC)):
-        if not f.endswith(".png"):
-            continue
-        im = Image.open(os.path.join(SIED_SRC, f)).convert("RGBA")
-        cols, rows = im.width // 128, im.height // 128
-        out = resize(im, cols * SIED_CELL, rows * SIED_CELL)
-        out.save(os.path.join(out_dir, f.replace("siedler_", "")), optimize=True)
-    print("   Siedler-Bögen", len(os.listdir(out_dir)))
+    for folder, cell in (("sied", SIED_CELL), ("sied_hd", SIED_CELL_HD)):
+        out_dir = os.path.join(OUT, folder)
+        os.makedirs(out_dir, exist_ok=True)
+        for f in sorted(os.listdir(SIED_SRC)):
+            if not f.endswith(".png"):
+                continue
+            im = Image.open(os.path.join(SIED_SRC, f)).convert("RGBA")
+            cols, rows = im.width // 128, im.height // 128
+            out = resize(im, cols * cell, rows * cell)
+            out.save(os.path.join(out_dir, f.replace("siedler_", "")), optimize=True)
+        print("   Siedler-Bögen", folder, len(os.listdir(out_dir)))
 
 
 # ------------------------------------------------------------------ Tiere und Piraten
