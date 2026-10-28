@@ -660,7 +660,8 @@ def gen_settler_sheets():
             if not f.endswith(".png"):
                 continue
             im = Image.open(os.path.join(SIED_SRC, f)).convert("RGBA")
-            cols, rows = im.width // 128, im.height // 128
+            src = im.width // 8  # 8 Bilder je Zeile; Kästchen 128 (erste Bögen) oder 256 (feine Bögen, josh 2026-10-28)
+            cols, rows = im.width // src, im.height // src
             out = resize(im, cols * cell, rows * cell)
             out.save(os.path.join(out_dir, f.replace("siedler_", "")), optimize=True)
         print("   Siedler-Bögen", folder, len(os.listdir(out_dir)))
