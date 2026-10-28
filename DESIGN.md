@@ -31,6 +31,15 @@ bleiben bei der alten Grafik; dieser Zweig wird nicht nach main gemischt, solang
   Fest- und Protest-Videos.
 - **Bewegungen aus den Bildern:** Mühlenflügel drehen sich (`anim_mill`), Lagerfeuer flackert, Fahne
   weht, Springbrunnen glitzert, Hologramm flimmert, Leuchtfeuer, Schiffe schaukeln, Fischgrund und Wasser.
+- **Wasser (josh 2026-10-28):** `assets/shaders/water.gdshader` auf der Wasserebene: Farbe nach Abstand zur
+  Küste (`World._update_shore`: Abstandsbild je Geländepunkt, Chamfer, bis 6 Felder) in 6 Stufen von türkis
+  bis dunkelblau, kurze waagerechte Wellenlinien je Rasterfeld 28x12, die in 5 s erscheinen und verblassen und
+  langsam wandern, wenige Lichtreflexe im offenen Meer, am Strand eine Wellenkante, die an- und zurückläuft
+  (der Schaum ist nicht mehr in den Sandkacheln). Testbild `--coast=3`.
+- **Figuren vor Gebäuden (josh 2026-10-28):** Siedler, Droiden, Tiere und Piraten haben `z_index = 1`.
+- **Gras (josh 2026-10-28):** Büschel und Blumen als eigene Ebene `_deco_layer` (terrain_deco.png, halbe
+  Spielpixel, weich gefiltert), halb so groß wie vorher; die Graskacheln selbst sind glatt.
+- **Beschriftungen** unter Gebäudebildern schneidet `_cut_caption` ab (Ställe).
 - **Felder (josh 2026-10-28):** `gen_fields` füllt jede Feldkachel ganz: Ackerboden aus den Farben des
   Bogens (Krümel in 2er-Stufen, drei Furchen), darauf die Pflanzen der 4 Phasen aus `oberflaeche` in drei
   Reihen (reif: dichter Weizen). Nebeneinander gesetzte Felder bilden einen Acker. Testbild `--fieldshot=1`.

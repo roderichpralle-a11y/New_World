@@ -561,6 +561,11 @@ func _maybe_autotest() -> void:
 							fb.farm_time = Game.time_days - (0.0 if st < 2 else fb.grow_days() * 0.7)
 							fb.refresh()
 			camera.focus(world.cell_to_pos(c0 + Vector2i(7, 1)))
+		if args.has("coast"):  # Testhilfe 2.0 (Wasser, josh 2026-10-28): Kamera auf die Küste östlich der Mitte
+			var cc: Vector2i = world.center
+			while cc.x < world.size - 1 and world.terrain[cc.y * world.size + cc.x] != World.WATER:
+				cc.x += 1
+			camera.focus(world.cell_to_pos(cc + Vector2i(int(args.coast), 0)))
 		if args.has("zoom"):  # Testhilfe 2.0.0: Bildschirmfoto mit festem Zoom (Details der neuen Bilder)
 			camera.zoom = Vector2.ONE * float(args.zoom)
 		if args.has("rulesdialog"):

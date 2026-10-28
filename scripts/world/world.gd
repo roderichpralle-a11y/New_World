@@ -47,6 +47,8 @@ var _mat_needle: ShaderMaterial
 var _layers: Array = []
 # Jahreszeiten-Auflagen über Sand und Gras: Schnee im Winter, Laub im Herbst (terrain_season.png)
 var _snow_layer: TileMapLayer
+var _deco_layer: TileMapLayer  # feine Grasbüschel und Blumen (terrain_deco.png, josh 2026-10-28)
+var _mat_water: ShaderMaterial
 var _leaf_layer: TileMapLayer
 var _unreachable: Dictionary = {}
 var _storage_warn_time: float = -10.0
@@ -233,6 +235,15 @@ func _build_terrain(island: Dictionary) -> void:
 	_layers[2].modulate = Color(Data.islands.get(biome, {}).get("tint", "#ffffff"))
 	_make_season_materials()
 	_layers[2].material = _mat_ground
+	# Wasser (josh 2026-10-28): Farbe nach Abstand zur Küste, Wellen und Wellenkante im Shader
+	_mat_water = ShaderMaterial.new()
+	_mat_water.shader = preload("res://assets/shaders/water.gdshader")
+	_layers[0].material = _mat_water
+	_deco_layer = TileMapLayer.new()
+	_deco_layer.tile_set = _make_deco_tileset()
+	_deco_layer.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS  # fein, ohne Flimmern
+	_deco_layer.material = _mat_ground  # Schnee hellt auch die Büschel auf
+	add_child(_deco_layer)
 	var sts := _make_season_tileset()
 	_snow_layer = TileMapLayer.new()
 	_leaf_layer = TileMapLayer.new()
@@ -251,6 +262,7 @@ func _build_terrain(island: Dictionary) -> void:
 	fx.z_index = 10
 	add_child(fx)
 	_paint_terrain()
+	_update_shore()
 	_setup_astar()
 	day_tint = CanvasModulate.new()
 	add_child(day_tint)
@@ -288,6 +300,19 @@ func _make_tileset() -> TileSet:
 	return ts
 
 
+func _make_deco_tileset() -> TileSet:
+	var ts := TileSet.new()
+	ts.tile_size = Vector2i(T, T)
+	var src := TileSetAtlasSource.new()
+	src.texture = Data.hd("terrain_deco")
+	src.use_texture_padding = false
+	src.texture_region_size = Vector2i(T, T)
+	for v in 16:
+		src.create_tile(Vector2i(v, 0))
+	ts.add_source(src, 0)
+	return ts
+
+
 func _make_season_tileset() -> TileSet:
 	var ts := TileSet.new()
 	ts.tile_size = Vector2i(T, T)
@@ -300,6 +325,57 @@ func _make_season_tileset() -> TileSet:
 			src.create_tile(Vector2i(v, r))
 	ts.add_source(src, 0)
 	return ts
+
+
+## Abstand jedes Geländepunkts (auch im Meer rund um die Insel) zum nächsten Land, in Feldern, als Bild für
+## den Wasser-Shader (Chamfer-Abstand in zwei Durchläufen, gekappt bei 6 Feldern).
+func _update_shore() -> void:
+	if _mat_water == null:
+		return
+	var m := OCEAN_MARGIN + 1
+	var w := size + 2 * m
+	var dist := PackedFloat32Array()
+	dist.resize(w * w)
+	for y in w:
+		for x in w:
+			dist[y * w + x] = 0.0 if _vertex(x - m, y - m) >= SAND else 99.0
+	var d1 := 1.0
+	var d2 := 1.4142
+	for y in w:
+		for x in w:
+			var i := y * w + x
+			var v := dist[i]
+			if x > 0:
+				v = minf(v, dist[i - 1] + d1)
+			if y > 0:
+				v = minf(v, dist[i - w] + d1)
+				if x > 0:
+					v = minf(v, dist[i - w - 1] + d2)
+				if x < w - 1:
+					v = minf(v, dist[i - w + 1] + d2)
+			dist[i] = v
+	for y in range(w - 1, -1, -1):
+		for x in range(w - 1, -1, -1):
+			var i := y * w + x
+			var v := dist[i]
+			if x < w - 1:
+				v = minf(v, dist[i + 1] + d1)
+			if y < w - 1:
+				v = minf(v, dist[i + w] + d1)
+				if x < w - 1:
+					v = minf(v, dist[i + w + 1] + d2)
+				if x > 0:
+					v = minf(v, dist[i + w - 1] + d2)
+			dist[i] = v
+	var bytes := PackedByteArray()
+	bytes.resize(w * w)
+	for i in w * w:
+		bytes[i] = int(clampf(dist[i] / 6.0, 0.0, 1.0) * 255.0)
+	var img := Image.create_from_data(w, w, false, Image.FORMAT_L8, bytes)
+	_mat_water.set_shader_parameter("shore", ImageTexture.create_from_image(img))
+	_mat_water.set_shader_parameter("shore_origin", Vector2(-m, -m))
+	_mat_water.set_shader_parameter("shore_size", Vector2(w, w))
+	_mat_water.set_shader_parameter("tile", float(T))
 
 
 func _vertex(x: int, y: int) -> int:
@@ -348,6 +424,11 @@ func _paint_tile(x: int, y: int, sand: TileMapLayer, grass: TileMapLayer) -> voi
 		grass.set_cell(Vector2i(x, y), 0, Vector2i(mg, 2))
 	else:
 		grass.erase_cell(Vector2i(x, y))
+	if _deco_layer != null:
+		if mg == 15 and h >= 40:
+			_deco_layer.set_cell(Vector2i(x, y), 0, Vector2i(h % 16, 0))
+		else:
+			_deco_layer.erase_cell(Vector2i(x, y))
 	if _snow_layer == null:
 		return
 	var h2 := (hash(Vector2i(y, x) * 7) & 0xffff) % 100
@@ -375,6 +456,7 @@ func set_terrain(c: Vector2i, t: int) -> void:
 	for y in range(c.y - 1, c.y + 1):
 		for x in range(c.x - 1, c.x + 1):
 			_paint_tile(x, y, _layers[1], _layers[2])
+	_update_shore()
 
 
 func _setup_astar() -> void:

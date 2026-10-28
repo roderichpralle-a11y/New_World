@@ -23,6 +23,7 @@ var _wade_t := -1.0  # >= 0: steigt gerade aus dem Schiff (disembark)
 
 
 func setup_raider(p_world, p_cell: Vector2i, p_landing: Vector2i, p_cap: int, p_def: Dictionary) -> void:
+	z_index = 1  # Figuren vor Gebäuden (josh 2026-10-28)
 	world = p_world
 	type = "pirat"
 	def = p_def

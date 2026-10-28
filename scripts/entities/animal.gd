@@ -48,6 +48,7 @@ var _shadow: Sprite2D
 
 func setup(p_world, p_type: String, p_cell: Vector2i, p_home: Vector2i, p_hp: float = -1.0,
 		p_age: float = -1.0, p_food: float = 1.0) -> void:
+	z_index = 1  # Figuren immer vor Gebäuden und Bäumen (josh 2026-10-28), y-Sortierung nur unter Figuren
 	world = p_world
 	type = p_type
 	def = Data.animals[type]

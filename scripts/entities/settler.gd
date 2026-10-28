@@ -179,6 +179,7 @@ static func random_look(rng: RandomNumberGenerator) -> Dictionary:
 
 
 func _build_visual() -> void:
+	z_index = 1  # Figuren immer vor Gebäuden und Bäumen (josh 2026-10-28), y-Sortierung nur unter Figuren
 	_shadow = Sprite2D.new()
 	_shadow.texture = Data.object_tex("shadow")
 	_shadow.position = Vector2(0, 1)

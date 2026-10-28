@@ -349,6 +349,29 @@ def gen_buildings():
 BIG_PAD = 3  # Spielpixel unter dem Bild: Building setzt Bilder 4 Pixel unter den Fuß (Sockel ragt 1 Pixel vor)
 
 
+def _cut_caption(img):
+    """Beschriftung unter dem Bild (josh 2026-10-28: Ställe zeigten "kuhstall"): unterster Streifen,
+    durch leere Zeilen vom Bild getrennt, niedrig und überwiegend dunkel -> weg."""
+    a = np.asarray(img)
+    rows = (a[:, :, 3] > 0).any(axis=1)
+    h = len(rows)
+    y = h - 1
+    while y >= 0 and not rows[y]:
+        y -= 1
+    bottom = y
+    while y >= 0 and rows[y]:
+        y -= 1
+    top = y + 1
+    if y < 0 or bottom - top + 1 > 0.14 * h:
+        return img
+    band = a[top:bottom + 1]
+    m = band[:, :, 3] > 0
+    lum = band[:, :, :3].astype(np.float32) @ np.array([0.3, 0.59, 0.11])
+    if (lum[m] < 90).mean() < 0.4:
+        return img
+    return img.crop((0, 0, img.width, top)).crop(img.crop((0, 0, img.width, top)).getbbox())
+
+
 def gen_big():
     """Größenverhältnisse (josh 2026-10-24, Weg B, 30 % kleiner): jedes Gebäude als eigene Datei
     assets/sprites_hd/big/<name>.png in seiner gemessenen Größe (scale.py), Bilder nebeneinander.
@@ -359,7 +382,7 @@ def gen_big():
     cells = building_cells()
     index = {}
     for name, spec in BUILDINGS.items():
-        img = building_img(name)
+        img = _cut_caption(building_img(name))
         f = sc.scale_for(name, spec[0], img)
         img = scale(img, f * S)
         frames = cells.get(name, (0, 1))[1]
@@ -1068,7 +1091,7 @@ def gen_terrain():
             if kind == "sand":
                 out[inside] = (*SAND_COLOR, 255)
                 out[(v > 0.40) & ~inside] = wet
-                out[(v > 0.31) & (v <= 0.40)] = foam
+                # Schaum malt seit 2026-10-28 der Wasser-Shader (Wellenkante, die an- und zurückläuft)
             else:
                 out[inside] = (*GRASS_GREEN, 255)
                 out[(v > 0.5) & (v < 0.545)] = g_edge
@@ -1077,14 +1100,69 @@ def gen_terrain():
     for v in range(4):
         t = _scatter(plain_s.copy(), stones, rnd, 1 + (v == 3))
         atlas.paste(t, (v * T, 3 * T))
+    # Gras 4..15: glatt; Grasbüschel und Blumen liegen seit 2026-10-28 als feine eigene Ebene darüber
+    # (terrain_deco.png, gen_grass_deco), weich gefiltert statt in den Bodenkacheln
     for v in range(12):
-        t = plain_g.copy()
-        _scatter(t, grass_bits, rnd, rnd.choice([1, 1, 2, 3]))
-        if flowers and v % 3 == 0:
-            _scatter(t, flowers, rnd, 1)
-        atlas.paste(t, ((4 + v) * T, 3 * T))
+        atlas.paste(plain_g.copy(), ((4 + v) * T, 3 * T))
     save(atlas, "terrain")
     gen_season_ground()
+    gen_grass_deco()
+
+
+def _blade(d, x, y, length, lean, col):
+    """Ein Grashalm, 1 HD-Pixel breit, leicht gebogen."""
+    px, py = x, y
+    for i in range(1, length + 1):
+        t = i / length
+        nx = x + lean * t * t
+        ny = y - i
+        d.line((round(px), round(py), round(nx), round(ny)), fill=col)
+        px, py = nx, ny
+
+
+def gen_grass_deco():
+    """terrain_deco.png (josh 2026-10-28): Grasbüschel und Blumen halb so groß wie vorher und feiner
+    gezeichnet: Pixel von einem halben Spielpixel (doppelte Auflösung wie die Siedler), 16 Kacheln mit
+    1 bis 3 Teilen, sonst durchsichtig. Farben aus dem Gras der Bögen (dunkel, mittel, hell)."""
+    import random
+    T = 16 * S
+    H = T // 2  # Zeichenraster: halbe Spielpixel
+    rnd = random.Random(1028)
+    dark, mid, light, tip = (38, 92, 34, 255), (72, 140, 44, 255), (112, 178, 58, 255), (160, 206, 84, 255)
+    petals = [(250, 250, 244), (250, 214, 74), (236, 132, 170), (150, 170, 240), (246, 246, 246)]
+    atlas = Image.new("RGBA", (16 * T, T), (0, 0, 0, 0))
+    for v in range(16):
+        tile = Image.new("RGBA", (H, H), (0, 0, 0, 0))
+        d = ImageDraw.Draw(tile)
+        n = rnd.choice([1, 1, 2, 2, 3])
+        for _ in range(n):
+            x, y = rnd.randint(4, H - 5), rnd.randint(9, H - 2)
+            if rnd.random() < 0.3:
+                # Blume: Stiel, vier Blütenblätter, gelbe Mitte
+                h = rnd.randint(3, 5)
+                d.line((x, y, x, y - h), fill=mid)
+                d.point((x + 1, y - 1), fill=light)
+                c = petals[rnd.randrange(len(petals))]
+                shade = tuple(int(k * 0.8) for k in c) + (255,)
+                cy = y - h - 1
+                for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+                    d.point((x + dx, cy + dy), fill=c + (255,))
+                d.point((x + 1, cy + 1), fill=shade)
+                d.point((x, cy), fill=(250, 200, 60, 255))
+            else:
+                # Büschel: 4 bis 7 Halme, hinten dunkel, vorne hell, 4 bis 8 halbe Spielpixel hoch
+                k = rnd.randint(4, 7)
+                for b in range(k):
+                    bx = x + rnd.randint(-2, 2)
+                    col = dark if b < k // 3 else (mid if b < 2 * k // 3 else light)
+                    ln = rnd.randint(4, 8)
+                    _blade(d, bx, y, ln, rnd.uniform(-2.5, 2.5), col)
+                    if col == light and rnd.random() < 0.5:
+                        d.point((bx, y - ln + 1), fill=tip)
+                d.line((x - 2, y, x + 2, y), fill=dark)
+        atlas.paste(tile.resize((T, T), Image.NEAREST), (v * T, 0))
+    atlas.save(os.path.join(OUT, "terrain_deco.png"))
+    print("   terrain_deco", atlas.size)
 
 
 def gen_season_ground():

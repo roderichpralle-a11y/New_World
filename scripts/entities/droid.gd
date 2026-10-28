@@ -11,6 +11,7 @@ var powered := true
 
 
 func setup(p_world, data: Dictionary) -> void:
+	z_index = 1  # Figuren immer vor Gebäuden und Bäumen (josh 2026-10-28), y-Sortierung nur unter Figuren
 	super.setup(p_world, data)
 	age = 30.0
 	max_age = 9999.0
