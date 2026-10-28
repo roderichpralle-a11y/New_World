@@ -31,6 +31,14 @@ bleiben bei der alten Grafik; dieser Zweig wird nicht nach main gemischt, solang
   Fest- und Protest-Videos.
 - **Bewegungen aus den Bildern:** Mühlenflügel drehen sich (`anim_mill`), Lagerfeuer flackert, Fahne
   weht, Springbrunnen glitzert, Hologramm flimmert, Leuchtfeuer, Schiffe schaukeln, Fischgrund und Wasser.
+- **Siedler-Bögen (josh 2026-10-28):** 42 Bögen in `tools/art_v2/src/siedler` (Auftrag: Kästchen 128,
+  8 Bilder je Zeile, je Bewegung 3 Zeilen vorn/hinten/seitlich nach rechts, Schlafen 1 Zeile, Füße 8 Pixel
+  über dem Rand). `gen_settler_sheets` verkleinert auf Kästchen 60 nach `assets/sprites_hd/sied/` (Speicher
+  auf dem iPhone); `Settler.sied_sheet` meldet halbe Größe (Kästchen 30 Spielpixel, `SIED_OFFSET`).
+  Berufe: Stehen, Gehen, Arbeiten, Kämpfen, Last, Schubkarre (`SIED_JOB`); freie Siedler zusätzlich Sitzen,
+  Zeitung, Buch, Schlafen (`SIED_FREI`, 4 Farben nach id); Kinder eigene Figur (`SIED_KIND`).
+  `_sied_frame` wählt die Bewegung; Werkzeug-, Karren- und Kippbilder sind dann aus. Fehlt ein Bogen,
+  gilt die alte Figur (`fig_*`).
 - **Böden (josh 2026-10-26):** Gras einfarbig im Grün der Hausränder (126, 176, 52), Sand nur sandfarben.
   Zeile 3 von `terrain.png`: Sand 0..3 mit einzelnen Steinen/Kieseln, Gras 4..15 mit Grasbüscheln und
   Blumen aus dem Bodenbogen in halber Größe, zufällig verstreut (`World._paint_tile`: 62 % glattes Gras).

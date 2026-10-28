@@ -90,6 +90,37 @@ static func sheet(name: String) -> Texture2D:
 	return _sheets[name]
 
 
+## Siedler-Bögen von josh (2026-10-28, assets/sprites_hd/sied, tools/art_v2/build.py gen_settler_sheets):
+## 8 Bilder je Zeile, Kästchen 30 Spielpixel, Füße bei y=28; je Bewegung 3 Zeilen in der Reihenfolge
+## DIR_DOWN, DIR_UP, DIR_SIDE (nach rechts), Schlafen nur 1 Zeile. Freie Siedler und Kinder in 4 Farben.
+const SIED_CELL := 30
+const SIED_OFFSET := Vector2(-15, -28)
+const SIED_COLORS := ["rot", "blau", "gruen", "gelb"]
+const SIED_JOB := {"stehen": 0, "gehen": 1, "arbeiten": 2, "kaempfen": 3, "last": 4, "karre": 5}
+const SIED_FREI := {"stehen": 0, "gehen": 1, "sitzen": 2, "zeitung": 3, "buch": 4, "kaempfen": 5, "last": 6,
+	"karre": 7, "schlafen": 8}
+const SIED_KIND := {"stehen": 0, "gehen": 1, "sitzen": 2, "buch": 3, "schlafen": 4}
+static var sied_ok := ResourceLoader.exists("res://assets/sprites_hd/sied/frei_mann_rot.png")
+var _sied_kind := ""  # "job", "frei" oder "kind", solange ein Siedler-Bogen gezeigt wird
+
+
+## Siedler-Bogen in doppelter Auflösung (Bild 60 Pixel je Kästchen, gemeldet 30); null, wenn es ihn nicht gibt.
+static func sied_sheet(name: String) -> Texture2D:
+	var key := "sied:" + name
+	if not _sheets.has(key):
+		var path := "res://assets/sprites_hd/sied/%s.png" % name
+		if not ResourceLoader.exists(path):
+			return null
+		var img: Image = (load(path) as Texture2D).get_image()
+		if img.is_compressed():
+			img.decompress()
+		img.generate_mipmaps()
+		var t := ImageTexture.create_from_image(img)
+		t.set_size_override(Vector2i(img.get_width() / 2, img.get_height() / 2))
+		_sheets[key] = t
+	return _sheets[key]
+
+
 ## Figur je Beruf (Zellen 24x28, Füße bei y=26; Zeilen: vorn, seitlich (auch nach oben), seitlich).
 const FIG_OFFSET := Vector2(-12, -26)
 ## Diese Figuren halten ihr Werkzeug schon in der Hand: beim Arbeiten schwingt dann kein zweites.
@@ -197,7 +228,9 @@ func _build_visual() -> void:
 
 
 func _update_scale() -> void:
-	var s := 1.0 if is_adult() else lerpf(0.6, 0.85, clamp(age / float(Data.bal("adult_age")), 0.0, 1.0))
+	var kid: float = clamp(age / float(Data.bal("adult_age")), 0.0, 1.0)
+	# Kinder haben mit den Siedler-Bögen eine eigene, kleinere Figur
+	var s := 1.0 if is_adult() else (lerpf(0.9, 1.15, kid) if sied_ok else lerpf(0.6, 0.85, kid))
 	_body.scale = Vector2(s, s)
 	_shadow.scale = Vector2(s, s)
 
@@ -257,7 +290,31 @@ func _apply_outfit() -> void:
 	if not _layers.has("fig"):
 		return  # Droiden haben ein eigenes Bild
 	# Berufskleidung nur bei der Arbeit (josh 2026-10-21), Kinder immer in Freizeitkleidung
-	_layers["fig"].texture = fig_sheet(job if _at_work() else "frei", sex)
+	var s: Sprite2D = _layers["fig"]
+	var color: String = SIED_COLORS[posmod(id, SIED_COLORS.size())]
+	var sheet_name := ""
+	if not is_adult():
+		sheet_name = "kind_%s_%s" % ["maedchen" if sex == "f" else "junge", color]
+		_sied_kind = "kind"
+	elif _at_work() and job != "frei":
+		sheet_name = "%s_%s" % [job, "frau" if sex == "f" else "mann"]
+		_sied_kind = "job"
+	else:
+		sheet_name = "frei_%s_%s" % ["frau" if sex == "f" else "mann", color]
+		_sied_kind = "frei"
+	var t := sied_sheet(sheet_name)
+	if t != null:
+		s.texture = t
+		s.hframes = 8
+		s.vframes = int(round(t.get_height() / float(SIED_CELL)))
+		s.offset = SIED_OFFSET
+		_update_scale()
+		return
+	_sied_kind = ""
+	s.texture = fig_sheet(job if _at_work() else "frei", sex)
+	s.hframes = 4
+	s.vframes = 3
+	s.offset = FIG_OFFSET
 
 
 ## Arbeitet gerade (im Beruf oder als Helfer), nicht beim Essen, Schlafen, in der Freizeit oder ohne Arbeit.
@@ -266,7 +323,7 @@ func _at_work() -> bool:
 
 
 func _outfit_key() -> String:
-	return job + str(_at_work())
+	return job + str(_at_work()) + str(is_adult())
 
 
 ## by_admin: der Verwalter (Admin, Steward, KI) hat den Beruf zugewiesen; die Listen zeigen ihn pastellgelb.
@@ -612,8 +669,9 @@ func _do_sleep_inside() -> void:
 
 func _do_sleep_outside() -> void:
 	sleeping = true
-	_body.rotation = -PI / 2
-	_body.position = Vector2(-6, -4)
+	if _sied_kind == "":  # die Siedler-Bögen haben ein eigenes Bild im Liegen
+		_body.rotation = -PI / 2
+		_body.position = Vector2(-6, -4)
 	_zzz.visible = true
 	activity = tr("Schläft unter freiem Himmel")
 
@@ -1749,6 +1807,9 @@ func _animate(delta: float) -> void:
 	var battle: bool = _battle_tool != "" and not _plan.is_empty() and _plan[0].get("defend", false) and not _working
 	var reading: String = _plan[0].get("read", "") if not _plan.is_empty() and _plan[0].a == "wait" and not _moving else ""
 	_tool.visible = (_working and _cur_tool != "" or battle or reading != "") and not sleeping
+	if _sied_kind != "":
+		_tool.visible = false  # Werkzeug, Waffe, Buch und Zeitung sind in den Siedler-Bögen gezeichnet
+		_sied_frame(battle, reading)
 	if _layers.has("saw") and _layers["saw"].visible != (job == "foerster" and _at_work() and not _tool.visible):  # Säge in der Hand, außer beim Arbeiten
 		_layers["saw"].visible = not _layers["saw"].visible
 	if _layers.has("rifle") and _layers["rifle"].visible:  # Gewehr auf dem Rücken: von vorn und von der Seite hinter dem Körper
@@ -1785,7 +1846,7 @@ func _animate(delta: float) -> void:
 			_tool.texture = null  # die Figur hält ihr Werkzeug selbst, sie wippt nur im Takt
 	elif not sleeping:
 		var sitting: bool = not _plan.is_empty() and _plan[0].a == "wait" and _plan[0].has("sit") and not _moving
-		_body.position.y = 2 if sitting else 0
+		_body.position.y = 2 if sitting and _sied_kind == "" else 0
 	_hurt -= delta
 	_body.modulate = Color(1, 0.5, 0.5) if _hurt > 0.0 else Color.WHITE
 	_carry_icon.visible = carry_n > 0 and not sleeping
@@ -1797,17 +1858,49 @@ func _animate(delta: float) -> void:
 			_carry_icon.scale = Vector2(0.75, 0.75)
 			_carry_icon.show_behind_parent = false
 	_bubble.visible = hunger < 20.0 and not sleeping and int(_anim_t * 2.0) % 3 != 0
-	_zzz.visible = sleeping and visible and _body.rotation != 0
+	_zzz.visible = sleeping and visible and (_body.rotation != 0 or _sied_kind != "")
 	if _zzz.visible:
 		_zzz.position.y = -30 + sin(_anim_t * 2.0) * 2.0
 	queue_redraw()
+
+
+## Bewegung aus dem Siedler-Bogen wählen: Schlafen, Kämpfen, Gehen (mit Last oder Schubkarre), Lesen,
+## Sitzen, Arbeiten, sonst Stehen; je 8 Bilder, Zeile nach Blickrichtung.
+func _sied_frame(battle: bool, reading: String) -> void:
+	var rows: Dictionary = SIED_KIND if _sied_kind == "kind" else (SIED_FREI if _sied_kind == "frei" else SIED_JOB)
+	var m := "stehen"
+	var fps := 6.0
+	var sitting: bool = not _plan.is_empty() and _plan[0].a == "wait" and _plan[0].has("sit") and not _moving
+	var working: bool = not _plan.is_empty() and (_working or _plan[0].a == "work")
+	if sleeping and rows.has("schlafen"):
+		m = "schlafen"
+		fps = 3.0
+	elif battle and rows.has("kaempfen"):
+		m = "kaempfen"
+		fps = 12.0
+	elif _moving:
+		m = "gehen"
+		fps = 12.0
+		if carry_n > 0 and rows.has("last"):
+			m = "karre" if pushes_cart() else "last"
+	elif reading != "" and rows.has("buch"):
+		m = "zeitung" if reading == "newspaper" and rows.has("zeitung") else "buch"
+	elif sitting and rows.has("sitzen"):
+		m = "sitzen"
+	elif working and rows.has("arbeiten"):
+		m = "arbeiten"
+		fps = 10.0
+	var row: int = int(rows[m]) * 3 + (0 if m == "schlafen" else _dir)
+	var s: Sprite2D = _layers["fig"]
+	s.frame = clampi(row * 8 + int(_anim_t * fps) % 8, 0, s.hframes * s.vframes - 1)
+	s.flip_h = _flip and _dir == DIR_SIDE and m != "schlafen"
 
 
 ## Mit Handkarren schieben Erwachsene ihre Last in einer Schubkarre vor sich her: seitlich voraus,
 ## nach unten vor dem Koerper, nach oben dahinter. Die Ware liegt dann in der Wanne. Das Rad dreht
 ## sich nach der gelaufenen Strecke, die Karre wippt mit den Schritten (frame 1 und 3).
 func _animate_cart(frame: int) -> bool:
-	var pushing := pushes_cart()
+	var pushing := pushes_cart() and _sied_kind == ""  # Siedler-Bögen schieben ihre eigene Karre
 	_cart.visible = pushing
 	_cart_front.visible = pushing
 	if pushing:

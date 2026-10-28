@@ -618,6 +618,28 @@ def gen_figures():
     return jobs
 
 
+# ------------------------------------------------------------------ Siedler-Bögen (josh 2026-10-28)
+# 42 Bögen nach dem Auftrag "Siedler-Bögen für Version 2": Kästchen 128 x 128, 8 Bilder je Zeile,
+# je Bewegung 3 Zeilen (vorn, hinten, seitlich nach rechts), Schlafen 1 Zeile, Füße 8 Pixel über dem Rand.
+# Verkleinert auf Kästchen von 60 Pixeln (= 30 Spielpixel bei doppelter Auflösung, Settler.SIED_*),
+# damit 42 Bögen auch auf dem iPhone in den Speicher passen.
+SIED_SRC = os.path.join(ROOT, "tools", "art_v2", "src", "siedler")
+SIED_CELL = 60
+
+
+def gen_settler_sheets():
+    out_dir = os.path.join(OUT, "sied")
+    os.makedirs(out_dir, exist_ok=True)
+    for f in sorted(os.listdir(SIED_SRC)):
+        if not f.endswith(".png"):
+            continue
+        im = Image.open(os.path.join(SIED_SRC, f)).convert("RGBA")
+        cols, rows = im.width // 128, im.height // 128
+        out = resize(im, cols * SIED_CELL, rows * SIED_CELL)
+        out.save(os.path.join(out_dir, f.replace("siedler_", "")), optimize=True)
+    print("   Siedler-Bögen", len(os.listdir(out_dir)))
+
+
 # ------------------------------------------------------------------ Tiere und Piraten
 ANIMAL_ROWS = [  # Zeile in animals.png, Rechtecke der 5 Bilder (4 Laufen, 1 Angriff)
     (0, [(230, 70, 415, 192), (460, 70, 640, 192), (690, 70, 875, 192), (920, 70, 1110, 192), (1165, 72, 1362, 192)]),
@@ -1150,6 +1172,7 @@ def main():
     gen_terrain()
     print("Figuren")
     gen_figures()
+    gen_settler_sheets()
     print("Tiere")
     gen_animals()
     print("Oberfläche")

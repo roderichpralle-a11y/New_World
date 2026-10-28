@@ -73,8 +73,14 @@ static func run(main, args: Dictionary) -> void:
 		"ohne Handkarren keine Karre, Ware ueber dem Kopf")
 	_set_handkarren(true)
 	s0._animate(0.0)
-	_ok(s0._cart.visible and s0._cart_front.visible and s0._carry_icon.position.y > -20.0
-		and s0._carry_icon.position.x > 5.0, "mit Handkarren Karre sichtbar, Ware in der Wanne")
+	if s0._sied_kind != "":
+		# Siedler-Bögen (2.0): die Karre ist gezeichnet (Zeilen "Schubkarre schieben"), die Ware schwebt darüber
+		var block: int = s0._layers["fig"].frame / 8 / 3
+		var want: int = Settler.SIED_JOB["karre"] if s0._sied_kind == "job" else Settler.SIED_FREI["karre"]
+		_ok(not s0._cart.visible and block == want, "mit Handkarren schiebt die Figur ihre Schubkarre (Block %d)" % block)
+	else:
+		_ok(s0._cart.visible and s0._cart_front.visible and s0._carry_icon.position.y > -20.0
+			and s0._carry_icon.position.x > 5.0, "mit Handkarren Karre sichtbar, Ware in der Wanne")
 	s0.carry_n = 0
 	s0._animate(0.0)
 	_ok(not s0._cart.visible, "ohne Last keine Karre")
@@ -116,9 +122,10 @@ static func run(main, args: Dictionary) -> void:
 				s.position = w.cell_to_pos(a)
 				s._cart_last = s.position
 				s._plan.append({"a": "move", "cell": c + legs[i][1]})
-			if s._cart.visible:
+			var sied: bool = s._sied_kind != "" and s.pushes_cart()  # Siedler-Bögen: Karre im Bild, 8 Bilder
+			if s._cart.visible or sied:
 				seen_dirs[s._dir * 10 + (1 if s._flip and s._dir == Settler.DIR_SIDE else 0)] = true
-				wheels[int(s._cart_roll) % 4] = true
+				wheels[(s._layers["fig"].frame if sied else int(s._cart_roll)) % 4] = true
 		if args.has("shot") and is_instance_valid(cam):
 			cam.focus(center))
 	# 6 Sekunden Spielzeit laufen lassen (nach Bildern, nicht nach Echtzeit: die ersten Bilder mit

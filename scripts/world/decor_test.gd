@@ -262,7 +262,9 @@ static func run(main) -> void:
 	s._plan.append({"a": "wait", "t": 3.0, "rest": true, "act": Loc.t("Sitzt auf der Bank"), "sit": seat, "sit_b": bench.id})
 	Game.set_speed(4)
 	await _sleep(main, 0.3)
-	_ok(s.position.distance_to(seat) < 0.5 and s._body.position.y > 0.0, "sitzt auf der Bank (%s, %s, Körper %.0f, %s)" % [s.position, seat, s._body.position.y, s._plan.map(func(a): return a.a)])
+	# Siedler-Bögen (2.0): eigenes Bild im Sitzen statt der 2 Pixel tiefer gesetzten Figur
+	var on_bench: bool = s._body.position.y > 0.0 if s._sied_kind == "" else s._layers["fig"].frame / 24 == int(Settler.SIED_FREI["sitzen"])
+	_ok(s.position.distance_to(seat) < 0.5 and on_bench, "sitzt auf der Bank (%s, %s, Körper %.0f, %s)" % [s.position, seat, s._body.position.y, s._plan.map(func(a): return a.a)])
 	await _sleep(main, 1.2)
 	_ok(s.position.distance_to(w.cell_to_pos(s.cell)) < 4.0, "steht danach wieder auf (Tempo %.1f)" % Engine.time_scale)
 	s._think_cooldown = 0.0

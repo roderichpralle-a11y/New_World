@@ -84,7 +84,12 @@ static func run(main) -> void:
 	_ok(reads >= 10, "in der Freizeit liest er oft (%d von 40)" % reads)
 	_read_now(s, "newspaper", "Liest")
 	await main.get_tree().create_timer(0.3).timeout
-	_ok(s._tool.visible and s._tool.texture == Data.tool_tex("newspaper"), "Zeitung in der Hand")
+	if s._sied_kind != "":
+		# Siedler-Bögen (2.0): die Zeitung ist gezeichnet, die Figur zeigt die Zeilen "Zeitung lesen"
+		var row: int = s._layers["fig"].frame / 8
+		_ok(s._sied_kind == "frei" and row / 3 == int(Settler.SIED_FREI["zeitung"]), "Zeitung in der Hand (Bogen-Zeile %d)" % row)
+	else:
+		_ok(s._tool.visible and s._tool.texture == Data.tool_tex("newspaper"), "Zeitung in der Hand")
 	# Kinder lernen schneller
 	var xp0 := 0.0
 	var xp1 := 0.0
