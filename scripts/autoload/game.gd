@@ -1523,6 +1523,7 @@ func after_load(data: Dictionary) -> void:
 	state_load.emit(data, rules_old)
 	Retired.give_back()
 	ensure_min_people()
+	World.fix_duplicate_names()  # josh 2026-10-28: dreimal „Lena III“
 	if rules_old < RULES:
 		rules_due = true
 	else:

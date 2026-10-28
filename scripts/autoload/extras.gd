@@ -320,6 +320,8 @@ func autotest_setup(args: Dictionary, main) -> void:
 		_tut_test()
 	if args.has("lasttest"):
 		_last_two_test(w)
+	if args.has("nametest"):
+		_name_test(w)
 	if args.has("cartshot"):
 		await CartTest.run(main, args)
 
@@ -482,3 +484,30 @@ func _last_two_test(w) -> void:
 		if not o:
 			fails += 1
 	print("Letzte zwei ", "OK" if fails == 0 else "FEHLER", " (%d Fehler)" % fails)
+
+
+## --nametest=1: viele Neugeborene ohne doppelten Namen (auch mehr, als die Liste Namen hat), alter Spielstand
+## mit dreimal „Lena III“ wird bereinigt, der Älteste behält den Namen. Druckt „Namen OK/FEHLER“.
+func _name_test(w) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 5
+	var n_pool: int = Data.names.get("f", []).size()
+	for i in n_pool * 2 + 5:
+		w.spawn_settler({"name": w.unique_name("f", rng), "sex": "f", "age": 1.0, "x": 30, "y": 30})
+	var names := {}
+	var dup := 0
+	for o in Sea.all_worlds():
+		for x in o.settlers:
+			if names.has(x.display_name):
+				dup += 1
+			names[x.display_name] = true
+	print("Namen ", "OK" if dup == 0 else "FEHLER", " %d Siedler, %d doppelt (Liste: %d Frauennamen)" % [names.size(), dup, n_pool])
+	var three: Array = w.settlers.slice(0, 3)
+	for i in 3:
+		three[i].display_name = "Lena III"
+		three[i].age = 30.0 - i
+	var fixed := World.fix_duplicate_names()
+	var ok2: bool = fixed == 2 and three[0].display_name == "Lena III" and three[1].display_name != three[2].display_name \
+		and three[1].display_name.begins_with("Lena ") and not three[1].display_name.ends_with(" III")
+	print("Namen ", "OK" if ok2 else "FEHLER", " dreimal Lena III bereinigt: %s, %s, %s" % [three[0].display_name, three[1].display_name, three[2].display_name])
+	print("Namen ", "OK" if dup == 0 and ok2 else "FEHLER", " (Ende)")

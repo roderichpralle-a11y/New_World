@@ -1653,6 +1653,12 @@ das Spiel nicht mehr durch Tod. Beim Laden (`Game.after_load` → `ensure_min_pe
 weniger als 2 Siedlern auf der Heimatinsel am Lagerfeuer erwachsene Siedler (20 Jahre, frei) dazu. Test
 `--lasttest=1` („Letzte zwei OK/FEHLER“).
 
+## Eindeutige Namen (josh 2026-10-28)
+`World.unique_name` wählt einen Namen, den im ganzen Spiel niemand trägt (`World.used_names`: alle Inseln und
+Schiffe). Sind alle Namen der Liste vergeben, bekommt ein zufälliger die nächste freie Zahl (`next_free`: II bis XX,
+dann 22, 23 …). Vorher war die Zahl zufällig und nur die eigene Insel zählte (dreimal „Lena III“). Beim Laden
+benennt `World.fix_duplicate_names` doppelte Namen um, der Älteste behält seinen. Test `--nametest=1`.
+
 ## Straßen, Deiche und Förster (josh 2026-10-11, `scripts/world/land.gd`)
 
 Bau-Reiter „Land und Wege“ (Kategorie `land`, Symbol `weg`). Alle drei sind 1x1-Bodengebäude mit
