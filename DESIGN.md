@@ -1710,6 +1710,21 @@ Schiffe). Sind alle Namen der Liste vergeben, bekommt ein zufälliger die nächs
 dann 22, 23 …). Vorher war die Zahl zufällig und nur die eigene Insel zählte (dreimal „Lena III“). Beim Laden
 benennt `World.fix_duplicate_names` doppelte Namen um, der Älteste behält seinen. Test `--nametest=1`.
 
+## Forschung vormerken (josh 2026-10-28)
+Tippt der Spieler im Entwicklungsbaum eine verfügbare Forschung an, während eine andere läuft, wird sie vorgemerkt
+(`Game.queue_research`, `research.next` im Spielstand). Es gibt genau einen Platz; eine neue Wahl ersetzt die alte,
+nochmal antippen nimmt sie zurück. Ist die laufende fertig, startet `_finish_research` die vorgemerkte (fehlen
+Kosten, kommt eine Meldung und nichts startet). Im Baum steht „als Nächstes“ mit Haken. Test `--queuetest=1`.
+
+## Felder und Obstgärten nacheinander setzen (josh 2026-10-28)
+Getreidefeld (`feld`) und Obstgarten (`obstgarten`) haben `"repeat": true` wie Straßen: nach „Hier bauen“ bleibt
+die Platzierung offen, Abbrechen beendet sie.
+
+## Schrift auf inaktiven Knöpfen (josh 2026-10-28)
+`UiTheme.TEXT_DISABLED` (helles Beige `#f3e6c8`) ist die Schrift auf inaktiven Knöpfen, damit sie auf dem braunen
+Holz lesbar bleibt (vorher halb durchsichtiges Dunkelbraun). Der Knopf selbst ist dafür dunkler (`bd.modulate_color`),
+nicht mehr halb durchsichtig.
+
 ## Straßen, Deiche und Förster (josh 2026-10-11, `scripts/world/land.gd`)
 
 Bau-Reiter „Land und Wege“ (Kategorie `land`, Symbol `weg`). Alle drei sind 1x1-Bodengebäude mit

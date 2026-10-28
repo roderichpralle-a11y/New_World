@@ -1147,6 +1147,13 @@ func _tech_row(t: String) -> Control:
 	mid.add_theme_constant_override("v_separation", 2)
 	rw.h.add_child(mid)
 	rw.h.move_child(mid, tv.get_index() + 1)
+	var queued: bool = st == "available" and Game.research.get("next", "") == t
+	if queued:
+		tip = tr("Vorgemerkt: kommt als Nächstes dran. Antippen nimmt es zurück.")
+		box.modulate = Color(1.0, 0.95, 0.8)
+		mid.add_child(UiTheme.label(tr("als Nächstes"), 13, UiTheme.TEXT, true))
+	elif st == "available" and Game.research.current != "":
+		tip = tr("Vormerken: kommt als Nächstes dran")
 	if st != "done":
 		if t in Game.research.paid:
 			mid.add_child(UiTheme.label(tr("bezahlt"), 12, Win.DIM))
@@ -1165,7 +1172,7 @@ func _tech_row(t: String) -> Control:
 		if pct > 0:  # keine Punkte mehr (josh 2026-10-19), nur der Fortschritt einer begonnenen Forschung
 			mid.add_child(UiTheme.label("%d%%" % int(pct), 13, UiTheme.TEXT, true))
 	var bt: Button = rw.button
-	bt.icon = Data.icon({"available": "play", "current": "uhr", "done": "haken", "locked": "wissen",
+	bt.icon = Data.icon("haken") if queued else Data.icon({"available": "play", "current": "uhr", "done": "haken", "locked": "wissen",
 		"exam": "zeitalter", "soon": "uhr"}.get(st, "play"))
 	bt.expand_icon = true
 	bt.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -1211,13 +1218,10 @@ func _on_tech_pressed(tid: String, _b: Button, d: Label) -> void:
 	var def: Dictionary = Data.techs[tid]
 	match Game.tech_state(tid):
 		"available":
-			var err := Game.start_research(tid)
-			if err != "":
-				toast(err, "wissen")
-			else:
-				toast(tr("Forschung gestartet: %s") % def.name, "wissen")
-				if _forscher_count() == 0:
-					toast(tr("Tipp: Gib einem Siedler den Beruf Forscher."), "person")
+			var running: bool = Game.research.current != ""
+			toast(Game.queue_research(tid), "wissen")  # läuft schon eine: vormerken (josh 2026-10-28)
+			if not running and Game.research.current == tid and _forscher_count() == 0:
+				toast(tr("Tipp: Gib einem Siedler den Beruf Forscher."), "person")
 		"locked":
 			toast(d.text, "wissen")
 		"exam":
