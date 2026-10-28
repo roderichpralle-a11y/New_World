@@ -1683,7 +1683,7 @@ func confirm_placement() -> bool:
 	elif not settlers.any(func(s): return s.is_adult() and (s.job == "baumeister" or s.job == "frei")):
 		Game.notify(tr("Tipp: Mache einen Siedler zum Baumeister, damit gebaut wird."), "hammer")
 	if b.def.get("repeat", false):
-		_update_ghost()  # Straßen, Deiche, Setzlinge: gleich den nächsten setzen
+		_update_ghost()  # Straßen, Deiche, Setzlinge, Felder, Obstgärten: gleich den nächsten setzen
 		return true
 	cancel_placement()
 	return true

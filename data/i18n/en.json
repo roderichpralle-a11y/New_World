@@ -2378,5 +2378,11 @@
  "Anzeigegröße": "Display size",
  "Kleiner zeigt mehr vom Spiel und von den Menüs. Gilt nur auf diesem Gerät.": "Smaller shows more of the game and the menus. Applies only to this device.",
  "%s überlebt knapp. Die letzten zwei Siedler sterben nicht.": "%s barely survives. The last two settlers do not die.",
- "Auf %s leben wieder zwei Siedler: %s kommen dazu.": "Two settlers live on %s again: %s join."
+ "Auf %s leben wieder zwei Siedler: %s kommen dazu.": "Two settlers live on %s again: %s join.",
+ "%s ist nicht mehr vorgemerkt.": "%s is no longer queued.",
+ "%s kommt als Nächstes dran, wenn %s fertig ist.": "%s comes next, once %s is finished.",
+ "Jetzt wird %s erforscht (vorgemerkt).": "Now researching %s (queued).",
+ "Die vorgemerkte Forschung %s kann nicht starten: %s": "The queued research %s cannot start: %s",
+ "Vorgemerkt: kommt als Nächstes dran. Antippen nimmt es zurück.": "Queued: comes next. Tap to unqueue.",
+ "Vormerken: kommt als Nächstes dran": "Queue: comes next"
 }
