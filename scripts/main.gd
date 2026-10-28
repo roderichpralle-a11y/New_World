@@ -549,6 +549,18 @@ func _maybe_autotest() -> void:
 		if args.has("look"):
 			Game.select(null)
 			camera.focus(world.cell_to_pos(world.center))
+		if args.has("fieldshot"):  # Testhilfe 2.0 (josh 2026-10-28): je 3x2 Felder in den 4 Wachstumsstufen
+			var c0: Vector2i = world.center + Vector2i(-7, 3)
+			for st in 4:
+				for fy in 2:
+					for fx in 3:
+						var fc := c0 + Vector2i(st * 4 + fx, fy)
+						if world.can_place("feld", fc):
+							var fb: Building = world.place_building("feld", fc, true)
+							fb.farm_state = ["fallow", "growing", "growing", "ripe"][st]
+							fb.farm_time = Game.time_days - (0.0 if st < 2 else fb.grow_days() * 0.7)
+							fb.refresh()
+			camera.focus(world.cell_to_pos(c0 + Vector2i(7, 1)))
 		if args.has("zoom"):  # Testhilfe 2.0.0: Bildschirmfoto mit festem Zoom (Details der neuen Bilder)
 			camera.zoom = Vector2.ONE * float(args.zoom)
 		if args.has("rulesdialog"):

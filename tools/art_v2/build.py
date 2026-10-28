@@ -784,6 +784,61 @@ def nature_img(name, cell):
     return fit(img, cell[2] * S, (cell[3] - 1) * S)
 
 
+# Felder (josh 2026-10-28): jede Kachel ganz mit Ackerboden gefüllt, darauf Pflanzen in drei Reihen.
+# Boden und Pflanzen stammen aus den 4 Phasen "Feldfrüchte" im Bogen oberflaeche; nebeneinander
+# gesetzte Felder ergeben einen durchgehenden Acker.
+FIELD_SRC = [(28, 660, 118, 778), (120, 660, 220, 778), (220, 660, 322, 778), (322, 660, 432, 778)]
+
+
+def _split_field(img):
+    """Teilt ein Phasenbild in Pflanze (über dem Boden) und Bodenstreifen."""
+    a = np.asarray(img)
+    op = a[:, :, 3] > 0
+    width = op.sum(axis=1)
+    top = int(np.argmax(width >= 0.85 * width.max()))
+    plant = img.crop((0, 0, img.width, top + 2))
+    bb = plant.getbbox()
+    soil = img.crop((int(img.width * 0.12), top + 6, int(img.width * 0.88), img.height - 6))
+    return plant.crop(bb) if bb else plant, soil
+
+
+def gen_fields(atlas):
+    T = 16 * S
+    parts = [_split_field(grab(OB, r, keep=0.05)) for r in FIELD_SRC]
+    # Ackerboden: Farben aus dem Bodenstreifen des Bogens, als Pixelkrümel in 2er-Stufen verteilt,
+    # mit drei dunkleren Furchen (unter jeder Pflanzenreihe)
+    pal = parts[3][1].convert("RGB").quantize(5).convert("RGB")
+    cols = sorted({c for c in pal.getdata()}, key=lambda c: sum(c))
+    base, dark, light = np.array(cols[len(cols) // 2]), np.array(cols[0]), np.array(cols[-1])
+    rs = np.random.RandomState(7)
+    n = rs.rand(T // 2, T // 2)
+    a = np.zeros((T // 2, T // 2, 3))
+    a[:] = base
+    a[n < 0.22] = (base + dark) / 2
+    a[n < 0.07] = dark
+    a[n > 0.90] = (base + light) / 2
+    yy = np.arange(T // 2)[:, None]
+    for fy in (10, 20, 31):
+        a[(np.abs(yy - fy) < 1).repeat(T // 2, axis=1)] = dark
+        a[(yy == fy - 2).repeat(T // 2, axis=1)] = (base + light) / 2
+    a = np.kron(a, np.ones((2, 2, 1)))
+    soil = Image.fromarray(np.dstack([a, np.full((T, T), 255)]).astype(np.uint8), "RGBA")
+    ripe_h = parts[3][0].height
+    f = 24.0 / ripe_h  # reifer Weizen 24 HD-Pixel hoch (6 Spielpixel)
+    for i, (plant, _) in enumerate(parts):
+        tile = soil.copy()
+        p = scale(plant, f)
+        for row, fy in enumerate((19, 39, 61)):
+            xs = (10, 32, 54) if row % 2 == 0 else (21, 43)
+            if i == 3:
+                xs = (8, 24, 40, 56) if row % 2 == 0 else (16, 32, 48)
+            for x in xs:
+                px = x - p.width // 2
+                py = fy + 1 - p.height
+                tile.alpha_composite(p.crop((max(0, -px), max(0, -py), p.width, p.height)), (max(0, px), max(0, py)))
+        atlas.paste(tile, (i * T, 128 * S))
+
+
 def gen_objects(cells):
     atlas = old_hd("objects")
     for name, cell in OBJ1.items():
@@ -812,10 +867,7 @@ def gen_objects(cells):
         a[:, :, 3] = np.clip((1.15 - d) * 400, 0, 220).astype(np.uint8)
         put(atlas, Image.fromarray(a, "RGBA"), 64 + f * 16, 112, 16, 16, align="center")
     # Felder (4 Wachstumsstufen) und Obstgarten (4 Stufen) aus Effekte und Wachstum
-    fields = [(28, 660, 118, 778), (120, 660, 220, 778), (220, 660, 322, 778), (322, 660, 432, 778)]
-    for i, r in enumerate(fields):
-        img = grab(OB, r, keep=0.05)
-        put(atlas, fit(img, 16 * S, 16 * S, upscale=True), i * 16, 128, 16, 16, align="center")
+    gen_fields(atlas)
     orchard = [(472, 660, 545, 782), (545, 655, 638, 782), (638, 652, 738, 782), (738, 652, 834, 782)]
     for i, r in enumerate(orchard):
         img = grab(OB, r, keep=0.05)

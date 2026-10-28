@@ -31,6 +31,9 @@ bleiben bei der alten Grafik; dieser Zweig wird nicht nach main gemischt, solang
   Fest- und Protest-Videos.
 - **Bewegungen aus den Bildern:** Mühlenflügel drehen sich (`anim_mill`), Lagerfeuer flackert, Fahne
   weht, Springbrunnen glitzert, Hologramm flimmert, Leuchtfeuer, Schiffe schaukeln, Fischgrund und Wasser.
+- **Felder (josh 2026-10-28):** `gen_fields` füllt jede Feldkachel ganz: Ackerboden aus den Farben des
+  Bogens (Krümel in 2er-Stufen, drei Furchen), darauf die Pflanzen der 4 Phasen aus `oberflaeche` in drei
+  Reihen (reif: dichter Weizen). Nebeneinander gesetzte Felder bilden einen Acker. Testbild `--fieldshot=1`.
 - **Siedler-Bögen (josh 2026-10-28):** 42 Bögen in `tools/art_v2/src/siedler` (Auftrag: Kästchen 128,
   8 Bilder je Zeile, je Bewegung 3 Zeilen vorn/hinten/seitlich nach rechts, Schlafen 1 Zeile, Füße 8 Pixel
   über dem Rand). `gen_settler_sheets` verkleinert auf Kästchen 60 nach `assets/sprites_hd/sied/` (Speicher
