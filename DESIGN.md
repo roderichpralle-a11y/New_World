@@ -1748,6 +1748,8 @@ nicht mehr halb durchsichtig.
   offenem Wasser, Innenecken bei nur schräg liegendem Wasser (`World.dike_mask`, 8 Bit, Spalte m & 15, Zeile
   m >> 4). Ein fertiger Deich im Wasser, der an kein offenes Wasser mehr grenzt, wird von selbst abgerissen und
   Land (`Land.absorb_inner_dikes`). Fischgründe unter einem fertigen Deich verschwinden.
+- Zaun selbst gezeichnet (`tools/art_v2/zaun_v2.py`, build.py `gen_fence`): Pfosten mit zwei Querlatten,
+  hüfthoch zu den neuen Figuren, ersetzt die Zaunzeile in objects3.
 - Bäume: nodes.json `"yield_per": 1.5`, abwechselnd 1 und 2 Holz je Arbeitsschritt (`ResNode.harvest_one`).
 - Grasmuster blendet zum Sand hin weich aus (`grass_tex.gdshader`, Maske `World._update_grass_mask`).
 - Leere Häuser verbrauchen nichts: Hausbedürfnisse zählen nur Bewohner, Häuser ohne Bewohner zählen auch nicht

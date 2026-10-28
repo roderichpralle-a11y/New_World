@@ -968,12 +968,31 @@ def _mask_tile(shapes, m):
     return rot(img, k)
 
 
+def gen_fence(atlas=None):
+    """Zaun für Version 2 selbst gezeichnet (josh 2026-10-28, zaun_v2.py): ersetzt die Zaunzeile in objects3."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("zaun_v2", os.path.join(ROOT, "tools", "art_v2", "zaun_v2.py"))
+    z = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(z)
+    own = atlas is None
+    if own:
+        atlas = Image.open(os.path.join(OUT, "objects3.png")).convert("RGBA")
+    st = z.strip()
+    T = 16 * S
+    for m in range(16):
+        clear(atlas, m * 16, CONN_Y["fence"], 16, 16)
+        atlas.alpha_composite(st.crop((m * T, 0, m * T + T, T)), (m * T, CONN_Y["fence"] * S))
+    if own:
+        save(atlas, "objects3")
+
+
 def gen_objects3():
     atlas = old_hd("objects3")
     for kind in CONN_ROWS:
         shapes = _conn_tiles(kind)
         for m in range(16):
             put(atlas, _mask_tile(shapes, m), m * 16, CONN_Y[kind], 16, 16, align="center")
+    gen_fence(atlas)
     for name, x, r in (("plant_mark", 0, (688, 805, 848, 885)), ("clear_mark", 16, (688, 905, 848, 990))):
         img = sheet(V).crop(r).convert("RGBA")
         paper = cut.paper_mask(np.asarray(img.convert("RGB")))
