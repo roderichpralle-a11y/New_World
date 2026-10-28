@@ -1750,6 +1750,8 @@ nicht mehr halb durchsichtig.
   Land (`Land.absorb_inner_dikes`). Fischgründe unter einem fertigen Deich verschwinden.
 - Zaun selbst gezeichnet (`tools/art_v2/zaun_v2.py`, build.py `gen_fence`): Pfosten mit zwei Querlatten,
   hüfthoch zu den neuen Figuren, ersetzt die Zaunzeile in objects3.
+- Wege (Straße, Kies, Ziegel) und Hecken (build.py `gen_paths`): jedes Stück feldbreit, an offenen Seiten
+  1 Spielpixel Abstand, nur offene Enden rund; Muster selbst gezeichnet in den Farben der Bögen.
 - Bäume: nodes.json `"yield_per": 1.5`, abwechselnd 1 und 2 Holz je Arbeitsschritt (`ResNode.harvest_one`).
 - Grasmuster blendet zum Sand hin weich aus (`grass_tex.gdshader`, Maske `World._update_grass_mask`).
 - Leere Häuser verbrauchen nichts: Hausbedürfnisse zählen nur Bewohner, Häuser ohne Bewohner zählen auch nicht

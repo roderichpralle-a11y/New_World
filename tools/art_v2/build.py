@@ -968,6 +968,112 @@ def _mask_tile(shapes, m):
     return rot(img, k)
 
 
+def gen_paths(atlas=None):
+    """Wege und Hecken für Version 2 (josh 2026-10-28): jedes Stück so breit wie ein Feld (nur an offenen
+    Seiten 1 Spielpixel Abstand), gerade Stücke stoßen nahtlos aneinander, nur offene Enden sind rund.
+    Muster selbst gezeichnet in den Farben der Bögen, nahtlos mit Feldbreite, in halben Spielpixeln.
+    Ersetzt die Zeilen road, gravel, bricks und hedge in objects3 (Maske N=1, O=2, S=4, W=8)."""
+    import random
+    H = 32
+    own = atlas is None
+    if own:
+        atlas = Image.open(os.path.join(OUT, "objects3.png")).convert("RGBA")
+
+    def tex(kind):
+        rnd = random.Random({"road": 11, "gravel": 12, "bricks": 13, "hedge": 14}[kind])
+        img = Image.new("RGBA", (H, H))
+        d = ImageDraw.Draw(img)
+        px = img.load()
+
+        def put(x, y, c):
+            px[x % H, y % H] = c + (255,)
+        if kind == "road":
+            d.rectangle((0, 0, H, H), fill=(222, 174, 98, 255))
+            for _ in range(140):
+                put(rnd.randrange(H), rnd.randrange(H), rnd.choice([(232, 186, 112), (210, 160, 88), (228, 178, 104)]))
+            for _ in range(10):
+                x, y = rnd.randrange(H), rnd.randrange(H)
+                put(x, y, (176, 146, 116)); put(x + 1, y, (196, 168, 136)); put(x + 1, y + 1, (150, 122, 96))
+        elif kind == "gravel":
+            d.rectangle((0, 0, H, H), fill=(126, 126, 142, 255))
+            for _ in range(150):
+                x, y = rnd.randrange(H), rnd.randrange(H)
+                c = rnd.choice([(150, 150, 166), (168, 168, 184), (140, 140, 152), (184, 184, 190)])
+                put(x, y, c); put(x + 1, y, c); put(x, y + 1, c)
+                put(x + 1, y + 1, (108, 108, 122))
+        elif kind == "bricks":
+            mortar = (128, 70, 54)
+            d.rectangle((0, 0, H, H), fill=mortar + (255,))
+            for row in range(8):
+                y0 = row * 4
+                off = 0 if row % 2 == 0 else 4
+                for b in range(4):
+                    x0 = b * 8 + off
+                    c = rnd.choice([(190, 112, 80), (198, 122, 88), (180, 106, 74), (186, 118, 84)])
+                    for yy in range(y0, y0 + 3):
+                        for xx in range(x0, x0 + 7):
+                            put(xx, yy, c)
+                    for xx in range(x0, x0 + 7):
+                        put(xx, y0, tuple(min(255, k + 22) for k in c))
+                    put(x0 + 6, y0 + 2, tuple(k - 24 for k in c))
+        else:  # hedge
+            d.rectangle((0, 0, H, H), fill=(18, 84, 50, 255))
+            for _ in range(70):
+                x, y, r = rnd.randrange(H), rnd.randrange(H), rnd.choice([2, 2, 3])
+                for dy in range(-r, r + 1):
+                    for dx in range(-r, r + 1):
+                        if dx * dx + dy * dy <= r * r:
+                            put(x + dx, y + dy, (28, 104, 58) if dy > -r + 1 else (46, 128, 62))
+                put(x - 1, y - r + 1, (96, 164, 52))
+            for _ in range(40):
+                put(rnd.randrange(H), rnd.randrange(H), rnd.choice([(112, 178, 44), (10, 64, 44)]))
+        return img
+
+    edge_col = {"road": (178, 132, 76), "gravel": (92, 92, 106), "bricks": (112, 58, 44), "hedge": (8, 56, 38)}
+    for kind in ("road", "gravel", "bricks", "hedge"):
+        t = tex(kind)
+        tp = t.load()
+        for m in range(16):
+            con = [bool(m & 1), bool(m & 2), bool(m & 4), bool(m & 8)]  # N O S W
+            e, r = 2, 9
+            x0 = 0 if con[3] else e
+            x1 = H - 1 if con[1] else H - 1 - e
+            y0 = 0 if con[0] else e
+            y1 = H - 1 if con[2] else H - 1 - e
+            ins = [[False] * H for _ in range(H)]
+            for y in range(y0, y1 + 1):
+                for x in range(x0, x1 + 1):
+                    ok = True
+                    for (open_a, open_b, cx, cy) in ((not con[0], not con[3], x0 + r, y0 + r), (not con[0], not con[1], x1 - r, y0 + r),
+                                                     (not con[2], not con[3], x0 + r, y1 - r), (not con[2], not con[1], x1 - r, y1 - r)):
+                        if open_a and open_b and ((x - cx) * (1 if cx > x0 + r - 1 and x < cx else 0) or True):
+                            inx = (x < cx) if cx == x0 + r else (x > cx)
+                            iny = (y < cy) if cy == y0 + r else (y > cy)
+                            if inx and iny and (x - cx) ** 2 + (y - cy) ** 2 > r * r:
+                                ok = False
+                    ins[y][x] = ok
+            img = Image.new("RGBA", (H, H), (0, 0, 0, 0))
+            ip = img.load()
+            for y in range(H):
+                for x in range(H):
+                    if not ins[y][x]:
+                        continue
+                    border = False
+                    for dx, dy, side in ((0, -1, 0), (1, 0, 1), (0, 1, 2), (-1, 0, 3)):
+                        nx, ny = x + dx, y + dy
+                        if 0 <= nx < H and 0 <= ny < H:
+                            if not ins[ny][nx]:
+                                border = True
+                        elif not con[side]:
+                            border = True
+                    ip[x, y] = (edge_col[kind] + (255,)) if border else tp[x, y]
+            T = 16 * S
+            clear(atlas, m * 16, CONN_Y[kind], 16, 16)
+            atlas.alpha_composite(img.resize((T, T), Image.NEAREST), (m * T, CONN_Y[kind] * S))
+    if own:
+        save(atlas, "objects3")
+
+
 def gen_fence(atlas=None):
     """Zaun für Version 2 selbst gezeichnet (josh 2026-10-28, zaun_v2.py): ersetzt die Zaunzeile in objects3."""
     import importlib.util
@@ -993,6 +1099,7 @@ def gen_objects3():
         for m in range(16):
             put(atlas, _mask_tile(shapes, m), m * 16, CONN_Y[kind], 16, 16, align="center")
     gen_fence(atlas)
+    gen_paths(atlas)
     for name, x, r in (("plant_mark", 0, (688, 805, 848, 885)), ("clear_mark", 16, (688, 905, 848, 990))):
         img = sheet(V).crop(r).convert("RGBA")
         paper = cut.paper_mask(np.asarray(img.convert("RGB")))
