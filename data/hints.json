@@ -2,287 +2,287 @@
  "_info": "Hinweis-Fenster (josh 2026-10-17, Texte aus dem Dokument 'Hinweis-Fenster: Ereignisse und Texte'). Schlüssel: age_<Zeitalter 0-7>, tier_<Stufe>, tech_<Forschung>, first_<Ereignis>. Je Eintrag name (Überschrift), text, optional icon. Siehe scripts/autoload/hints.gd.",
  "age_0": {
   "name": "Die Steinzeit",
-  "text": "Zwei Siedler sind auf der Insel gelandet. Sammelt Beeren, fällt Holz und baut Hütten, damit Kinder kommen. Im Herbst und Winter wird geheizt: Im Winter braucht jeder Siedler etwa 1 Holz am Tag. Am Lagerfeuer könnt ihr Steinwerkzeuge, Flechtkörbe und die Schrift erforschen."
+  "text": "Sammelt Beeren, fällt Holz und baut Hütten, damit Kinder kommen. Im Winter braucht jeder Siedler etwa 1 Holz am Tag."
  },
  "age_1": {
   "name": "Du hast die Antike erreicht",
-  "text": "Ihr könnt jetzt Ziegel brennen, Brot backen, Straßen pflastern und Kinder in die Schule schicken. Ab jetzt verbrauchen Forscher Tontafeln. Ohne Tontafeln wird nur mit 20 % des Tempos geforscht. Baut darum früh eine Lehmgrube und eine Tafelmacherei. Mit Gelehrsamkeit kommt die Verwaltung."
+  "text": "Ziegel, Brot, Straßen und Schule sind jetzt möglich. Forscher brauchen ab jetzt Tontafeln, ohne sie geht es nur langsam."
  },
  "age_2": {
   "name": "Du hast das Mittelalter erreicht",
-  "text": "Ihr könnt Eisenwerkzeuge, den Eisenpflug, Waffen und den Schiffsbau erforschen. Mit dem Schiffsbau entdeckt und besiedelt ihr neue Inseln. Mit Waffenkunde kommen Wachturm und Jäger gegen wilde Tiere und Piraten. Der Verwalter kann jetzt Berufe Verstorbener automatisch neu besetzen. Forscher verbrauchen weiter Tontafeln, aber weniger. Ohne Tontafeln wird nur mit 20 % des Tempos geforscht."
+  "text": "Eisen, Waffen und Schiffe sind jetzt möglich. Mit Schiffen entdeckt ihr neue Inseln."
  },
  "age_3": {
   "name": "Du hast die Renaissance erreicht",
-  "text": "Glas und Papier bringen die Wissenschaft voran. Forscher verbrauchen jetzt Papier statt Tontafeln. Ohne Papier wird nur mit 20 % des Tempos geforscht, baut darum eine Papiermühle. Mit dem Buchdruck und der Universität wird das Forschen viel schneller. Die Astronomie sagt den Winter schon im Sommer voraus."
+  "text": "Forscher brauchen jetzt Papier statt Tontafeln. Baut eine Papiermühle."
  },
  "age_4": {
   "name": "Du hast die Industrialisierung erreicht",
-  "text": "Dampfmaschinen, Stahl und Fabriken machen alle Werkstätten schneller. Stahl braucht viel Eisen und Kohle, plant die Minen danach. Mietshäuser geben 10 Siedlern Platz. Konserven verderben nie."
+  "text": "Dampf, Stahl und Fabriken machen alle Werkstätten schneller. Stahl braucht viel Eisen und Kohle."
  },
  "age_5": {
   "name": "Du hast die Moderne erreicht",
-  "text": "Das Kraftwerk macht Strom. Forscher verbrauchen ab jetzt Papier und Strom, ohne beides wird nur mit 20 % des Tempos geforscht. Impfung und Kühlschränke halten die Siedler gesund und das Essen frisch. Im Gewächshaus wachsen Äpfel auch im Winter. Wohnblöcke geben 16 Siedlern Platz."
+  "text": "Das Kraftwerk macht Strom. Forscher brauchen jetzt Papier und Strom."
  },
  "age_6": {
   "name": "Du hast das Informationszeitalter erreicht",
-  "text": "Computer und Internet machen das Forschen sehr schnell. Forscher verbrauchen jetzt Strom und Elektronik aus dem Elektronikwerk, ohne beides wird nur mit 20 % des Tempos geforscht. Der Solarpark macht Strom ohne Kohle. Logistik gibt allen Lagern die Hälfte mehr Platz."
+  "text": "Computer machen das Forschen sehr schnell. Forscher brauchen jetzt Strom und Elektronik."
  },
  "age_7": {
   "name": "Du hast die Zukunft erreicht",
-  "text": "Das KI-Zentrum forscht mit und teilt freie Siedler selbst auf die Berufe auf, die fehlen. Der Fusionsreaktor liefert sehr viel Strom. Das letzte Ziel ist die Zukunftsstadt, sie braucht alle Forschungen dieses Zeitalters und das Goldene Zeitalter."
+  "text": "Das letzte Ziel ist die Zukunftsstadt. Sie braucht alle Forschungen dieses Zeitalters."
  },
  "tier_2": {
   "name": "Neue Stufe: Handwerk",
-  "text": "Ihr könnt jetzt Zimmerei, Töpferei, Mühlenbau, Räuchern und den Steinbruch erforschen. Mit der Zimmerei baut ihr Holzhäuser für 4 Siedler. Die Töpferei bringt Lehm, Ziegel und Tontafeln. Ab der Antike wird ohne Tontafeln nur mit 20 % des Tempos geforscht. Vorratshaltung macht alle Lager größer."
+  "text": "Zimmerei, Töpferei, Mühlenbau, Räuchern und Steinbruch sind jetzt erforschbar. Holzhäuser geben 4 Siedlern Platz."
  },
  "tier_4": {
   "name": "Neue Stufe: Bergbau und Metall",
-  "text": "Ihr könnt Bergbau, Eisenverhüttung, Schmiedekunst, Gelehrsamkeit und Deichbau erforschen. Ab jetzt können Piraten kommen, wenn 8 Siedler auf einer Insel leben. Die Waffenschmiede macht Speere und Säbel, mit denen sich die Siedler wehren. Gelehrsamkeit bringt die Bibliothek und die Verwaltung."
+  "text": "Bergbau, Eisen und Waffen sind jetzt erforschbar. Ab 8 Siedlern auf einer Insel können Piraten kommen."
  },
  "tier_6": {
   "name": "Neue Stufe: Neue Welt",
-  "text": "Navigation bringt den Hafen und die Kogge, die viel mehr lädt als ein Ruderboot. Mit dem Seehandel kommen der Große Hafen, Kais, Galeonen und öfter fremde Händler. Der Leuchtturm macht Erkundungen doppelt so schnell. Das Goldene Zeitalter bringt das Denkmal für alle Inseln."
+  "text": "Hafen und Kogge bringen mehr Ladung. Der Leuchtturm macht Erkundungen doppelt so schnell."
  },
  "tier_8": {
   "name": "Neue Stufe: Buchdruck und Wissenschaft",
-  "text": "Der Buchdruck macht alle Forschung ein Viertel schneller. In der Universität forschen vier Forscher sehr schnell. Fruchtwechsel bringt 40 % mehr Ernte, Anatomie lässt die Siedler länger leben."
+  "text": "Der Buchdruck macht alle Forschung ein Viertel schneller. In der Universität forschen vier Forscher sehr schnell."
  },
  "tier_10": {
   "name": "Neue Stufe: Fabriken",
-  "text": "Die Fabrik baut Maschinen und macht alle Werkstätten schneller. Die Eisenbahn lässt die Siedler schneller laufen und mehr tragen. Mietshäuser geben 10 Siedlern Platz, Kunstdünger bringt mehr Ernte."
+  "text": "Die Fabrik macht alle Werkstätten schneller. Mietshäuser geben 10 Siedlern Platz."
  },
  "tier_12": {
   "name": "Neue Stufe: Motoren",
-  "text": "Motoren machen das Bauen und die Felder schneller und die Schiffe um die Hälfte schneller. Wohnblöcke geben 16 Siedlern Platz. Im Gewächshaus wachsen Äpfel das ganze Jahr."
+  "text": "Motoren machen Bauen, Felder und Schiffe schneller. Wohnblöcke geben 16 Siedlern Platz."
  },
  "tier_14": {
   "name": "Neue Stufe: Netze",
-  "text": "Das Internet macht die Forschung um die Hälfte schneller und bringt das Forschungslabor. Logistik gibt allen Lagern mehr Platz, Gentechnik mehr Ernte und ein längeres Leben."
+  "text": "Das Internet macht die Forschung um die Hälfte schneller. Logistik gibt allen Lagern mehr Platz."
  },
  "tier_16": {
   "name": "Neue Stufe: Die Zukunft",
-  "text": "Robotik macht alle Arbeit schneller. Jetzt fehlt nur noch die Zukunftsstadt, das Ziel aller Zeitalter. Sie braucht Elektronik, Gold und viel Strom."
+  "text": "Jetzt fehlt nur noch die Zukunftsstadt. Sie braucht Elektronik, Gold und viel Strom."
  },
  "tech_schrift": {
   "name": "Neu: Schreibstube",
-  "text": "In der Schreibstube forschen zwei Forscher doppelt so schnell wie am Lagerfeuer. Gib einem Siedler den Beruf Forscher, dann geht er dorthin. Die Schreibstube lässt sich später in drei Stufen ausbauen."
+  "text": "Hier forschen zwei Forscher doppelt so schnell wie am Lagerfeuer."
  },
  "tech_gartenbau": {
   "name": "Neu: Obstgarten",
-  "text": "Im Obstgarten wachsen Äpfel, die satt machen und viele Vitamine haben. Ein Bauer pflegt ihn. Er wächst langsamer als Getreide, bringt aber mehr. Ohne Obst oder Gemüse bekommen die Siedler auf Dauer Skorbut."
+  "text": "Äpfel machen satt und haben viele Vitamine. Ein Bauer pflegt den Garten."
  },
  "tech_holzbearbeitung": {
   "name": "Neu: Sägegrube",
-  "text": "In der Sägegrube sägt ein Handwerker Holz zu Brettern. Bretter braucht ihr für Holzhäuser, Lager und fast alle Werkstätten. Stellt einen Handwerker ein, sobald sie steht."
+  "text": "Ein Handwerker sägt hier Bretter für Häuser und Werkstätten."
  },
  "tech_zimmerei": {
   "name": "Neu: Holzhaus",
-  "text": "Das Holzhaus gibt 4 Siedlern Platz, wer darin wohnt, bekommt öfter Kinder. Eine Hütte lässt sich im Infofenster zum Holzhaus ausbauen. Geheizt wird mit Holz aus dem Lager, im Winter etwa 1 Holz je Bewohner am Tag. Bauen geht ab jetzt 20 % schneller."
+  "text": "Das Holzhaus gibt 4 Siedlern Platz. Hütten lassen sich im Infofenster ausbauen."
  },
  "tech_toepferei": {
   "name": "Neu: Lehmgrube, Ziegelei, Tafelmacherei",
-  "text": "Ein Steinmetz sticht Lehm, die Ziegelei brennt daraus Ziegel für Steinhäuser. Die Tafelmacherei formt Tontafeln. Ab der Antike wird ohne Tontafeln nur mit 20 % des Tempos geforscht."
+  "text": "Lehm wird zu Ziegeln und Tontafeln. Ab der Antike brauchen Forscher Tontafeln."
  },
  "tech_muehlenbau": {
   "name": "Neu: Windmühle",
-  "text": "Die Windmühle mahlt Getreide zu Mehl. Mehl braucht ihr für die Bäckerei und die Forschung Backkunst. Legt vorher genug Getreidefelder an."
+  "text": "Die Windmühle mahlt Getreide zu Mehl für die Bäckerei."
  },
  "tech_raeuchern": {
   "name": "Neu: Räucherei",
-  "text": "Geräucherter Fisch macht viel länger satt und verdirbt langsamer. Fischer fangen ab jetzt schneller. Ein Koch arbeitet in der Räucherei."
+  "text": "Geräucherter Fisch macht länger satt und verdirbt langsamer. Ein Koch arbeitet hier."
  },
  "tech_steinbruch": {
   "name": "Neu: Steinbruch",
-  "text": "Der Steinbruch liefert endlos Stein, auch wenn die Felsen der Insel verbraucht sind. Ein Steinmetz arbeitet dort."
+  "text": "Liefert endlos Stein. Ein Steinmetz arbeitet hier."
  },
  "tech_maurerei": {
   "name": "Neu: Steinhaus und Großes Lager",
-  "text": "Das Steinhaus gibt 6 Siedlern Platz, Holzhäuser lassen sich dazu ausbauen. Das Große Lager fasst 1000 Raum. Beides braucht Ziegel. Zum Heizen braucht jeder Bewohner im Winter etwa 1 Holz am Tag, 1 Kohle ersetzt 2 Holz."
+  "text": "Das Steinhaus gibt 6 Siedlern Platz, das Große Lager fasst 1000. Beides braucht Ziegel."
  },
  "tech_backkunst": {
   "name": "Neu: Bäckerei",
-  "text": "Die Bäckerei backt aus Mehl Brot, das sehr lange satt macht. Getreidefeld, Windmühle und Bäckerei bilden eine Kette, alle drei brauchen Arbeiter. Mit Brot wachsen Siedlungen am besten."
+  "text": "Brot macht sehr lange satt. Feld, Mühle und Bäckerei brauchen je Arbeiter."
  },
  "tech_tierhaltung": {
   "name": "Neu: Hühnerhof",
-  "text": "Im Hühnerhof legen Hühner Eier, gefüttert mit Getreide. Ein Bauer versorgt sie. Eier bringen Abwechslung auf den Tisch."
+  "text": "Hühner legen Eier, gefüttert mit Getreide. Ein Bauer versorgt sie."
  },
  "tech_koehlerei": {
   "name": "Neu: Köhlerei",
-  "text": "Der Meiler macht aus Holz Kohle. Kohle braucht ihr für Eisen und zum Heizen, sie heizt doppelt so gut wie Holz."
+  "text": "Der Meiler macht aus Holz Kohle. Kohle heizt doppelt so gut und macht Eisen."
  },
  "tech_wegebau": {
   "name": "Neu: Straßen",
-  "text": "Auf Straßen laufen Siedler anderthalbmal so schnell und nehmen den schnellsten Weg. Der Baumeister legt sie an, Feld für Feld. Straßen dürfen auch vor den Haustüren liegen."
+  "text": "Auf Straßen laufen Siedler anderthalbmal so schnell."
  },
  "tech_unterricht": {
   "name": "Neu: Schule",
-  "text": "In der Schule werden bis zu 8 Kinder doppelt so schnell erwachsen. Kinder gehen von selbst hin. So habt ihr schneller neue Arbeiter."
+  "text": "In der Schule werden Kinder doppelt so schnell erwachsen."
  },
  "tech_bergbau": {
   "name": "Neu: Erzmine, Schweinestall, Kuhstall",
-  "text": "Die Erzmine liefert Erz für Eisen. Im Schweinestall gibt es Fleisch, im Kuhstall Milch, beide füttert ein Bauer mit Getreide. Milch hat Vitamine."
+  "text": "Die Mine liefert Erz für Eisen. Ställe geben Fleisch und Milch."
  },
  "tech_gelehrsamkeit": {
   "name": "Neu: Bibliothek und Verwaltung",
-  "text": "In der Bibliothek forschen drei Forscher fast doppelt so schnell wie in der Schreibstube. Die Verwaltung gibt es nur einmal, ein Verwalter ordnet dort Vertretungen, Überstunden und Schichtarbeit an. Das gilt nur für die Insel der Verwaltung. Später wachsen die Möglichkeiten, wie der Verwalter Einfluss auf die Siedler und die Produktion nimmt."
+  "text": "In der Bibliothek forschen drei Forscher schnell. Die Verwaltung gibt es einmal, ein Verwalter arbeitet dort."
  },
  "tech_eisenverhuettung": {
   "name": "Neu: Schmelzofen",
-  "text": "Der Schmelzofen macht aus Erz und Kohle Eisen. Eisen braucht ihr für Werkzeuge, Waffen und Schiffe. Plant Mine, Köhlerei und Ofen nah beieinander."
+  "text": "Der Ofen macht aus Erz und Kohle Eisen für Werkzeuge, Waffen und Schiffe."
  },
  "tech_schmiedekunst": {
   "name": "Neu: Schmiede und Waffenschmiede",
-  "text": "Die Schmiede macht Werkzeuge, die viele Forschungen und Bauten brauchen. Die Waffenschmiede macht Speere und Säbel. Bei Piraten holen sich die Siedler die Waffen aus dem Lager und kämpfen viel besser."
+  "text": "Die Schmiede macht Werkzeuge, die Waffenschmiede Speere und Säbel gegen Piraten."
  },
  "tech_deichbau": {
   "name": "Neu: Deiche",
-  "text": "Deiche schützen die Küste vor Sturmfluten. Ist eine Bucht ganz von Deichen umschlossen, wird sie zu neuem Land. Ein Deichbruch setzt das Land wieder unter Wasser."
+  "text": "Deiche schützen vor Sturmfluten. Eine umschlossene Bucht wird zu Land."
  },
  "tech_schiffsbau": {
   "name": "Neu: Werft, Anlegesteg, Seemann",
-  "text": "In der Werft bauen Handwerker Ruderboote, die du in ihrem Fenster in Auftrag gibst. Jedes Schiff braucht Seeleute als Besatzung. Unter Inseln > Entdeckungsreise sucht ein Boot neue Inseln, danach könnt ihr Siedler und Waren hinbringen."
+  "text": "In der Werft baut ihr Boote, jedes braucht Seeleute. Unter Inseln sucht ein Boot neue Inseln."
  },
  "tech_waffenkunde": {
   "name": "Neu: Wachturm und Jäger",
-  "text": "Der Wachturm schießt auf wilde Tiere und Piraten in der Nähe, Siedler fliehen bei Gefahr dorthin. Jäger erlegen Tiere für Fleisch und Felle. Sie lassen von jeder Art zwei Tiere übrig."
+  "text": "Der Wachturm schießt auf Tiere und Piraten. Jäger bringen Fleisch und Felle."
  },
  "tech_navigation": {
   "name": "Neu: Hafen und Kogge",
-  "text": "Der Hafen hat 2 Liegeplätze und lädt schnell. Erst mit Hafen können Koggen eine Insel anlaufen. Die Kogge lädt 200 statt 40 und braucht 2 Seeleute."
+  "text": "Koggen laden 200 statt 40, brauchen aber einen Hafen."
  },
  "tech_seehandel": {
   "name": "Neu: Großer Hafen, Kais, Galeone, Schnellsegler",
-  "text": "Der Große Hafen nimmt auch Galeonen auf, die 500 laden. Kais laden ihre Waren dreimal so schnell. Händler kommen jetzt öfter und bieten mehr an."
+  "text": "Galeonen laden 500, Kais laden dreimal so schnell. Händler kommen öfter."
  },
  "tech_leuchtfeuer": {
   "name": "Neu: Leuchtturm",
-  "text": "Der Leuchtturm macht Entdeckungsreisen doppelt so schnell und alle Boote schneller. Er muss am Wasser stehen."
+  "text": "Macht Erkundungen doppelt so schnell. Er muss am Wasser stehen."
  },
  "tech_goldenes_zeitalter": {
   "name": "Neu: Denkmal",
-  "text": "Das Denkmal bringt auf allen Inseln mehr Kinder und ein längeres Leben. Es kostet viel Gold, das es nur auf Felseninseln gibt."
+  "text": "Mehr Kinder und längeres Leben auf allen Inseln. Kostet viel Gold."
  },
  "tech_glasmacherei": {
   "name": "Neu: Glashütte",
-  "text": "Die Glashütte macht aus Lehm und Kohle Glas. Glas braucht ihr für Astronomie, die Universität und später Gewächshäuser."
+  "text": "Macht aus Lehm und Kohle Glas für Universität und Gewächshaus."
  },
  "tech_papier": {
   "name": "Neu: Papiermühle",
-  "text": "Die Papiermühle macht aus Holz Papier. Ab der Renaissance verbrauchen Forscher Papier statt Tontafeln. Ohne Papier wird dann nur mit 20 % des Tempos geforscht."
+  "text": "Macht Papier aus Holz. Ab der Renaissance brauchen Forscher Papier."
  },
  "tech_hochschule": {
   "name": "Neu: Universität",
-  "text": "In der Universität forschen vier Forscher dreieinhalbmal so schnell wie in der Schreibstube. Sie braucht Papier, Glas und Ziegel."
+  "text": "Vier Forscher forschen hier sehr schnell. Braucht Papier, Glas und Ziegel."
  },
  "tech_dampfmaschine": {
   "name": "Neu: Planungsautomat",
-  "text": "Stellt den Planungsautomaten direkt vor die Verwaltung. Dann plant der Verwalter selbst: erst Essen und Wärme, dann Vorrat für den Winter, Häuser, Lager und Werkstätten, und er forscht immer weiter. Bauen und das Material bringen müssen die Siedler."
+  "text": "Direkt vor die Verwaltung gestellt, plant der Verwalter selbst. Bauen müssen weiter die Siedler."
  },
  "tech_stahl": {
   "name": "Neu: Stahlwerk",
-  "text": "Das Stahlwerk macht aus Eisen und viel Kohle Stahl. Stahl braucht ihr für Fabriken, Mietshäuser und die Eisenbahn. Auf Felseninseln arbeitet es schneller."
+  "text": "Macht aus Eisen und viel Kohle Stahl für Fabriken und Eisenbahn."
  },
  "tech_konservendose": {
   "name": "Neu: Konservenfabrik",
-  "text": "Fisch in Dosen macht gut satt und verdirbt nie, auch nicht im Sommer. Gut für lange Winter und Schiffsreisen."
+  "text": "Dosenfisch macht satt und verdirbt nie."
  },
  "tech_fabrik": {
   "name": "Neu: Fabrik",
-  "text": "Die Fabrik baut Maschinen aus Stahl und Holz. Alle Werkstätten arbeiten ab jetzt 20 % schneller. Maschinen braucht ihr für fast alles, was jetzt kommt."
+  "text": "Baut Maschinen. Alle Werkstätten arbeiten 20 % schneller."
  },
  "tech_mietshaus": {
   "name": "Neu: Mietshaus",
-  "text": "Das Mietshaus gibt 10 Siedlern Platz, Steinhäuser lassen sich dazu ausbauen. Städter in Mietshäusern möchten Gewürze, die auf Palmeninseln wachsen. Geheizt wird mit Kohle oder Holz, im Winter etwa 1 Holz oder eine halbe Kohle je Bewohner am Tag."
+  "text": "Gibt 10 Siedlern Platz. Die Städter möchten Gewürze von Palmeninseln."
  },
  "tech_elektrizitaet": {
   "name": "Neu: Kraftwerk",
-  "text": "Das Kraftwerk verbrennt Kohle und macht Strom. Strom braucht ihr für Labore und Rechner. Ab der Moderne verbrauchen Forscher Strom, ohne ihn wird nur mit 20 % des Tempos geforscht."
+  "text": "Macht Strom aus Kohle. Ab der Moderne brauchen Forscher Strom."
  },
  "tech_wohnblock": {
   "name": "Neu: Wohnblock",
-  "text": "Der Wohnblock gibt 16 Siedlern Platz, Mietshäuser lassen sich dazu ausbauen. Dort kommen doppelt so oft Kinder. Geheizt wird mit Kohle oder Holz, im Winter etwa eine halbe Kohle je Bewohner am Tag."
+  "text": "Gibt 16 Siedlern Platz, dort kommen doppelt so oft Kinder."
  },
  "tech_gewaechshaus": {
   "name": "Neu: Gewächshaus",
-  "text": "Im Gewächshaus wachsen Äpfel das ganze Jahr, auch im Winter. So gibt es immer Vitamine."
+  "text": "Äpfel wachsen das ganze Jahr, auch im Winter."
  },
  "tech_computer": {
   "name": "Neu: Elektronikwerk",
-  "text": "Das Elektronikwerk macht Chips aus Glas, Stahl und Strom. Ab dem Informationszeitalter verbrauchen Forscher Elektronik, ohne sie wird nur mit 20 % des Tempos geforscht."
+  "text": "Macht Elektronik. Ab dem Informationszeitalter brauchen Forscher sie."
  },
  "tech_solarenergie": {
   "name": "Neu: Solarpark",
-  "text": "Der Solarpark macht Strom aus Sonnenlicht, ganz ohne Kohle. Ein Handwerker hält ihn sauber. Auf Palmeninseln arbeitet er schneller."
+  "text": "Macht Strom aus Sonnenlicht, ohne Kohle."
  },
  "tech_internet": {
   "name": "Neu: Forschungslabor",
-  "text": "Im Forschungslabor forschen vier Forscher sechsmal so schnell wie in der Schreibstube."
+  "text": "Vier Forscher forschen hier sechsmal so schnell wie in der Schreibstube."
  },
  "tech_ki": {
   "name": "Neu: KI-Zentrum",
-  "text": "Das KI-Zentrum forscht mit und teilt freie Siedler selbst auf die Berufe auf, die gerade fehlen. Du musst dich um die Berufe kaum noch kümmern."
+  "text": "Forscht mit und verteilt freie Siedler selbst auf fehlende Berufe."
  },
  "tech_fusionsenergie": {
   "name": "Neu: Fusionsreaktor",
-  "text": "Der Fusionsreaktor macht sehr viel Strom ohne Kohle."
+  "text": "Macht sehr viel Strom ohne Kohle."
  },
  "tech_zukunftsstadt": {
   "name": "Neu: Zukunftsstadt",
-  "text": "Baut die Zukunftsstadt, das Ziel aller Zeitalter. Auf allen Inseln kommen dann doppelt so oft Kinder."
+  "text": "Das Ziel aller Zeitalter. Danach kommen überall doppelt so oft Kinder."
  },
  "first_storage_full": {
   "name": "Das Lager ist voll",
-  "text": "Deine Siedler können nichts mehr einlagern. Wer sammelt, Holz fällt oder fischt, hört auf, bis wieder Platz ist. Baue ein neues Lager: im Baumenü unter Lager. Ein Lagerhaus fasst 400, später das Große Lager 1000. Steht es nah an der Arbeit, sparen die Siedler auch Wege.",
+  "text": "Deine Siedler können nichts mehr einlagern. Baue ein Lager: Bauen, Reiter Lager.",
   "icon": "kiste"
  },
  "first_year": {
   "name": "Meldungen nach Wunsch",
-  "text": "Ein Jahr ist vorbei. Im Spiel erscheinen viele Meldungen. Unter Menü > Meldungen schaltest du jede Art einzeln an oder ab, zum Beispiel Tag und Jahreszeit oder Bauen. Wichtiges wie Hunger, Kälte und Todesfälle lässt du am besten an.",
+  "text": "Unter Menü > Meldungen schaltest du jede Art von Meldung an oder ab.",
   "icon": "glocke"
  },
  "first_winter": {
   "name": "Der Winter kommt",
-  "text": "Im Winter wächst nichts, und die Siedler müssen heizen. Legt Holz oder Kohle und haltbares Essen zurück. Das Symbol neben der Jahreszeit zeigt, wie hart der Winter wird."
+  "text": "Im Winter wächst nichts, und die Siedler heizen. Lege Holz und haltbares Essen zurück."
  },
  "first_quests": {
   "name": "Aufträge",
-  "text": "Du kannst einen von drei Aufträgen wählen, unter Menü > Aufträge. Schaffst du ihn rechtzeitig, gibt es eine Belohnung wie Einwanderer, Waren oder einen Bauplan."
+  "text": "Wähle unter Menü > Aufträge einen von drei Aufträgen. Schaffst du ihn, gibt es eine Belohnung."
  },
  "first_event": {
   "name": "Ereignisse",
-  "text": "Ab dem zweiten Jahr passiert manchmal etwas: eine Dürre, Ratten, ein Brand, eine Seuche oder eine Sturmflut. Oben erscheint ein Schild mit der Zeit bis dahin. Bereite dich vor, dann fällt der Schaden kleiner aus."
+  "text": "Bald passiert etwas, oben steht die Zeit bis dahin. Bereite dich vor, dann ist der Schaden kleiner."
  },
  "first_pirates": {
   "name": "Piraten!",
-  "text": "Piraten wollen an deiner Küste landen. Mit Waffen aus der Waffenschmiede und einem Wachturm wehren sich die Siedler viel besser. Ohne Abwehr nehmen die Piraten Gold und Waren mit."
+  "text": "Piraten wollen landen. Waffen und ein Wachturm helfen bei der Abwehr."
  },
  "first_merchant": {
   "name": "Ein Händler kommt",
-  "text": "Ein fremder Händler legt morgen im Hafen an und bleibt einen Tag. Tippe oben rechts auf sein Symbol. Er verkauft und kauft Waren gegen Gold."
+  "text": "Morgen kommt ein Händler für einen Tag. Tippe oben rechts auf sein Symbol."
  },
  "first_exam": {
   "name": "Die Prüfung",
-  "text": "Um ins nächste Zeitalter zu kommen, musst du eine Prüfung bestehen. Die Bedingungen stehen in der Forschung oben. Danach gibt es ein Fest und eine Belohnung."
+  "text": "Für das nächste Zeitalter musst du eine Prüfung bestehen. Die Bedingungen stehen oben in der Forschung."
  },
  "first_island": {
   "name": "Neue Insel entdeckt",
-  "text": "Eine neue Insel wartet auf Siedler. Unter Inseln wählst du sie und schickst ein Schiff mit Siedlern und Waren hin. Jede Insel hat ihr eigenes Lager, Waren kommen nur per Schiff hinüber."
+  "text": "Unter Inseln schickst du ein Schiff mit Siedlern und Waren hin. Jede Insel hat ihr eigenes Lager."
  },
  "first_admin": {
   "name": "Der Verwalter",
-  "text": "Der Verwalter meldet, wenn in einem Beruf Leute fehlen. In der Verwaltung schaltest du Vertretungen, Überstunden und Schichtarbeit. Ab dem Mittelalter besetzt er auf Wunsch die Berufe Verstorbener neu. Später wachsen die Möglichkeiten, wie der Verwalter Einfluss auf die Siedler und die Produktion nimmt."
+  "text": "Der Verwalter meldet, wenn in einem Beruf Leute fehlen. In der Verwaltung stellst du ein, was er darf."
  },
  "isl_hunt": {
   "name": "Neue Insel %s: zuerst jagen",
   "icon": "wolf",
-  "text": "Auf dieser Insel leben wilde Tiere. Mach zuerst alle Siedler hier zu Jägern, sonst werden sie angegriffen und sterben. Jäger lassen von jeder Tierart 2 übrig. Sobald es nur noch so wenige sind, sagt dir ein Hinweis, wie es weitergeht.",
+  "text": "Hier leben wilde Tiere. Mach zuerst alle Siedler zu Jägern, sonst werden sie angegriffen.",
   "locked": "Auf dieser Insel leben wilde Tiere, und sie greifen Siedler an. Jäger gibt es erst mit der Forschung Waffenkunde. Erforsche sie bald und mach dann alle Siedler hier zu Jägern. Bis dahin halte die Siedler nah beim Lagerfeuer."
  },
  "isl_wood": {
   "name": "Neue Insel %s: jetzt bauen",
   "icon": "holz",
-  "text": "Die Insel ist jetzt sicherer. Mach einen Jäger zum Holzfäller und lass dann ein Haus bauen, damit die Siedler ein Dach über dem Kopf haben. Ein Baumeister baut es. Danach kann die Siedlung wachsen."
+  "text": "Die Insel ist jetzt sicherer. Mach einen Jäger zum Holzfäller und lass ein Haus bauen."
  }
 }

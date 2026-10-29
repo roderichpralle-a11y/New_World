@@ -134,6 +134,10 @@ func _maybe_autotest() -> void:
 	if args.has("season"):
 		# Testhilfe: Start in einer Jahreszeit (0 Frühling .. 3 Winter)
 		Seasons.jump_to_season(int(args.season))
+	if args.has("tutclick"):
+		await _tut_click_run(str(args.get("shotdir", "")))
+		get_tree().quit()
+		return
 	if args.has("foodtest"):
 		_autotest_food()
 	if args.has("slottest"):
@@ -851,6 +855,106 @@ func _autotest_tutorial() -> void:
 				Game.player_action.emit("next", g.id)
 
 
+## Testhilfe --tutclick=1 (josh 2026-10-29): spielt die Einführung wie ein Mensch. Jeder Schritt wird mit einem
+## Klick genau auf die Pfeilspitze erledigt (bzw. auf Weiter); trifft der Pfeil daneben, geht es nicht weiter und
+## der Test meldet FEHLER. --shotdir=<Ordner> legt je Schritt ein Bild ab. Mit --resolution=402x874 wie am Handy.
+func _tut_click_run(dir: String) -> void:
+	Engine.time_scale = 1.0
+	var gc = hud.goal_card
+	var n: int = Data.goals.tutorial.size()
+	var fails := 0
+	var last := -1
+	var tries := 0
+	while gc.in_tutorial() and tries < 400:
+		tries += 1
+		await get_tree().create_timer(0.7, true, false, true).timeout
+		await RenderingServer.frame_post_draw
+		var t := int(Game.goals.tut)
+		if gc.current().id != "t_hut_done":
+			Engine.time_scale = 1.0
+		var g: Dictionary = gc.current()
+		if t != last:
+			last = t
+			tries = 0
+			if dir != "":
+				await get_tree().create_timer(0.8, true, false, true).timeout
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png("%s/schritt_%02d.png" % [dir, t + 1])
+			print("SCHRITT %d/%d %s: %s | %s" % [t + 1, n, g.id, tr(g.text), tr(g.get("hint", ""))])
+		var ptr: Control = gc._pointer
+		var popup_ob: OptionButton = null
+		for ob in hud._settler_list.find_children("*", "OptionButton", true, false):
+			if ob.get_popup().visible:
+				popup_ob = ob
+		if popup_ob:
+			# Berufsliste offen: den gewünschten Beruf antippen
+			var want: String = Data.jobs.get(g.get("check", {}).get("what", "baumeister"), {}).get("name", "")
+			for i in popup_ob.item_count:
+				if popup_ob.get_item_text(i) == want:
+					popup_ob.get_popup().hide()
+					popup_ob.select(i)
+					popup_ob.item_selected.emit(i)
+					print("   Beruf gewählt: ", want)
+			continue
+		if gc._next.visible and gc._next.is_visible_in_tree():
+			_click(gc._next.get_global_rect().get_center())
+			continue
+		if ptr.visible:
+			var tip: Vector2 = ptr.position + (Vector2(15, 1) if ptr.flip_v else Vector2(15, 29))
+			var hit := _control_at(tip)
+			print("   Pfeil auf ", hit.name if hit else "Karte", " (", hit.get_class() if hit else "", ") bei ", tip)
+			_click(tip)
+			if tries > 1:
+				fails += 1
+				print("FEHLER: Schritt %d geht nach Klick auf die Pfeilspitze nicht weiter" % (t + 1))
+				break
+			continue
+		match g.id:
+			"t_hut_place":
+				for rad in range(3, 12):
+					var done := false
+					for dy in range(-rad, rad + 1):
+						for dx in range(-rad, rad + 1):
+							var cc := world.center + Vector2i(dx, dy)
+							if not done and world.can_place("huette", cc) and _roomy("huette", cc):
+								_click(world.get_global_transform_with_canvas() * world.cell_to_pos(cc))
+								done = true
+					if done:
+						break
+			"t_hut_done":
+				Engine.time_scale = 8.0
+				Game.set_speed(3)
+			_:
+				if tries > 20:
+					print("FEHLER: Schritt %d ohne Pfeil und ohne Weiter" % (t + 1))
+					fails += 1
+					break
+	Engine.time_scale = 1.0
+	print("EINFUEHRUNG ", "FERTIG" if not gc.in_tutorial() else "ABGEBROCHEN", ", Fehler: ", fails)
+
+
+func _control_at(p: Vector2) -> Control:
+	var best: Control = null
+	for c in hud.root.find_children("*", "Control", true, false):
+		if c is Button and c.is_visible_in_tree() and c.get_global_rect().has_point(p):
+			best = c
+	return best
+
+
+func _click(p: Vector2) -> void:
+	var wp: Vector2 = get_viewport().get_final_transform() * p
+	var mv := InputEventMouseMotion.new()
+	mv.position = wp
+	Input.parse_input_event(mv)
+	for pressed in [true, false]:
+		var e := InputEventMouseButton.new()
+		e.button_index = MOUSE_BUTTON_LEFT
+		e.pressed = pressed
+		e.position = wp
+		Input.parse_input_event(e)
+		await get_tree().process_frame
+
+
 ## Testhilfe --fitcheck=1: oeffnet jedes Fenster und prueft nach dem Layout, ob es zwischen Oberleiste und
 ## unterer Leiste bleibt (sonst ist ein Teil der Liste verdeckt und der Scrollgriff fehlt). Am besten mit
 ## --resolution=402x874 oder 874x402 unter xvfb. Gibt je Fenster eine Zeile und am Ende die Zahl der Fehler aus.
@@ -1125,14 +1229,9 @@ func _on_continue() -> void:
 	Sound.in_title = false
 	Game.set_speed(1)
 	Game.notify(tr("Willkommen zurück! Tag %d.") % Game.day(), "sonne")
-	# Alter Spielstand: einmal das Fenster "Neue Regeln", danach die beim Laden gemerkten Meldungen
-	if Game.rules_due and not Game.rules_lines.is_empty():
-		hud.show_rules_dialog(Game.rules_lines, func():
-			Game.rules_seen()
-			Game.flush_notes())
-	else:
-		Game.rules_seen()
-		Game.flush_notes()
+	# Kein Fenster "Neue Regeln" mehr (josh 2026-10-29): neue Regeln gelten still ab dem Laden
+	Game.rules_seen()
+	Game.flush_notes()
 
 
 func _on_tap(p: Vector2, touch: bool = false) -> void:

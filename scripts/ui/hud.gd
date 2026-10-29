@@ -66,6 +66,7 @@ var _place_ok: Button
 var _place_label: Label
 var _toasts: VBoxContainer
 var _toasts_top: VBoxContainer  # über allen Fenstern
+var _toasts_top_y := 56.0  # Platz der Meldungen ohne Sprechblase (von _layout gesetzt)
 var _overlay: Control
 var _info_timer: float = 0.0
 var _info_obj = null
@@ -157,7 +158,6 @@ func setup(p_world: World, p_camera: GameCamera) -> void:
 	FestVideo.attach(self)  # Fest-Video bei jedem Fest (scripts/ui/fest_video.gd)
 	ProtestVideo.attach(self)  # Protest-Video bei Protest gegen Überstunden (scripts/ui/protest_video.gd)
 	_layout()
-	_watch_updates.call_deferred()
 
 
 # ================================================================== Oberleiste
@@ -2076,12 +2076,7 @@ func _build_menu_panel() -> void:
 	for rr in rows:
 		var rw := Win.row(Data.icon(rr[0]), rr[1], rr[2], {"button": rr[3], "on_press": rr[4], "icon_px": 28})
 		game_box.add_child(rw.box)
-	if OS.has_feature("web"):
-		var rw := Win.row(Data.icon("schnell"), tr("Nach neuer Version suchen"), tr("Laden erst nach deiner Bestätigung."),
-			{"button": tr("Prüfen"), "on_press": check_for_update, "icon_px": 28})
-		_update_btn = rw.button
-		_update_btn.tooltip_text = tr("Fragt den Server, ob es eine neue Version gibt. Laden erst nach deiner Bestätigung.")
-		game_box.add_child(rw.box)
+	# Kein Knopf "Nach neuer Version suchen" mehr (josh 2026-10-29)
 	set_box.add_child(_volume_row(tr("Musik"), "musik", Sound.music_volume, func(x): Sound.set_volumes(x, Sound.sfx_volume)))
 	set_box.add_child(_volume_row(tr("Geräusche"), "glocke", Sound.sfx_volume, func(x):
 		Sound.set_volumes(Sound.music_volume, x)
@@ -3751,6 +3746,16 @@ func _info_animal(a: Animal) -> void:
 
 # ================================================================== Meldungen
 ## top: über den Fenstern (Antwort auf einen Tipp, Standard); Meldungen aus dem Spiel kommen mit false darunter.
+## Sprechblase der Einführung oben links: die Meldungen rücken darunter (josh 2026-10-29).
+func toasts_below(r: Rect2) -> void:
+	if _toasts_top == null:
+		return
+	var y := _toasts_top_y
+	if r.position.x < _toasts_top.position.x + 320.0 and r.position.y < _toasts_top_y + 140.0 and r.end.y > _toasts_top_y - 4.0:
+		y = r.end.y + 6.0
+	_toasts_top.position.y = y
+
+
 func toast(text: String, icon_name: String = "", _cat: String = "", top: bool = true) -> void:
 	var box := _toasts_top if top else _toasts
 	if top:
@@ -3968,8 +3973,6 @@ func _layout() -> void:
 	else:
 		sp.position = Vector2(vs.x - sp.size.x - 6, 6)
 	_toasts.position = Vector2(8, top_h + 6)
-	if _toasts_top:
-		_toasts_top.position = _toasts.position
 	if goal_card and not goal_card.bubble:  # als Sprechblase setzt die Karte sich selbst neben ihr Ziel
 		var narrow := portrait or vs.x < 760
 		var gw: float = (vs.x - sp.size.x - 18.0) if narrow else min(310.0, vs.x * 0.4)
@@ -3980,6 +3983,9 @@ func _layout() -> void:
 		goal_card.set_deferred("size", Vector2(gw, 0))
 		if goal_card.visible:
 			_toasts.position.y = max(top_h, goal_card.position.y + goal_card.size.y) + 6
+	if _toasts_top:  # unter der Zielkarte, sonst verdeckt eine Meldung die Einführung (josh 2026-10-29)
+		_toasts_top.position = _toasts.position
+		_toasts_top_y = _toasts.position.y
 	top_alerts.place(sp, _season_icon.get_parent().get_parent().get_parent(), portrait or vs.x < 760)
 	if top_alerts.visible and top_alerts.position.y > sp.position.y:  # Knöpfe unter der Geschwindigkeit: Meldungen darunter
 		_toasts.position.y = maxf(_toasts.position.y, top_alerts.position.y + top_alerts.size.y + 4.0)

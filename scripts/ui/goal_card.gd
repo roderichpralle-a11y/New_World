@@ -16,7 +16,7 @@ var _skip: Button
 var _next: Button  # Weiter bei Erklaer-Schritten der Einfuehrung
 var bubble: bool = false  # Karte steht als Sprechblase neben dem Ziel des Zeigers (hud._layout laesst sie dann in Ruhe)
 var _home_idx: int = -1
-var _pointer: TextureRect
+var _pointer: PointerArrow
 var _tick: float = 0.0
 var _cur_id: String = ""
 var _actions: Array = []  # Aktionen seit Beginn des aktuellen Schritts
@@ -95,10 +95,7 @@ func setup(p_hud) -> void:
 			Sound.play("auf" if _hint.visible else "zu")
 			_relayout())
 	Game.player_action.connect(func(kind, what): _actions.append([kind, what]))
-	_pointer = TextureRect.new()
-	_pointer.texture = Data.icon("zeiger")
-	_pointer.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_pointer.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_pointer = PointerArrow.new()
 	_pointer.size = Vector2(30, 30)
 	_pointer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_pointer.visible = false
@@ -370,6 +367,7 @@ func _update_pointer() -> void:
 			_set_bubble(true)
 			_fit_width(minf(330.0, get_viewport().get_visible_rect().size.x - 12.0))
 			position = Vector2(6, hud._top_h + 4.0)
+			hud.toasts_below(get_global_rect())
 		else:
 			_set_bubble(false)
 		return
@@ -388,14 +386,22 @@ func _update_pointer() -> void:
 	var below := r.get_center().y < vs.y * 0.5
 	_pointer.flip_v = below
 	var px := clampf(r.get_center().x - 15, 2, vs.x - 32)
-	# Pfeilspitze ragt etwas ins Ziel, damit klar ist, worauf er zeigt
-	_pointer.position = Vector2(px, r.end.y - 8 + bob) if below else Vector2(px, r.position.y - 22 + bob)
+	# Pfeilspitze ragt 12 Punkte ins Ziel (auch beim Huepfen mindestens 8), damit klar ist, worauf er zeigt;
+	# bei kleinen Zielen hoechstens bis zur Mitte
+	var into := minf(12.0, r.size.y * 0.5)
+	_pointer.position = Vector2(px, r.end.y - into + bob) if below else Vector2(px, r.position.y - 30.0 + into + bob)
 	if in_tutorial():
 		_set_bubble(true)
 		var w := minf(330.0, vs.x - 12.0)
 		_fit_width(w)
 		var y := r.end.y + 24.0 if below else r.position.y - 24.0 - size.y
-		position = Vector2(clampf(r.get_center().x - w * 0.5, 6, vs.x - w - 6), clampf(y, 4, maxf(4.0, vs.y - size.y - 4)))
+		# nie hinter der unteren Leiste (josh 2026-10-29: dort verschwand der Knopf Weiter)
+		var bottom := vs.y
+		var bar: Control = hud._bottom.get_parent()
+		if bar.is_visible_in_tree():
+			bottom = minf(bottom, bar.get_global_rect().position.y)
+		position = Vector2(clampf(r.get_center().x - w * 0.5, 6, vs.x - w - 6), clampf(y, 4, maxf(4.0, bottom - size.y - 4)))
+		hud.toasts_below(get_global_rect())
 	_pointer.get_parent().move_child(_pointer, -1)
 
 
@@ -514,14 +520,16 @@ func _pointer_target(g: Dictionary):
 			return _closed_or(hud.speed_bar)
 		"bottom":
 			return _closed_or(hud._bottom.get_parent())
+		# Knöpfe der unteren Leiste sind auch bei offenem Fenster zu sehen: der Pfeil zeigt dann trotzdem hin
+		# (josh 2026-10-29: nach der Hütte stand das Menü Siedler noch offen, und es gab keinen Pfeil zur Forschung)
 		"build_btn":
-			return _closed_or(hud._build_btn)
+			return _bar_btn(hud._build_btn)
 		"research_btn":
-			return _closed_or(hud._research_btn)
+			return _bar_btn(hud._research_btn)
 		"settler_btn":
-			return _closed_or(hud.settler_btn)
+			return _bar_btn(hud.settler_btn)
 		"menu_btn":
-			return _closed_or(hud.menu_btn)
+			return _bar_btn(hud.menu_btn)
 		"hut_row":
 			if not hud._build_panel.visible:
 				return null
@@ -547,7 +555,7 @@ func _pointer_target(g: Dictionary):
 						if ob.selected >= 0 and ob.get_item_text(ob.selected) == Data.jobs.baumeister.name:
 							return ob
 				return obs[0]
-			return _closed_or(hud.settler_btn)
+			return _bar_btn(hud.settler_btn)
 		"age_tabs":
 			return _children_rect(hud._research_tabs) if hud._research_panel.visible else null
 		"age_tab":  # der erste Reiter (Steinzeit, das Bild mit dem Hammer)
@@ -559,7 +567,7 @@ func _pointer_target(g: Dictionary):
 			return null
 		"tech_row", "tech_btn":
 			if not hud._research_panel.visible:
-				return _closed_or(hud._research_btn)
+				return _bar_btn(hud._research_btn)
 			for row in hud._research_list.get_children():
 				if row.get_meta("tid", "") == "flechtkoerbe":
 					return row if pt == "tech_row" else _row_button(row)
@@ -585,6 +593,10 @@ func _children_rect(box: Control):
 	return r if r.size != Vector2.ZERO else null
 
 
+func _bar_btn(c: Control):
+	return c if is_instance_valid(c) and c.is_visible_in_tree() else null
+
+
 ## Knopf oder Leiste, solange kein Fenster offen ist (sonst verdeckt der Pfeil das Fenster).
 func _closed_or(c: Control):
 	return null if _panel_open() or not is_instance_valid(c) or not c.is_visible_in_tree() else c
@@ -595,3 +607,29 @@ func _panel_open() -> bool:
 		if p.visible:
 			return true
 	return false
+
+
+## Zeigerpfeil der Einfuehrung, selbst gezeichnet (josh 2026-10-29: in V2 war das Symbol „zeiger“ ein
+## Mauszeiger nach oben links statt eines Pfeils nach unten, darum zeigte er immer gleich weit daneben).
+## Spitze unten in der Mitte (flip_v: oben in der Mitte), also bei (15, 30) bzw. (15, 0).
+class PointerArrow extends Control:
+	var flip_v := false:
+		set(v):
+			if v != flip_v:
+				flip_v = v
+				queue_redraw()
+
+	func _draw() -> void:
+		var w := size.x
+		var h := size.y
+		var pts := PackedVector2Array([
+			Vector2(w * 0.33, 0), Vector2(w * 0.67, 0), Vector2(w * 0.67, h * 0.45),
+			Vector2(w * 0.95, h * 0.45), Vector2(w * 0.5, h), Vector2(w * 0.05, h * 0.45),
+			Vector2(w * 0.33, h * 0.45)])
+		if flip_v:
+			for i in pts.size():
+				pts[i].y = h - pts[i].y
+		draw_colored_polygon(pts, Color(1.0, 0.86, 0.35))
+		var ring := pts.duplicate()
+		ring.append(pts[0])
+		draw_polyline(ring, Color(0.6, 0.3, 0.1), 2.5, true)

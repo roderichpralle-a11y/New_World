@@ -77,6 +77,19 @@ bleiben bei der alten Grafik; dieser Zweig wird nicht nach main gemischt, solang
   `python3 tools/art_v2/scale.py` schreibt Vergleichstafeln nach tools/preview/v2/.
 - Neu bauen: `python3 tools/art_v2/build.py`, Bildschirmfoto mit festem Zoom: `--zoom=4` (Testhilfe).
 
+## Einführung in V2 (josh 2026-10-29)
+
+- **Zeigerpfeil:** `GoalCard.PointerArrow` zeichnet den Pfeil selbst (gelb, braun umrandet, Spitze unten bzw. mit
+  `flip_v` oben in der Mitte). Vorher nahm er das Symbol „zeiger“, das in V2 ein Mauszeiger nach oben links ist; darum
+  zeigte er immer um dieselbe Strecke daneben. Die Spitze ragt 12 Punkte ins Ziel (bei kleinen Zielen bis zur Mitte).
+- Knöpfe der unteren Leiste (`build_btn`, `research_btn`, `settler_btn`, `menu_btn`, Rückfall von `job`/`tech_row`)
+  bekommen den Pfeil auch bei offenem Fenster (`_bar_btn`).
+- Die Sprechblase bleibt über der unteren Leiste (sonst lag „Weiter“ dahinter); Meldungen oben links rücken unter
+  die Sprechblase (`hud.toasts_below`), unter die Zielkarte auch ohne Einführung.
+- Texte: jeder Schritt höchstens 2 kurze Sätze (Text + Hinweis), ebenso Hinweisfenster (`hints.json`) und Ziele.
+- Test `--tutclick=1` (unter xvfb, `--resolution 1440x900` bzw. `402x874`, `--shotdir=<Ordner>` für Bilder je Schritt):
+  klickt jeden Schritt genau auf die Pfeilspitze bzw. auf Weiter; meldet FEHLER, wenn es danach nicht weitergeht.
+
 ## Neue Verwaltung in V2 (josh 2026-10-29, Plan https://claude.ai/artifact/TAaaHP2qGTuyYcJKmfY64L)
 
 Ersetzt in V2 die älteren Abschnitte zu Verwalter-Steuerung, Automat und Planungsautomat (unten), wo sie sich
@@ -1958,6 +1971,7 @@ godot --headless -- --autotest=120 --scale=10 --build=1     # Simulation mit Ber
 godot --headless -- --autotest=400 --scale=10 --build=1 --research=1   # forscht automatisch
 godot --headless -- --autotest=60 --scale=10 --prodtest=1  # alle Werkstätten, alles erforscht
 godot --headless -- --autotest=120 --scale=10 --tuttest=1  # spielt die Einführung durch
+xvfb-run godot --rendering-driver opengl3 --resolution 402x874 -- --autotest=999 --tutclick=1 --shotdir=/tmp/t  # Einführung mit Klicks auf die Pfeilspitze
 godot --headless --fixed-fps 60 -- --autotest=25 --scale=10 --seed=11 --tutdone=1  # Einführung beenden: 2 Siedler, Hütte, Lagerhaus, 2 Forschungen
 godot --headless --fixed-fps 60 -- --autotest=100 --scale=10 --seed=11 --season=3 --coaltest=1  # Kohle vor Holz
 godot --headless --fixed-fps 60 -- --autotest=200 --scale=10 --seed=11 --season=3 --winter=normal --freezetest=1  # Erfrieren
@@ -2034,6 +2048,9 @@ Kürzung der Steinzeit-Stufe-2-Punkte um 15 % brachte keinen messbaren Unterschi
 
 Bei jedem Push auf `main` baut GitHub Actions die Web-Version und legt sie auf den
 Branch `gh-pages` (GitHub Pages).
+
+**V2 (josh 2026-10-29):** kein Knopf „Nach neuer Version suchen“ und kein Fenster „Neue Regeln“ mehr; neue Regeln
+gelten still ab dem Laden (`main._on_continue` ruft nur `Game.rules_seen()`). Der Code dafür bleibt ungenutzt liegen.
 
 **Neueste Version laden:** Godots Service Worker (PWA) liefert beim Neuladen zuerst die alte Version
 aus dem Cache; sein Signal `pwa_update_available` kommt dabei nicht an. Darum schreibt der Build
