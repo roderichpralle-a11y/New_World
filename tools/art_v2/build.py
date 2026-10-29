@@ -399,6 +399,31 @@ def gen_big():
         index[name] = [frames, w, h]
     json.dump(index, open(os.path.join(out_dir, "index.json"), "w"), indent=0, sort_keys=True)
     print("   big", len(index))
+    gen_single()
+
+
+# Einzelbilder von josh (2026-10-29) im Maßstab der feinen Siedler-Bögen: Kästchen 256 = 30 Spielpixel.
+SINGLE = {"bench": "bank.png", "pavilion": "pavillon.png"}
+SINGLE_SCALE = 30 / 256
+
+
+def gen_single():
+    """Ersetzt einzelne Bilder in assets/sprites_hd/big durch joshs eigene Dateien (tools/art_v2/src/einzeln)."""
+    out_dir = os.path.join(OUT, "big")
+    ip = os.path.join(out_dir, "index.json")
+    index = json.load(open(ip))
+    for name, f in SINGLE.items():
+        img = Image.open(os.path.join(ROOT, "tools", "art_v2", "src", "einzeln", f)).convert("RGBA")
+        img = img.crop(img.getbbox())
+        img = scale(img, SINGLE_SCALE * S)
+        w = -(-img.width // S)
+        h = -(-img.height // S) + BIG_PAD
+        sheet_img = Image.new("RGBA", (w * S, h * S), (0, 0, 0, 0))
+        sheet_img.alpha_composite(img, ((w * S - img.width) // 2, (h - BIG_PAD) * S - img.height))
+        sheet_img.save(os.path.join(out_dir, name + ".png"), optimize=True)
+        index[name] = [1, w, h]
+    json.dump(index, open(ip, "w"), indent=0, sort_keys=True)
+    print("   einzeln", list(SINGLE))
 
 
 # ------------------------------------------------------------------ Bewegungen (Bilder je Frame)
