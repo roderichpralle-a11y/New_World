@@ -143,9 +143,12 @@ static func _powers_tab(_hud, b) -> void:
 		var f: Array = si.food
 		var h: Array = si.fuel
 		var txt := Loc.t("Essen: braucht %d in 3 Tagen, Vorrat %d, Leute %d von %d nötig") % [int(f[0]), int(f[1]), int(f[3]), int(f[2])]
-		txt += "\n" + Loc.t("Brennstoff: braucht %d in 3 Tagen, Vorrat %d, Holzfäller %d von %d nötig") % [int(h[0]), int(h[1]), int(h[3]), int(h[2])]
-		var bad: bool = int(f[3]) < int(f[2]) or int(h[3]) < int(h[2])
-		_box.add_child(Win.row(Data.icon("weizen"), Loc.t("Essen und Wärme"), txt, {"icon_px": 28, "sub_color": UiTheme.BAD if bad else DIM}).box)
+		var rw := Win.row(Data.icon("weizen"), Loc.t("Essen und Wärme"), txt, {"icon_px": 28, "sub_color": UiTheme.BAD if int(f[3]) < int(f[2]) else DIM})
+		var hl := UiTheme.label(Loc.t("Brennstoff: braucht %d in 3 Tagen, Vorrat %d, Holzfäller %d von %d nötig") % [int(h[0]), int(h[1]), int(h[3]), int(h[2])], 12, UiTheme.BAD if int(h[3]) < int(h[2]) else DIM)
+		hl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		hl.custom_minimum_size.x = 110
+		rw.text.add_child(hl)  # eigene Zeile, nur rot, wenn der Brennstoff fehlt
+		_box.add_child(rw.box)
 	var last := 0
 	for p in Powers.LIST:
 		var lvl := int(p.level)
