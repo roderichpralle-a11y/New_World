@@ -2399,5 +2399,6 @@
  "J. = Jahr, * = laufendes Jahr bis jetzt.": "Y. = year, * = current year so far.",
  "Noch keine Entscheidungen. Hier steht später alles, was der Verwalter (und später Automat und KI) anordnet oder umstellt.": "No decisions yet. Everything the steward (and later the automaton and AI) orders or changes will be listed here.",
  "Die letzten %d Entscheidungen, neueste oben.": "The last %d decisions, newest first.",
- "Jahr %d, %s Tag %d, %d Uhr": "Year %d, %s day %d, %d:00"
+ "Jahr %d, %s Tag %d, %d Uhr": "Year %d, %s day %d, %d:00",
+ "Bis dahin schlägt der Verwalter Überstunden und Schichtarbeit nur vor und fragt dich.": "Until then the steward only suggests overtime and shift work and asks you."
 }

@@ -420,7 +420,9 @@ func _tick() -> void:
 				set_shift(job, true, true)
 				Game.notify(text + " " + tr("Er ordnet Schichtarbeit mit Nachtschicht an."), "wissen", "verwaltung")
 				continue
-		if ordered(job, "ot") and ordered(job, "sh"):
+		# Entscheidet er selbst, fragt er nie nach (josh 2026-10-29: das Fenster kam trotz Haken, wenn er
+		# gerade nichts anordnen durfte: Protest, Ruhezeit nach Überstunden oder ein Jahr Ruhe nach dem Spieler)
+		if self_orders_on() or (ordered(job, "ot") and ordered(job, "sh")):
 			Game.notify(text + " " + tr("Teile mehr Siedler für diesen Beruf ein."), "wissen", "verwaltung")
 			continue
 		Game.notify(text + " " + tr("Vorschlag: Überstunden oder Schichtarbeit."), "wissen", "verwaltung")
