@@ -76,9 +76,13 @@ static func run(main) -> void:
 	Admin._self_order_tick(Admin.local_manager())
 	_ok(not Admin.ordered("handwerker", "ot") and not Admin.ordered("handwerker", "sh") and not Admin.auto_orders.has("handwerker"), "fehlt niemand mehr: er beendet beides")
 	Admin.set_overtime("handwerker", false)  # Spieler schaltet ab
+	props.clear()
+	Admin.proposal.connect(cb)
 	Admin.reported.clear()
 	Admin._tick()
+	Admin.proposal.disconnect(cb)
 	_ok(not Admin.ordered("handwerker", "ot"), "nach dem Abschalten durch den Spieler ordnet er ein Jahr nichts an")
+	_ok(props.is_empty(), "entscheidet er selbst, fragt er nicht nach, auch in der Ruhezeit (josh 2026-10-29) %s" % [props])
 	Game.research.done.erase("buchdruck")
 	Admin._hold.clear()
 	Admin.orders.clear()
