@@ -130,7 +130,7 @@ func tick(w) -> void:
 		var force: bool = not JobDesk.may(pick, "verwalter")
 		var text := tr("%s arbeitet jetzt als %s (%s, vorher %s).") % [pick.display_name, Data.jobs[need.job].name, need.why, pick.job_name()]
 		if force:
-			text += " " + tr("Du hattest ihn eingeteilt, aber Essen und Wärme gehen vor.")
+			text += " " + tr("Den Beruf hattest du vergeben, aber Essen und Wärme gehen vor.")
 		var act := {"kind": "job", "island": int(w.island_id), "sid": int(pick.id), "job": need.job, "force": force}
 		Powers.decide(need.power, "job:%d:%s" % [int(w.island_id), need.job], Sea.island_name(w) + ": " + text if Sea.worlds.size() > 1 else text, act, force)
 		_moved[int(w.island_id)] = Game.time_days

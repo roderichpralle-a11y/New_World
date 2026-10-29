@@ -48,6 +48,10 @@ var _settler_head_free: Label
 var _menu_panel: PanelContainer
 var _help_panel: PanelContainer
 var _notify_panel: PanelContainer
+var _history_panel: PanelContainer  # Nachrichten: alle Meldungen zum Nachlesen (josh 2026-10-29)
+var _history_box: VBoxContainer
+var _history_ft: Dictionary
+var _history_muted_only := false
 var _slots_panel: PanelContainer
 var _slots_box: VBoxContainer
 var _slots_scroll: ScrollContainer
@@ -100,6 +104,7 @@ func setup(p_world: World, p_camera: GameCamera) -> void:
 	_build_menu_panel()
 	_build_help_panel()
 	_build_notify_panel()
+	_build_history_panel()
 	_build_slots_panel()
 	_score_panel = ExamView.build_score_panel(self)
 	_quest_panel = QuestView.build_panel(self)
@@ -168,6 +173,7 @@ func _chip(icon_name: String) -> Array:
 var _island_room: float = 160.0  # Platz für den Inselnamen in der Statuszeile (aus _layout)
 var top_bar: PanelContainer  # Statuszeile oben (Zeiger der Einführung)
 var speed_bar: PanelContainer  # Geschwindigkeit oben rechts
+var _head_btns: Array = []  # Ziele, Aufträge, Nachrichten neben der Geschwindigkeit
 var menu_btn: Button
 var settler_btn: Button
 
@@ -247,6 +253,18 @@ func _build_topbar() -> void:
 	var sh := HBoxContainer.new()
 	sh.add_theme_constant_override("separation", 4)
 	sp.add_child(sh)
+	# Kleine Knöpfe Ziele, Aufträge, Nachrichten (josh 2026-10-29)
+	for k in [["ziel", tr("Ziele: die Zielkarte zeigen oder ausblenden"), _toggle_goals],
+			["haken", tr("Aufträge"), func(): _toggle(_quest_panel)],
+			["glocke", tr("Nachrichten: alle Meldungen zum Nachlesen"), func(): _toggle(_history_panel)]]:
+		var hb := UiTheme.button("", k[0], 34)
+		hb.tooltip_text = k[1]
+		hb.pressed.connect(k[2])
+		sh.add_child(hb)
+		_head_btns.append(hb)
+	var gap := Control.new()
+	gap.custom_minimum_size.x = 4
+	sh.add_child(gap)
 	for i in 4:  # Pause, normal, schnell (3x), sehr schnell (8x, josh 2026-10-11)
 		var icon_name: String = ["pause", "play", "schnell", "sehr_schnell"][i]
 		var b := UiTheme.button("", icon_name, 34)
@@ -605,7 +623,7 @@ func _toggle(panel: Control) -> void:
 
 
 func _panels() -> Array:
-	return [_build_panel, _research_panel, _stock_panel, _settler_panel, _menu_panel, _help_panel, _notify_panel, _slots_panel, _sea_panel, _score_panel, _quest_panel, _trade_panel, _admin_panel]
+	return [_build_panel, _research_panel, _stock_panel, _settler_panel, _menu_panel, _help_panel, _notify_panel, _slots_panel, _sea_panel, _score_panel, _quest_panel, _trade_panel, _admin_panel, _history_panel]
 
 
 ## Gemeinsamer Kopf aller Fenster (josh 2026-10-16): Symbol, Titel = Name des Knopfes, rechts das X.
@@ -2052,6 +2070,7 @@ func _build_menu_panel() -> void:
 		["haken", tr("Aufträge"), tr("Offene Aufträge und Belohnungen"), tr("Öffnen"), func(): _toggle(_quest_panel)],
 		["sonne", tr("Spielanleitung"), tr("So spielt man"), tr("Öffnen"), func(): _toggle(_help_panel)],
 		["glocke", tr("Meldungen"), tr("Welche Meldungen du siehst"), tr("Öffnen"), func(): _toggle(_notify_panel)],
+		["glocke", tr("Nachrichten"), tr("Alle Meldungen zum Nachlesen"), tr("Öffnen"), func(): _toggle(_history_panel)],
 	]
 	# Kein Knopf "Neues Spiel" im Menü (josh 2026-10-13); Menü > Wertung entfällt (josh 2026-10-16).
 	for rr in rows:
@@ -2712,6 +2731,102 @@ func _slot_confirm_button(text: String, ask: bool, action: Callable) -> Button:
 			return
 		action.call())
 	return b
+
+
+## Knopf Ziele oben: Zielkarte zeigen (auch wenn weggeklickt oder unter Meldungen aus) oder ausblenden.
+func _toggle_goals() -> void:
+	if goal_card.visible:
+		goal_card._dismiss()
+		return
+	Game.goals["hide"] = ""
+	if not Game.goal_card_on:
+		Game.set_notify("goal_card", true)
+		for nb in _notify_grid.get_children():
+			var c: CheckBox = nb.get_child(0)
+			if c.get_meta("cat", "") == "goal_card":
+				c.set_pressed_no_signal(true)
+	Sound.play("klick")
+
+
+## Fenster Nachrichten (josh 2026-10-29): alle Meldungen, neueste oben, auch die ausgeschalteten.
+func _build_history_panel() -> void:
+	var r := _popup_panel(tr("Nachrichten"), "glocke")
+	_history_panel = r[0]
+	var v: VBoxContainer = r[1]
+	var chips := Win.chip_row()
+	var all_c := Win.chip(tr("Alle"), true, func(_on): pass)
+	var off_c := Win.chip(tr("Nur ausgeschaltete"), false, func(_on): pass)
+	all_c.pressed.connect(func():
+		_history_muted_only = false
+		_fill_history())
+	off_c.pressed.connect(func():
+		_history_muted_only = true
+		_fill_history())
+	all_c.set_meta("hist_all", true)
+	chips.add_child(all_c)
+	chips.add_child(off_c)
+	v.add_child(chips)
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.custom_minimum_size = Vector2(330, 360)
+	v.add_child(scroll)
+	var m := MarginContainer.new()
+	m.add_theme_constant_override("margin_right", 24)
+	m.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(m)
+	_history_box = VBoxContainer.new()
+	_history_box.add_theme_constant_override("separation", 4)
+	_history_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	m.add_child(_history_box)
+	_history_ft = Win.footer(v)
+	var settings := UiTheme.button(tr("Meldungen einstellen"), "", 40)
+	settings.add_theme_font_size_override("font_size", 14)
+	settings.pressed.connect(func(): _toggle(_notify_panel))
+	_history_ft.right.add_child(settings)
+	_history_panel.visibility_changed.connect(func():
+		if _history_panel.visible:
+			_fill_history())
+	_history_panel.set_meta("chips", [all_c, off_c])
+
+
+## Liste neu füllen (nur beim Öffnen und bei einem Tipp auf die Chips: Fenster aktualisieren sich nicht von selbst).
+func _fill_history() -> void:
+	var ch: Array = _history_panel.get_meta("chips")
+	ch[0].set_pressed_no_signal(not _history_muted_only)
+	ch[1].set_pressed_no_signal(_history_muted_only)
+	for c in _history_box.get_children():
+		c.queue_free()
+	var shown := 0
+	var muted := 0
+	var last_day := -1
+	for i in range(Game.history.size() - 1, -1, -1):
+		var e: Array = Game.history[i]
+		var off: bool = e.size() > 4 and bool(e[4])
+		if off:
+			muted += 1
+		if _history_muted_only and not off:
+			continue
+		if shown >= 150:
+			continue
+		shown += 1
+		var t: float = float(e[0])
+		var d := int(floor(t)) + 1
+		if d != last_day:
+			last_day = d
+			_history_box.add_child(UiTheme.label(tr("Tag %d") % d, 14, UiTheme.TEXT, true))
+		var minutes := int(fposmod(t, 1.0) * 24.0 * 60.0)
+		var sub := "%02d:%02d" % [minutes / 60, minutes % 60]
+		sub += "  ·  " + tr(str(Game.NOTIFY_CATS.get(str(e[3]), "")))
+		if off:
+			sub += "  ·  " + tr("ausgeschaltet")
+		var rw := Win.row(Data.icon(str(e[2]) if str(e[2]) != "" else "glocke"), str(e[1]), sub, {"icon_px": 22})
+		rw.name.add_theme_font_size_override("font_size", 13)
+		if off:
+			rw.box.modulate.a = 0.6
+		_history_box.add_child(rw.box)
+	if shown == 0:
+		_history_box.add_child(UiTheme.label(tr("Noch keine Meldungen."), 14))
+	_history_ft.left.text = tr("%d Meldungen, davon %d ausgeschaltet") % [Game.history.size(), muted]
 
 
 ## Meldungen nach Art ein- und ausschalten (gespeichert in user://settings.cfg)
@@ -3665,7 +3780,7 @@ func toast(text: String, icon_name: String = "", _cat: String = "", top: bool = 
 	var tw := p.create_tween()
 	tw.set_ignore_time_scale(true)
 	tw.tween_property(p, "modulate:a", 1.0, 0.25)
-	tw.tween_interval(5.0)
+	tw.tween_interval(3.0)  # 3 Sekunden lesbar, danach im Fenster Nachrichten (josh 2026-10-29)
 	tw.tween_property(p, "modulate:a", 0.0, 0.6)
 	tw.tween_callback(p.queue_free)
 
@@ -3817,6 +3932,9 @@ func _layout() -> void:
 	for e in _speed_btns:
 		e[0].custom_minimum_size = Vector2(30, 30) if narrow_top else Vector2(34, 34)
 		e[0].reset_size()
+	for b in _head_btns:
+		b.custom_minimum_size = Vector2(30, 30) if narrow_top else Vector2(34, 34)
+		b.reset_size()
 	sp.get_child(0).add_theme_constant_override("separation", 2 if narrow_top else 4)
 	sp.reset_size()
 	var top_h := 50.0
@@ -3832,6 +3950,12 @@ func _layout() -> void:
 	_island_label.custom_minimum_size.x = 0
 	var isl_vis := _island_label.visible
 	_island_label.visible = false
+	# Neben der Geschwindigkeit (mit Ziele, Aufträge, Nachrichten) zu eng: Jahreszeit nur als Symbol
+	var fits := func() -> bool: return top_bar.get_combined_minimum_size().x <= vs.x - sp.size.x - 18.0
+	if _season_label.visible and not fits.call() and vs.x >= 1100.0:
+		_fix_top_widths(false)
+	if _season_label.visible and not fits.call():
+		_season_label.visible = false
 	var base := top_bar.get_combined_minimum_size().x
 	_island_label.visible = isl_vis
 	var right := vs.x - 6.0 if (portrait or vs.x < 760) else vs.x - sp.size.x - 12.0

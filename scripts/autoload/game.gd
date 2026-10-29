@@ -4,6 +4,7 @@ extends Node
 
 signal stock_changed
 signal population_changed
+signal history_added
 signal notified(text: String, icon: String, cat: String)
 signal day_started(day: int)
 signal selection_changed(obj)
@@ -107,6 +108,15 @@ func _ready() -> void:
 	_detect_test_build()
 	_load_slot()
 	_load_notify_settings()
+	state_reset.connect(func(): history = [])
+	state_save.connect(func(d): d["history"] = history.slice(maxi(0, history.size() - 150)))
+	state_load.connect(func(d, _r):
+		history = []
+		var hl = d.get("history", [])
+		if hl is Array:
+			for e in hl:
+				if e is Array and e.size() >= 4:
+					history.append(e))
 
 
 func _detect_test_build() -> void:
@@ -593,13 +603,29 @@ var goal_card_on: bool = true
 var hints_on: bool = true  # Hinweis-Fenster bei Neuem (Hints), sonst nur als Meldung
 
 
+## Alle Meldungen, auch abgeschaltete (josh 2026-10-29): [Spieltag, Text, Symbol, Art]; Fenster Nachrichten.
+var history: Array = []
+const HISTORY_MAX := 400
+var _last_shown: Dictionary = {}  # Text -> Spieltag, an dem die Meldung zuletzt erschien
+
+
 func notify(text: String, icon: String = "", cat: String = "") -> void:
 	if cat == "verwaltung":
 		Admin.add_log(text)  # Reiter Log im Fenster Verwalter (josh 2026-10-28)
 	if cat == "":
 		cat = NOTIFY_ICON_CAT.get(icon, "tag")
-	if notify_off.get(cat, false):
+	# Weniger Meldungen (josh 2026-10-29): dieselbe Meldung erscheint höchstens einmal am Tag, steht aber im Verlauf.
+	var muted: bool = notify_off.get(cat, false)
+	var again: bool = time_days - float(_last_shown.get(text, -99.0)) < 1.0
+	history.append([time_days, text, icon, cat, muted])
+	if history.size() > HISTORY_MAX:
+		history = history.slice(history.size() - HISTORY_MAX)
+	history_added.emit()
+	if muted or again:
 		return
+	_last_shown[text] = time_days
+	if _last_shown.size() > 200:
+		_last_shown = {}
 	notified.emit(text, icon, cat)
 
 

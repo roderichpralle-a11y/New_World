@@ -4,7 +4,8 @@ extends RefCounted
 ## Platz beim größeren Ausbau, Befugnisse Aus/Fragen/Selbst, Essen und Wärme für 3 Tage, Spieler-Berufe,
 ## Grundbesetzung, einen Tag frei, Mindestvorrat, Überstunden im Notfall, Spielstand.
 ## Druckt „Befugnisse OK/FEHLER …“ und am Ende „Befugnisse OK (N Fehler)“.
-## --powerstest=shot: Fenster Verwalter, Reiter Befugnisse (mit --shot); shot2: Reiter Vorschläge.
+## --powerstest=shot: Fenster Verwalter, Reiter Befugnisse (mit --shot); shot2: Reiter Vorschläge; shot3: Gutachten;
+## shot4: Fenster Nachrichten; soak: danach alle Befugnisse auf Selbst und schnell weiterspielen.
 
 static var fails := 0
 
@@ -190,6 +191,11 @@ static func run(main, mode: String) -> void:
 	Powers._on_load(d, 99)
 	_ok(Powers.mode_of("notfall") == Powers.SELBST and Powers.mode_of("forschung") == Powers.FRAGEN, "Spielstand: Schalter bleiben")
 	print("Befugnisse ", "OK" if fails == 0 else "FEHLER", " (%d Fehler)" % fails)
+	if mode == "soak":  # danach alles auf Selbst weiterlaufen lassen (Laufzeitfehler suchen)
+		for e in Powers.LIST:
+			Powers.set_mode(str(e.id), Powers.SELBST)
+		Game.set_speed(8)
+		return
 	if mode.begins_with("shot"):
 		w.stock["fisch"] = 0
 		Powers.set_mode("essen_waerme", Powers.FRAGEN)
@@ -198,6 +204,13 @@ static func run(main, mode: String) -> void:
 		Steward.tick(w)
 		Loc.set_language("de")
 		main.hud._update_admin_button()
+		if mode == "shot4":  # Fenster Nachrichten mit einer ausgeschalteten Meldung
+			Game.notify_off["tiere"] = true
+			Game.notify("Ein Wildschwein läuft über die Insel.", "schild", "tiere")
+			Game.notify_off.erase("tiere")
+			Game.notify("Neues Kind geboren.", "herz")
+			main.hud._toggle(main.hud._history_panel)
+			return
 		AdminInfo._tab = AdminInfo.TAB_PROPOSALS if mode == "shot2" else (AdminInfo.TAB_REPORT if mode == "shot3" else AdminInfo.TAB_POWERS)
 		main.hud._open_admin()
 

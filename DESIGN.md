@@ -77,6 +77,41 @@ bleiben bei der alten Grafik; dieser Zweig wird nicht nach main gemischt, solang
   `python3 tools/art_v2/scale.py` schreibt Vergleichstafeln nach tools/preview/v2/.
 - Neu bauen: `python3 tools/art_v2/build.py`, Bildschirmfoto mit festem Zoom: `--zoom=4` (Testhilfe).
 
+## Neue Verwaltung in V2 (josh 2026-10-29, Plan https://claude.ai/artifact/TAaaHP2qGTuyYcJKmfY64L)
+
+Ersetzt in V2 die älteren Abschnitte zu Verwalter-Steuerung, Automat und Planungsautomat (unten), wo sie sich
+widersprechen. Selbsttest `--powerstest=1` („Befugnisse OK (0 Fehler)“, `scripts/autoload/powers_test.gd`), Bilder
+`--powerstest=shot|shot2|shot3|shot4 --shot=…` (Befugnisse, Vorschläge, Gutachten, Nachrichten), `--powerstest=soak`
+spielt danach mit allem auf Selbst weiter. Die alten Tests `--admintest`, `--stewardtest`, `--plannertest` prüfen
+teils das frühere Verhalten (Angebote, Automat baut, Planer) und schlagen dort fehl.
+
+- **Ausbaustufen**: Verwaltung (Stufe 1) und `verwaltung2`…`verwaltung7` in buildings.json (`office`, `office_level`,
+  `upgrade`-Kette, nicht baubar, joshs Bilder `tools/art_v2/src/einzeln/verwaltung_N.png` -> `big/office*.png`):
+  2 Amtshaus (Baumeisterkunst), 3 Kanzlei (Papier), 4 Inselamt (Buchdruck), 5 Planungsamt (Dampfmaschine, mit
+  eingebautem Planungsautomaten), 6 Rechenzentrum (Computer), 7 KI-Leitstelle (KI). `Admin.level()` = Stufe der
+  fertigen Verwaltung mit Verwalter (0 ohne; eine Ausbau-Baustelle zählt eine Stufe weniger). Größerer Ausbau:
+  `World.upgrade_spot` sucht einen Platz, der die alte Fläche überdeckt; ohne Platz Meldung „… zu wenig Platz.
+  Verschiebe das Gebäude …“ und im Infofenster ist der Knopf aus. Rechenautomat und alter Planungsautomat sind nicht
+  mehr baubar.
+- **Befugnisse** (`Powers`, scripts/autoload/powers.gd, `Powers.LIST`): je Befugnis Aus/Fragen/Selbst (Standard
+  Fragen), frei ab ihrer Stufe. Fragen: `Powers.decide` legt einen Vorschlag an (gleicher Schlüssel ersetzt, verfällt
+  nach einem Tag; Reiter Vorschläge mit Ja/Nein/Alle annehmen; Zahl am Verwalter-Knopf). Selbst: sofort, nur ins Log
+  und die Bilanz „Für dich erledigt“; eine Meldung nur, wenn er einen vom Spieler eingeteilten Siedler nimmt.
+  Spielstand `powers`.
+- **Entscheidungen** (`Steward.tick` alle 0,25 Tage, höchstens ein Wechsel je Insel und halben Tag, `Steward.needs`
+  in dieser Reihenfolge): Essen und Wärme für 3 Tage (`secure_info`: Bedarf aus Siedlern, Häusern, Gebäuden gegen
+  Vorrat + Ertrag der jetzigen Arbeiter; darf Spieler-Siedler nehmen), Grundbesetzung (Baumeister bei Baustellen,
+  Bauern nach Feldern UND Ställen, Holzfäller für die Wärme, Werkstätten mit Zutaten und Bedarf; nur Freie; wer einen
+  Tag frei ist, bekommt einen Beruf), Mindestvorräte (Reiter Vorräte). Notfall: lässt sich Essen/Wärme nicht sichern,
+  Überstunden, dann Schichten; Ende nach 2 Tagen ohne Not. Der Spieler teilt den Rest ein (JobDesk-Rang spieler).
+- **Planungsautomat** (Stufe 5, `Planner.active()` ist immer false: er baut nicht): jeden Sommer `PlanReport.make()`
+  -> `Planner.report` (Spielstand); je Insel Karte (`PlanReport.map_image`), Straßen, Gebäude zum Verschieben,
+  Tipps, nächste Insel zum Besiedeln; mit Rundfunkanstalt der Versorgungsplan. Reiter Gutachten im Fenster Verwalter.
+- **Meldungen**: sichtbar 3 Sekunden (`Hud.toast`); dieselbe Meldung höchstens einmal am Tag; alle Meldungen, auch
+  abgeschaltete, in `Game.history` (400, Spielstand die letzten 150) -> Fenster Nachrichten (`Hud._history_panel`,
+  Filter „Nur ausgeschaltete“). Oben neben der Geschwindigkeit drei kleine Knöpfe Ziele (Zielkarte zeigen/ausblenden),
+  Aufträge, Nachrichten (`Hud._head_btns`); ist die Leiste zu eng, steht die Jahreszeit nur als Symbol.
+
 ## Spielregeln (Etappe 1)
 
 - Start: eine zufällige Insel aus einem Seed, Lagerfeuer und eine Hütte, zwei Siedler
@@ -552,7 +587,7 @@ fast bildschirmfüllend mit kompakten Zeilen; Spaltenköpfe Name, Alter, Beruf, 
 - **Meldungen**: `Game.notify(text, icon, cat)` hat eine Art aus `Game.NOTIFY_CATS` (ohne Angabe nach
   dem Symbol über `NOTIFY_ICON_CAT`). Menü > „Meldungen“ schaltet jede Art und die Zielkarte ab;
   gespeichert in `user://settings.cfg` Abschnitt `[notify]`, gilt für alle Spielstände.
-  Abgeschaltete Arten erreichen das Signal `notified` gar nicht. Neue Meldungsarten (etwa der KI)
+  Abgeschaltete Arten erreichen das Signal `notified` gar nicht (V2: sie stehen aber im Fenster Nachrichten). Neue Meldungsarten (etwa der KI)
   als neuen Eintrag in `NOTIFY_CATS` anlegen und beim Aufruf als `cat` angeben.
 - **Bauen**: mit der Maus baut ein Klick sofort (Rechtsklick oder Esc bricht ab), am Handy tippt man
   den Platz an und bestätigt mit „Hier bauen“.
