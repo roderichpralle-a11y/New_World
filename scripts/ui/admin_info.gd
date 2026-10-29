@@ -55,6 +55,8 @@ const TAB_ISLANDS := 3
 const TAB_HOURS := 4
 const TAB_STATS := 5
 const TAB_LOG := 6
+const TAB_REPORT := 7
+static var _rep_island := -1  # Reiter Gutachten: gezeigte Insel
 static var _box: Container  # hierhin bauen die Reiter ihre Zeilen (Fenster Verwalter oder Infofenster)
 static var _rebuild: Callable  # baut das Fenster neu auf
 
@@ -80,6 +82,10 @@ static func fill_window(hud, b, box: Container, rebuild: Callable, ft: Dictionar
 	var np := Powers.proposals.size()
 	var names := [Loc.t("Befugnisse"), Loc.t("Vorschläge (%d)") % np if np > 0 else Loc.t("Vorschläge"), Loc.t("Vorräte"), Loc.t("Inseln"),
 		Loc.t("Arbeitszeit"), Loc.t("Statistik"), Loc.t("Log")]
+	if Admin.office_level() >= 5 or not Planner.report.is_empty():
+		names.append(Loc.t("Gutachten"))
+	elif _tab == TAB_REPORT:
+		_tab = TAB_POWERS
 	box.add_child(Win.tabs(names, _tab, func(i):
 		_tab = i
 		rebuild.call()))
@@ -102,6 +108,7 @@ static func fill_window(hud, b, box: Container, rebuild: Callable, ft: Dictionar
 			_box.add_child(UiTheme.label(Loc.t("Schichtarbeit (auch nachts)"), 15, UiTheme.TEXT, true))
 			_orders_tab(hud, b, "sh")
 		TAB_LOG: _log_tab()
+		TAB_REPORT: _report_tab(hud)
 		_: _stats_tab(hud, b)
 
 
@@ -175,6 +182,59 @@ static func _power_row(p: Dictionary) -> void:
 				_rebuild.call()))
 		r.text.add_child(chips)
 	_box.add_child(r.box)
+
+
+## Reiter Gutachten (josh 2026-10-29): der letzte Bericht des Planungsautomaten mit Karte, Straßen, Gebäuden
+## zum Verschieben, Tipps, Versorgungsplan und der nächsten Insel. Nur zum Ansehen, keine Übernahme.
+static func _report_tab(_hud) -> void:
+	var rep: Dictionary = Planner.report
+	if rep.is_empty():
+		_note(Loc.t("Noch kein Gutachten. Ab Stufe 5 (Planungsamt) rechnet der Planungsautomat jeden Sommer eines."))
+		return
+	_box.add_child(UiTheme.label(Loc.t("Gutachten aus Jahr %d") % int(rep.get("year", 1)), 15, UiTheme.TEXT, true))
+	_note(Loc.t("Nur Vorschläge: Bauen und Verschieben musst du selbst. Das nächste Gutachten kommt im Sommer."))
+	if str(rep.get("settle", "")) != "":
+		_box.add_child(Win.row(Data.icon("anker"), Loc.t("Nächste Insel"), str(rep.settle), {"icon_px": 28}).box)
+	var isl: Dictionary = rep.get("islands", {})
+	if isl.is_empty():
+		return
+	if not isl.has(str(_rep_island)):
+		_rep_island = int(isl.keys()[0])
+	if isl.size() > 1:
+		var chips := Win.chip_row()
+		for k in isl:
+			var kk := int(k)
+			chips.add_child(Win.chip(str(isl[k].get("name", "?")), kk == _rep_island, func(_on):
+				_rep_island = kk
+				_rebuild.call()))
+		_box.add_child(chips)
+	var r: Dictionary = isl[str(_rep_island)]
+	var w = Sea.worlds.get(_rep_island)
+	if w != null:
+		var tr_ := TextureRect.new()
+		tr_.texture = PlanReport.map_image(w, r)
+		tr_.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		tr_.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		tr_.custom_minimum_size = Vector2(300, 300)
+		tr_.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		_box.add_child(tr_)
+		_note(Loc.t("Karte: orange = hier lohnt eine Straße, rot umrandet = Gebäude weit vom Lager, grün = besserer Platz dafür."))
+	var roads: Array = r.get("roads", [])
+	if not roads.is_empty():
+		_box.add_child(Win.row(Data.building_tex("strasse"), Loc.t("Straßen"), Loc.t("%d Felder ohne Straße, über die viel getragen wird (orange auf der Karte).") % roads.size(), {"icon_px": 28}).box)
+	for m in r.get("moves", []):
+		_box.add_child(Win.row(Data.building_tex(str(m.type)), Loc.t("%s verschieben") % str(m.name),
+			Loc.t("Weg zum Lager jetzt %d Felder, am grünen Platz %d.") % [int(m.was), int(m.now)], {"icon_px": 28}).box)
+	_box.add_child(UiTheme.label(Loc.t("Tipps"), 15, UiTheme.TEXT, true))
+	for t in r.get("tips", []):
+		_note("• " + str(t), UiTheme.TEXT)
+	var plan: Array = r.get("plan", [])
+	if not plan.is_empty():
+		_box.add_child(UiTheme.label(Loc.t("Versorgungsplan"), 15, UiTheme.TEXT, true))
+		for e in plan:
+			_note(("✓ " if e.get("ok", false) else "✗ ") + str(e.text), DIM if e.get("ok", false) else UiTheme.BAD)
+	elif Powers.unlocked("versorgung"):
+		_note(Loc.t("Versorgungsplan: braucht die Befugnis „Versorgungsplan“ und eine Rundfunkanstalt auf der Insel."))
 
 
 ## Reiter Vorschläge: was der Verwalter auf „Fragen“ tun würde, mit Ja und Nein.

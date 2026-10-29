@@ -158,6 +158,31 @@ static func run(main, mode: String) -> void:
 	for j in Steward.FOOD_JOBS:
 		any_ot = any_ot or Admin.ordered(j, "ot")
 	_ok(any_ot, "Notfall: Überstunden für einen Nahrungsberuf")
+	# Ausbau zu Stufe 4 und 5, Gutachten
+	for t in ["buchdruck", "dampfmaschine", "wegebau"]:
+		if not t in Game.research.done:
+			Game.research.done.append(t)
+	for lvl in [4, 5]:
+		var ob = _office(w)
+		var sp: Vector2i = w.upgrade_spot(ob, "verwaltung%d" % lvl)
+		if sp.x < 0:  # kein Platz: an eine freie Stelle verschieben (wie der Spieler)
+			for rad in range(2, 25):
+				var moved := false
+				for dy in range(-rad, rad + 1):
+					for dx in range(-rad, rad + 1):
+						var c: Vector2i = w.center + Vector2i(dx, dy)
+						if not moved and w.can_place(ob.type, c, ob) and w.move_building(ob, c) and w.upgrade_spot(ob, "verwaltung%d" % lvl).x >= 0:
+							moved = true
+				if moved:
+					break
+		var nb = w.upgrade_building(_office(w))
+		if nb != null:
+			_finish(nb)
+	_ok(Admin.level() == 5 and Powers.on("gutachten"), "Stufe 5 Planungsamt: Gutachten frei (Stufe %d)" % Admin.level())
+	Planner.make_report()
+	var rep: Dictionary = Planner.report.get("islands", {}).get(str(int(w.island_id)), {})
+	_ok(not rep.is_empty() and not rep.get("tips", []).is_empty(), "Gutachten mit %d Tipps, %d Straßenfeldern, %d Verschiebungen" % [rep.get("tips", []).size(), rep.get("roads", []).size(), rep.get("moves", []).size()])
+	_ok(PlanReport.map_image(w, rep) != null, "Karte zum Gutachten")
 	# Spielstand
 	var d := {}
 	Powers._on_save(d)
@@ -173,8 +198,6 @@ static func run(main, mode: String) -> void:
 		Steward.tick(w)
 		Loc.set_language("de")
 		main.hud._update_admin_button()
-		AdminInfo._tab = AdminInfo.TAB_PROPOSALS if mode == "shot2" else AdminInfo.TAB_POWERS
+		AdminInfo._tab = AdminInfo.TAB_PROPOSALS if mode == "shot2" else (AdminInfo.TAB_REPORT if mode == "shot3" else AdminInfo.TAB_POWERS)
 		main.hud._open_admin()
-		if mode == "shot3":
-			await main.get_tree().process_frame
-			main.hud._admin_panel.get_child(0).get_child(1).scroll_vertical = 700
+

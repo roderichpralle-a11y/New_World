@@ -131,14 +131,19 @@ func plan_of(w) -> Dictionary:
 func _process(_delta: float) -> void:
 	if Game.world == null or Game.speed == 0 or Game.is_over:
 		return
-	if not offered and Game.current_age() >= MIN_AGE and not AiRule.ki() and machine() != null:
-		offered = true
-		Steward.offer.emit("planner")
 	if Game.time_days < _next:
 		return
 	_next = Game.time_days + TICK_DAYS
-	if active():
-		tick()
+	# Aufbau-Gutachten (josh 2026-10-29): das erste gleich, dann jeden Sommer einmal
+	if Powers.on("gutachten") and (report.is_empty() or (Seasons.season() == 1 and int(report.get("year", 0)) != Seasons.year())):
+		make_report()
+
+
+## Neues Gutachten rechnen und melden (einmal im Jahr, eine Meldung).
+func make_report() -> void:
+	report = PlanReport.make()
+	Game.notify(tr("Planungsautomat: Das Gutachten für dieses Jahr ist fertig (Fenster Verwalter, Reiter Gutachten)."), "kompass", "verwaltung")
+	changed.emit()
 
 
 func tick() -> void:
@@ -876,7 +881,11 @@ func research_step() -> String:
 
 
 # ---------------------------------------------------------------- Spielstand
+var report: Dictionary = {}  # letztes Aufbau-Gutachten (PlanReport.make)
+
+
 func _on_reset() -> void:
+	report = {}
 	on = true
 	offered = false
 	plans = {}
@@ -894,7 +903,7 @@ func _on_reset() -> void:
 
 func _on_save(d: Dictionary) -> void:
 	d["planner"] = {"on": on, "offered": offered, "plans": plans.duplicate(true), "orders": orders.duplicate(true),
-		"wanted": wanted_tech, "note": research_note, "built": built, "started": started, "sent": sent, "grow": _grow.duplicate(true)}
+		"wanted": wanted_tech, "note": research_note, "built": built, "started": started, "sent": sent, "grow": _grow.duplicate(true), "report": report.duplicate(true)}
 
 
 func _on_load(data: Dictionary, _old_rules: int) -> void:
@@ -908,6 +917,9 @@ func _on_load(data: Dictionary, _old_rules: int) -> void:
 	research_note = str(e.get("note", ""))
 	if not Data.techs.has(wanted_tech):
 		wanted_tech = ""
+	var rp = e.get("report", {})
+	if rp is Dictionary:
+		report = rp
 	built = int(e.get("built", 0))
 	started = int(e.get("started", 0))
 	sent = int(e.get("sent", 0))
