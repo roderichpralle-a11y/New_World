@@ -403,7 +403,9 @@ def gen_big():
 
 
 # Einzelbilder von josh (2026-10-29) im Maßstab der feinen Siedler-Bögen: Kästchen 256 = 30 Spielpixel.
-SINGLE = {"bench": "bank.png", "pavilion": "pavillon.png"}
+SINGLE = {"bench": "bank.png", "pavilion": "pavillon.png", "office": "verwaltung_1.png"}
+# Verwaltung in sieben Ausbaustufen (josh 2026-10-29): office, office2 .. office7
+SINGLE.update({"office%d" % i: "verwaltung_%d.png" % i for i in range(2, 8)})
 SINGLE_SCALE = 30 / 256
 
 

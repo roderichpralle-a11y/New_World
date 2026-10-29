@@ -45,72 +45,226 @@ static func _count(job: String, w) -> int:
 	return w.settlers.filter(func(s): return s.job == job and s.is_adult()).size()
 
 
-static var _tab := 0  # Reiter im Fenster Verwalter: 0 Verwalter, 1 Schichten, 2 Nachtschicht, 3 Überstunden, 4 Statistik, 5 Inseln, 6 Log
+static var _tab := 0  # Reiter im Fenster Verwalter (josh 2026-10-29): Befugnisse, Vorschläge, Vorräte, Inseln, Arbeitszeit, Statistik, Log
 static var _task_island := -1  # Reiter Inseln: für diese Insel ist die Auswahl der Spezialisierung offen
-const TAB_ISLANDS := 5
+static var _min_island := -1  # Reiter Vorräte: Insel, deren Mindestvorräte gezeigt werden
+const TAB_POWERS := 0
+const TAB_PROPOSALS := 1
+const TAB_STOCK := 2
+const TAB_ISLANDS := 3
+const TAB_HOURS := 4
+const TAB_STATS := 5
 const TAB_LOG := 6
 static var _box: Container  # hierhin bauen die Reiter ihre Zeilen (Fenster Verwalter oder Infofenster)
 static var _rebuild: Callable  # baut das Fenster neu auf
 
 
-## Infofenster der Verwaltung mit den Reitern Verwalter, Schichten, Nachtschicht und Überstunden
-## (josh 2026-10-16).
+## Infofenster der Verwaltung: Knopf zum Fenster Verwalter und die Ausbaustufe.
 static func office_rows(hud, b) -> void:
 	_box = hud._info_box
 	_rebuild = hud._rebuild_info
+	var lv := int(b.def.get("office_level", 1))
+	var l := UiTheme.label(Loc.t("Ausbaustufe %d von 7") % lv, 13, DIM)
+	_box.add_child(l)
 	if b.complete:
 		var bt := UiTheme.button(Loc.t("Fenster Verwalter öffnen"), "person", 40)
 		bt.pressed.connect(hud._open_admin)
 		_box.add_child(bt)
 
 
-## Fenster Verwalter (josh 2026-10-20, einheitlich wie alle Fenster): Reiter Verwalter, Schichten,
-## Nachtschicht, Überstunden und Statistik. box: Inhalt, rebuild: baut ihn neu auf, ft: Win.footer.
+## Fenster Verwalter (josh 2026-10-29): Reiter Befugnisse, Vorschläge, Vorräte, Inseln, Arbeitszeit, Statistik, Log.
+## box: Inhalt, rebuild: baut ihn neu auf, ft: Win.footer.
 static func fill_window(hud, b, box: Container, rebuild: Callable, ft: Dictionary) -> void:
 	_box = box
 	_rebuild = rebuild
-	var names := [Loc.t("Verwalter"), Loc.t("Schichten"), Loc.t("Nachtschicht"), Loc.t("Überstunden"), Loc.t("Statistik"), Loc.t("Inseln"), Loc.t("Log")]
+	var np := Powers.proposals.size()
+	var names := [Loc.t("Befugnisse"), Loc.t("Vorschläge (%d)") % np if np > 0 else Loc.t("Vorschläge"), Loc.t("Vorräte"), Loc.t("Inseln"),
+		Loc.t("Arbeitszeit"), Loc.t("Statistik"), Loc.t("Log")]
 	box.add_child(Win.tabs(names, _tab, func(i):
 		_tab = i
 		rebuild.call()))
 	var m = Admin.local_manager()
 	ft.left.text = Loc.t("Verwalter: %s") % m.display_name if m else Loc.t("Kein Verwalter")
 	Win.set_left2(ft, Sea.island_name(b.world) if b != null and Sea.settled_islands().size() > 1 else "")
-	if b == null and _tab < 4:
-		var l := UiTheme.label(Loc.t("Baue zuerst die Verwaltung (Bauen, Reiter Wissen). Dann findest du hier den Verwalter, Schichten und Überstunden."), 14, UiTheme.BAD)
+	if b == null and _tab != TAB_LOG:
+		var l := UiTheme.label(Loc.t("Baue zuerst die Verwaltung (Bauen, Reiter Wissen) und gib einem Siedler den Beruf Verwalter. Mit jedem Ausbau der Verwaltung übernimmt er mehr Aufgaben."), 14, UiTheme.BAD)
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		box.add_child(l)
 		return
 	match _tab:
-		0: _manager_tab(hud, b)
-		1: _orders_tab(hud, b, "sh")
-		2: _night_tab(hud, b)
-		3: _orders_tab(hud, b, "ot")
+		TAB_POWERS: _powers_tab(hud, b)
+		TAB_PROPOSALS: _proposals_tab(hud)
+		TAB_STOCK: _stock_tab(hud, b)
 		TAB_ISLANDS: _islands_tab(hud)
+		TAB_HOURS:
+			_box.add_child(UiTheme.label(Loc.t("Überstunden"), 15, UiTheme.TEXT, true))
+			_orders_tab(hud, b, "ot")
+			_box.add_child(UiTheme.label(Loc.t("Schichtarbeit (auch nachts)"), 15, UiTheme.TEXT, true))
+			_orders_tab(hud, b, "sh")
 		TAB_LOG: _log_tab()
 		_: _stats_tab(hud, b)
+
+
+## Reiter Befugnisse: Verwalter, Ausbaustufe, Tagesbilanz, Essen und Wärme, dann alle Befugnisse mit
+## den Schaltern Aus / Fragen / Selbst (gesperrte grau mit dem, was fehlt).
+static func _powers_tab(_hud, b) -> void:
+	Powers.seen_level = maxi(Powers.seen_level, Admin.level())
+	var m = Admin.local_manager()
+	var away = Admin.manager()
+	var head_text := Loc.t("Verwalter: %s") % m.display_name if m else Loc.t("Kein Verwalter! Gib einem Siedler den Beruf Verwalter.")
+	if m == null and away != null:
+		head_text = Loc.t("Der Verwalter %s lebt auf einer anderen Insel (%s). Er arbeitet nur, wenn er auf der Insel der Verwaltung lebt.") % [away.display_name, Sea.island_name(away.world)]
+	var head := UiTheme.label(head_text, 14, UiTheme.TEXT if m else UiTheme.BAD, true)
+	head.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_box.add_child(head)
+	var lv := Admin.office_level()
+	var stage := "%s (%s)" % [Loc.t("Stufe %d von 7") % lv, b.def.name]
+	if not b.complete:
+		stage += " · " + Loc.t("Ausbau zu %s läuft") % b.def.name
+	elif b.def.has("upgrade"):
+		var nd: Dictionary = Data.buildings[b.def.upgrade]
+		stage += "\n" + (Loc.t("Nächster Ausbau: %s, im Infofenster der Verwaltung.") % nd.name if Game.is_unlocked(b.def.upgrade)
+			else Loc.t("Nächster Ausbau: %s nach der Forschung %s.") % [nd.name, Data.techs.get(nd.requires, {}).get("name", "?")])
+	_note(stage, UiTheme.TEXT)
+	var today := Powers.tally(true)
+	var year := Powers.tally(false)
+	var fmt := func(t: Dictionary) -> String:
+		return Loc.t("%d Berufe · %d Fahrten · %d Anordnungen · %d Forschungen") % [int(t.get("job", 0)), int(t.get("trip", 0)), int(t.get("order", 0)), int(t.get("research", 0))]
+	_box.add_child(Win.row(Data.icon("sonne"), Loc.t("Für dich erledigt"), Loc.t("Heute: %s") % fmt.call(today) + "\n" + Loc.t("Dieses Jahr: %s") % fmt.call(year), {"icon_px": 28}).box)
+	if Powers.unlocked("essen_waerme"):
+		var si := Steward.secure_info(b.world)
+		var f: Array = si.food
+		var h: Array = si.fuel
+		var txt := Loc.t("Essen: braucht %d in 3 Tagen, Vorrat %d, Leute %d von %d nötig") % [int(f[0]), int(f[1]), int(f[3]), int(f[2])]
+		txt += "\n" + Loc.t("Brennstoff: braucht %d in 3 Tagen, Vorrat %d, Holzfäller %d von %d nötig") % [int(h[0]), int(h[1]), int(h[3]), int(h[2])]
+		var bad: bool = int(f[3]) < int(f[2]) or int(h[3]) < int(h[2])
+		_box.add_child(Win.row(Data.icon("weizen"), Loc.t("Essen und Wärme"), txt, {"icon_px": 28, "sub_color": UiTheme.BAD if bad else DIM}).box)
+	var last := 0
+	for p in Powers.LIST:
+		var lvl := int(p.level)
+		if lvl != last:
+			last = lvl
+			var od: Dictionary = {}
+			for k in Data.buildings:
+				if int(Data.buildings[k].get("office_level", 0)) == lvl and Data.buildings[k].get("office", false):
+					od = Data.buildings[k]
+			_box.add_child(UiTheme.label(Loc.t("Stufe %d: %s") % [lvl, od.get("name", "")], 14, UiTheme.TEXT if lv >= lvl else DIM, true))
+		_power_row(p)
+
+
+static func _power_row(p: Dictionary) -> void:
+	var id: String = p.id
+	var ok := Powers.unlocked(id)
+	var sub: String = Loc.t(p.desc)
+	if not ok:
+		var od: Dictionary = {}
+		for k in Data.buildings:
+			if int(Data.buildings[k].get("office_level", 0)) == int(p.level) and Data.buildings[k].get("office", false):
+				od = Data.buildings[k]
+		sub = Loc.t("Fehlt: Ausbau der Verwaltung zu %s (Forschung %s).") % [od.get("name", "?"), Data.techs.get(od.get("requires", ""), {}).get("name", "?")] + "\n" + sub
+	var r := Win.row(Data.icon(p.icon), Loc.t(p.name), sub, {"icon_px": 28, "hi": ok and Powers.mode_of(id) == Powers.SELBST})
+	if not ok:
+		r.box.modulate = Color(1, 1, 1, 0.6)
+	else:
+		var chips := Win.chip_row()
+		for mi in [Powers.AUS, Powers.FRAGEN, Powers.SELBST]:
+			var label: String = [Loc.t("Aus"), Loc.t("Fragen"), Loc.t("Selbst")][mi]
+			var mm: int = mi
+			chips.add_child(Win.chip(label, Powers.mode_of(id) == mi, func(_on):
+				Powers.set_mode(id, mm)
+				_rebuild.call()))
+		r.text.add_child(chips)
+	_box.add_child(r.box)
+
+
+## Reiter Vorschläge: was der Verwalter auf „Fragen“ tun würde, mit Ja und Nein.
+static func _proposals_tab(_hud) -> void:
+	if Powers.proposals.is_empty():
+		_note(Loc.t("Keine Vorschläge. Steht eine Befugnis auf „Fragen“, schlägt der Verwalter hier vor, was er tun würde."))
+		return
+	var all := UiTheme.button(Loc.t("Alle annehmen"), "play", 36)
+	all.pressed.connect(func():
+		Powers.answer_all()
+		_rebuild.call())
+	_box.add_child(all)
+	for i in Powers.proposals.size():
+		var p: Dictionary = Powers.proposals[i]
+		var info := Powers.info(str(p.power))
+		var r := Win.row(Data.icon(info.get("icon", "person")), Loc.t(info.get("name", "")), str(p.text), {"icon_px": 28, "sub_color": UiTheme.TEXT})
+		var bh := HBoxContainer.new()
+		var idx: int = i
+		var yes := UiTheme.button(Loc.t("Ja"), "", 34)
+		yes.pressed.connect(func():
+			Powers.answer(idx, true)
+			_rebuild.call())
+		var no := UiTheme.button(Loc.t("Nein"), "", 34)
+		no.pressed.connect(func():
+			Powers.answer(idx, false)
+			_rebuild.call())
+		bh.add_child(yes)
+		bh.add_child(no)
+		r.h.add_child(bh)
+		_box.add_child(r.box)
+
+
+## Reiter Vorräte: Mindestvorrat je Ware für eine Insel (Befugnis Mindestvorräte, auch Ziel für Fahrten).
+static func _stock_tab(_hud, b) -> void:
+	var worlds: Array = Sea.all_worlds().filter(func(w): return Powers.covers(w))
+	if worlds.is_empty():
+		worlds = [b.world]
+	if _min_island < 0 or not worlds.any(func(w): return int(w.island_id) == _min_island):
+		_min_island = int(b.world.island_id)
+	if worlds.size() > 1:
+		var chips := Win.chip_row()
+		for w in worlds:
+			var iid := int(w.island_id)
+			chips.add_child(Win.chip(Sea.island_name(w), iid == _min_island, func(_on):
+				_min_island = iid
+				_rebuild.call()))
+		_box.add_child(chips)
+	var w = Sea.worlds.get(_min_island, b.world)
+	_note(Loc.t("Mindestvorrat: Liegt weniger da, schickt der Verwalter Siedler in den passenden Beruf (Befugnis Mindestvorräte) oder holt die Ware per Schiff (Waren ausgleichen)."))
+	if not Powers.unlocked("mindestvorrat"):
+		_note(Loc.t("Der Verwalter richtet sich erst ab Stufe 2 (Amtshaus) danach."), UiTheme.BAD)
+	var ids := []
+	for id in Data.resources:
+		var rd: Dictionary = Data.resources[id]
+		if rd.get("hidden", false) or id in ["droide", "strom", "boot"]:
+			continue
+		if Game.amount(id, w) > 0 or Steward.limits(int(w.island_id), id)[0] > 0 or Steward._producer(w, id) != "":
+			ids.append(id)
+	for id in ids:
+		var gid: String = id
+		var iid := int(w.island_id)
+		var mn: int = Steward.limits(iid, gid)[0]
+		var have := Game.amount(gid, w)
+		var r := Win.row(Data.res_icon(gid), Data.resource_name(gid), Loc.t("im Lager %d") % have,
+			{"icon_px": 24, "value": str(mn) if mn > 0 else "–", "value_color": UiTheme.BAD if mn > 0 and have < mn else UiTheme.TEXT})
+		for step in [-10, 10]:
+			var st: int = step
+			var bt := UiTheme.button("%+d" % st, "", 34)
+			bt.custom_minimum_size.x = 48
+			bt.pressed.connect(func():
+				var lim: Array = Steward.limits(iid, gid)
+				lim[0] = maxi(0, int(lim[0]) + st)
+				if int(lim[1]) > 0 and lim[0] > lim[1]:
+					lim[1] = lim[0]
+				Steward.set_limits(iid, gid, lim[0], lim[1])
+				AiRule.player_changed("minmax")
+				_rebuild.call())
+			r.h.add_child(bt)
+		_box.add_child(r.box)
 
 
 ## Reiter Inseln (josh 2026-10-21: die Verwaltung der Inseln gehört zum Verwalter): Verwalter steuert die
 ## Berufe (Steward), Inselverbund mit Rundfunkanstalten, Spezialisierung (Hauptaufgabe) je Insel.
 static func _islands_tab(_hud) -> void:
-	if not Steward.unlocked():
-		_note(Loc.t("Ab der zweiten Insel kann der Verwalter die Berufe auf allen Inseln steuern. Dann stellst du es hier ein."))
-		return
-	var auto := Steward.automat_mode()
-	var r := Win.row(Data.icon("person"), Loc.t("Automat steuert die Inseln") if auto else Loc.t("Verwalter steuert die Berufe"),
-		Loc.t("Er verteilt die Berufe nach dem Bedarf: Essen, Brennholz, Lager bis zur Höchstmenge, Werkstätten und Baustellen."),
-		{"button": Loc.t("an") if Steward.on else Loc.t("aus"), "button_off": not Steward.on, "hi": Steward.on, "icon_px": 28,
-		"on_press": func():
-			Steward.set_on(not Steward.on)
-			_rebuild.call()})
-	_box.add_child(r.box)
-	if Steward.on:
-		for m in Sea.settled_islands():
-			var why := Steward.blocked_on(Sea.worlds.get(int(m.id)))
-			if why != "":
-				_note(Loc.t("%s: %s.") % [m.name, why], UiTheme.BAD)
-	_planner_rows()
+	for m in Sea.settled_islands():
+		var w = Sea.worlds.get(int(m.id))
+		if w == null:
+			continue
+		var why := Steward.blocked_on(w)
+		_note(Loc.t("%s: vom Verwalter verwaltet.") % m.name if why == "" else Loc.t("%s: %s") % [m.name, why], DIM if why == "" else UiTheme.BAD)
 	if Steward.net_unlocked():
 		var miss: Array = Steward.islands_without_radio()
 		var sub := Loc.t("Die Heimatinsel verarbeitet, die anderen Inseln liefern Essen und Rohstoffe.")
@@ -130,8 +284,7 @@ static func _islands_tab(_hud) -> void:
 				_rebuild.call()})
 		_box.add_child(nr.box)
 	_box.add_child(UiTheme.label(Loc.t("Spezialisierung der Inseln"), 15, UiTheme.TEXT, true))
-	if not Steward.on:
-		_note(Loc.t("Der Verwalter richtet sich danach, sobald er die Berufe steuert."))
+	_note(Loc.t("Bleibt ein Siedler einen Tag frei, gibt ihm der Verwalter zuerst einen Beruf der Hauptaufgabe."))
 	for m in Sea.settled_islands():
 		var iid := int(m.id)
 		var w = Sea.worlds.get(iid)
@@ -174,35 +327,6 @@ static func _islands_tab(_hud) -> void:
 			_box.add_child(grid)
 
 
-## Planungsautomat (Planner, josh 2026-10-21): Schalter und der letzte Plan je Insel (oberste Lücke, nächster Schritt).
-static func _planner_rows() -> void:
-	var why := Planner.reason()
-	var sub := Loc.t("Erst Essen, Wärme und Wintervorrat, dann Häuser, Lager, Werkstätten und Forschung bis zur KI. Bauen und das Material bringen müssen die Siedler.")
-	if why != "":
-		sub = why
-	var r := Win.row(Data.building_tex("planautomat"), Loc.t("Automat plant Bauten, Waren und Routen"), sub,
-		{"sub_color": UiTheme.BAD if why != "" else DIM, "icon_px": 28,
-		"button": Loc.t("an") if Planner.on else Loc.t("aus"), "button_off": not Planner.on or why != "", "hi": Planner.on and why == "",
-		"on_press": func():
-			Planner.set_on(not Planner.on)
-			_rebuild.call()})
-	_box.add_child(r.box)
-	if not Planner.active():
-		return
-	_box.add_child(UiTheme.label(Loc.t("Plan"), 15, UiTheme.TEXT, true))
-	for m in Sea.settled_islands():
-		var w = Sea.worlds.get(int(m.id))
-		if w == null:
-			continue
-		var p := Planner.plan_of(w)
-		var text := Loc.t("Noch nicht geplant.") if p.is_empty() else "%s\n%s" % [p.need, Loc.t("Nächster Schritt: %s") % p.step]
-		var col: Color = UiTheme.BAD if str(p.get("prio", "")) == "a" else DIM
-		_box.add_child(Win.row(Data.icon("anker"), str(m.name), text, {"sub_color": col, "icon_px": 24}).box)
-	if Planner.research_note != "" or Planner.wanted_tech != "":
-		var rt := Loc.t("Forscht: %s") % Planner.research_note if Game.research.current != "" else Loc.t("Wartet auf Material für %s") % Data.techs.get(Planner.wanted_tech, {}).get("name", "?")
-		_box.add_child(Win.row(Data.icon("wissen"), Loc.t("Forschung"), rt, {"icon_px": 24}).box)
-
-
 static func _note(t: String, col: Color = DIM) -> void:
 	var l := UiTheme.label(t, 12, col)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -232,52 +356,6 @@ static func _night_tab(hud, b) -> void:
 		else Loc.t("Niemand arbeitet nachts. Unter „Schichten“ lässt sich für einen Beruf Schichtarbeit rund um die Uhr anordnen."), 12, DIM)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_box.add_child(l)
-
-
-static func _manager_tab(hud, b) -> void:
-	var m = Admin.local_manager()
-	var away = Admin.manager()
-	var head_text := Loc.t("Verwalter: %s") % m.display_name if m else Loc.t("Kein Verwalter! Gib einem Siedler den Beruf Verwalter.")
-	if m == null and away != null:
-		head_text = Loc.t("Der Verwalter %s lebt auf einer anderen Insel (%s). Er arbeitet nur hier, auf der Insel der Verwaltung.") % [away.display_name, Sea.island_name(away.world)]
-	var head := UiTheme.label(head_text, 14, UiTheme.TEXT if m else UiTheme.BAD, true)
-	head.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_box.add_child(head)
-	var cb := CheckBox.new()
-	cb.text = Loc.t("Automatische Neuzuweisung freier Berufe")
-	cb.focus_mode = Control.FOCUS_NONE
-	cb.custom_minimum_size.y = 40
-	cb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART  # langer Text bricht um, statt das Infofenster aus dem Bild zu schieben
-	cb.add_theme_font_size_override("font_size", 14)
-	cb.tooltip_text = Loc.t("Stirbt ein Siedler mit Beruf, auch der Verwalter, bekommt automatisch ein freier Siedler diesen Beruf. Gibt es keinen, lernt ihn das nächste Kind, das erwachsen wird.")
-	cb.button_pressed = Admin.auto_reassign
-	cb.toggled.connect(func(on):
-		Admin.auto_reassign = on
-		Admin.changed.emit())
-	if not Admin.auto_unlocked():
-		cb.disabled = true
-		cb.text += " " + Loc.t("(ab dem Mittelalter)")
-	_box.add_child(cb)
-	var so := CheckBox.new()  # josh 2026-10-21: ab Stufe 8 ordnet er selbst an
-	so.text = Loc.t("Überstunden und Schichtarbeit selbst anordnen")
-	so.focus_mode = Control.FOCUS_NONE
-	so.custom_minimum_size.y = 40
-	so.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	so.add_theme_font_size_override("font_size", 14)
-	so.tooltip_text = Loc.t("Fehlen in einem Beruf Leute, ordnet der Verwalter erst Überstunden an, dann Schichtarbeit mit Nachtschicht. Fehlt niemand mehr, beendet er sie; Überstunden beendet er, bevor protestiert wird. Schaltest du selbst etwas ab, lässt er den Beruf ein Jahr in Ruhe.")
-	so.button_pressed = Admin.self_orders_on()  # vor Stufe 8 nicht angehakt zeigen: dann fragt er noch nach
-	so.toggled.connect(func(on):
-		Admin.self_orders = on
-		Admin.changed.emit())
-	if not Admin.self_orders_unlocked():
-		so.disabled = true
-		so.text += " " + Loc.t("(ab Stufe %d)") % Admin.SELF_ORDER_TIER
-		so.tooltip_text = Loc.t("Bis dahin schlägt der Verwalter Überstunden und Schichtarbeit nur vor und fragt dich.")
-	_box.add_child(so)
-	if Admin.auto_on() and not Admin.pending_jobs.is_empty():
-		var wait := UiTheme.label(Loc.t("Wartet auf das nächste erwachsene Kind: %s") % ", ".join(Admin.pending_jobs.map(func(j): return Admin._name(j))), 13, UiTheme.TEXT, true)
-		wait.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		_box.add_child(wait)
 
 
 ## Eine Zeile je Beruf mit einem Schalter: kind "sh" Schichtarbeit, "ot" Überstunden.

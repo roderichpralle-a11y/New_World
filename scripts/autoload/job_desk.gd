@@ -11,7 +11,8 @@ extends Node
 ## Die Halte-Zeiten liegen im Spielstand ("job_desk"); ältere Spielstände übernehmen die Sperren des Verwalters.
 
 const RANK := {"zentrum": 1, "verwalter": 2, "automat": 3, "ki": 4, "spieler": 9}
-const HOLD := {"zentrum": 0.5, "verwalter": 0.5, "automat": 1.0, "ki": 0.5, "spieler": 2.0}
+## Spieler: hält, bis er den Siedler selbst freigibt (josh 2026-10-29); Verwalter: wer wechselt, bleibt 2 Tage.
+const HOLD := {"zentrum": 0.5, "verwalter": 2.0, "automat": 1.0, "ki": 0.5, "spieler": 100000.0}
 
 var claims: Dictionary = {}  # Siedler-ID -> [bis Spieltag, Rang]
 
@@ -61,7 +62,10 @@ func assign(s, job: String, by: String, days: float = -1.0, force := false) -> b
 	s.set_job(job, by != "spieler")
 	if s.by_admin:
 		s.job_by = by  # fürs Siedlermenü: „Bauer (Automat)“
-	hold(s, by, days)
+	if by == "spieler" and job == "frei" and not AiRule.ki():
+		release(int(s.id))  # vom Spieler freigegeben: nach einem Tag teilt ihn der Verwalter ein
+	else:
+		hold(s, by, days)
 	if by == "spieler":
 		AiRule.player_changed("job:%d" % int(s.id))
 	return true
@@ -82,7 +86,7 @@ func release(sid: int) -> void:
 
 ## Darf auf dieser Insel das KI-Zentrum verteilen? Nein, solange dort der Verwalter die Berufe steuert.
 func center_allowed(w) -> bool:
-	return not (Steward.active() and Steward.blocked_on(w) == "")
+	return not Powers.covers(w)
 
 
 func _prune() -> void:

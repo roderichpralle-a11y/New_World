@@ -1,18 +1,26 @@
 extends Node
-## Verwalter-Steuerung (josh 2026-10-17, Testversion): Ist die zweite Insel besiedelt, bietet ein Fenster an,
-## dass der Verwalter die Berufe auf allen Inseln (auch der Heimatinsel) nach dem Bedarf steuert:
-## 1. immer genug zu essen, 2. Wärme (Brennholz für Herbst und Winter), 3. Lager bis zur eingestellten
-## Höchstmenge füllen (World.store_limits), dazu Werkstätten besetzen und Baustellen. Inseln mit mehr als
-## MAX_POP Siedlern kann er nicht steuern. Ändert der Spieler einen Beruf von Hand, lässt der Verwalter
-## diesen Siedler eine Weile in Ruhe (Vergabestelle JobDesk, Rang „verwalter“). Keine Verwaltung nötig; an- und abschaltbar im
-## Fenster Inseln.
+## Verwalter-Steuerung der Berufe (josh 2026-10-17, neu gedacht 2026-10-29, nur Version 2): Es gibt nur einen
+## Verwalter, den Siedler in der Verwaltung. Was er darf, hängt an der Ausbaustufe der Verwaltung und an den
+## Befugnissen (Powers, je Aus/Fragen/Selbst). Er arbeitet auf der Insel der Verwaltung und mit „Andere Inseln
+## mitverwalten“ auf allen Inseln mit Rundfunkanstalt (Powers.covers). Reihenfolge je Insel:
+##   1. Essen und Wärme sichern (Stufe 2): Bedarf der nächsten 3 Tage (Siedler, Häuser, Gebäude, gemessen am
+##      Verbrauch des Vortags) gegen Vorrat plus Ertrag der jetzigen Arbeiter; fehlt etwas, so viele Leute wie
+##      nötig, notfalls auch vom Spieler eingeteilte (mit Meldung). Klappt das nicht: Überstunden im Notfall.
+##   2. Grundbesetzung (Stufe 1, nur Freie): Baumeister für Baustellen, Bauern nach Feldern und Ställen,
+##      Holzfäller für die Wärme, Werkstätten mit Zutaten und Bedarf; ist ein Siedler einen Tag frei: Hauptaufgabe,
+##      Mindestvorräte oder Werkstatt mit Arbeit.
+##   3. Mindestvorräte (Stufe 2): Ware unter dem Mindeststand -> Freie und überzählige, die er selbst eingeteilt hat.
+## Vom Spieler eingeteilte Siedler bleiben, bis der Spieler sie selbst freigibt (JobDesk). Höchstens ein Wechsel
+## je Insel alle MOVE_DAYS, wer wechselt, bleibt KEEP_DAYS.
 
-signal offer(kind: String)  # Hud zeigt das Angebots-Fenster
+signal offer(kind: String)  # Hud zeigt ein Fenster (nur noch für die Geschichte der KI)
 signal changed
 
-const MAX_POP := 60
 const TICK_DAYS := 0.25
-const MOVES_PER_TICK := 2
+const MOVE_DAYS := 0.5
+const KEEP_DAYS := 2.0
+const PLAN_DAYS := 3.0  # Essen und Wärme für so viele Tage sichern
+const FREE_DAYS := 1.0  # so lange darf ein Siedler frei bleiben, dann teilt ihn der Verwalter ein
 const KIND_JOB := {"kueche": "koch", "handwerk": "handwerker", "stein": "steinmetz", "stall": "bauer"}
 ## Rohstoffe und wer sie holt (Werkstattwaren findet _producer über die Gebäude)
 const RAW_JOB := {"holz": "holzfaeller", "stein": "steinmetz", "beeren": "sammler", "pilze": "sammler",
@@ -20,24 +28,20 @@ const RAW_JOB := {"holz": "holzfaeller", "stein": "steinmetz", "beeren": "sammle
 const FOOD_JOBS := ["bauer", "fischer", "sammler", "jaeger"]
 ## Berufe, die der Verwalter nie umbesetzt
 const KEEP := ["verwalter", "seemann", "baumeister", "forscher"]
-## Auslastung (josh 2026-10-22): Sind alle in einem Beruf voll ausgelastet (ab BUSY_FULL %), braucht er mehr Leute;
-## liegt der Beruf im Mittel unter BUSY_LOW %, wird einer frei und der Beruf erst TRIM_DAYS später wieder geprüft.
-## Forscher unter RESEARCH_LOW %: meist wird zu wenig geforscht. Der Verwalter fragt den Spieler (höchstens alle
-## ASK_DAYS Tage); mit Planungsautomat oder KI startet er selbst die nächste Forschung oder gibt einen Forscher frei.
-const BUSY_FULL := 95
-const BUSY_LOW := 80
-const RESEARCH_LOW := 20
-const TRIM_DAYS := 1.0
-const ASK_DAYS := 2.0
+const FIELDS_PER_FARMER := 4
+const WOOD_RATE := 10.0  # Holz je Holzfäller und Tag, bis gemessen ist
 const NO_TRIM := ["frei", "verwalter", "seemann", "forscher"]
+const MAX_POP := 60  # nur noch für alte Anzeigen (Rechenautomat)
 
-var on := false        # Verwalter steuert die Berufe
-var offered := false   # Angebot schon gezeigt
-var offered_routes := false  # Hinweis „Verwalter fährt Waren“ (3. Insel) schon gezeigt
+var on := false        # alte Spielstände (früher Schalter); gesteuert wird über die Befugnisse
+var offered := false
+var offered_routes := false
 var _next := 0.0
-var _trim_next: Dictionary = {}  # "Insel-ID:Beruf" -> Spieltag, ab dem der Beruf wieder geprüft wird
-var _research_asked := -99.0
-var research_info := ""  # Grund, warum die Forscher wenig zu tun haben (für das Fenster)
+var _moved: Dictionary = {}       # Insel-ID -> Tag des letzten Wechsels
+var _free_since: Dictionary = {}  # Siedler-ID -> Tag, seit dem er frei ist
+var _emerg: Dictionary = {}       # Beruf -> letzter Tag mit ungesichertem Essen/Wärme (Notfall-Überstunden)
+var _day_stats: Dictionary = {}   # Insel-ID -> {day, start: {holz, kohle, food}, made: {...}, prev: {used_fuel, used_food, made_food, made_holz, food_w, wood_w}}
+var research_info := ""
 
 
 func _ready() -> void:
@@ -48,39 +52,40 @@ func _ready() -> void:
 
 
 # ---------------------------------------------------------------- Abfragen
+## Gibt es schon eine Verwaltung (für Anzeigen)?
 func unlocked() -> bool:
-	return Sea.settled_islands().size() >= 2
+	return Admin.office() != null
 
 
+## Arbeitet der Verwalter (Verwaltung mit Verwalter, oder die KI)?
 func active() -> bool:
-	return on and unlocked()
+	return Admin.level() >= 1 or AiRule.ki()
 
 
 ## Steuert der Verwalter diese Insel? "" = ja, sonst der Grund.
 func blocked_on(w) -> String:
 	if w == null or not is_instance_valid(w):
 		return "?"
-	if w.settlers.size() > MAX_POP and not automat_mode() and not has_automaton(w):
-		return tr("mehr als %d Siedler, das schafft der Verwalter nicht. Ein Rechenautomat hilft.") % MAX_POP
-	return ""
+	if Powers.covers(w):
+		return ""
+	if Admin.level() < 1:
+		return tr("Keine Verwaltung mit Verwalter.")
+	return tr("Nur mit der Befugnis „Andere Inseln mitverwalten“ und einer Rundfunkanstalt.")
 
 
+## Früherer Schalter: jetzt nur noch für die KI-Geschichte.
 func set_on(v: bool) -> void:
 	on = v
-	offered = true
-	AiRule.player_changed("on")
-	Game.notify(tr("Der Verwalter steuert jetzt die Berufe auf allen Inseln.") if v else tr("Der Verwalter steuert die Berufe nicht mehr."), "person", "verwaltung")
 	changed.emit()
 
 
-## Der Spieler hat einem Siedler selbst einen Beruf gegeben: der Verwalter überstimmt das eine Weile nicht.
+## Der Spieler hat einem Siedler selbst einen Beruf gegeben: der bleibt, bis der Spieler ihn freigibt.
 func player_set(s) -> void:
 	if s != null:
 		JobDesk.hold(s, "spieler")
 		AiRule.player_changed("job:%d" % int(s.id))
 
 
-## Darf der Verwalter den Siedler gerade nicht umsetzen (Vergabestelle)?
 func locked(s) -> bool:
 	return not JobDesk.may(s, "verwalter")
 
@@ -89,27 +94,18 @@ func locked(s) -> bool:
 func _process(_delta: float) -> void:
 	if Game.world == null or Game.speed == 0:
 		return
-	if not offered and unlocked():
-		offered = true
-		offer.emit("jobs")
-	if not offered_routes and routes_unlocked():
-		offered_routes = true
-		offer.emit("routes")
-	if not offered_net and net_unlocked():
-		offered_net = true
-		offer.emit("net")
-	if not offered_automat and automat_mode():
-		offered_automat = true
-		offer.emit("automat")
 	if Game.time_days < _next:
 		return
 	_next = Game.time_days + TICK_DAYS
+	for w in Sea.all_worlds():
+		_note_day(w)
 	if not active():
 		return
 	for w in Sea.all_worlds():
 		if blocked_on(w) == "":
 			tick(w)
-	if routes_unlocked() and Game.time_days >= _route_next:
+	_end_emergency()
+	if Powers.on("waren") and Game.time_days >= _route_next:
 		_route_next = Game.time_days + ROUTE_TICK
 		route_tick()
 	if net_active() and Game.time_days >= _net_next:
@@ -120,24 +116,341 @@ func _process(_delta: float) -> void:
 func tick(w) -> void:
 	if AiRule.si() or (AiRule.ki() and not Sea.is_main(w) and AiRule.automated(w)):
 		return  # Superintelligenz: Menschen sind ihr egal; automatisierte Inseln brauchen keine Siedler mehr
-	for i in MOVES_PER_TICK:
-		var need := needed(w)
-		if need.is_empty():
-			return
-		var pick = _take_worker(w, need)
-		if pick == null:
-			return
-		var old: String = pick.job_name()
-		JobDesk.assign(pick, need.job, "verwalter")  # hält ihn eine Weile, damit er nicht gleich wieder wechselt
-		Game.notify_at(w, who() + ": " + tr("%s arbeitet jetzt als %s (%s, vorher %s).") % [pick.display_name, Data.jobs[need.job].name, need.why, old], "person", "verwaltung")
-	_trim(w)
+	_track_free(w)
 	if Sea.is_main(w):
 		_check_research(w)
+	if Game.time_days - float(_moved.get(int(w.island_id), -99.0)) < MOVE_DAYS:
+		return
+	for need in needs(w):
+		var pick = _take_worker(w, need)
+		if pick == null:
+			if need.get("secure", false):
+				_emergency(w, need)
+			continue
+		var force: bool = not JobDesk.may(pick, "verwalter")
+		var text := tr("%s arbeitet jetzt als %s (%s, vorher %s).") % [pick.display_name, Data.jobs[need.job].name, need.why, pick.job_name()]
+		if force:
+			text += " " + tr("Du hattest ihn eingeteilt, aber Essen und Wärme gehen vor.")
+		var act := {"kind": "job", "island": int(w.island_id), "sid": int(pick.id), "job": need.job, "force": force}
+		Powers.decide(need.power, "job:%d:%s" % [int(w.island_id), need.job], Sea.island_name(w) + ": " + text if Sea.worlds.size() > 1 else text, act, force)
+		_moved[int(w.island_id)] = Game.time_days
+		return
 
 
-# ---------------------------------------------------------------- Auslastung (josh 2026-10-22)
+## Wer ist seit wann frei? (für „einen Tag frei, dann teilt der Verwalter ein“)
+func _track_free(w) -> void:
+	for s in _adults(w):
+		if s.job == "frei":
+			if not _free_since.has(int(s.id)):
+				_free_since[int(s.id)] = Game.time_days
+		else:
+			_free_since.erase(int(s.id))
+
+
+func free_days(s) -> float:
+	if not _free_since.has(int(s.id)):
+		return 0.0
+	return Game.time_days - float(_free_since[int(s.id)])
+
+
+# ---------------------------------------------------------------- Bedarf messen (josh 2026-10-29)
+## Je Insel und Tag: Bestand am Tagesanfang und erzeugte Mengen; daraus der Verbrauch des Vortags
+## (Bestand vorher + erzeugt - Bestand nachher). Er enthält Heizen, Werkstätten und Baustellen.
+func _note_day(w) -> void:
+	var iid := int(w.island_id)
+	var day := int(floor(Game.time_days))
+	var st: Dictionary = _day_stats.get(iid, {})
+	var fuel := float(Game.amount("holz", w)) + 2.0 * float(Game.amount("kohle", w))
+	var food := _food_sat(w)
+	if st.is_empty():
+		_day_stats[iid] = {"day": day, "fuel": fuel, "food": food, "made": {}, "prev": {}}
+		return
+	if int(st.day) == day:
+		return
+	var made: Dictionary = st.made
+	var mf := float(made.get("food", 0.0))
+	var mh := float(made.get("fuel", 0.0))
+	var days := maxf(1.0, float(day - int(st.day)))
+	st.prev = {"used_fuel": maxf(0.0, float(st.fuel) + mh - fuel) / days, "used_food": maxf(0.0, float(st.food) + mf - food) / days,
+		"made_food": mf / days, "made_fuel": mh / days,
+		"food_w": _count_food_workers(w), "wood_w": _count(w, "holzfaeller")}
+	st.day = day
+	st.fuel = fuel
+	st.food = food
+	st.made = {}
+
+
+## Settler meldet erzeugte Waren (über Admin.note_produced).
+func note_made(res: String, n: int, w) -> void:
+	if w == null or not is_instance_valid(w):
+		return
+	var st: Dictionary = _day_stats.get(int(w.island_id), {})
+	if st.is_empty():
+		return
+	if Data.food_ids().has(res):
+		st.made["food"] = float(st.made.get("food", 0.0)) + n * Data.food_satiety(res)
+	elif res == "holz":
+		st.made["fuel"] = float(st.made.get("fuel", 0.0)) + n
+	elif res == "kohle":
+		st.made["fuel"] = float(st.made.get("fuel", 0.0)) + 2.0 * n
+
+
+func _food_sat(w) -> float:
+	var sat := 0.0
+	for id in Data.food_ids():
+		sat += float(Game.amount(id, w)) * Data.food_satiety(id)
+	return sat
+
+
+func _count_food_workers(w) -> int:
+	var n := 0
+	for j in FOOD_JOBS:
+		n += _count(w, j)
+	return n
+
+
+## Sättigung, die ein Erwachsener am Tag braucht.
+func _need_per_head(w) -> float:
+	return float(Data.bal("hunger_per_day")) * Game.eff("hunger") * Seasons.hunger_mult(w)
+
+
+## Essen am Tag (Sättigung) für alle Siedler, mindestens der gemessene Verbrauch des Vortags.
+func food_per_day(w) -> float:
+	var est := _need_per_head(w) * float(w.settlers.size())
+	var prev: Dictionary = _day_stats.get(int(w.island_id), {}).get("prev", {})
+	return maxf(est, float(prev.get("used_food", 0.0)) * 0.9)
+
+
+## Brennstoff am Tag (Holz, Kohle doppelt): Heizen der Siedler in der kältesten Jahreszeit der nächsten
+## PLAN_DAYS Tage, mindestens der gemessene Verbrauch des Vortags (Häuser, Werkstätten, Baustellen).
+func fuel_per_day(w) -> float:
+	var heat := 0.0
+	for d in [0.0, PLAN_DAYS]:
+		heat = maxf(heat, Seasons.heat_per_settler(Seasons.season(Game.time_days + d)))
+	var est := heat * float(w.settlers.size())
+	var prev: Dictionary = _day_stats.get(int(w.island_id), {}).get("prev", {})
+	return maxf(est, float(prev.get("used_fuel", 0.0)) * 0.9)
+
+
+## Ertrag je Arbeiter und Tag (gemessen am Vortag, sonst Schätzung).
+func food_rate(w) -> float:
+	var base := 1.5 * _need_per_head(w)  # ein Sammler ernährt etwa anderthalb Erwachsene
+	var prev: Dictionary = _day_stats.get(int(w.island_id), {}).get("prev", {})
+	if int(prev.get("food_w", 0)) > 0 and float(prev.get("made_food", 0.0)) > 0.0:
+		return maxf(base * 0.4, float(prev.made_food) / float(prev.food_w))
+	return base
+
+
+func wood_rate(w) -> float:
+	var prev: Dictionary = _day_stats.get(int(w.island_id), {}).get("prev", {})
+	if int(prev.get("wood_w", 0)) > 0 and float(prev.get("made_fuel", 0.0)) > 0.0:
+		return maxf(WOOD_RATE * 0.4, float(prev.made_fuel) / float(prev.wood_w))
+	return WOOD_RATE
+
+
+## Wie viele Arbeiter braucht es, damit Vorrat plus Ertrag den Bedarf der nächsten PLAN_DAYS Tage decken?
+## Liegt mehr als doppelt so viel im Lager, braucht es im Moment keine.
+static func workers_for(per_day: float, stock: float, rate: float) -> int:
+	if per_day <= 0.0:
+		return 0
+	var need := per_day * PLAN_DAYS
+	if stock >= 2.0 * need:
+		return 0
+	var refill := ceili(maxf(0.0, need - stock) / (PLAN_DAYS * maxf(rate, 0.01)))
+	var keep := ceili(per_day / maxf(rate, 0.01))
+	return maxi(refill, keep)
+
+
+## Für die Anzeige: [Bedarf 3 Tage, Vorrat, Arbeiter nötig, Arbeiter da] je "food" und "fuel".
+func secure_info(w) -> Dictionary:
+	var fpd := food_per_day(w)
+	var fs := _food_sat(w)
+	var hpd := fuel_per_day(w) if _cold_season() or Seasons.season(Game.time_days + PLAN_DAYS) != Seasons.season() else 0.0
+	var hs := float(Game.amount("holz", w)) + 2.0 * float(Game.amount("kohle", w))
+	return {"food": [fpd * PLAN_DAYS, fs, workers_for(fpd, fs, food_rate(w)), _count_food_workers(w)],
+		"fuel": [hpd * PLAN_DAYS, hs, workers_for(hpd, hs, wood_rate(w)), _count(w, "holzfaeller")]}
+
+
+# ---------------------------------------------------------------- Was braucht die Insel?
+## Alle Lücken in der Reihenfolge der Befugnisse: [{job, why, power, src, secure}]. src: "free" nur Freie,
+## "spare" auch Überzählige, die der Verwalter eingeteilt hat, "hard" notfalls jeden (Essen und Wärme).
+func needs(w) -> Array:
+	var out := []
+	if _adults(w).is_empty():
+		return out
+	var info := secure_info(w)
+	# 1. Essen und Wärme für die nächsten 3 Tage
+	if Powers.on("essen_waerme"):
+		var f: Array = info.food
+		if int(f[3]) < int(f[2]):
+			out.append({"job": _food_job(w), "why": tr("Essen für %d Tage") % int(PLAN_DAYS), "power": "essen_waerme", "src": "hard", "secure": true})
+		var h: Array = info.fuel
+		if int(h[3]) < int(h[2]) and Data.job_unlocked("holzfaeller"):
+			out.append({"job": "holzfaeller", "why": tr("Brennstoff für %d Tage") % int(PLAN_DAYS), "power": "essen_waerme", "src": "hard", "secure": true})
+	# 2. Grundbesetzung mit Freien
+	if Powers.on("grundbesetzung"):
+		var sites: Array = w.construction_sites()
+		if not sites.is_empty() and _count(w, "baumeister") < 1 + sites.size() / 3:
+			out.append({"job": "baumeister", "why": tr("Baustellen"), "power": "grundbesetzung", "src": "free"})
+		var fields: int = w.buildings.filter(func(b): return b.complete and b.def.has("farm")).size()
+		var farmers := ceili(float(fields) / FIELDS_PER_FARMER) + _workplaces(w, "stall")
+		if farmers > 0 and _count(w, "bauer") < farmers:
+			out.append({"job": "bauer", "why": tr("%d Felder und Ställe") % fields, "power": "grundbesetzung", "src": "free"})
+		var h: Array = info.fuel
+		if Data.job_unlocked("holzfaeller") and _count(w, "holzfaeller") < ceili(float(h[0]) / PLAN_DAYS / wood_rate(w)):
+			out.append({"job": "holzfaeller", "why": tr("Brennholz für die Wärme"), "power": "grundbesetzung", "src": "free"})
+		var wj := _workshop_job(w)
+		if wj != "":
+			out.append({"job": wj, "why": tr("Werkstatt hat Arbeit"), "power": "grundbesetzung", "src": "free"})
+		if _adults(w).any(func(s): return s.job == "frei" and free_days(s) >= FREE_DAYS and JobDesk.may(s, "verwalter")):
+			var lj := _long_free_job(w)
+			if lj != "":
+				out.append({"job": lj, "why": tr("seit einem Tag frei"), "power": "grundbesetzung", "src": "long"})
+	# 3. Mindestvorräte
+	if Powers.on("mindestvorrat"):
+		var mj := _min_job(w)
+		if not mj.is_empty():
+			out.append({"job": mj.job, "why": mj.why, "power": "mindestvorrat", "src": "spare"})
+	return out
+
+
+## Die dringendste Lücke ({} = keine), für Anzeigen und Tests.
+func needed(w) -> Dictionary:
+	var l := needs(w)
+	return l[0] if not l.is_empty() else {}
+
+
+## Erster Werkstattberuf, dessen Werkstatt Zutaten hat, deren Ware gebraucht wird und in der Platz ist.
+func _workshop_job(w) -> String:
+	for b in w.buildings:
+		if not (b.complete and b.def.has("production") and b.free_slots() > 0 and b.prod_blocker() == "" and w.pool_allows(b)):
+			continue
+		var j: String = KIND_JOB.get(b.prod_def().get("job", ""), "")
+		if j == "" or j == "bauer" or _count(w, j) >= _workplaces(w, b.prod_def().get("job", "")):
+			continue
+		for id in b.prod_def().get("outputs", {}):
+			if _wanted(w, str(id)):
+				return j
+	return ""
+
+
+## Wird die Ware gebraucht? Unter dem Mindestvorrat, unter der Lagergrenze oder noch Platz im Lager.
+func _wanted(w, id: String) -> bool:
+	if not Data.resources.has(id):
+		return false
+	var mn := int(limits(int(w.island_id), id)[0])
+	if mn > 0 and Game.amount(id, w) < mn:
+		return true
+	var lim := int(w.store_limits.get(id, 0))
+	if lim > 0:
+		return Game.amount(id, w) < lim * 9 / 10
+	return Game.space_for(id, w) > 0
+
+
+## Ware unter dem Mindestvorrat: {job, why} des Berufs, der sie herstellt.
+func _min_job(w) -> Dictionary:
+	var mm: Dictionary = minmax.get(str(int(w.island_id)), {})
+	for id in mm:
+		var mn := int(mm[id][0])
+		if mn <= 0 or Game.amount(id, w) + incoming(int(w.island_id), id) >= mn:
+			continue
+		var j := _producer(w, str(id))
+		if j != "" and Data.job_unlocked(j) and _count(w, j) < 1 + w.settlers.size() / 4:
+			return {"job": j, "why": tr("%s unter dem Mindestvorrat") % Data.resource_name(str(id))}
+	return {}
+
+
+## Beruf für jemanden, der einen Tag frei war: Hauptaufgabe, dann Mindestvorräte, dann Werkstatt mit Arbeit.
+func _long_free_job(w) -> String:
+	for j in task_jobs(w):
+		if _count(w, j) < task_target(w, j):
+			return j
+	var mj := _min_job(w)
+	if not mj.is_empty():
+		return str(mj.job)
+	return _workshop_job(w)
+
+
+## Holt einen Siedler für den Beruf. Freie zuerst (bei "long" nur die schon einen Tag Freien), bei "spare"
+## auch Überzählige, die der Verwalter eingeteilt hat, bei "hard" (Essen, Wärme) notfalls jeden anderen,
+## Spieler-Eingeteilte zuletzt (dann mit Meldung). Nie aus KEEP, für Wärme nicht aus Nahrungsberufen.
+func _take_worker(w, need: Dictionary):
+	var job: String = need.job
+	var src: String = need.get("src", "free")
+	var adults := _adults(w).filter(func(s): return s.job != job and not s.job in KEEP)
+	var free := adults.filter(func(s): return s.job == "frei" and JobDesk.may(s, "verwalter") and (src != "long" or free_days(s) >= FREE_DAYS))
+	if not free.is_empty():
+		return AiJobs._best_for(free, job)
+	if src == "free" or src == "long":
+		return null
+	var spare := adults.filter(func(s): return s.by_admin and JobDesk.may(s, "verwalter") and _surplus(w, s.job) and not s.job in FOOD_JOBS and s.job != "holzfaeller")
+	if not spare.is_empty():
+		return AiJobs._best_for(spare, job)
+	if src != "hard":
+		return null
+	var safe := func(s): return not s.job in FOOD_JOBS and s.job != "holzfaeller" and s.job != "frei"
+	var mine := adults.filter(func(s): return safe.call(s) and JobDesk.may(s, "verwalter"))
+	if not mine.is_empty():
+		return AiJobs._best_for(mine, job)
+	var theirs := adults.filter(func(s): return safe.call(s))
+	if not theirs.is_empty():
+		return AiJobs._best_for(theirs, job)
+	return null
+
+
+# ---------------------------------------------------------------- Überstunden im Notfall
+## Essen oder Wärme lassen sich nicht sichern, weil niemand mehr frei ist: Überstunden, reicht das nicht,
+## Schichtarbeit für die Leute dieses Berufs (Admin-Anordnungen gelten für den Beruf).
+func _emergency(w, need: Dictionary) -> void:
+	var job: String = need.job
+	if job in FOOD_JOBS:  # Essen: der Nahrungsberuf mit den meisten Leuten
+		for j in FOOD_JOBS:
+			if _count(w, j) > _count(w, job):
+				job = j
+	if _count(w, job) < 1:
+		return
+	_emerg[job] = Game.time_days
+	if not Admin.ordered(job, "ot") and not Admin.protesting(job):
+		Powers.decide("notfall", "ot:" + job, tr("Essen oder Wärme reichen nicht und niemand ist frei: Überstunden für die %s.") % Data.jobs[job].name,
+			{"kind": "order", "job": job, "what": "ot", "on": true}, true)
+	elif not Admin.ordered(job, "sh") and float(_emerg.get(job + ":since", Game.time_days)) < Game.time_days - 1.0:
+		Powers.decide("notfall", "sh:" + job, tr("Überstunden reichen nicht: Schichtarbeit für die %s.") % Data.jobs[job].name,
+			{"kind": "order", "job": job, "what": "sh", "on": true}, true)
+	if not _emerg.has(job + ":since"):
+		_emerg[job + ":since"] = Game.time_days
+
+
+## Ist die Not seit 2 Tagen vorbei, beendet er seine Notfall-Anordnungen.
+func _end_emergency() -> void:
+	for job in _emerg.keys():
+		if str(job).ends_with(":since"):
+			continue
+		if Game.time_days - float(_emerg[job]) < 2.0:
+			continue
+		_emerg.erase(job)
+		_emerg.erase(job + ":since")
+		if not Admin.auto_orders.has(job):
+			continue
+		if Admin.ordered(job, "ot") or Admin.ordered(job, "sh"):
+			Powers.decide("notfall", "end:" + job, tr("Essen und Wärme sind wieder gesichert: Überstunden und Schichten der %s beendet.") % Data.jobs[job].name,
+				{"kind": "order", "job": job, "what": "ot", "on": false}, true)
+			Admin.set_shift(job, false, true)
+
+
+# ---------------------------------------------------------------- Forschung (Befugnis „Forschung weiterführen“)
+func _check_research(w) -> void:
+	if not Powers.on("forschung") or Game.research.current != "":
+		return
+	if str(Game.research.get("next", "")) != "":
+		return  # vorgemerkt: das Spiel macht selbst weiter
+	for t in Planner.tech_order():
+		if Planner._affordable(t):
+			Powers.decide("forschung", "research", tr("Neue Forschung: %s.") % Data.techs[t].name, {"kind": "research", "tech": t})
+			return
+
+
+# ---------------------------------------------------------------- Auslastung (josh 2026-10-22, nur Anzeige)
 ## Auslastung eines Berufs auf der Insel: [Mittel in %, kleinster Wert, gemessene Leute, alle Leute].
-## Gemessen ist, wer lange genug im Beruf ist (Settler.busy_percent >= 0).
 func job_busy(w, job: String) -> Array:
 	var sum := 0.0
 	var lo := 999
@@ -156,80 +469,14 @@ func job_busy(w, job: String) -> Array:
 	return [sum / n if n > 0 else -1.0, lo if n > 0 else -1, n, all]
 
 
-## Wurde im Beruf gerade einer frei gemacht? Dann holt der Verwalter dafür einen Tag lang niemanden dazu.
-func _cooling(w, job: String) -> bool:
-	return float(_trim_next.get("%d:%s" % [int(w.island_id), job], -1.0)) > Game.time_days
-
-
-## Alle im Beruf voll ausgelastet: der Beruf braucht mehr Leute. Gibt den Beruf zurück ("" = keiner).
-func _busy_job(w) -> String:
-	for j in Data.jobs:
-		if j in NO_TRIM or not Data.job_unlocked(j) or _cooling(w, j):
-			continue
-		var b := job_busy(w, j)
-		if int(b[2]) >= 1 and int(b[2]) == int(b[3]) and int(b[1]) >= BUSY_FULL:
-			return j
-	return ""
-
-
-## Ein Beruf mit wenig Arbeit (im Mittel unter BUSY_LOW %): einen davon frei machen, dann einen Tag warten.
-func _trim(w) -> void:
-	var want := str(needed(w).get("job", ""))
-	for j in Data.jobs:
-		if j in NO_TRIM or j == want or _cooling(w, j):
-			continue
-		if j == "baumeister" and not w.construction_sites().is_empty():
-			continue
-		var b := job_busy(w, j)
-		if int(b[2]) < 2 or float(b[0]) >= BUSY_LOW:
-			continue
-		var cand := _adults(w).filter(func(s): return s.job == j and s.busy_percent() >= 0 and JobDesk.may(s, "verwalter"))
-		if cand.is_empty():
-			continue
-		cand.sort_custom(func(a, c): return a.busy_percent() < c.busy_percent())
-		var s = cand[0]
-		_trim_next["%d:%s" % [int(w.island_id), j]] = Game.time_days + TRIM_DAYS
-		JobDesk.assign(s, "frei", "verwalter")
-		Game.notify_at(w, who() + ": " + tr("Die %s haben im Mittel nur %d %% zu tun. %s ist jetzt frei; in einem Tag prüft er wieder.") % [
-			Data.jobs[j].name, int(round(float(b[0]))), s.display_name], "person", "verwaltung")
-		return
-
-
-## Forscher kaum ausgelastet: Spieler fragen, mit Automat oder KI selbst handeln.
-func _check_research(w) -> void:
-	var b := job_busy(w, "forscher")
-	if int(b[2]) < 1 or float(b[0]) >= RESEARCH_LOW:
-		return
-	var cur: String = Game.research.current
-	if cur == "":
-		research_info = tr("Es wird gerade nichts erforscht.")
-	else:
-		var miss: Array = Writing.missing_at(w, cur)
-		if not miss.is_empty():
-			research_info = tr("Für %s fehlt: %s.") % [Data.techs[cur].name, ", ".join(PackedStringArray(miss.map(func(id): return Data.resource_name(id))))]
-		else:
-			research_info = tr("Es gibt mehr Forscher als Arbeit.")
-	if Planner.active() or (AiRule.ki() and not AiRule.si()):
-		if cur == "":
-			Planner.research_step()
-		elif not _cooling(w, "forscher") and int(b[3]) >= 2:
-			release_researcher(w)
-		return
-	if Game.time_days - _research_asked < ASK_DAYS:
-		return
-	_research_asked = Game.time_days
-	offer.emit("forscher")
-
-
-## Einen Forscher frei machen (der am wenigsten zu tun hat).
+## Einen Forscher frei machen (der am wenigsten zu tun hat). Für die KI.
 func release_researcher(w) -> void:
 	var cand := _adults(w).filter(func(s): return s.job == "forscher" and JobDesk.may(s, "verwalter"))
 	if cand.is_empty():
 		return
 	cand.sort_custom(func(a, c): return a.busy_percent() < c.busy_percent())
-	_trim_next["%d:forscher" % int(w.island_id)] = Game.time_days + TRIM_DAYS
 	JobDesk.assign(cand[0], "frei", "verwalter")
-	Game.notify_at(w, who() + ": " + tr("%s forscht nicht mehr und ist jetzt frei.") % cand[0].display_name, "wissen", "verwaltung")
+	Admin.add_log(who() + ": " + tr("%s forscht nicht mehr und ist jetzt frei.") % cand[0].display_name)
 
 
 func _adults(w) -> Array:
@@ -253,74 +500,6 @@ func fuel_days(w) -> float:
 	return (Game.amount("holz", w) + 2.0 * Game.amount("kohle", w)) / per
 
 
-## Was braucht die Insel am dringendsten? {job, why, hard} oder {} (hard = darf Arbeiter aus anderen Berufen holen)
-func needed(w) -> Dictionary:
-	var adults := _adults(w)
-	if adults.is_empty():
-		return {}
-	var pop: int = w.settlers.size()
-	var net := net_active()
-	var home: bool = net and Sea.is_main(w)
-	# 1. Essen: unter 3 Tagen Vorrat (hart unter 1 Tag). Im Inselverbund kommt das Essen der
-	# Heimatinsel von den anderen Inseln (nur in echter Not selbst holen); die anderen Inseln halten 6 Tage.
-	var fd := Game.food_days(w)
-	var food_goal := 3.0
-	if home and _supplier(w, "food") != -1:
-		food_goal = 1.0
-	elif net and not Sea.is_main(w) and has_radio(w):
-		food_goal = NET_FOOD_DAYS
-	if fd >= 0.0 and fd < food_goal:
-		return {"job": _food_job(w), "why": tr("zu wenig Essen") if fd < 3.0 else tr("Essen für die Heimatinsel"), "hard": fd < 1.5}
-	# 2. Wärme: Brennholz für mindestens 4 Tage, solange es kalt ist oder wird
-	var fuel_goal := 4.0
-	if home and _supplier(w, "holz") != -1:
-		fuel_goal = 1.0
-	if _cold_season() and fuel_days(w) < fuel_goal and Data.job_unlocked("holzfaeller"):
-		return {"job": "holzfaeller", "why": tr("Brennholz für den Winter"), "hard": Seasons.season() >= 2 and fuel_days(w) < 1.5}
-	# 3. Baustellen ohne Baumeister
-	var sites: Array = w.construction_sites()
-	if not sites.is_empty() and _count(w, "baumeister") < 1 + sites.size() / 3:
-		return {"job": "baumeister", "why": tr("Baustellen"), "hard": false}
-	# 3b. Hauptaufgabe der Insel (vom Spieler gewählt): die passenden Berufe besetzen
-	var tn := task_need(w)
-	if not tn.is_empty():
-		return tn
-	# 4. Werkstätten, die arbeiten könnten, aber niemand ist da
-	for b in w.buildings:
-		if b.complete and b.def.has("production") and b.free_slots() > 0 and b.occupants.is_empty() and b.prod_blocker() == "":
-			var j: String = KIND_JOB.get(b.prod_def().get("job", ""), "")
-			if j != "" and not _cooling(w, j) and w.pool_allows(b) and _count(w, j) < _workplaces(w, b.prod_def().get("job", "")):
-				return {"job": j, "why": tr("%s steht still") % b.def.name, "hard": false}
-	# 4b. Im Inselverbund: genug Forscher auf der Heimatinsel (alle freien Forschungsplätze besetzt)
-	if home and Game.research.current != "":
-		for b in w.buildings:
-			if b.complete and b.def.has("research") and b.free_slots() > 0 and w.pool_allows(b):
-				return {"job": "forscher", "why": tr("freie Forschungsplätze"), "hard": false}
-	# 4c. Im Inselverbund: die anderen Inseln liefern die Rohstoffe, die der Heimatinsel fehlen
-	if net and not Sea.is_main(w) and has_radio(w):
-		var hw = Sea.main_world()
-		for id in _home_wants(hw):
-			var j := str(RAW_JOB.get(id, ""))
-			if j != "" and Data.job_unlocked(j) and not _cooling(w, j) and _count(w, j) < 1 + pop / 6:
-				return {"job": j, "why": tr("%s für die Heimatinsel") % Data.resource_name(id), "hard": false}
-	# 5. Lager bis zur eingestellten Höchstmenge füllen
-	var lim: Dictionary = w.store_limits
-	for id in lim:
-		var mx := int(lim[id])
-		if mx <= 0 or Game.amount(id, w) >= mx * 9 / 10:
-			continue
-		if home and RAW_JOB.has(id):
-			continue  # Rohstoffe holen die anderen Inseln
-		var j := _producer(w, str(id))
-		if j != "" and Data.job_unlocked(j) and not _cooling(w, j) and _count(w, j) < 1 + pop / 8:
-			return {"job": j, "why": tr("Lager mit %s auffüllen") % Data.resource_name(str(id)), "hard": false}
-	# 6. Auslastung: alle im Beruf voll beschäftigt, dann braucht er mehr Leute
-	var bj := _busy_job(w)
-	if bj != "":
-		return {"job": bj, "why": tr("alle %s sind voll ausgelastet") % Data.jobs[bj].name, "hard": false}
-	return {}
-
-
 func _workplaces(w, kind: String) -> int:
 	var n := 0
 	for b in w.buildings:
@@ -331,11 +510,11 @@ func _workplaces(w, kind: String) -> int:
 
 func _food_job(w) -> String:
 	var fields: Array = w.buildings.filter(func(b): return b.complete and b.def.has("farm"))
-	if not fields.is_empty() and _count(w, "bauer") < 1 + fields.size() / 4:
+	if not fields.is_empty() and _count(w, "bauer") < ceili(float(fields.size()) / FIELDS_PER_FARMER):
 		return "bauer"
 	if Data.job_unlocked("jaeger") and w.animals.size() > 6 and _count(w, "jaeger") < 1:
 		return "jaeger"
-	return "fischer" if _count(w, "fischer") <= _count(w, "sammler") else "sammler"
+	return "fischer" if Data.job_unlocked("fischer") and _count(w, "fischer") <= _count(w, "sammler") else "sammler"
 
 
 ## Wer stellt die Ware her? Rohstoffe aus RAW_JOB, sonst der Beruf einer Werkstatt, die sie herstellt.
@@ -348,7 +527,8 @@ func _producer(w, id: String) -> String:
 	return ""
 
 
-## Ein Beruf ist überzählig, wenn alle seine Waren das Lagerziel erreicht haben oder das Lager dafür voll ist.
+## Ein Beruf ist überzählig, wenn alle seine Waren den Mindestvorrat bzw. das Lagerziel erreicht haben oder
+## das Lager dafür voll ist.
 func _surplus(w, job: String) -> bool:
 	if job in task_jobs(w):
 		return false  # Hauptaufgabe der Insel: diese Berufe bleiben
@@ -361,37 +541,15 @@ func _surplus(w, job: String) -> bool:
 	if goods.is_empty():
 		return false
 	for id in goods:
+		var mn := int(limits(int(w.island_id), id)[0])
+		if mn > 0 and Game.amount(id, w) < mn:
+			return false
 		var mx := int(w.store_limits.get(id, 0))
 		if mx > 0 and Game.amount(id, w) < mx:
 			return false
-		if mx <= 0 and Game.space_for(id, w) > 0:
+		if mx <= 0 and mn <= 0 and Game.space_for(id, w) > 0:
 			return false
 	return true
-
-
-## Holt einen Siedler für den Beruf: zuerst Freie, dann Überzählige; bei harter Not auch andere.
-## by: wer fragt (Vergabestelle JobDesk), der Verwalter oder der Planungsautomat.
-func _take_worker(w, need: Dictionary, by: String = "verwalter"):
-	var job: String = need.job
-	var adults := _adults(w).filter(func(s): return s.job != job and JobDesk.may(s, by) and not s.job in KEEP)
-	var free := adults.filter(func(s): return s.job == "frei")
-	if not free.is_empty():
-		return AiJobs._best_for(free, job)
-	var spare := adults.filter(func(s): return _surplus(w, s.job))
-	if not spare.is_empty():
-		return AiJobs._best_for(spare, job)
-	if need.get("task", false):
-		# Hauptaufgabe: aus Berufen außerhalb der Aufgabe holen; Essen holen nur, wenn genug zu essen da ist
-		var tj := task_jobs(w)
-		var fed: bool = Game.food_days(w) >= 4.0
-		var cand := adults.filter(func(s): return not s.job in tj and (fed or not s.job in FOOD_JOBS))
-		if not cand.is_empty():
-			return AiJobs._best_for(cand, job)
-	if need.get("hard", false):
-		var others := adults.filter(func(s): return not s.job in FOOD_JOBS)  # Essen holen bleibt immer besetzt
-		if not others.is_empty():
-			return AiJobs._best_for(others, job)
-	return null
 
 
 # ---------------------------------------------------------------- Spielstand
@@ -405,8 +563,10 @@ func _on_reset() -> void:
 	minmax = {}
 	tasks = {}
 	_next = 0.0
-	_trim_next = {}
-	_research_asked = -99.0
+	_moved = {}
+	_free_since = {}
+	_emerg = {}
+	_day_stats = {}
 	research_info = ""
 	_route_next = 0.0
 	_net_next = 0.0
@@ -475,7 +635,7 @@ var _route_next := 0.0
 
 
 func routes_unlocked() -> bool:
-	return Sea.settled_islands().size() >= 3
+	return Powers.unlocked("waren")
 
 
 func limits(island_id: int, id: String) -> Array:
@@ -576,8 +736,28 @@ func _send(from_id: int, to_id: int, id: String, n: int, why: String) -> bool:
 	return _send_goods(from_id, to_id, {id: n}, why)
 
 
-## Schickt ein freies Schiff mit mehreren Waren (in der Reihenfolge von goods, bis der Laderaum voll ist).
+## Eine Fahrt als Entscheidung der Befugnis „Waren ausgleichen“ (josh 2026-10-29): Selbst fährt sie gleich,
+## Fragen legt sie als Vorschlag ab. true = erledigt oder vorgeschlagen (eine Fahrt je Runde).
 func _send_goods(from_id: int, to_id: int, goods: Dictionary, why: String) -> bool:
+	if _free_ship(from_id, to_id).is_empty():
+		return false
+	var parts := []
+	for id in goods:
+		if int(goods[id]) >= 5:
+			parts.append("%d %s" % [int(goods[id]), Data.resource_name(id)])
+	if parts.is_empty():
+		return false
+	var key := "trip:%d:%d:%s" % [from_id, to_id, ",".join(PackedStringArray(goods.keys()))]
+	if Powers.mode_of("waren") == Powers.FRAGEN and Powers.proposed(key):
+		return false
+	var text := tr("Schiff bringt %s von %s nach %s (%s).") % [", ".join(PackedStringArray(parts)),
+		Sea.meta(from_id).get("name", "?"), Sea.meta(to_id).get("name", "?"), why]
+	Powers.decide("waren", key, text, {"kind": "trip", "from": from_id, "to": to_id, "goods": goods, "why": why})
+	return true
+
+
+## Schickt ein freies Schiff mit mehreren Waren (in der Reihenfolge von goods, bis der Laderaum voll ist).
+func ship_now(from_id: int, to_id: int, goods: Dictionary, _why: String) -> bool:
 	var sh := _free_ship(from_id, to_id)
 	if sh.is_empty():
 		return false
@@ -596,8 +776,6 @@ func _send_goods(from_id: int, to_id: int, goods: Dictionary, why: String) -> bo
 	if Sea.start_trip(sh, from_id, to_id, ld) != "":
 		return false
 	sh["steward"] = true
-	Game.notify(who() + ": " + tr("die %s bringt %s von %s nach %s (%s).") % [sh.name, ", ".join(PackedStringArray(parts)),
-		Sea.meta(from_id).get("name", "?"), Sea.meta(to_id).get("name", "?"), why], "anker", "verwaltung")
 	return true
 
 
@@ -673,7 +851,7 @@ func net_unlocked() -> bool:
 
 
 func net_active() -> bool:
-	return active() and net_on and net_unlocked() and has_radio(Sea.main_world()) and _ids().size() >= 2
+	return active() and Powers.on("waren") and net_on and net_unlocked() and has_radio(Sea.main_world()) and _ids().size() >= 2
 
 
 func has_radio(w) -> bool:
@@ -707,15 +885,16 @@ func set_net(v: bool) -> void:
 	changed.emit()
 
 
+## Früher: ab Elektrizität ersetzte ein Automat den Verwalter. Seit 2026-10-29 gibt es nur den Verwalter.
 func automat_mode() -> bool:
-	return Game.is_researched("elektrizitaet")
+	return false
 
 
 ## Wer steuert gerade? Für Meldungen.
 func who() -> String:
 	if AiRule.ki():
 		return tr("KI")
-	return tr("Automat") if automat_mode() else tr("Verwalter")
+	return tr("Verwalter")
 
 
 func has_automaton(w) -> bool:

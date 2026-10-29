@@ -336,6 +336,7 @@ func _on_speed(s: int) -> void:
 const MENU_ICONS := ["bauen", "forschung", "siedler", "inseln", "menue", "verwalter"]
 var MENU_TEX: Texture2D = Data.hd("menu_icons")
 var _admin_btn: Button
+var _admin_badge: Label
 var _admin_panel: PanelContainer  # Fenster Verwalter (AdminInfo.fill_window)
 var _admin_box: VBoxContainer
 var _admin_ft: Dictionary
@@ -390,6 +391,8 @@ func _build_bottom() -> void:
 	_admin_btn.pressed.connect(_open_admin)
 	_admin_btn.visible = false
 	_bottom.add_child(_admin_btn)
+	Powers.changed.connect(_update_admin_badge)
+	Admin.changed.connect(_update_admin_badge)
 	var mb := _menu_button("menue", tr("Menü"))
 	mb.pressed.connect(func():
 		Game.player_action.emit("panel", "menue")
@@ -402,10 +405,33 @@ func _build_bottom() -> void:
 func _update_admin_button() -> void:
 	if _admin_btn == null:
 		return
-	var show := Game.is_unlocked("verwaltung") or Steward.unlocked()  # ab der 2. Insel: Reiter Inseln (josh 2026-10-21)
+	var show := Game.is_unlocked("verwaltung") or Steward.unlocked()
 	if _admin_btn.visible != show:
 		_admin_btn.visible = show
 		_layout()
+	_update_admin_badge()
+
+
+## Punkt am Verwalter-Knopf (josh 2026-10-29): Zahl offener Vorschläge, „!“ bei einer neuen Ausbaustufe.
+func _update_admin_badge() -> void:
+	if _admin_btn == null:
+		return
+	if _admin_badge == null:
+		_admin_badge = Label.new()
+		_admin_badge.add_theme_font_size_override("font_size", 12)
+		_admin_badge.add_theme_color_override("font_color", Color.WHITE)
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color("#c0392b")
+		sb.set_corner_radius_all(8)
+		sb.content_margin_left = 4
+		sb.content_margin_right = 4
+		_admin_badge.add_theme_stylebox_override("normal", sb)
+		_admin_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_admin_badge.position = Vector2(34, -2)
+		_admin_btn.add_child(_admin_badge)
+	var n := Powers.badge()
+	_admin_badge.text = str(n) if n > 0 else ("!" if Powers.new_level() else "")
+	_admin_badge.visible = _admin_badge.text != ""
 
 
 ## Fenster Verwalter (josh 2026-10-20): wie alle Fenster, mit Reitern Verwalter, Schichten,
@@ -3483,6 +3509,12 @@ func _info_upgrade(b: Building) -> void:
 	ub.tooltip_text = tr("Wird zur Baustelle. Bewohner und Forscher ziehen solange aus.")
 	ub.pressed.connect(func(): world.upgrade_building(b))
 	_info_box.add_child(ub)
+	if world.upgrade_spot(b, to).x < 0:  # größerer Ausbau ohne Platz (Verwaltung): erst verschieben
+		ub.disabled = true
+		var nl := UiTheme.label(tr("Zu wenig Platz: %s braucht %d x %d Felder. Verschiebe das Gebäude an eine freie Stelle.") % [
+			td.name, int(td.size[0]), int(td.size[1])], 13, UiTheme.BAD)
+		nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_info_box.add_child(nl)
 	NeedsInfo.upgrade_gate(self, b, ub)  # Häuser ab Stufe 2: erst mit erfüllten Bedürfnissen
 	var h := HBoxContainer.new()
 	h.add_child(UiTheme.label(tr("Kosten:"), 13))

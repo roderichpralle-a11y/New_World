@@ -121,6 +121,10 @@ func build(w, b) -> Droid:
 
 ## [Beruf, Siedler, der ihn abgibt] – der Beruf, den die meisten Siedler der Insel haben.
 func pick_job(w) -> Array:
+	if Powers.on("droiden"):  # Befugnis „Droiden einsetzen“: dorthin, wo gerade Leute fehlen
+		for need in Steward.needs(w):
+			if replaceable(str(need.job)):
+				return [str(need.job), null]
 	var by_job := {}
 	for s in w.settlers:
 		if s.is_adult() and replaceable(s.job) and JobDesk.may(s, "automat"):
@@ -133,8 +137,8 @@ func pick_job(w) -> Array:
 			best = j
 	if best != "":
 		return [best, by_job[best][0]]
-	var need: Dictionary = Steward.needed(w)
-	var j: String = need.get("job", "")
+	var nl: Array = Steward.needs(w)
+	var j: String = str(nl[0].job) if not nl.is_empty() else ""
 	return [j if replaceable(j) else "frei", null]
 
 

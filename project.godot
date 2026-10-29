@@ -32,6 +32,7 @@ Droids="*res://scripts/autoload/droids.gd"
 AiRule="*res://scripts/autoload/ai_rule.gd"
 Planner="*res://scripts/autoload/planner.gd"
 JobDesk="*res://scripts/autoload/job_desk.gd"
+Powers="*res://scripts/autoload/powers.gd"
 
 [display]
 

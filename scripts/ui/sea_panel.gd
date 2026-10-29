@@ -1076,8 +1076,8 @@ func _minmax_editor() -> void:
 		var lim_here := Game.limit_of(gid, w)
 		v.add_child(_hint(tr("Lager hier: höchstens %d (Lagergrenze)") % cap if lim_here >= 0 else tr("Lager hier: Platz für höchstens %d") % cap))
 	var why := tr("Liegt weniger als der Mindeststand da, holt der Verwalter die Ware von einer anderen Insel. Liegt mehr als der Höchststand da, bringt er den Überschuss weg (zuerst zur Heimatinsel). Dafür nimmt er freie Schiffe ohne Route.")
-	if not Steward.on:
-		why += " " + tr("Dafür muss der Verwalter eingeschaltet sein.")
+	if not Powers.on("waren"):
+		why += " " + tr("Dafür braucht der Verwalter die Befugnis „Waren ausgleichen“ (Verwaltung Stufe 4).")
 	var hl := _hint(why)
 	v.add_child(hl)
 	_details.add_child(box)
@@ -1088,11 +1088,12 @@ func _minmax_editor() -> void:
 func _steward_row() -> void:
 	if not Steward.unlocked():
 		return
-	var box := _box(Color("#e3eecf") if Steward.on else CELL_BG, CELL_LINE, 2, 6)
+	var on := Steward.active()
+	var box := _box(Color("#e3eecf") if on else CELL_BG, CELL_LINE, 2, 6)
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 8)
 	h.add_child(UiTheme.icon_rect(Data.icon("person"), 20))
-	var l := UiTheme.label((tr("Automat steuert die Inseln: an") if Steward.on else tr("Automat steuert die Inseln: aus")) if Steward.automat_mode() else (tr("Verwalter steuert die Berufe: an") if Steward.on else tr("Verwalter steuert die Berufe: aus")), 14, UiTheme.TEXT, true)
+	var l := UiTheme.label(tr("Verwalter: Stufe %d von 7") % Admin.level() if on else tr("Verwalter: keine Verwaltung mit Verwalter"), 14, UiTheme.TEXT, true)
 	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	l.custom_minimum_size.x = 150

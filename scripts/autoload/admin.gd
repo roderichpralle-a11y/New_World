@@ -75,9 +75,28 @@ func _c(key: String, default) -> float:
 func office():
 	for w in Sea.all_worlds():
 		for b in w.buildings:
-			if b.type == OFFICE and b.complete:
-				return b
+			if b.def.get("office", false) and (b.complete or int(b.def.get("office_level", 1)) > 1):
+				return b  # eine Ausbau-Baustelle arbeitet mit der Stufe davor weiter
 	return null
+
+
+## Ausbaustufe der Verwaltung (josh 2026-10-29): 0 ohne fertige Verwaltung oder ohne Verwalter auf ihrer
+## Insel, sonst 1 (Schreibstube) bis 7 (KI-Leitstelle). Während eines Ausbaus gilt die Stufe davor.
+func level() -> int:
+	var o = office()
+	if o == null or local_manager() == null:
+		return 0
+	var lv := int(o.def.get("office_level", 1))
+	return lv if o.complete else lv - 1
+
+
+## Ausbaustufe des Gebäudes allein (auch ohne Verwalter), für Anzeigen.
+func office_level() -> int:
+	var o = office()
+	if o == null:
+		return 0
+	var lv := int(o.def.get("office_level", 1))
+	return lv if o.complete else lv - 1
 
 
 ## Der Verwalter (erwachsen) oder null.
@@ -114,14 +133,15 @@ func active() -> bool:
 
 ## Arbeitet die Verwaltung für diese Insel?
 func active_on(w) -> bool:
-	return w != null and active() and w == admin_world()
+	return w != null and active() and Powers.covers(w)
 
 
 ## Gibt es dieses Gebäude schon (fertig oder als Baustelle), ohne ignore (beim Verschieben)?
 func exists(type: String, ignore = null) -> bool:
+	var base: String = Data.buildings.get(type, {}).get("base", type)
 	for w in Sea.all_worlds():
 		for b in w.buildings:
-			if b.type == type and b != ignore:
+			if (b.type == type or b.def.get("base", b.type) == base) and b != ignore:
 				return true
 	return false
 
@@ -323,7 +343,7 @@ func auto_unlocked() -> bool:
 
 
 func auto_on() -> bool:
-	return auto_reassign and auto_unlocked()
+	return Powers.on("nachbesetzen")
 
 
 ## Automatische Neuzuweisung (ab dem Mittelalter): Stirbt ein Siedler mit Beruf, übernimmt ein freier
@@ -344,12 +364,14 @@ func _on_settler_died(s, _cause: String) -> void:
 		if pick == null or (TalentInfo.job_match(o.mind, s.job) and not TalentInfo.job_match(pick.mind, s.job)):
 			pick = o
 	if pick == null:
+		if Powers.mode_of("nachbesetzen") != Powers.SELBST:
+			return
 		pending_jobs.append(s.job)
 		Game.notify_at(s.world, tr("Für den Beruf %s von %s gibt es keinen freien Siedler. Das nächste Kind, das erwachsen wird, lernt ihn.") % [_name(s.job), s.display_name], "wissen", "verwaltung")
 		changed.emit()
 		return
-	JobDesk.assign(pick, s.job, "verwalter")
-	Game.notify_at(s.world, tr("%s übernimmt den Beruf %s von %s.") % [pick.display_name, _name(s.job), s.display_name], "wissen", "verwaltung")
+	Powers.decide("nachbesetzen", "nach:%d" % int(pick.id), tr("%s übernimmt den Beruf %s von %s.") % [pick.display_name, _name(s.job), s.display_name],
+		{"kind": "job", "island": int(s.world.island_id), "sid": int(pick.id), "job": s.job})
 	changed.emit()
 
 
@@ -396,37 +418,8 @@ func _tick() -> void:
 			Game.notify(tr("Die Leute im Beruf %s hören unter Protest mit den Überstunden auf. Ihre Laune sinkt.") % _name(job), "wissen", "verwaltung")
 			protest_started.emit(job, tr("Die Leute im Beruf %s protestieren gegen zu lange Überstunden.") % _name(job))
 			changed.emit()
-	if not active():
-		return
-	var m = local_manager()
-	var short := shortages()
-	for e in short:
-		_short_at[e[0]] = Game.time_days
-	if self_orders_on():
-		_self_order_tick(m)
-	for e in short:
-		var job: String = e[0]
-		if Game.time_days - float(reported.get(job, -99.0)) < _c("report_every", 2.0):
-			continue
-		reported[job] = Game.time_days
-		var text := tr("Verwalter %s: Im Beruf %s fehlen Leute (Werkstätten: %d, Leute: %d).") % [
-			m.display_name, _name(job), int(e[1]), int(e[2])]
-		if self_orders_on() and Game.time_days >= float(_hold.get(job, 0.0)):
-			if not ordered(job, "ot") and not protesting(job) and Game.time_days >= float(_ot_rest.get(job, 0.0)):
-				set_overtime(job, true, true)
-				Game.notify(text + " " + tr("Er ordnet Überstunden an."), "wissen", "verwaltung")
-				continue
-			if not ordered(job, "sh"):
-				set_shift(job, true, true)
-				Game.notify(text + " " + tr("Er ordnet Schichtarbeit mit Nachtschicht an."), "wissen", "verwaltung")
-				continue
-		# Entscheidet er selbst, fragt er nie nach (josh 2026-10-29: das Fenster kam trotz Haken, wenn er
-		# gerade nichts anordnen durfte: Protest, Ruhezeit nach Überstunden oder ein Jahr Ruhe nach dem Spieler)
-		if self_orders_on() or (ordered(job, "ot") and ordered(job, "sh")):
-			Game.notify(text + " " + tr("Teile mehr Siedler für diesen Beruf ein."), "wissen", "verwaltung")
-			continue
-		Game.notify(text + " " + tr("Vorschlag: Überstunden oder Schichtarbeit."), "wissen", "verwaltung")
-		proposal.emit(job, text)
+	# Seit 2026-10-29 keine Meldungen über fehlende Werkstatt-Leute mehr: Überstunden und Schichten ordnet
+	# der Verwalter nur noch im Notfall an (Steward._emergency, Befugnis „Überstunden im Notfall“).
 
 
 ## Eigene Anordnungen des Verwalters pflegen: Überstunden vor dem Protest (nach 80 % der erlaubten Zeit) in
@@ -468,6 +461,7 @@ func note_produced(res: String, n: int, w = null) -> void:
 	if not produced[key].has(isl):
 		produced[key][isl] = {}
 	produced[key][isl][res] = int(produced[key][isl].get(res, 0)) + n
+	Steward.note_made(res, n, w)
 
 
 static func _isl(w) -> String:

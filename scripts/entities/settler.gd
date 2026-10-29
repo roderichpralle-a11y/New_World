@@ -1246,7 +1246,7 @@ func _plan_standin() -> bool:
 func _plan_office() -> bool:
 	var b = null
 	for x in world.buildings:
-		if x.type == Admin.OFFICE and x.complete:
+		if x.def.get("office", false) and x.complete:
 			b = x
 	if b == null or _sleep_time():
 		return false

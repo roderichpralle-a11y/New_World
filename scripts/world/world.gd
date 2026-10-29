@@ -1241,7 +1241,12 @@ func upgrade_building(b: Building) -> Building:
 		return null
 	if not HouseNeeds.full_level(b):
 		return null  # Häuser ab Stufe 2: erst wenn ihre Bedürfnisse erfüllt sind
-	var c := b.cell
+	var c := upgrade_spot(b, to)
+	if c.x < 0:
+		# Größerer Ausbau (Verwaltung, josh 2026-10-29): ringsum ist nicht genug frei
+		Game.notify_at(self, tr("%s kann nicht zu %s ausgebaut werden: zu wenig Platz. Verschiebe das Gebäude an eine freie Stelle.") % [
+			b.def.name, Data.buildings[to].name], "abriss", "bauen")
+		return null
 	var bid := b.id
 	for s in settlers:
 		if s._reserved == b or s._incoming.any(func(i): return i[0] == b):
@@ -1269,6 +1274,30 @@ func upgrade_building(b: Building) -> Building:
 		Game.select(nb)
 	Game.population_changed.emit()
 	return nb
+
+
+## Platz für den Ausbau von b zu Typ to: gleiche Größe = gleiche Stelle; ist der Ausbau größer, eine Stelle,
+## deren Fläche die alte enthält (Tür möglichst in der Mitte). Vector2i(-1, -1) = zu wenig Platz.
+func upgrade_spot(b: Building, to: String) -> Vector2i:
+	var nsz: Array = Data.buildings[to].size
+	var ow := int(b.def.size[0])
+	var oh := int(b.def.size[1])
+	var nw := int(nsz[0])
+	var nh := int(nsz[1])
+	if nw == ow and nh == oh:
+		return b.cell
+	var best := Vector2i(-1, -1)
+	var best_d := 999
+	for dy in range(-(nh - oh), 1):
+		for dx in range(-(nw - ow), 1):
+			var c := b.cell + Vector2i(dx, dy)
+			if not can_place(to, c, b):
+				continue
+			var d := absi(2 * dx + (nw - ow)) + absi(dy)  # mittig und nach oben wachsen bevorzugt
+			if d < best_d:
+				best_d = d
+				best = c
+	return best
 
 
 ## Verschieben: das Gebaeude zieht samt Lager, Bewohnern und Baufortschritt an einen neuen Platz.

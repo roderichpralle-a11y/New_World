@@ -108,8 +108,10 @@ func reason() -> String:
 	return ""
 
 
+## Seit 2026-10-29 plant und baut der Planungsautomat nicht mehr selbst: er schreibt nur das Gutachten
+## (Befugnisse „Aufbau-Gutachten“ und „Versorgungsplan“). Bauen darf erst die KI.
 func active() -> bool:
-	return on and reason() == ""
+	return false
 
 
 func set_on(v: bool) -> void:
@@ -743,7 +745,7 @@ func _ensure_builder(w):
 func _staff(w, job: String, why: String, hard: bool = false):
 	if job == "" or not Data.jobs.has(job) or not Data.job_unlocked(job):
 		return null
-	var s = Steward._take_worker(w, {"job": job, "why": why, "hard": hard}, "automat")
+	var s = Steward._take_worker(w, {"job": job, "why": why, "hard": hard})
 	if s == null or not JobDesk.assign(s, job, "automat"):  # der Verwalter (Rang darunter) setzt ihn nicht gleich wieder um
 		return null
 	return s
