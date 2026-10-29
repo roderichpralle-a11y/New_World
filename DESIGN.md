@@ -791,7 +791,9 @@ Spielstände würfeln die Werte reproduzierbar aus der Siedler-ID).
   Ab Forschungsstufe 8 (`Admin.SELF_ORDER_TIER`, Schalter `Admin.self_orders` im Reiter Verwalter) ordnet der
   Verwalter bei fehlenden Leuten erst Überstunden, dann Schichtarbeit an (`auto_orders`, gelb markiert), beendet
   Überstunden bei 80 % der erlaubten Zeit (danach ein Jahr Pause, `_ot_rest`) und alles, wenn zwei Meldezeiten
-  niemand mehr fehlt; schaltet der Spieler ab, lässt er den Beruf ein Jahr in Ruhe (`_hold`). Tests:
+  niemand mehr fehlt; schaltet der Spieler ab, lässt er den Beruf ein Jahr in Ruhe (`_hold`). Ist der Schalter an,
+  fragt er nie nach, auch wenn er gerade nichts anordnen darf (Protest, Ruhezeit, Schicht läuft), sondern meldet nur
+  „Teile mehr Siedler ein“; vor Stufe 8 zeigt der Schalter keinen Haken (josh 2026-10-29). Tests:
   `--stewardtest=net`, `--admintest=1`, Bild `--fixture=<sea.json> --adminshot=islands`.
 - **Berufskleidung** (josh 2026-10-20, `Settler.OUTFIT`, `_apply_outfit`, Bilder aus tools/gen_art_outfits.py):
   Handwerker blauer Overall (Hemd und Hose eingefärbt), Bauer braune Hose und gelbe Schirmmütze, Koch weiße Hose

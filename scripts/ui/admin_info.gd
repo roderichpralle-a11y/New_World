@@ -263,13 +263,14 @@ static func _manager_tab(hud, b) -> void:
 	so.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	so.add_theme_font_size_override("font_size", 14)
 	so.tooltip_text = Loc.t("Fehlen in einem Beruf Leute, ordnet der Verwalter erst Überstunden an, dann Schichtarbeit mit Nachtschicht. Fehlt niemand mehr, beendet er sie; Überstunden beendet er, bevor protestiert wird. Schaltest du selbst etwas ab, lässt er den Beruf ein Jahr in Ruhe.")
-	so.button_pressed = Admin.self_orders
+	so.button_pressed = Admin.self_orders_on()  # vor Stufe 8 ohne Haken: bis dahin fragt er nach
 	so.toggled.connect(func(on):
 		Admin.self_orders = on
 		Admin.changed.emit())
 	if not Admin.self_orders_unlocked():
 		so.disabled = true
 		so.text += " " + Loc.t("(ab Stufe %d)") % Admin.SELF_ORDER_TIER
+		so.tooltip_text = Loc.t("Bis Stufe %d schlägt der Verwalter Überstunden und Schichtarbeit nur vor und fragt dich.") % Admin.SELF_ORDER_TIER
 	_box.add_child(so)
 	if Admin.auto_on() and not Admin.pending_jobs.is_empty():
 		var wait := UiTheme.label(Loc.t("Wartet auf das nächste erwachsene Kind: %s") % ", ".join(Admin.pending_jobs.map(func(j): return Admin._name(j))), 13, UiTheme.TEXT, true)
