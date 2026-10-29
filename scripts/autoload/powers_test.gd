@@ -184,6 +184,17 @@ static func run(main, mode: String) -> void:
 	var rep: Dictionary = Planner.report.get("islands", {}).get(str(int(w.island_id)), {})
 	_ok(not rep.is_empty() and not rep.get("tips", []).is_empty(), "Gutachten mit %d Tipps, %d Straßenfeldern, %d Verschiebungen" % [rep.get("tips", []).size(), rep.get("roads", []).size(), rep.get("moves", []).size()])
 	_ok(PlanReport.map_image(w, rep) != null, "Karte zum Gutachten")
+	# Verwalter stirbt: immer gleich nachbesetzt, auch mit Nachbesetzen auf Aus (josh 2026-10-29)
+	Powers.set_mode("nachbesetzen", Powers.AUS)
+	var f3 = _mk(w, "Frei3", "frei")
+	w.kill_settler(v, "gestorben", "old")
+	var nm = Admin.local_manager()
+	_ok(nm != null and Admin.level() == 5, "Verwalter gestorben: %s ist neuer Verwalter, Stufe %d" % [nm.display_name if nm else "niemand", Admin.level()])
+	_ok(nm == f3, "der Freie wird Verwalter")
+	w.kill_settler(nm, "gestorben", "old")
+	nm = Admin.local_manager()
+	_ok(nm != null, "kein Freier: ein Erwachsener aus einem anderen Beruf wird Verwalter (%s)" % (nm.display_name if nm else "niemand"))
+	Powers.set_mode("nachbesetzen", Powers.FRAGEN)
 	# Spielstand
 	var d := {}
 	Powers._on_save(d)

@@ -98,6 +98,9 @@ teils das frühere Verhalten (Angebote, Automat baut, Planer) und schlagen dort 
   nach einem Tag; Reiter Vorschläge mit Ja/Nein/Alle annehmen; Zahl am Verwalter-Knopf). Selbst: sofort, nur ins Log
   und die Bilanz „Für dich erledigt“; eine Meldung nur, wenn er einen vom Spieler eingeteilten Siedler nimmt.
   Spielstand `powers`.
+- **Verwalter stirbt** (josh 2026-10-29): `Admin._refill_manager` besetzt den Posten immer sofort, ohne Befugnis
+  (nach seinem Tod ist `Admin.level()` 0): ein Freier (Talent zuerst), sonst ein Erwachsener aus dem Beruf mit den
+  meisten Leuten (keine Seeleute), sonst das nächste erwachsene Kind (`pending_jobs` vorn).
 - **Entscheidungen** (`Steward.tick` alle 0,25 Tage, höchstens ein Wechsel je Insel und halben Tag, `Steward.needs`
   in dieser Reihenfolge): Essen und Wärme für 3 Tage (`secure_info`: Bedarf aus Siedlern, Häusern, Gebäuden gegen
   Vorrat + Ertrag der jetzigen Arbeiter; darf Spieler-Siedler nehmen), Grundbesetzung (Baumeister bei Baustellen,

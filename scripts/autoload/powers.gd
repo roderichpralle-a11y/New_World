@@ -17,11 +17,11 @@ const PROPOSAL_DAYS := 1.0  # ein Vorschlag verfällt nach so vielen Tagen (die 
 ## Reihenfolge = Anzeige im Menü. level: nötige Ausbaustufe der Verwaltung.
 const LIST := [
 	{"id": "nachbesetzen", "level": 1, "icon": "person", "name": "Nachbesetzen",
-		"desc": "Stirbt ein Siedler, übernimmt ein Freier seinen Beruf (einer mit passendem Talent zuerst). Gibt es keinen, lernt ihn das nächste Kind, das erwachsen wird."},
+		"desc": "Stirbt ein Siedler, übernimmt ein Freier seinen Beruf (einer mit passendem Talent zuerst). Gibt es keinen, lernt ihn das nächste Kind, das erwachsen wird. Den Verwalter selbst ersetzt das Spiel immer sofort, auch ohne diese Befugnis."},
 	{"id": "grundbesetzung", "level": 1, "icon": "hammer", "name": "Grundbesetzung",
 		"desc": "Freie gehen nur dorthin, wo Arbeit wartet: Werkstätten mit Zutaten, deren Ware gebraucht wird; Bauern nach Feldern und Ställen; Holzfäller so viele, wie die Wärme braucht; Baumeister für Baustellen. Bleibt ein Siedler einen Tag frei, bekommt er einen Beruf, wo Mindestvorräte fehlen oder eine Werkstatt Arbeit hat."},
 	{"id": "essen_waerme", "level": 2, "icon": "weizen", "name": "Essen und Wärme sichern",
-		"desc": "Rechnet aus, was die Insel in den nächsten 3 Tagen an Essen und Brennstoff braucht (alle Siedler, Häuser und Gebäude), und vergleicht es mit Vorrat und Ertrag der jetzigen Arbeiter. Fehlt etwas, setzt er gerade so viele Leute ein, dass es reicht, notfalls auch deine."},
+		"desc": "Rechnet aus, was die Insel in den nächsten 3 Tagen an Essen und Brennstoff braucht (alle Bewohner und arbeitenden Gebäude; leere Häuser verbrauchen nichts), und vergleicht es mit Vorrat und Ertrag der jetzigen Arbeiter. Fehlt etwas, setzt er gerade so viele Leute ein, dass es reicht, notfalls auch deine."},
 	{"id": "mindestvorrat", "level": 2, "icon": "haus", "name": "Mindestvorräte",
 		"desc": "Liegt eine Ware unter dem Mindestvorrat, den du im Reiter Vorräte einstellst, schickt er Siedler in den passenden Beruf: Freie und solche, die er selbst eingeteilt hat und die gerade nicht gebraucht werden."},
 	{"id": "notfall", "level": 3, "icon": "sonne", "name": "Überstunden im Notfall",

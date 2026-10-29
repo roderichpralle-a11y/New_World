@@ -351,6 +351,9 @@ func auto_on() -> bool:
 ## lernt das nächste Kind, das erwachsen wird, den Beruf. Nur auf der Insel der Verwaltung.
 ## Stirbt der Verwalter selbst, bekommt ein Freier auf der Insel der Verwaltung den Posten (josh 2026-10-17).
 func _on_settler_died(s, _cause: String) -> void:
+	if s != null and s.is_adult() and s.job == JOB:
+		_refill_manager(s)
+		return
 	if not auto_on() or s == null or not s.is_adult() or s.job == "frei":
 		return
 	if not _covers(s.world, s.job) or not Data.jobs.has(s.job):
@@ -375,8 +378,60 @@ func _on_settler_died(s, _cause: String) -> void:
 	changed.emit()
 
 
+## Der Verwalter ist gestorben: immer sofort nachbesetzen, ohne Befugnis und Nachfrage (josh 2026-10-29;
+## nach seinem Tod hat die Verwaltung Stufe 0, die Befugnisse ruhen). Erst ein Freier (passendes Talent
+## zuerst), sonst der Erwachsene aus dem Beruf mit den meisten Leuten; gibt es keinen, das nächste Kind.
+func _refill_manager(s) -> void:
+	var w = s.world
+	if w == null or w != admin_world() or local_manager() != null:
+		return
+	var pick = null
+	var counts := {}
+	for o in w.settlers:
+		if o.is_adult():
+			counts[o.job] = int(counts.get(o.job, 0)) + 1
+	for o in w.settlers:
+		if o == s or not o.is_adult() or o.job == "seemann":
+			continue
+		if pick == null:
+			pick = o
+			continue
+		var of: bool = o.job == "frei"
+		var pf: bool = pick.job == "frei"
+		if of != pf:
+			if of:
+				pick = o
+			continue
+		if of and TalentInfo.job_match(o.mind, JOB) and not TalentInfo.job_match(pick.mind, JOB):
+			pick = o
+		elif not of and int(counts.get(o.job, 0)) > int(counts.get(pick.job, 0)):
+			pick = o
+	if pick == null:
+		if not JOB in pending_jobs:
+			pending_jobs.push_front(JOB)
+		Game.notify_at(w, tr("Der Verwalter %s ist tot. Es gibt keinen Erwachsenen für den Posten, das nächste Kind, das erwachsen wird, lernt ihn.") % s.display_name, "wissen", "verwaltung")
+		changed.emit()
+		return
+	var before: String = pick.job_name()
+	var was_free: bool = pick.job == "frei"
+	JobDesk.assign(pick, JOB, "verwalter", -1.0, true)
+	if was_free:
+		Game.notify_at(w, tr("%s übernimmt den Posten des Verwalters von %s.") % [pick.display_name, s.display_name], "wissen", "verwaltung")
+	else:
+		Game.notify_at(w, tr("%s übernimmt den Posten des Verwalters von %s (vorher %s, kein Freier da).") % [pick.display_name, s.display_name, before], "wissen", "verwaltung")
+	changed.emit()
+
+
 ## Ein Kind ist erwachsen geworden: es lernt den ältesten offenen Beruf eines Verstorbenen.
 func on_grown_up(s) -> bool:
+	if not pending_jobs.is_empty() and pending_jobs[0] == JOB and s.world == admin_world():
+		pending_jobs.pop_front()
+		if local_manager() != null:
+			return false
+		JobDesk.assign(s, JOB, "verwalter", -1.0, true)
+		Game.notify_at(s.world, tr("%s ist erwachsen und lernt den Beruf %s.") % [s.display_name, _name(JOB)], "wissen", "verwaltung")
+		changed.emit()
+		return true
 	if pending_jobs.is_empty() or not auto_on() or not _covers(s.world, pending_jobs[0]):
 		return false
 	var job: String = pending_jobs.pop_front()

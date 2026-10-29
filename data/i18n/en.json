@@ -2505,12 +2505,10 @@
  "Planungsautomat: Das Gutachten für dieses Jahr ist fertig (Fenster Verwalter, Reiter Gutachten).": "Planning machine: this year's report is ready (Steward window, Report tab).",
  "Rechenzentrum": "Computing centre",
  "Rechenzentrum: Der Verwalter setzt die Droiden dort ein, wo Leute fehlen.": "Computing centre: the steward deploys droids where people are missing.",
- "Rechnet aus, was die Insel in den nächsten 3 Tagen an Essen und Brennstoff braucht (alle Siedler, Häuser und Gebäude), und vergleicht es mit Vorrat und Ertrag der jetzigen Arbeiter. Fehlt etwas, setzt er gerade so viele Leute ein, dass es reicht, notfalls auch deine.": "Calculates what the island needs in food and fuel over the next 3 days (all settlers, houses and buildings) and compares it with stock and the output of the current workers. If something is missing, assigns just enough people, yours too if necessary.",
  "Schichtarbeit (auch nachts)": "Shift work (also at night)",
  "Schiff bringt %s von %s nach %s (%s).": "Ship brings %s from %s to %s (%s).",
  "Selbst": "Auto",
  "Sitz des Verwalters, gibt es nur einmal. Mit jedem Ausbau übernimmt der Verwalter mehr Aufgaben (Fenster Verwalter, Reiter Befugnisse).": "Seat of the steward, exists only once. With every upgrade the steward takes on more tasks (Steward window, Powers tab).",
- "Stirbt ein Siedler, übernimmt ein Freier seinen Beruf (einer mit passendem Talent zuerst). Gibt es keinen, lernt ihn das nächste Kind, das erwachsen wird.": "When a settler dies, a free settler takes over the job (one with a matching talent first). If there is none, the next child to grow up learns it.",
  "Straßen": "Roads",
  "Stufe %d von 7": "Stage %d of 7",
  "Stufe %d: %s": "Stage %d: %s",
@@ -2532,5 +2530,10 @@
  "seit einem Tag frei": "free for a day",
  "Überstunden im Notfall": "Overtime in emergencies",
  "Überstunden reichen nicht: Schichtarbeit für die %s.": "Overtime is not enough: shift work for the %s.",
- "Den Beruf hattest du vergeben, aber Essen und Wärme gehen vor.": "You had given that job, but food and heat come first."
+ "Den Beruf hattest du vergeben, aber Essen und Wärme gehen vor.": "You had given that job, but food and heat come first.",
+ "Rechnet aus, was die Insel in den nächsten 3 Tagen an Essen und Brennstoff braucht (alle Bewohner und arbeitenden Gebäude; leere Häuser verbrauchen nichts), und vergleicht es mit Vorrat und Ertrag der jetzigen Arbeiter. Fehlt etwas, setzt er gerade so viele Leute ein, dass es reicht, notfalls auch deine.": "Calculates what the island needs in food and fuel over the next 3 days (all residents and working buildings; empty houses use nothing) and compares it with stock and the output of the current workers. If something is missing, assigns just enough people, yours too if necessary.",
+ "Stirbt ein Siedler, übernimmt ein Freier seinen Beruf (einer mit passendem Talent zuerst). Gibt es keinen, lernt ihn das nächste Kind, das erwachsen wird. Den Verwalter selbst ersetzt das Spiel immer sofort, auch ohne diese Befugnis.": "When a settler dies, a free settler takes over the job (one with a matching talent first). If there is none, the next child to grow up learns it. The steward themself is always replaced at once, even without this power.",
+ "Der Verwalter %s ist tot. Es gibt keinen Erwachsenen für den Posten, das nächste Kind, das erwachsen wird, lernt ihn.": "The steward %s is dead. There is no adult for the post; the next child to grow up learns it.",
+ "%s übernimmt den Posten des Verwalters von %s.": "%s takes over the steward's post from %s.",
+ "%s übernimmt den Posten des Verwalters von %s (vorher %s, kein Freier da).": "%s takes over the steward's post from %s (before: %s, nobody free)."
 }
