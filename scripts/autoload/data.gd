@@ -66,7 +66,7 @@ static func fine(name: String) -> Texture2D:
 	return t
 
 
-## Feine Wege: Zeile je Art in fine/wege.png (Erdweg, Steinstraße, Pflaster).
+## Feine Wege: Zeile je Art in fine/wege.png (Straße = Steinstraße, Kiesweg = Erdweg, Ziegelweg = Pflaster).
 const FINE_PATH_ROW := {"road": 0, "gravel": 1, "bricks": 2}
 var _fine_paths: Image
 var _fine_paths_tried := false

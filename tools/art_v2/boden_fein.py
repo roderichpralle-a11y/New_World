@@ -1,7 +1,7 @@
 """Boden und Wege von josh (2026-10-30), fein: 136 Bildpunkte je Feld wie die feinen Siedler-Bögen.
 Quelle tools/art_v2/src/boden_fein: grund_<jahreszeit>.png und grund_sand.png (544 x 544 = 4 x 4 Felder,
 nahtlos), <weg>_<maske>.png (136 x 136, Maske N=1 O=2 S=4 W=8). Ziel assets/sprites_hd/fine:
-dieselben Bodenbilder und wege.png (16 Masken nebeneinander, Zeilen Erdweg = road, Steinstraße = gravel,
+dieselben Bodenbilder und wege.png (16 Masken nebeneinander, Zeilen Steinstraße = road, Erdweg = gravel,
 Pflaster = bricks). Jeder Weg bekommt einen dünnen dunklen Rand zum Gras (josh: „setze das um“)."""
 import os
 import numpy as np
@@ -11,7 +11,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SRC = os.path.join(HERE, "src", "boden_fein")
 OUT = os.path.join(HERE, "..", "..", "assets", "sprites_hd", "fine")
 T = 136
-ROWS = [("weg", "road"), ("strasse", "gravel"), ("pflaster", "bricks")]
+ROWS = [("strasse", "road"), ("weg", "gravel"), ("pflaster", "bricks")]  # josh 2026-10-30: Straße = Steinstraße, Kiesweg = Erdweg
 GROUNDS = ["fruehling", "sommer", "herbst", "winter", "sand"]
 
 
