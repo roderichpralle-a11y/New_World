@@ -86,7 +86,7 @@ static func run(main) -> void:
 	await main.get_tree().create_timer(0.3).timeout
 	if s._sied_kind != "":
 		# Siedler-Bögen (2.0): die Zeitung ist gezeichnet, die Figur zeigt die Zeilen "Zeitung lesen"
-		var row: int = s._layers["fig"].frame / 8
+		var row: int = s._sied_i / 8
 		_ok(s._sied_kind == "frei" and row / 3 == int(Settler.SIED_FREI["zeitung"]), "Zeitung in der Hand (Bogen-Zeile %d)" % row)
 	else:
 		_ok(s._tool.visible and s._tool.texture == Data.tool_tex("newspaper"), "Zeitung in der Hand")

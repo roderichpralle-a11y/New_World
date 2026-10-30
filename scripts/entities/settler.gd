@@ -83,6 +83,7 @@ var _zzz: Label
 var _shadow: Sprite2D
 
 static var _sheets: Dictionary = {}
+static var _pack_index: Dictionary = {}
 
 
 static func sheet(name: String) -> Texture2D:
@@ -101,8 +102,10 @@ const SIED_JOB := {"stehen": 0, "gehen": 1, "arbeiten": 2, "kaempfen": 3, "last"
 const SIED_FREI := {"stehen": 0, "gehen": 1, "sitzen": 2, "zeitung": 3, "buch": 4, "kaempfen": 5, "last": 6,
 	"karre": 7, "schlafen": 8}
 const SIED_KIND := {"stehen": 0, "gehen": 1, "sitzen": 2, "buch": 3, "schlafen": 4}
-static var sied_ok := ResourceLoader.exists("res://assets/sprites_hd/sied/frei_mann_rot.png")
+static var sied_ok := ResourceLoader.exists("res://assets/sprites_hd/sied_pack/sied/frei_mann_rot.png")
 var _sied_kind := ""  # "job", "frei" oder "kind", solange ein Siedler-Bogen gezeigt wird
+var _sied: Array = []  # Bilder des Bogens je Kästchen (sied_cells)
+var _sied_i := 0  # gezeigtes Kästchen: Zeile * 8 + Bild
 
 
 ## iPhone und iPad (und andere Touch-Geräte) laden die kleinen Bögen (60 Pixel je Kästchen, 32 Punkte je Feld),
@@ -112,25 +115,44 @@ static func small_sheets() -> bool:
 		or DisplayServer.is_touchscreen_available()
 
 
-## Siedler-Bogen (Bild 60 oder 120 Pixel je Kästchen, gemeldet 30); null, wenn es ihn nicht gibt.
-static func sied_sheet(name: String) -> Texture2D:
+## Siedler-Bogen als ein Bild je Kästchen (gemeldet 30 x 30), null, wenn es ihn nicht gibt. Die Bögen liegen ohne
+## leeren Rand gepackt in assets/sprites_hd/sied_pack (tools/art_v2/sied_pack.py, josh 2026-10-30: Arbeitsspeicher);
+## jedes Kästchen ist eine AtlasTexture mit Rand (margin) und sieht genau aus wie im ungepackten Bogen.
+static func sied_cells(name: String) -> Array:
 	var key := "sied:" + name
 	if not _sheets.has(key):
-		var path := "res://assets/sprites_hd/sied/%s.png" % name
+		var folder := "sied"
 		var div := 2
-		var hd_path := "res://assets/sprites_hd/sied_hd/%s.png" % name
-		if not small_sheets() and ResourceLoader.exists(hd_path):
-			path = hd_path
+		if not small_sheets() and ResourceLoader.exists("res://assets/sprites_hd/sied_pack/sied_hd/%s.png" % name):
+			folder = "sied_hd"
 			div = 4
+		var path := "res://assets/sprites_hd/sied_pack/%s/%s.png" % [folder, name]
 		if not ResourceLoader.exists(path):
-			return null
+			return []
+		if not _pack_index.has(folder):
+			var f := FileAccess.open("res://assets/sprites_hd/sied_pack/%s/index.json" % folder, FileAccess.READ)
+			_pack_index[folder] = JSON.parse_string(f.get_as_text()) if f else {}
+		var meta: Dictionary = _pack_index[folder].get(name, {})
 		var img: Image = (load(path) as Texture2D).get_image()
 		if img.is_compressed():
 			img.decompress()
 		img.generate_mipmaps()
 		var t := ImageTexture.create_from_image(img)
 		t.set_size_override(Vector2i(img.get_width() / div, img.get_height() / div))
-		_sheets[key] = t
+		var d := float(div)
+		var cell := float(SIED_CELL)
+		var cells := []
+		for r in meta.get("r", []):
+			var at := AtlasTexture.new()
+			at.atlas = t
+			if r == null:  # leeres Kästchen: ein durchsichtiger Punkt oben links, Rest Rand
+				at.region = Rect2(0, 0, 1.0 / d, 1.0 / d)
+				at.margin = Rect2(0, 0, cell - 1.0 / d, cell - 1.0 / d)
+			else:
+				at.region = Rect2(r[0] / d, r[1] / d, r[2] / d, r[3] / d)
+				at.margin = Rect2(r[4] / d, r[5] / d, cell - r[2] / d, cell - r[3] / d)
+			cells.append(at)
+		_sheets[key] = cells
 	return _sheets[key]
 
 
@@ -318,11 +340,14 @@ func _apply_outfit() -> void:
 	else:
 		sheet_name = "frei_%s_%s" % ["frau" if sex == "f" else "mann", color]
 		_sied_kind = "frei"
-	var t := sied_sheet(sheet_name)
-	if t != null:
-		s.texture = t
-		s.hframes = 8
-		s.vframes = int(round(t.get_height() / float(SIED_CELL)))
+	var cells := sied_cells(sheet_name)
+	if not cells.is_empty():
+		_sied = cells
+		_sied_i = clampi(_sied_i, 0, cells.size() - 1)
+		s.texture = cells[_sied_i]
+		s.hframes = 1
+		s.vframes = 1
+		s.frame = 0
 		s.offset = SIED_OFFSET
 		_update_scale()
 		return
@@ -1950,7 +1975,8 @@ func _sied_frame(battle: bool, reading: String) -> void:
 		fps = 10.0
 	var row: int = int(rows[m]) * 3 + (0 if m == "schlafen" else _dir)
 	var s: Sprite2D = _layers["fig"]
-	s.frame = clampi(row * 8 + int(_anim_t * fps) % 8, 0, s.hframes * s.vframes - 1)
+	_sied_i = clampi(row * 8 + int(_anim_t * fps) % 8, 0, _sied.size() - 1)
+	s.texture = _sied[_sied_i]
 	s.flip_h = _flip and _dir == DIR_SIDE and m != "schlafen"
 
 
