@@ -2835,6 +2835,7 @@ func _build_notify_panel() -> void:
 	_notify_panel = r[0]
 	var v: VBoxContainer = r[1]
 	var rows := [["goal_card", tr("Zielkarte mit Aufträgen (oben links)"), Game.goal_card_on],
+		["quest_row", tr("Aufträge auf der Zielkarte"), Game.quest_row_on],
 		["hints", tr("Hinweis-Fenster, wenn etwas Neues kommt"), Game.hints_on]]
 	for c in Game.NOTIFY_CATS:
 		rows.append([c, Game.NOTIFY_CATS[c], not Game.notify_off.get(c, false)])

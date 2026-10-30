@@ -91,6 +91,9 @@ bleiben bei der alten Grafik; dieser Zweig wird nicht nach main gemischt, solang
   Schritte `t_hut_*` behalten ihre ids), `t_hut_done` wartet aufs Lagerhaus und schenkt 1 Siedler und eine fertige
   Hütte, `TUT_FINAL` nur noch eine Hütte. Nach dem Baumeister (`close_after`) schließen alle Fenster. Ist die
   Berufsliste offen, rückt die Sprechblase daneben (`GoalCard._beside_popup`: rechts, links, darunter, darüber).
+- Aufträge auf der Zielkarte (josh 2026-10-30): X blendet sie aus, bis ein neuer Auftrag oder neue Angebote kommen
+  (`Game.goals.qhide` = `QuestView.content_key()`, im Spielstand); „Immer aus“ schaltet sie ab (`Game.quest_row_on`,
+  settings.cfg [notify] quest_row, wieder an unter Menü > Meldungen). Der Knopf Aufträge öffnet sie weiter.
 - Test `--tutclick=1` (unter xvfb, `--resolution 1440x900` bzw. `402x874`, `--shotdir=<Ordner>` für Bilder je Schritt):
   klickt jeden Schritt genau auf die Pfeilspitze bzw. auf Weiter; meldet FEHLER, wenn es danach nicht weitergeht.
 

@@ -600,6 +600,7 @@ const NOTIFY_ICON_CAT := {"": "tag", "sonne": "tag", "herz": "siedler", "person"
 	"feuer": "ereignis", "ratte": "ereignis", "ziel": "ziel"}
 var notify_off: Dictionary = {}  # Art -> true, wenn abgeschaltet (user://settings.cfg [notify])
 var goal_card_on: bool = true
+var quest_row_on: bool = true  # Aufträge auf der Zielkarte (josh 2026-10-30: „dauerhaft ausblenden“)
 var hints_on: bool = true  # Hinweis-Fenster bei Neuem (Hints), sonst nur als Meldung
 
 
@@ -661,6 +662,7 @@ func _load_notify_settings() -> void:
 	for c in NOTIFY_CATS:
 		notify_off[c] = not bool(cf.get_value("notify", c, true))
 	goal_card_on = bool(cf.get_value("notify", "goal_card", true))
+	quest_row_on = bool(cf.get_value("notify", "quest_row", true))
 	hints_on = bool(cf.get_value("notify", "hints", true))
 	ui_size = float(cf.get_value("display", "ui_size", 1.0))
 	if not ui_size in UI_SIZES:
@@ -685,6 +687,8 @@ func set_ui_size(v: float) -> void:
 func set_notify(cat: String, on: bool) -> void:
 	if cat == "goal_card":
 		goal_card_on = on
+	elif cat == "quest_row":
+		quest_row_on = on
 	elif cat == "hints":
 		hints_on = on
 	else:
@@ -1552,7 +1556,7 @@ func apply_save_header(d: Dictionary) -> void:
 		# Seit tv 8 (josh 2026-10-22): ohne die 2 Schritte zum Menü (vorher 25 und 26)
 		if tv >= 5 and tv < 8 and tut >= 25 and tut < 999:
 			tut = 999 if tut >= 29 else (tut - 2 if tut >= 27 else 25)
-		goals = {"tut": tut, "ms": _ms_upgrade(g), "hide": str(g.get("hide", "")), "tv": 8,
+		goals = {"tut": tut, "ms": _ms_upgrade(g), "hide": str(g.get("hide", "")), "qhide": str(g.get("qhide", "")), "tv": 8,
 			"gift": str(g.get("gift", "")), "mv": 2}
 	else:
 		goals = {"tut": 999, "ms": 0, "catchup": true, "mv": 2}

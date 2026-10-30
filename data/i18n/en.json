@@ -2526,5 +2526,11 @@
  "Die Insel ist jetzt sicherer. Mach einen Jäger zum Holzfäller und lass ein Haus bauen.": "The island is safer now. Make a hunter a woodcutter and have a house built.",
  "Öffne den Reiter Lager und tippe beim Lagerhaus auf den Hammer.": "Open the Storage tab and tap the hammer next to the Storehouse.",
  "Warte, bis das Lagerhaus steht.": "Wait until the storehouse is finished.",
- "Nur ein Baumeister baut das Lagerhaus.": "Only a builder can build the storehouse."
+ "Nur ein Baumeister baut das Lagerhaus.": "Only a builder can build the storehouse.",
+ "Aufträge auf der Zielkarte": "Quests on the goal card",
+ "Ausblenden, bis der nächste Auftrag kommt": "Hide until the next quest comes",
+ "Auftrag ausgeblendet, bis der nächste kommt.": "Quest hidden until the next one comes.",
+ "Immer aus": "Always off",
+ "Aufträge hier nie mehr zeigen. Wieder an: Menü > Meldungen.": "Never show quests here again. Turn back on: Menu > Messages.",
+ "Aufträge auf der Zielkarte sind aus. Öffnen über den Knopf Aufträge, wieder an unter Menü > Meldungen.": "Quests on the goal card are off. Open them with the Quests button, turn back on under Menu > Messages."
 }

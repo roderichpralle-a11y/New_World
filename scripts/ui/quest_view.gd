@@ -231,6 +231,30 @@ static func goal_row(card) -> VBoxContainer:
 	btn.add_theme_font_size_override("font_size", 13)
 	btn.pressed.connect(func(): card.hud._toggle(card.hud._quest_panel))
 	head.add_child(btn)
+	# josh 2026-10-30: ausblenden, bis der nächste Auftrag (bzw. neue Angebote) kommt, oder für immer
+	var hide := UiTheme.button("", "abriss", 28)
+	hide.tooltip_text = Loc.t("Ausblenden, bis der nächste Auftrag kommt")
+	hide.pressed.connect(func():
+		Game.goals["qhide"] = content_key()
+		Sound.play("zu")
+		card.hud.toast(Loc.t("Auftrag ausgeblendet, bis der nächste kommt."), "ziel"))
+	var hr := HBoxContainer.new()  # eigene Zeile, damit die Karte am Handy nicht breiter wird
+	hr.add_theme_constant_override("separation", 5)
+	hr.alignment = BoxContainer.ALIGNMENT_END
+	hr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hr.add_child(hide)
+	var off := UiTheme.button(Loc.t("Immer aus"), "", 28)
+	off.add_theme_font_size_override("font_size", 12)
+	off.tooltip_text = Loc.t("Aufträge hier nie mehr zeigen. Wieder an: Menü > Meldungen.")
+	off.pressed.connect(func():
+		Game.set_notify("quest_row", false)
+		for nb in card.hud._notify_grid.get_children():
+			var c: CheckBox = nb.get_child(0)
+			if c.get_meta("cat", "") == "quest_row":
+				c.set_pressed_no_signal(false)
+		Sound.play("zu")
+		card.hud.toast(Loc.t("Aufträge auf der Zielkarte sind aus. Öffnen über den Knopf Aufträge, wieder an unter Menü > Meldungen."), "ziel"))
+	hr.add_child(off)
 	var text := UiTheme.label("", 12, UiTheme.TEXT, false)
 	text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	text.custom_minimum_size.x = 150
@@ -248,6 +272,7 @@ static func goal_row(card) -> VBoxContainer:
 	br.add_child(val)
 	var tl := UiTheme.label("", 11, Color("#5a4038"))
 	br.add_child(tl)
+	row.add_child(hr)
 	row.gui_input.connect(func(ev):
 		if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
 			card.hud._toggle(card.hud._quest_panel))
@@ -258,7 +283,15 @@ static func goal_row(card) -> VBoxContainer:
 ## Gibt es etwas fuer die Zeile (laufender Auftrag oder Angebote)? Das Brett oeffnet erst nach
 ## der Einfuehrung, bei alten Spielstaenden gleich nach dem Laden (dann auch neben der Einfuehrung).
 static func row_wanted(card) -> bool:
-	return Quests.has_content() and (not card.in_tutorial() or Quests.next >= 0.0)
+	return Quests.has_content() and (not card.in_tutorial() or Quests.next >= 0.0) and Game.quest_row_on \
+		and str(Game.goals.get("qhide", "")) != content_key()
+
+
+## Was gerade gezeigt wird (laufender Auftrag oder Angebote); ändert sich, wenn ein neuer kommt.
+static func content_key() -> String:
+	if not Quests.active.is_empty():
+		return "a:" + str(Quests.active.get("accepted", ""))
+	return "o:" + str(Quests.offers.map(func(o): return str(o.get("id", ""))).hash()) + ":" + str(Quests.offers_until)
 
 
 ## Zeile auffrischen; true, wenn sich die Hoehe aendern kann (Zielkarte neu anordnen).
