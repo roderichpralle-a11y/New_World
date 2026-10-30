@@ -3814,9 +3814,8 @@ func show_title(has_save: bool) -> void:
 	var st := UiTheme.label(tr("Zwei Siedler. Eine Insel. Viele Generationen."), 15)
 	st.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(st)
-	if Game.is_test_build:
-		var tx := tr("Version 2 mit neuer Grafik und eigenem Spielstand.\nDein normales Spiel bleibt unverändert.") if Game.build_tag == "v2" \
-			else tr("Testversion mit eigenem Spielstand.\nDein normales Spiel bleibt unverändert.")
+	if Game.is_test_build and Game.build_tag != "v2":  # V2 ohne roten Hinweis (josh 2026-10-30)
+		var tx := tr("Testversion mit eigenem Spielstand.\nDein normales Spiel bleibt unverändert.")
 		var tb := UiTheme.label(tx, 14, Color("#c03a2a"), true)
 		tb.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		v.add_child(tb)

@@ -2050,7 +2050,7 @@ Bei jedem Push auf `main` baut GitHub Actions die Web-Version und legt sie auf d
 Branch `gh-pages` (GitHub Pages).
 
 **V2 (josh 2026-10-29):** kein Fenster „Neue Regeln“ mehr; neue Regeln gelten still ab dem Laden (`main._on_continue`
-ruft nur `Game.rules_seen()`). Der Knopf „Nach neuer Version suchen“ war in 2.0.30 kurz weg und ist seit josh 2026-10-30 wieder da.
+ruft nur `Game.rules_seen()`). Der Knopf „Nach neuer Version suchen“ war in 2.0.30 kurz weg und ist seit josh 2026-10-30 wieder da. Das Titelbild zeigt in V2 keinen roten Hinweis „Version 2 … eigener Spielstand“ mehr (josh 2026-10-30).
 
 **Neueste Version laden:** Godots Service Worker (PWA) liefert beim Neuladen zuerst die alte Version
 aus dem Cache; sein Signal `pwa_update_available` kommt dabei nicht an. Darum schreibt der Build
