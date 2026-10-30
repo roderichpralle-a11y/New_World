@@ -129,6 +129,13 @@ teils das frühere Verhalten (Angebote, Automat baut, Planer) und schlagen dort 
   `trace`, Essen und Wärme sowie die Grundbesetzung setzen niemanden in Berufe ohne Ertrag, Notfall-Überstunden
   nur dort. Engpässe stehen in `Steward.blocks[insel]` (bei jedem `needs` neu, neue Texte ins Log) und im Reiter
   Befugnisse als Zeile „Engpässe“. Test in `--powerstest=1`, Bild `--powerstest=shot5`.
+- **Weitere Rücksichten** (josh 2026-10-30, Punkte 1–5 und 7 seiner Liste): Verderb (`_food_sat` zählt Frisches mit
+  `1 - spoil_rate * 1,5` Tage, `_spoil_job`: Küche mit 3 Arbeitsgängen frischer Zutaten bekommt einen Koch);
+  Hausbedürfnisse (`_house_job`: Waren bewohnter Hausstufen ab 2 mit Erfüllung unter 0,9 über `trace`, Befugnis
+  Mindestvorräte); Schriften (`_writing_job`: Vorrat unter Rest der laufenden Forschung, höchstens 10, Befugnis
+  Forschung); Talent, Erfahrung und Wege (`_pick`: Stufe im neuen Beruf, minus halbe Erfahrung im alten, minus
+  Entfernung Wohnung–Arbeitsplatz bis 0,5); Gefahr (`_danger_job`: erwachsene Wölfe, Eber, Bären bis 8 Felder an
+  Werkstätten oder Häusern -> ein Jäger je 8 Erwachsene). Alle in `--powerstest=1`.
 - **Verwalter stirbt** (josh 2026-10-29): `Admin._refill_manager` besetzt den Posten immer sofort, ohne Befugnis
   (nach seinem Tod ist `Admin.level()` 0): ein Freier (Talent zuerst), sonst ein Erwachsener aus dem Beruf mit den
   meisten Leuten (keine Seeleute), sonst das nächste erwachsene Kind (`pending_jobs` vorn).

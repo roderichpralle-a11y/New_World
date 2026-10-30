@@ -200,7 +200,9 @@ func note_made(res: String, n: int, w) -> void:
 func _food_sat(w) -> float:
 	var sat := 0.0
 	for id in Data.food_ids():
-		sat += float(Game.amount(id, w)) * Data.food_satiety(id)
+		# Frisches verdirbt (im Sommer schnell): zählt für die nächsten Tage nur zum Teil (josh 2026-10-30)
+		var keep := clampf(1.0 - Seasons.spoil_rate(id) * PLAN_DAYS * 0.5, 0.2, 1.0)
+		sat += float(Game.amount(id, w)) * Data.food_satiety(id) * keep
 	return sat
 
 
@@ -312,6 +314,12 @@ func needs(w) -> Array:
 		var h: Array = info.fuel
 		if Data.job_unlocked("holzfaeller") and _count(w, "holzfaeller") < ceili(float(h[0]) / PLAN_DAYS / wood_rate(w)) and _raw_block(w, "holzfaeller") == "":
 			out.append({"job": "holzfaeller", "why": tr("Brennholz für die Wärme"), "power": "grundbesetzung", "src": "free"})
+		var sj := _spoil_job(w)
+		if sj != "":
+			out.append({"job": sj, "why": tr("Frische Nahrung haltbar machen, bevor sie verdirbt"), "power": "grundbesetzung", "src": "spare"})
+		var dj := _danger_job(w)
+		if dj != "":
+			out.append({"job": dj, "why": tr("Raubtiere nahe den Arbeitsplätzen"), "power": "grundbesetzung", "src": "spare"})
 		var wj := _workshop_job(w)
 		if wj != "":
 			out.append({"job": wj, "why": tr("Werkstatt hat Arbeit"), "power": "grundbesetzung", "src": "free"})
@@ -319,12 +327,95 @@ func needs(w) -> Array:
 			var lj := _long_free_job(w)
 			if lj != "":
 				out.append({"job": lj, "why": tr("seit einem Tag frei"), "power": "grundbesetzung", "src": "long"})
-	# 3. Mindestvorräte
+	# 3. Mindestvorräte, dann Waren für die Häuser (Möbel, Lesestoff …)
 	if Powers.on("mindestvorrat"):
 		var mj := _min_job(w)
 		if not mj.is_empty():
 			out.append({"job": mj.job, "why": mj.why, "power": "mindestvorrat", "src": "spare"})
+		var hj := _house_job(w)
+		if not hj.is_empty():
+			out.append({"job": hj.job, "why": hj.why, "power": "mindestvorrat", "src": "spare"})
+	# 4. Schriften für die Forschung (Tontafeln, Papier …)
+	if Powers.on("forschung") and Sea.is_main(w):
+		var rj := _writing_job(w)
+		if not rj.is_empty():
+			out.append({"job": rj.job, "why": rj.why, "power": "forschung", "src": "spare"})
 	return out
+
+
+## Verderb (josh 2026-10-30): Liegt viel Frisches, das gerade verdirbt, und hat eine Küche (Räucherei, Bäckerei …)
+## alles dafür, soll dort jemand arbeiten.
+func _spoil_job(w) -> String:
+	for b in w.buildings:
+		if not (b.complete and b.def.has("production") and b.prod_def().get("job", "") == "kueche"):
+			continue
+		var p: Dictionary = b.prod_def()
+		var fresh := false
+		for res in p.get("inputs", {}):
+			if Seasons.spoil_rate(str(res)) > 0.0 and Game.amount(res, w) >= int(p.inputs[res]) * 3:
+				fresh = true
+		if fresh and b.prod_blocker() == "" and b.free_slots() > 0 and w.pool_allows(b) and _count(w, "koch") < _workplaces(w, "kueche"):
+			return "koch"
+	return ""
+
+
+## Gefahr (josh 2026-10-30): erwachsene Wölfe, Eber oder Bären bis 8 Felder an Arbeitsplätzen oder Häusern -> ein Jäger.
+const DANGER_DIST := 8
+func _danger_job(w) -> String:
+	if not Data.job_unlocked("jaeger") or _count(w, "jaeger") >= 1 + _adults(w).size() / 8:
+		return ""
+	for a in w.animals:
+		if not is_instance_valid(a) or a.dead or not a.is_adult() or float(a.def.get("damage", 0)) <= 0.0:
+			continue
+		if a.def.get("hibernate", false) and Seasons.is_winter():
+			continue
+		for b in w.buildings:
+			if b.complete and (b.def.has("production") or b.house_level() > 0) and Vector2(a.cell - b.cell).length() <= DANGER_DIST:
+				return "jaeger"
+	return ""
+
+
+## Hausbedürfnisse (josh 2026-10-30): Waren der bewohnten Hausstufen (Möbel = Bretter, Lesestoff, Glas …), die
+## gerade fehlen, über die Lieferkette nachliefern.
+func _house_job(w) -> Dictionary:
+	var st: Dictionary = HouseNeeds.state.get(int(w.island_id), {})
+	var cons: Array = st.get("_cons", [])
+	for k in range(2, cons.size()):
+		if float(cons[k]) <= 0.0:
+			continue
+		for nd in HouseNeeds.level_needs(k):
+			var kind := str(nd.get("kind", ""))
+			if not kind in ["good", "stock"] or HouseNeeds.need_sat(w, str(nd.id)) >= 0.9:
+				continue
+			var goods: Array = [str(nd.good)] + nd.get("alt", []) if kind == "good" else nd.get("goods", [])
+			var block := {}
+			for g in goods:
+				var r := trace(w, str(g), 0, {})
+				if r.has("job"):
+					return {"job": r.job, "why": tr("Häuser brauchen %s (%s)") % [HouseNeeds.need_label(nd), r.why]}
+				if r.has("block") and block.is_empty():
+					block = r
+			if not block.is_empty():
+				_note_block(w, "haus:" + str(nd.id), tr("Häuser: %s fehlt. %s") % [HouseNeeds.need_label(nd), block.block])
+	return {}
+
+
+## Schriften (josh 2026-10-30): ohne Tontafeln, Papier … forschen die Forscher nur mit 20 %. Reicht der Vorrat
+## nicht für den Rest der laufenden Forschung (höchstens 10), über die Lieferkette nachliefern.
+func _writing_job(w) -> Dictionary:
+	var cur: String = Game.research.current
+	if cur == "":
+		return {}
+	var left := Writing.left_for(cur)
+	for id in left:
+		if Game.amount(id, w) >= mini(int(left[id]), 10):
+			continue
+		var r := trace(w, str(id), 0, {})
+		if r.has("job"):
+			return {"job": r.job, "why": tr("Schriften für die Forschung (%s)") % r.why}
+		if r.has("block"):
+			_note_block(w, "schrift:" + str(id), tr("Forschung: %s fehlt. %s") % [Data.resource_name(str(id)), r.block])
+	return {}
 
 
 ## Die dringendste Lücke ({} = keine), für Anzeigen und Tests.
@@ -390,6 +481,54 @@ func _long_free_job(w) -> String:
 	return _workshop_job(w)
 
 
+## Wer passt am besten (josh 2026-10-30)? Talent und Stufe im neuen Beruf zählen, Erfahrung im alten Beruf
+## geht ungern verloren, und wer nah an den Arbeitsplätzen des Berufs wohnt, hat kurze Wege.
+func _pick(w, cands: Array, job: String):
+	var sk: String = Data.jobs.get(job, {}).get("skill", "")
+	var spots := _job_spots(w, job)
+	var best = null
+	var best_v := -INF
+	for s in cands:
+		var v: float = s.skill_factor(sk) if sk != "" else 1.0
+		var old_sk: String = Data.jobs.get(s.job, {}).get("skill", "")
+		if s.job != "frei" and old_sk != "" and old_sk != sk:
+			v -= 0.5 * maxf(0.0, s.skill_factor(old_sk) - 1.0)  # Erfahrung im alten Beruf
+		if not spots.is_empty():
+			var from: Vector2i = s.cell
+			var home = w.building_by_id(s.home_id)
+			if home != null:
+				from = home.cell
+			var d := INF
+			for c in spots:
+				d = minf(d, Vector2(c - from).length())
+			v -= minf(d, 40.0) / 80.0  # bis zu 0,5 Abzug für weite Wege
+		if v > best_v:
+			best_v = v
+			best = s
+	return best
+
+
+## Zellen, an denen der Beruf arbeitet (Werkstätten, Felder, Ställe, Rohstoffe der Natur).
+func _job_spots(w, job: String) -> Array:
+	var out := []
+	for b in w.buildings:
+		if not b.complete:
+			continue
+		if job == "bauer" and b.def.has("farm"):
+			out.append(b.cell)
+		elif b.def.has("production") and KIND_JOB.get(b.prod_def().get("job", ""), "") == job:
+			out.append(b.cell)
+		elif job == "forscher" and b.def.has("research"):
+			out.append(b.cell)
+	if out.is_empty() and RAW_NODES.has(job):
+		for n in w.nodes:
+			if is_instance_valid(n) and str(n.type) in RAW_NODES[job] and int(n.amount) > 0:
+				out.append(n.cell)
+				if out.size() >= 60:
+					break
+	return out
+
+
 ## Holt einen Siedler für den Beruf. Freie zuerst (bei "long" nur die schon einen Tag Freien), bei "spare"
 ## auch Überzählige, die der Verwalter eingeteilt hat, bei "hard" (Essen, Wärme) notfalls jeden anderen,
 ## Spieler-Eingeteilte zuletzt (dann mit Meldung). Nie aus KEEP, für Wärme nicht aus Nahrungsberufen.
@@ -399,18 +538,18 @@ func _take_worker(w, need: Dictionary):
 	var adults := _adults(w).filter(func(s): return s.job != job and not s.job in KEEP)
 	var free := adults.filter(func(s): return s.job == "frei" and JobDesk.may(s, "verwalter") and (src != "long" or free_days(s) >= FREE_DAYS))
 	if not free.is_empty():
-		return AiJobs._best_for(free, job)
+		return _pick(w, free, job)
 	if src == "free" or src == "long":
 		return null
 	var spare := adults.filter(func(s): return s.by_admin and JobDesk.may(s, "verwalter") and _surplus(w, s.job) and not s.job in FOOD_JOBS and s.job != "holzfaeller")
 	if not spare.is_empty():
-		return AiJobs._best_for(spare, job)
+		return _pick(w, spare, job)
 	if src != "hard":
 		return null
 	var safe := func(s): return not s.job in FOOD_JOBS and s.job != "holzfaeller" and s.job != "frei"
 	var mine := adults.filter(func(s): return safe.call(s) and JobDesk.may(s, "verwalter"))
 	if not mine.is_empty():
-		return AiJobs._best_for(mine, job)
+		return _pick(w, mine, job)
 	var theirs := adults.filter(func(s): return safe.call(s))
 	if not theirs.is_empty():
 		return AiJobs._best_for(theirs, job)

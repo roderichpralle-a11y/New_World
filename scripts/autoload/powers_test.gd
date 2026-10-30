@@ -227,6 +227,60 @@ static func run(main, mode: String) -> void:
 	Game.time_days = Seasons.season_days() * 3.0 + 0.5 + floor(t0 / Seasons.year_days()) * Seasons.year_days()
 	_ok(Seasons.season() == Seasons.WINTER and Steward._raw_block(w, "sammler") != "" and Steward._food_job(w) != "sammler", "im Winter keine Sammler (%s; Essen: %s)" % [Steward._raw_block(w, "sammler"), Steward._food_job(w)])
 	Game.time_days = t0
+	# Weitere Rücksichten (josh 2026-10-30): Verderb, Gefahr, Schriften, Talent und Wege
+	for t in ["raeuchern", "toepferei", str(Data.jobs.jaeger.get("requires", "raeuchern"))]:
+		if not t in Game.research.done:
+			Game.research.done.append(t)
+	Game.refresh_effects()
+	for typ in ["raeucherei", "tafelmacherei"]:
+		_ok(main._place_on(w, typ), "%s gebaut" % typ)
+		for bb in w.buildings:
+			if bb.type == typ and not bb.complete:
+				_finish(bb)
+	for s in w.settlers:
+		if s.job in ["koch", "handwerker"]:
+			JobDesk.assign(s, "fischer", "spieler")
+	w.stock["fisch"] = 120
+	w.stock["holz"] = 100
+	var t1: float = Game.time_days
+	Game.time_days = Seasons.season_days() * 1.0 + 0.5 + floor(t1 / Seasons.year_days()) * Seasons.year_days()
+	_ok(Seasons.spoil_rate("fisch") > 0.0 and Steward._spoil_job(w) == "koch", "Sommer, viel Fisch: ein Koch in die Räucherei (%s, Verderb %.2f)" % [Steward._spoil_job(w), Seasons.spoil_rate("fisch")])
+	Game.time_days = t1
+	var tech := ""
+	for t in Data.techs:
+		if not t in Game.research.done and int(Data.techs[t].get("tier", 1)) >= 3 and int(Data.techs[t].get("tier", 1)) <= 4:
+			tech = t
+			break
+	Game.research.current = tech
+	w.stock["tontafel"] = 0
+	w.stock["lehm"] = 100
+	var wj := Steward._writing_job(w)
+	_ok(wj.get("job", "") == "handwerker", "Forschung %s ohne Tontafeln: Handwerker in die Tafelmacherei (%s)" % [tech, str(wj)])
+	Game.research.current = ""
+	var oc: Vector2i = _office(w).cell
+	for bb in w.buildings:
+		if bb.type == "raeucherei":
+			oc = bb.cell
+	var wolf = w.spawn_animal("wolf", oc + Vector2i(3, 0), oc + Vector2i(3, 0))
+	for a in w.animals:
+		if wolf == null and is_instance_valid(a) and not a.dead and a.is_adult() and float(a.def.get("damage", 0)) > 0.0:
+			wolf = a
+	if wolf != null:
+		var keep_cell: Vector2i = wolf.cell
+		wolf.cell = _office(w).cell + Vector2i(3, 0)
+		for s in w.settlers:
+			if s.job == "jaeger":
+				JobDesk.assign(s, "fischer", "spieler")
+		_ok(Steward._danger_job(w) == "jaeger", "%s nahe der Räucherei: ein Jäger wird gebraucht" % wolf.type)
+		wolf.cell = keep_cell
+	else:
+		print("  (kein Raubtier auf der Insel, Gefahrtest übersprungen)")
+	var pa = _mk(w, "Ungeübt", "frei")
+	var pb = _mk(w, "Talent", "frei")
+	pb.skills["holz"] = 5.0
+	_ok(Steward._pick(w, [pa, pb], "holzfaeller") == pb, "der Geübtere wird Holzfäller")
+	pa.set_job("fischer")
+	pb.set_job("fischer")
 	# Verwalter stirbt: immer gleich nachbesetzt, auch mit Nachbesetzen auf Aus (josh 2026-10-29)
 	Powers.set_mode("nachbesetzen", Powers.AUS)
 	var f3 = _mk(w, "Frei3", "frei")
