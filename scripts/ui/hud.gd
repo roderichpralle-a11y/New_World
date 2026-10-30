@@ -154,6 +154,7 @@ func setup(p_world: World, p_camera: GameCamera) -> void:
 	_update_admin_button()
 	_refresh_top()
 	goal_card.attach_pointer(root)
+	_watch_updates.call_deferred()
 	AdminInfo.attach(self)  # Vorschläge des Verwalters (scripts/ui/admin_info.gd)
 	FestVideo.attach(self)  # Fest-Video bei jedem Fest (scripts/ui/fest_video.gd)
 	ProtestVideo.attach(self)  # Protest-Video bei Protest gegen Überstunden (scripts/ui/protest_video.gd)
@@ -2075,7 +2076,12 @@ func _build_menu_panel() -> void:
 	for rr in rows:
 		var rw := Win.row(Data.icon(rr[0]), rr[1], rr[2], {"button": rr[3], "on_press": rr[4], "icon_px": 28})
 		game_box.add_child(rw.box)
-	# Kein Knopf "Nach neuer Version suchen" mehr (josh 2026-10-29)
+	if OS.has_feature("web"):  # josh 2026-10-30: wieder da (2.0.30 hatte ihn entfernt)
+		var rw := Win.row(Data.icon("schnell"), tr("Nach neuer Version suchen"), tr("Laden erst nach deiner Bestätigung."),
+			{"button": tr("Prüfen"), "on_press": check_for_update, "icon_px": 28})
+		_update_btn = rw.button
+		_update_btn.tooltip_text = tr("Fragt den Server, ob es eine neue Version gibt. Laden erst nach deiner Bestätigung.")
+		game_box.add_child(rw.box)
 	set_box.add_child(_volume_row(tr("Musik"), "musik", Sound.music_volume, func(x): Sound.set_volumes(x, Sound.sfx_volume)))
 	set_box.add_child(_volume_row(tr("Geräusche"), "glocke", Sound.sfx_volume, func(x):
 		Sound.set_volumes(Sound.music_volume, x)

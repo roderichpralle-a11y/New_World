@@ -2049,8 +2049,8 @@ Kürzung der Steinzeit-Stufe-2-Punkte um 15 % brachte keinen messbaren Unterschi
 Bei jedem Push auf `main` baut GitHub Actions die Web-Version und legt sie auf den
 Branch `gh-pages` (GitHub Pages).
 
-**V2 (josh 2026-10-29):** kein Knopf „Nach neuer Version suchen“ und kein Fenster „Neue Regeln“ mehr; neue Regeln
-gelten still ab dem Laden (`main._on_continue` ruft nur `Game.rules_seen()`). Der Code dafür bleibt ungenutzt liegen.
+**V2 (josh 2026-10-29):** kein Fenster „Neue Regeln“ mehr; neue Regeln gelten still ab dem Laden (`main._on_continue`
+ruft nur `Game.rules_seen()`). Der Knopf „Nach neuer Version suchen“ war in 2.0.30 kurz weg und ist seit josh 2026-10-30 wieder da.
 
 **Neueste Version laden:** Godots Service Worker (PWA) liefert beim Neuladen zuerst die alte Version
 aus dem Cache; sein Signal `pwa_update_available` kommt dabei nicht an. Darum schreibt der Build
