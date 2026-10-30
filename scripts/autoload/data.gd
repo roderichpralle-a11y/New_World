@@ -39,10 +39,6 @@ const HD := 4
 
 
 static func hd(name: String) -> Texture2D:
-	var fp := "res://assets/sprites_hd/fine/%s.png" % name
-	if ResourceLoader.exists(fp):  # joshs feine Fassung (136 je Feld) desselben Bogens
-		var fi: Image = (load(fp) as Texture2D).get_image()
-		return sized_tex(fi, Vector2i(fi.get_width() * 16 / 136, fi.get_height() * 16 / 136))
 	var path := "res://assets/sprites_hd/%s.png" % name
 	if not ResourceLoader.exists(path):
 		return load("res://assets/sprites/%s.png" % name)
@@ -53,24 +49,6 @@ static func hd(name: String) -> Texture2D:
 	var t := ImageTexture.create_from_image(img)
 	t.set_size_override(Vector2i(img.get_width() / HD, img.get_height() / HD))
 	return t
-
-
-## Feine Bilder (josh 2026-10-30, tools/art_v2/bilder_fein.py) als Textur, die size in Spielpixeln meldet.
-## Auf iPhone und iPad in halber Auflösung wie die Siedler-Bögen (Arbeitsspeicher).
-static func sized_tex(img: Image, size: Vector2i) -> ImageTexture:
-	if img.is_compressed():
-		img.decompress()
-	if small_screen() and img.get_width() > size.x * 4:
-		img.resize(maxi(size.x, img.get_width() / 2), maxi(size.y, img.get_height() / 2), Image.INTERPOLATE_CUBIC)
-	img.generate_mipmaps()
-	var t := ImageTexture.create_from_image(img)
-	t.set_size_override(size)
-	return t
-
-
-static func small_screen() -> bool:
-	return OS.has_feature("web_ios") or OS.has_feature("web_android") or OS.has_feature("mobile") \
-		or DisplayServer.is_touchscreen_available()
 
 
 ## Feine Bilder von josh (2026-10-30, assets/sprites_hd/fine, tools/art_v2/boden_fein.py): 136 Punkte je Feld,
@@ -292,8 +270,7 @@ func object_tex(name: String, frame: int = 0) -> AtlasTexture:
 	if BIG.has(name):
 		var b: Array = BIG[name]
 		if not _cache.has("big:" + name):
-			var bimg: Image = (load("res://assets/sprites_hd/big/%s.png" % name) as Texture2D).get_image()
-			_cache["big:" + name] = sized_tex(bimg, Vector2i(int(b[0]) * int(b[1]), int(b[2])))
+			_cache["big:" + name] = hd("big/" + name)
 		at.atlas = _cache["big:" + name]
 		at.region = Rect2(float(b[1]) * (frame % int(b[0])), 0, float(b[1]), float(b[2]))
 	elif BUILDING_CELLS.has(name):
