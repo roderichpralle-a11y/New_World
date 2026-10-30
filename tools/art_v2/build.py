@@ -1493,6 +1493,33 @@ def _nine(src, corner_src, cell=24 * S, corner=6 * S):
     return out
 
 
+def menu_extra(menu):
+    """josh 2026-10-30: Inseln und Verwalter mit aussagekräftigeren Bildern als Karte und Zahnrad.
+    Inseln: das Segelschiff aus symbole_2. Verwalter: die Verwalter-Figur (Oberkörper) mit Klemmbrett."""
+    ship = grab("symbole_2", (1270, 312, 1525, 506), keep=0.12)
+    put(menu, fit(ship, 20 * S, 19 * S, upscale=True), 3 * 20, 0, 20, 20, align="center")
+    fig = Image.open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "src", "siedler",
+                                  "siedler_verwalter_mann.png")).convert("RGBA").crop((0, 0, 256, 256))
+    fig = fig.crop(fig.getbbox())
+    fig = fig.crop((0, 0, fig.width, int(fig.height * 0.62)))  # Kopf und Oberkörper
+    cell = 20 * S
+    out = Image.new("RGBA", (cell, cell), (0, 0, 0, 0))
+    f = fit(fig, int(cell * 0.74), int(cell * 0.94), upscale=True)
+    out.alpha_composite(f, (max(0, int(cell * 0.38) - f.width // 2), cell - f.height))
+    # Klemmbrett vorn rechts: braunes Brett, Papier mit Haken-Zeilen, Klammer oben
+    from PIL import ImageDraw
+    d = ImageDraw.Draw(out)
+    bx0, by0, bx1, by1 = int(cell * 0.56), int(cell * 0.48), int(cell * 0.98), int(cell * 0.99)
+    d.rounded_rectangle((bx0, by0, bx1, by1), radius=4, fill=(122, 74, 38), outline=(54, 30, 16), width=3)
+    d.rectangle((bx0 + 6, by0 + 8, bx1 - 6, by1 - 6), fill=(246, 236, 206), outline=(150, 120, 80), width=1)
+    d.rounded_rectangle((bx0 + 13, by0 - 5, bx1 - 13, by0 + 8), radius=3, fill=(176, 180, 188), outline=(60, 60, 70), width=2)
+    for k in range(3):
+        y = by0 + 16 + k * 9
+        d.line((bx0 + 10, y, bx0 + 13, y + 3, bx0 + 18, y - 3), fill=(46, 150, 60), width=3)
+        d.line((bx0 + 22, y, bx1 - 10, y), fill=(110, 90, 70), width=2)
+    put(menu, out, 5 * 20, 0, 20, 20, align="center")
+
+
 def gen_ui():
     atlas = old_hd("ui")
     # Fensterrahmen: untere Hälfte des Rahmens (ohne Titelleiste mit Kreuz) oben und unten gespiegelt
@@ -1535,6 +1562,7 @@ def gen_ui():
         img = Image.fromarray(a, "RGBA")
         img = img.crop(img.getbbox())
         put(menu, fit(img, 20 * S, 20 * S, upscale=True), i * 20, 0, 20, 20, align="center")
+    menu_extra(menu)
     save(menu, "menu_icons")
     # Jahreszeiten (16x16 je Zeit) und Teilchen (Schnee, Blatt, je 8x8)
     seasons = old_hd("seasons")
