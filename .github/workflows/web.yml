@@ -2,7 +2,7 @@ name: Web-Version bauen und veröffentlichen
 
 # main -> Spiel unter /, Testzweig -> Testversion unter /test/ (eigener Spielstand),
 # Umbau "Mehr Herausforderung" -> /neu/ (eigener Spielstand),
-# Version 2.0.0 mit joshs neuen Bildern -> /v2/ (eigener Spielstand, Zweig claude/project-thread-9zqobi)
+# Version 2.0.0 mit joshs neuen Bildern -> /v21/ (seit josh 2026-10-30, vorher /v2/; Spielstand wie /v2/, Zweig claude/project-thread-9zqobi)
 on:
   push:
     branches: [main, claude/entwicklungsbaum-x33t1h, claude/project-thread-m73c7d, claude/project-thread-9zqobi]
@@ -66,6 +66,6 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: build/web
-          destination_dir: ${{ github.ref_name == 'main' && '.' || (github.ref_name == 'claude/project-thread-m73c7d' && 'neu' || (github.ref_name == 'claude/project-thread-9zqobi' && 'v2' || 'test')) }}
+          destination_dir: ${{ github.ref_name == 'main' && '.' || (github.ref_name == 'claude/project-thread-m73c7d' && 'neu' || (github.ref_name == 'claude/project-thread-9zqobi' && 'v21' || 'test')) }}
           keep_files: true
           commit_message: Web-Version (${{ github.ref_name }})

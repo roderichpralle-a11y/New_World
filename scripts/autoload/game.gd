@@ -129,7 +129,7 @@ func _detect_test_build() -> void:
 		path = "/neu/"
 	if "--v2build" in OS.get_cmdline_user_args():
 		path = "/v2/"
-	if "/v2/" in path:  # Version 2.0.0 mit joshs neuen Bildern: eigener Spielstand
+	if "/v2/" in path or "/v21/" in path:  # Version 2 mit joshs neuen Bildern: eigener Spielstand (seit 2026-10-30 unter /v21/, gleicher wie /v2/)
 		build_tag = "v2"
 	elif "/neu/" in path:  # Umbau "Mehr Herausforderung": eigener Spielstand
 		build_tag = "neu"

@@ -10,7 +10,7 @@ Zeitalterwechsel mit Wertung und Aufträge mit Wahl. Überblick und Zusammenspie
 
 ## Version 2.0.0: neue Grafik aus joshs Bildbögen (josh 2026-10-24)
 
-Eigener Zweig `claude/project-thread-9zqobi`, Web-Adresse `/v2/` (web.yml nur auf diesem Zweig),
+Eigener Zweig `claude/project-thread-9zqobi`, Web-Adresse `/v21/` (seit josh 2026-10-30; vorher `/v2/`, dort bleibt 2.0.35 stehen; web.yml nur auf diesem Zweig),
 eigener Spielstand (`Game.build_tag = "v2"`), Version 2.0.N (N = Stände seit main). main und /neu/
 bleiben bei der alten Grafik; dieser Zweig wird nicht nach main gemischt, solange josh es nicht sagt.
 
