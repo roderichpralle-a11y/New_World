@@ -270,8 +270,9 @@ func _build_topbar() -> void:
 		var icon_name: String = ["pause", "play", "schnell", "sehr_schnell"][i]
 		var b := UiTheme.button("", icon_name, 34)
 		b.toggle_mode = true
-		b.tooltip_text = [tr("Pause"), tr("Normal"), tr("Schnell (3x)"), tr("Sehr schnell (8x)")][i]
-		var spd: int = [0, 1, 3, 8][i]
+		var top: int = Game.TOP_SPEED_SMALL if Data.small_screen() else 8  # iPhone/iPad 6x (josh 2026-10-30)
+		b.tooltip_text = [tr("Pause"), tr("Normal"), tr("Schnell (3x)"), tr("Sehr schnell (%dx)") % top][i]
+		var spd: int = [0, 1, 3, top][i]
 		b.pressed.connect(func(): Game.set_speed(spd))
 		sh.add_child(b)
 		_speed_btns.append([b, spd])

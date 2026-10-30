@@ -209,8 +209,13 @@ func clock_text() -> String:
 	return "%02d:%02d" % [minutes / 60, minutes % 60]
 
 
+const TOP_SPEED_SMALL := 6  # „sehr schnell“ auf iPhone und iPad (Rechenzeit, josh 2026-10-30)
+
+
 func set_speed(s: int) -> void:
 	speed = clamp(s, 0, 8)  # 0 Pause, 1 normal, 3 schnell, 8 sehr schnell
+	if speed > TOP_SPEED_SMALL and Data.small_screen():  # josh 2026-10-30: iPhone/iPad höchstens 6x
+		speed = TOP_SPEED_SMALL
 	Engine.time_scale = float(speed)
 	speed_changed.emit(speed)
 

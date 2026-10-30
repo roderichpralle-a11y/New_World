@@ -75,6 +75,8 @@ bleiben bei der alten Grafik; dieser Zweig wird nicht nach main gemischt, solang
   geht in `Data.object_tex` vor allen Atlanten (index.json steht im Export-Filter). Grundflächen in
   buildings.json daraus abgeleitet (Mauern etwa 70 % der Bildbreite, höchstens 2 Felder mehr; Jagdhütte 3x2).
   `python3 tools/art_v2/scale.py` schreibt Vergleichstafeln nach tools/preview/v2/.
+- **Sehr schnell auf iPhone/iPad (josh 2026-10-30):** höchstens 6x (`Game.TOP_SPEED_SMALL`, `Data.small_screen()`),
+  `set_speed` setzt auch alte Werte 8 auf 6; PC/Mac bleiben bei 8x.
 - **Knöpfe unten (josh 2026-10-30):** Inseln zeigt das Segelschiff aus symbole_2, Verwalter die Verwalter-Figur mit
   Klemmbrett (`build.menu_extra`, statt Karte und Zahnrad). „Sehr schnell“ (8x) zeigt drei Pfeile statt des Läufers
   (`build.icons_extra`, Symbol `sehr_schnell`).

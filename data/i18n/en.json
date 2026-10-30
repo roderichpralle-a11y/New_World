@@ -1530,7 +1530,6 @@
  "Sitz des Verwalters. Gibt es nur einmal. Mit Verwalter: Vertretung in Werkstätten, Überstunden und Schichtarbeit.": "Seat of the administrator. Only one allowed. With an administrator: stand-ins in workshops, overtime and shift work.",
  "Verwalter": "Administrator",
  "Leitet die Verwaltung. Es gibt nur einen. Meldet, wo Leute fehlen, und schlägt Überstunden oder Schichtarbeit vor.": "Runs the Administration. There is only one. Reports where people are missing and suggests overtime or shift work.",
- "Sehr schnell (8x)": "Very fast (8x)",
  "Die Leute im Beruf %s protestieren gegen zu lange Überstunden.": "The %s workers are protesting against too much overtime.",
  "Abgebrannt: %s. Baumeister bauen es wieder auf, für %d %% des Baupreises.": "Burnt down: %s. Builders will rebuild it for %d %% of the building cost.",
  "Beschädigt: %s. Baumeister bauen es wieder auf, für %d %% des Baupreises.": "Damaged: %s. Builders will rebuild it for %d %% of the building cost.",
@@ -2560,5 +2559,6 @@
  "Häuser brauchen %s (%s)": "Houses need %s (%s)",
  "Häuser: %s fehlt. %s": "Houses: %s is missing. %s",
  "Schriften für die Forschung (%s)": "Writing materials for research (%s)",
- "Forschung: %s fehlt. %s": "Research: %s is missing. %s"
+ "Forschung: %s fehlt. %s": "Research: %s is missing. %s",
+ "Sehr schnell (%dx)": "Very fast (%dx)"
 }
