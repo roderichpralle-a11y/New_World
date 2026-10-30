@@ -195,6 +195,9 @@ func _advance(g: Dictionary, silent: bool) -> void:
 		if not in_tutorial():
 			hud.toast(tr("Einführung geschafft! Jetzt warten Ziele mit Belohnungen auf dich."), "ziel")
 			Extras.tutorial_reward(Game.world)  # 2 Siedler, Hütte, Lagerhaus und zwei Forschungen
+		if g.get("close_after", false):  # josh 2026-10-30: nach dem Baumeister das Menü Siedler schließen
+			for p in hud._panels():
+				p.visible = false
 		var got := Extras.tutorial_step_reward(Game.world, g.get("reward", {}))
 		if got != "":
 			hud.toast(tr("Geschafft! Belohnung: %s.") % got, "ziel")
@@ -401,8 +404,32 @@ func _update_pointer() -> void:
 		if bar.is_visible_in_tree():
 			bottom = minf(bottom, bar.get_global_rect().position.y)
 		position = Vector2(clampf(r.get_center().x - w * 0.5, 6, vs.x - w - 6), clampf(y, 4, maxf(4.0, bottom - size.y - 4)))
+		_beside_popup(vs, bottom)
 		hud.toasts_below(get_global_rect())
 	_pointer.get_parent().move_child(_pointer, -1)
+
+
+## Offene Auswahlliste (Berufe im Menü Siedler) verdeckt sonst die Sprechblase (josh 2026-10-30):
+## die Blase rückt rechts oder links daneben, sonst darunter oder darüber.
+func _beside_popup(vs: Vector2, bottom: float) -> void:
+	var pr := Rect2()
+	for ob in hud._settler_list.find_children("*", "OptionButton", true, false):
+		var pp: PopupMenu = ob.get_popup()
+		if pp.visible:
+			pr = Rect2(Vector2(pp.position), Vector2(pp.size))
+	if pr.size == Vector2.ZERO or not get_global_rect().intersects(pr):
+		return
+	var y := clampf(position.y, 4, maxf(4.0, bottom - size.y - 4))
+	if pr.end.x + 8.0 + size.x <= vs.x - 4.0:
+		position = Vector2(pr.end.x + 8.0, clampf(pr.position.y, 4, maxf(4.0, bottom - size.y - 4)))
+	elif pr.position.x - 8.0 - size.x >= 4.0:
+		position = Vector2(pr.position.x - 8.0 - size.x, clampf(pr.position.y, 4, maxf(4.0, bottom - size.y - 4)))
+	elif pr.end.y + 8.0 + size.y <= bottom - 4.0:
+		position.y = pr.end.y + 8.0
+	elif pr.position.y - 8.0 - size.y >= 4.0:
+		position.y = pr.position.y - 8.0 - size.y
+	else:
+		position.y = y
 
 
 var _scrolled_for: String = ""

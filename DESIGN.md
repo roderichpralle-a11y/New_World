@@ -87,6 +87,10 @@ bleiben bei der alten Grafik; dieser Zweig wird nicht nach main gemischt, solang
 - Die Sprechblase bleibt über der unteren Leiste (sonst lag „Weiter“ dahinter); Meldungen oben links rücken unter
   die Sprechblase (`hud.toasts_below`), unter die Zielkarte auch ohne Einführung.
 - Texte: jeder Schritt höchstens 2 kurze Sätze (Text + Hinweis), ebenso Hinweisfenster (`hints.json`) und Ziele.
+- josh 2026-10-30: in der Einführung baut der Spieler ein **Lagerhaus** statt einer Hütte (Start 16 Holz, 8 Stein;
+  Schritte `t_hut_*` behalten ihre ids), `t_hut_done` wartet aufs Lagerhaus und schenkt 1 Siedler und eine fertige
+  Hütte, `TUT_FINAL` nur noch eine Hütte. Nach dem Baumeister (`close_after`) schließen alle Fenster. Ist die
+  Berufsliste offen, rückt die Sprechblase daneben (`GoalCard._beside_popup`: rechts, links, darunter, darüber).
 - Test `--tutclick=1` (unter xvfb, `--resolution 1440x900` bzw. `402x874`, `--shotdir=<Ordner>` für Bilder je Schritt):
   klickt jeden Schritt genau auf die Pfeilspitze bzw. auf Weiter; meldet FEHLER, wenn es danach nicht weitergeht.
 

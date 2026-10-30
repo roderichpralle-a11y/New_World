@@ -36,7 +36,7 @@
   "delivery_spread": 6,
   "start_stock": {
     "holz": 16,
-    "stein": 0,
+    "stein": 8,
     "beeren": 16
   },
   "autosave_seconds": 45.0,

@@ -1315,7 +1315,6 @@
  "Waldinsel": "Forest Island",
  "Walfisch": "Whale",
  "Warme Kleidung": "Warm clothes",
- "Warte, bis die Hütte steht.": "Wait until the hut is finished.",
  "Wartende Waren sind jetzt im Lager: %s.": "Waiting goods are now in storage: %s.",
  "Wartet auf Arbeiter (%s).": "Waiting for workers (%s).",
  "Wartet auf den Bauern": "Waiting for the farmer",
@@ -2423,10 +2422,8 @@
  "Im Winter wächst nichts, und es wird geheizt.": "In winter nothing grows and houses need heating.",
  "Von Pause bis achtfach schnell.": "From pause up to eight times as fast.",
  "Rot heißt: zu wenig im Lager. Der Hammer baut.": "Red means: not enough in storage. The hammer builds.",
- "Tippe bei der Hütte auf den Hammer.": "Tap the hammer next to the hut.",
  "Tippe auf einen freien Platz auf der Wiese.": "Tap a free spot on the grass.",
  "Am Handy danach auf Hier bauen.": "On a phone, then tap Build here.",
- "Nur ein Baumeister baut die Hütte.": "Only a builder can build the hut.",
  "Gib darum einem Siedler diesen Beruf.": "So give one settler this job.",
  "Jede Zeile zeigt Name, Alter, Beruf und Zustand.": "Each row shows name, age, job and condition.",
  "Tippe auf den Beruf, auf den der Pfeil zeigt.": "Tap the job the arrow points at.",
@@ -2526,5 +2523,8 @@
  "Unter Inseln schickst du ein Schiff mit Siedlern und Waren hin. Jede Insel hat ihr eigenes Lager.": "Under Islands you send a ship with settlers and goods there. Each island has its own storage.",
  "Der Verwalter meldet, wenn in einem Beruf Leute fehlen. In der Verwaltung stellst du ein, was er darf.": "The administrator reports when a job lacks workers. In the administration you set what he may do.",
  "Hier leben wilde Tiere. Mach zuerst alle Siedler zu Jägern, sonst werden sie angegriffen.": "Wild animals live here. Make all settlers hunters first, or they will be attacked.",
- "Die Insel ist jetzt sicherer. Mach einen Jäger zum Holzfäller und lass ein Haus bauen.": "The island is safer now. Make a hunter a woodcutter and have a house built."
+ "Die Insel ist jetzt sicherer. Mach einen Jäger zum Holzfäller und lass ein Haus bauen.": "The island is safer now. Make a hunter a woodcutter and have a house built.",
+ "Öffne den Reiter Lager und tippe beim Lagerhaus auf den Hammer.": "Open the Storage tab and tap the hammer next to the Storehouse.",
+ "Warte, bis das Lagerhaus steht.": "Wait until the storehouse is finished.",
+ "Nur ein Baumeister baut das Lagerhaus.": "Only a builder can build the storehouse."
 }

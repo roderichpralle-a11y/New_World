@@ -217,7 +217,8 @@ func _on_load(d: Dictionary, old_rules: int) -> void:
 ## Einführung zu Ende gespielt (nicht übersprungen, josh 2026-10-21 Variante B): 2 Siedler, eine fertige
 ## Hütte und ein fertiges Lagerhaus nah am Lagerfeuer, dazu Steinwerkzeuge und Schrift erforscht.
 ## Mit den Belohnungen der Schritte (TUT_FINAL) sind es etwa 6 Siedler und 3 Hütten. Ruft GoalCard._advance einmal auf.
-const TUT_FINAL := {"settlers": 2, "buildings": ["huette", "lager"], "techs": ["steinwerkzeuge", "schrift"]}
+# Das Lagerhaus baut der Spieler in der Einführung selbst (josh 2026-10-30), die Hütte bringt der Schritt t_hut_done
+const TUT_FINAL := {"settlers": 2, "buildings": ["huette"], "techs": ["steinwerkzeuge", "schrift"]}
 
 
 static func tutorial_reward(w) -> void:

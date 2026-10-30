@@ -832,7 +832,7 @@ func _autotest_tutorial() -> void:
 		"t_stock_open":
 			Game.player_action.emit("panel", "lager")
 		"t_hut_pick":
-			Game.player_action.emit("place", "huette")
+			Game.player_action.emit("place", "lager")
 		"t_settlers_open2":
 			Game.player_action.emit("panel", "siedler")
 		"t_hut_place":
@@ -840,8 +840,8 @@ func _autotest_tutorial() -> void:
 				for dy in range(-rad, rad + 1):
 					for dx in range(-rad, rad + 1):
 						var cc := world.center + Vector2i(dx, dy)
-						if not world.is_placing() and hud.goal_card.current().id == g.id and world.can_place("huette", cc) and _roomy("huette", cc):
-							world.start_placement("huette", world.cell_to_pos(cc))
+						if not world.is_placing() and hud.goal_card.current().id == g.id and world.can_place("lager", cc) and _roomy("lager", cc):
+							world.start_placement("lager", world.cell_to_pos(cc))
 							world.move_placement(world.cell_to_pos(cc))
 							print("   platziert: ", world.confirm_placement())
 							return
@@ -916,7 +916,7 @@ func _tut_click_run(dir: String) -> void:
 					for dy in range(-rad, rad + 1):
 						for dx in range(-rad, rad + 1):
 							var cc := world.center + Vector2i(dx, dy)
-							if not done and world.can_place("huette", cc) and _roomy("huette", cc):
+							if not done and world.can_place("lager", cc) and _roomy("lager", cc):
 								_click(world.get_global_transform_with_canvas() * world.cell_to_pos(cc))
 								done = true
 					if done:
