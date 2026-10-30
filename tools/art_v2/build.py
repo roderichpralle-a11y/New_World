@@ -743,6 +743,32 @@ def icon_cells():
 LIGHT_ICONS = ["schnee", "glas"]
 
 
+def icons_extra(atlas, names):
+    """josh 2026-10-30: „sehr schnell“ zeigt drei Pfeile (ein Dreieck aus „schnell“ dreimal) statt des Läufers."""
+    i = names.index("schnell")
+    cell = atlas.crop((i * 16 * S, 0, (i + 1) * 16 * S, 16 * S))
+    a = np.asarray(cell)
+    lab, n = ndimage.label(a[:, :, 3] > 40)
+    if n < 2:
+        return
+    sizes = ndimage.sum(np.ones_like(lab), lab, range(1, n + 1))
+    big = [k + 1 for k in np.argsort(sizes)[::-1][:2]]
+    xs = [np.where(lab == k)[1].min() for k in big]
+    k = big[int(np.argmin(xs))]  # linkes Dreieck
+    ys, xs2 = np.where(lab == k)
+    tri = cell.crop((xs2.min(), ys.min(), xs2.max() + 1, ys.max() + 1))
+    m = np.asarray(tri).copy()
+    sub = (lab == k)[ys.min():ys.max() + 1, xs2.min():xs2.max() + 1]
+    m[~sub, 3] = 0
+    tri = Image.fromarray(m, "RGBA")
+    step = int(tri.width * 0.72)
+    out = Image.new("RGBA", (tri.width + 2 * step, tri.height), (0, 0, 0, 0))
+    for j in range(3):
+        out.alpha_composite(tri, (j * step, 0))
+    j = names.index("sehr_schnell")
+    put(atlas, fit(out, 15 * S, 15 * S, upscale=True), j * 16, 0, 16, 16, align="center")
+
+
 def gen_icons():
     names = [l.strip() for l in open(os.path.join(OLD, "icons.txt")) if l.strip()]
     atlas = old_hd("icons")
@@ -755,6 +781,7 @@ def gen_icons():
         img = grab(sh, rect, keep=0.12, tol=10.0 if name in LIGHT_ICONS else 34.0)
         imgs[name] = img
         put(atlas, fit(img, 15 * S, 15 * S, upscale=True), i * 16, 0, 16, 16, align="center")
+    icons_extra(atlas, names)
     save(atlas, "icons")
     return imgs
 

@@ -76,7 +76,8 @@ bleiben bei der alten Grafik; dieser Zweig wird nicht nach main gemischt, solang
   buildings.json daraus abgeleitet (Mauern etwa 70 % der Bildbreite, höchstens 2 Felder mehr; Jagdhütte 3x2).
   `python3 tools/art_v2/scale.py` schreibt Vergleichstafeln nach tools/preview/v2/.
 - **Knöpfe unten (josh 2026-10-30):** Inseln zeigt das Segelschiff aus symbole_2, Verwalter die Verwalter-Figur mit
-  Klemmbrett (`build.menu_extra`, statt Karte und Zahnrad).
+  Klemmbrett (`build.menu_extra`, statt Karte und Zahnrad). „Sehr schnell“ (8x) zeigt drei Pfeile statt des Läufers
+  (`build.icons_extra`, Symbol `sehr_schnell`).
 - Neu bauen: `python3 tools/art_v2/build.py`, Bildschirmfoto mit festem Zoom: `--zoom=4` (Testhilfe).
 
 ## Einführung in V2 (josh 2026-10-29)
