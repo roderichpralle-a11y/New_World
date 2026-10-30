@@ -1822,6 +1822,8 @@ nicht mehr halb durchsichtig.
 
 - **Verwalter-Statistik und Log (josh 2026-10-28):** `Admin.produced` hebt die letzten 5 Jahre und das laufende auf; der Reiter Statistik zeigt sie in 6 Spalten. Neuer Reiter Log (`AdminInfo.TAB_LOG`): `Game.notify` mit Art „verwaltung“ schreibt jede Meldung nach `Admin.log_entries` (höchstens 300, gespeichert unter admin.log), auch wenn diese Meldungen ausgeschaltet sind.
 
+- **Feiner Boden und feine Wege von josh (2026-10-30):** `tools/art_v2/boden_fein.py` kopiert `src/boden_fein` nach `assets/sprites_hd/fine` (136 Punkte je Feld): `grund_<jahreszeit>.png` und `grund_sand.png` (4 x 4 Felder, nahtlos), `wege.png` (Zeilen Erdweg = road, Steinstraße = gravel, Pflaster = bricks, 16 Masken, dunkler Rand ergänzt). `Data.fine()` lädt mit Spielpixel-Größe; `Data.object_tex` gibt für road/gravel/bricks je Wegstück ein eigenes Bild (kein Abfärben der Nachbarn). `World`: `_gtex_layer` und `_stex_layer` nutzen dieselben Kacheln wie Gras und Sand und `ground_fine.gdshader` färbt sie nach Weltkoordinaten mit dem Bild der Jahreszeit (letztes Viertel blendet über, Palmeninseln im Winter Sommerbild).
+
 ## Straßen, Deiche und Förster (josh 2026-10-11, `scripts/world/land.gd`)
 
 Bau-Reiter „Land und Wege“ (Kategorie `land`, Symbol `weg`). Alle drei sind 1x1-Bodengebäude mit

@@ -51,6 +51,10 @@ var _layers: Array = []
 # Jahreszeiten-Auflagen über Sand und Gras: Schnee im Winter, Laub im Herbst (terrain_season.png)
 var _snow_layer: TileMapLayer
 var _gtex_layer: TileMapLayer  # Grasmuster über vollen Grasfeldern (josh 2026-10-28)
+var _stex_layer: TileMapLayer  # feiner Sand über vollen Sandfeldern (josh 2026-10-30)
+var _mat_stex: ShaderMaterial
+var _fine_ground := false  # joshs feine Bodenbilder vorhanden (assets/sprites_hd/fine)
+static var _fine_tex: Dictionary = {}  # Name -> Textur der feinen Bodenbilder
 var _deco_layer: TileMapLayer  # feine Grasbüschel und Blumen (terrain_deco.png, josh 2026-10-28)
 var _mat_water: ShaderMaterial
 var _leaf_layer: TileMapLayer
@@ -243,11 +247,27 @@ func _build_terrain(island: Dictionary) -> void:
 	_mat_water = ShaderMaterial.new()
 	_mat_water.shader = preload("res://assets/shaders/water.gdshader")
 	_layers[0].material = _mat_water
+	_fine_ground = _fine("grund_sommer") != null
+	if _fine_ground:
+		# Feiner Sand gleich über dem alten Sand (unter dem Gras); die Ränder zum Wasser bleiben die alten Kacheln,
+		# im Gelb des neuen Sandes
+		_stex_layer = TileMapLayer.new()
+		_stex_layer.tile_set = ts
+		_stex_layer.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		_mat_stex = ShaderMaterial.new()
+		_mat_stex.shader = preload("res://assets/shaders/ground_fine.gdshader")
+		_mat_stex.set_shader_parameter("ga", _fine("grund_sand"))
+		_mat_stex.set_shader_parameter("gb", _fine("grund_sand"))
+		_stex_layer.material = _mat_stex
+		add_child(_stex_layer)
+		move_child(_stex_layer, _layers[1].get_index() + 1)
 	_gtex_layer = TileMapLayer.new()
-	_gtex_layer.tile_set = _make_grid_tileset("terrain_grasstex", 8)
+	_gtex_layer.tile_set = ts if _fine_ground else _make_grid_tileset("terrain_grasstex", 8)
 	_gtex_layer.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_mat_gtex = ShaderMaterial.new()
-	_mat_gtex.shader = preload("res://assets/shaders/grass_tex.gdshader")
+	_mat_gtex.shader = preload("res://assets/shaders/ground_fine.gdshader") if _fine_ground else preload("res://assets/shaders/grass_tex.gdshader")
+	if _fine_ground:
+		_mat_gtex.set_shader_parameter("tint", _layers[2].modulate)  # Grünton der Inselart
 	_gtex_layer.material = _mat_gtex
 	add_child(_gtex_layer)
 	_deco_layer = TileMapLayer.new()
@@ -325,6 +345,28 @@ func _make_deco_tileset() -> TileSet:
 	return ts
 
 
+static func _fine(name: String) -> Texture2D:
+	if not _fine_tex.has(name):
+		_fine_tex[name] = Data.fine(name)
+	return _fine_tex[name]
+
+
+## Feiner Boden: Bild der laufenden Jahreszeit, gegen Ende in das der nächsten überblendet (letztes Viertel).
+## Inseln ohne Schnee (Palmen) zeigen im Winter das Sommerbild.
+func _update_fine_ground() -> void:
+	if not _fine_ground or _mat_gtex == null:
+		return
+	var names := ["grund_fruehling", "grund_sommer", "grund_herbst", "grund_winter"]
+	var no_snow := float(Seasons.cfg.get("snow_biomes", {}).get(biome, 1.0)) <= 0.0
+	var s := Seasons.season()
+	var n := (s + 1) % 4
+	var a: String = names[1 if no_snow and s == 3 else s]
+	var b: String = names[1 if no_snow and n == 3 else n]
+	_mat_gtex.set_shader_parameter("ga", _fine(a))
+	_mat_gtex.set_shader_parameter("gb", _fine(b))
+	_mat_gtex.set_shader_parameter("gmix", smoothstep(0.75, 1.0, Seasons.season_progress()))
+
+
 ## Kacheln aus einem nahtlosen Feld (n x n Kacheln) wie Schnee und Grasmuster.
 func _make_grid_tileset(tex: String, n: int) -> TileSet:
 	var ts := TileSet.new()
@@ -357,7 +399,7 @@ func _make_season_tileset() -> TileSet:
 ## Maske fürs Grasmuster (grass_tex.gdshader): je Kachel 1 auf vollem Gras. Kachel (x, y) liegt im Bild bei
 ## (x + 1, y + 1), weil das Gitter bei -1 beginnt.
 func _update_grass_mask() -> void:
-	if _mat_gtex == null or _gtex_layer == null:
+	if _mat_gtex == null or _gtex_layer == null or _fine_ground:  # der feine Boden nimmt die Form der Kacheln
 		return
 	var n := size + 1
 	var img := Image.create(n, n, false, Image.FORMAT_L8)
@@ -467,7 +509,17 @@ func _paint_tile(x: int, y: int, sand: TileMapLayer, grass: TileMapLayer) -> voi
 		grass.set_cell(Vector2i(x, y), 0, Vector2i(mg, 2))
 	else:
 		grass.erase_cell(Vector2i(x, y))
-	if _gtex_layer != null:
+	if _stex_layer != null:  # feiner Sand in der Form der Sandkachel
+		if ms > 0:
+			_stex_layer.set_cell(Vector2i(x, y), 0, sand.get_cell_atlas_coords(Vector2i(x, y)))
+		else:
+			_stex_layer.erase_cell(Vector2i(x, y))
+	if _fine_ground and _gtex_layer != null:  # feines Gras in der Form der Graskachel
+		if mg > 0:
+			_gtex_layer.set_cell(Vector2i(x, y), 0, grass.get_cell_atlas_coords(Vector2i(x, y)))
+		else:
+			_gtex_layer.erase_cell(Vector2i(x, y))
+	elif _gtex_layer != null:
 		if mg == 15:
 			_gtex_layer.set_cell(Vector2i(x, y), 0, Vector2i(posmod(x, 8), posmod(y, 8)))
 		else:
@@ -1820,7 +1872,9 @@ func _update_season_look() -> void:
 	var snow := Seasons.snow_amount() * float(Seasons.cfg.get("snow_biomes", {}).get(biome, 1.0))
 	var autumn := Seasons.autumn_amount()
 	_mat_ground.set_shader_parameter("snow", snow * 0.09)  # 70 % weniger Schnee am Boden (josh 2026-10-28)
-	if _mat_gtex != null:
+	if _fine_ground:
+		_update_fine_ground()  # die Jahreszeit steckt im Bild selbst
+	elif _mat_gtex != null:
 		_mat_gtex.set_shader_parameter("snow", snow * 0.09)
 		_mat_gtex.set_shader_parameter("autumn", autumn)
 	_snow_layer.modulate.a = clampf(snow * 2.0, 0.0, 1.0)

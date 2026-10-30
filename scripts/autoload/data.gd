@@ -51,6 +51,27 @@ static func hd(name: String) -> Texture2D:
 	return t
 
 
+## Feine Bilder von josh (2026-10-30, assets/sprites_hd/fine, tools/art_v2/boden_fein.py): 136 Punkte je Feld,
+## gemeldet in Spielpixeln (16 je Feld). null, wenn es die Datei nicht gibt.
+static func fine(name: String) -> Texture2D:
+	var path := "res://assets/sprites_hd/fine/%s.png" % name
+	if not ResourceLoader.exists(path):
+		return null
+	var img: Image = (load(path) as Texture2D).get_image()
+	if img.is_compressed():
+		img.decompress()
+	img.generate_mipmaps()
+	var t := ImageTexture.create_from_image(img)
+	t.set_size_override(Vector2i(img.get_width() * 16 / 136, img.get_height() * 16 / 136))
+	return t
+
+
+## Feine Wege: Zeile je Art in fine/wege.png (Erdweg, Steinstraße, Pflaster).
+const FINE_PATH_ROW := {"road": 0, "gravel": 1, "bricks": 2}
+var _fine_paths: Image
+var _fine_paths_tried := false
+
+
 ## Regionen in objects.png: name -> [x, y, w, h, frames]
 const OBJECT_REGIONS := {
 	"tree0": [0, 0, 32, 48, 1], "tree1": [32, 0, 32, 48, 1], "tree2": [64, 0, 32, 48, 1],
@@ -228,6 +249,24 @@ func object_tex(name: String, frame: int = 0) -> AtlasTexture:
 	if _cache.has(key):
 		return _cache[key]
 	var at := AtlasTexture.new()
+	var pk := name.rstrip("0123456789")
+	if FINE_PATH_ROW.has(pk) and name.length() > pk.length():
+		if not _fine_paths_tried:
+			_fine_paths_tried = true
+			if ResourceLoader.exists("res://assets/sprites_hd/fine/wege.png"):
+				_fine_paths = (load("res://assets/sprites_hd/fine/wege.png") as Texture2D).get_image()
+				if _fine_paths.is_compressed():
+					_fine_paths.decompress()
+		if _fine_paths != null:
+			# eigenes Bild je Wegstück: aus einem gemeinsamen Atlas färbten beim Verkleinern die Nachbarn ab (Nähte)
+			var img := _fine_paths.get_region(Rect2i(int(name.substr(pk.length())) * 136, int(FINE_PATH_ROW[pk]) * 136, 136, 136))
+			img.generate_mipmaps()
+			var tt := ImageTexture.create_from_image(img)
+			tt.set_size_override(Vector2i(16, 16))
+			at.atlas = tt
+			at.region = Rect2(0, 0, 16, 16)
+			_cache[key] = at
+			return at
 	if BIG.has(name):
 		var b: Array = BIG[name]
 		if not _cache.has("big:" + name):
