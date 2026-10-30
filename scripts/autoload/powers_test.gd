@@ -93,7 +93,11 @@ static func run(main, mode: String) -> void:
 	for i in Powers.proposals.size():
 		if str(Powers.proposals[i].power) == "essen_waerme":
 			pi = i
-	_ok(pi >= 0 and Powers.proposals.filter(func(p): return p.power == "essen_waerme").size() == 1, "Fragen: ein Vorschlag für Essen (%d Vorschläge)" % Powers.proposals.size())
+	var ew_keys := Powers.proposals.filter(func(p): return p.power == "essen_waerme").map(func(p): return str(p.get("key", "")))
+	var uniq := {}
+	for k in ew_keys:
+		uniq[k] = true
+	_ok(pi >= 0 and uniq.size() == ew_keys.size(), "Fragen: je Nahrungsberuf höchstens ein Vorschlag (%d Vorschläge)" % Powers.proposals.size())
 	var before := adults.filter(func(s): return s.job in Steward.FOOD_JOBS).size()
 	Powers.answer(pi, true)
 	var after := adults.filter(func(s): return s.job in Steward.FOOD_JOBS).size()
@@ -148,7 +152,7 @@ static func run(main, mode: String) -> void:
 	var first := true
 	for s in w.settlers:
 		if s.is_adult() and s != v:
-			JobDesk.assign(s, "fischer" if first else "forscher", "spieler")
+			JobDesk.assign(s, "fischer" if first else "sammler", "spieler")
 			first = false
 	for f in Data.food_ids():
 		w.stock[f] = 0

@@ -2560,5 +2560,13 @@
  "Häuser: %s fehlt. %s": "Houses: %s is missing. %s",
  "Schriften für die Forschung (%s)": "Writing materials for research (%s)",
  "Forschung: %s fehlt. %s": "Research: %s is missing. %s",
- "Sehr schnell (%dx)": "Very fast (%dx)"
+ "Sehr schnell (%dx)": "Very fast (%dx)",
+ "%s arbeitet": "%s is working",
+ "%d Felder": "%d fields",
+ "%d %s liegen im Lager, aber in %s ist jeder Platz besetzt. Mehr Leute helfen nicht, baue mehr davon.": "%d %s are in storage, but every place in %s is taken. More people won't help, build more of them.",
+ "Essen reicht nicht: %d Leute in Nahrungsberufen wären nötig, aber Felder, Fischgründe und Sträucher geben nur Arbeit für %d. Baue Felder (je 4 ein Bauer), Räuchereien und Bäckereien.": "Not enough food: %d people in food jobs would be needed, but fields, fishing grounds and bushes only give work for %d. Build fields (one farmer per 4), smokehouses and bakeries.",
+ "Holz für Wärme und Werkstätten": "Wood for heating and workshops",
+ "Forschung %s": "Research %s",
+ "%s ist jetzt frei: im Beruf %s gibt es gerade nichts zu tun (%d %% Leerlauf). Du kannst ihn einsetzen.": "%s is now free: there is nothing to do as %s right now (%d %% idle). You can assign them.",
+ "Forschung %s wartet, es fehlen: %s.": "Research %s is waiting, missing: %s."
 }

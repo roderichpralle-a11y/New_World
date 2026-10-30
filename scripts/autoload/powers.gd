@@ -239,6 +239,8 @@ func _process(_delta: float) -> void:
 func autotest_setup(args: Dictionary, main) -> void:
 	if args.has("powerstest"):
 		await PowersTest.run(main, str(args.powerstest))
+	if args.has("vlab"):
+		await StewardLab.run(main, str(args.vlab))
 
 
 # ---------------------------------------------------------------- Spielstand
