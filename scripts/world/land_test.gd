@@ -74,10 +74,10 @@ static func run(main) -> void:
 	fails = 0
 	var w = main.world
 	_research(["steinwerkzeuge", "steinbruch", "wegebau", "toepferei", "zimmerei", "maurerei", "bewaesserung", "deichbau"])
-	Game.add_stock("stein", 50, w)  # Lagerfeuer fasst nur 200 Raum
-	Game.add_stock("holz", 20, w)
-	Game.add_stock("lehm", 20, w)
-	Game.add_stock("beeren", 40, w)
+	Game.add_stock_over("stein", 50, w)  # Lagerfeuer fasst nur 200 Raum
+	Game.add_stock_over("holz", 20, w)
+	Game.add_stock_over("lehm", 20, w)
+	Game.add_stock_over("beeren", 40, w)
 	await _fastest_way(main, w)
 	# ---- Straße
 	var rc = _free_land(w, w.center + Vector2i(4, 4))
