@@ -1882,8 +1882,7 @@ func _refresh_settler_list() -> void:
 				if j == s.job:
 					ob.select(ids.size() - 1)
 			ob.tooltip_text = tr("Beruf wählen") + (tr("\nStern: passt zum Talent (%s)") % TalentInfo.short_list(s.mind) if not s.mind.best_talents().is_empty() else "")
-			if s.by_admin:
-				UiTheme.mark_admin(ob)
+			if s.by_admin:  # kein Gelb mehr (josh 2026-10-30), der Vergeber steht in Klammern
 				var sel := ids.find(s.job)
 				if sel >= 0:
 					ob.set_item_text(sel, s.job_label(true))  # „Bauer (Verwalter)“, josh 2026-10-28
@@ -3206,8 +3205,6 @@ func _info_settler(s: Settler) -> void:
 		_info_box.add_child(UiTheme.label(tr("Kinder arbeiten noch nicht."), 13))
 	else:
 		_info_text(tr("Beruf"), s.job_label())  # „Bauer (vom Verwalter zugewiesen)“, josh 2026-10-28
-		if s.by_admin:
-			_info_box.add_child(UiTheme.label(tr("Gelb: nicht vom Spieler zugewiesen"), 12, DIM))
 		var grid := GridContainer.new()
 		grid.columns = 2
 		grid.add_theme_constant_override("h_separation", 4)
@@ -3221,8 +3218,6 @@ func _info_settler(s: Settler) -> void:
 			var jd: Dictionary = Data.jobs[j]
 			var tip: String = jd.desc
 			b.tooltip_text = tip
-			if s.job == j and s.by_admin:
-				UiTheme.mark_admin(b)
 			var jid: String = j
 			if not Data.job_unlocked(j):
 				b.disabled = true
