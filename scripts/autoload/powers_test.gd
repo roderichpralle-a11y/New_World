@@ -5,7 +5,7 @@ extends RefCounted
 ## Grundbesetzung, einen Tag frei, Mindestvorrat, Überstunden im Notfall, Spielstand.
 ## Druckt „Befugnisse OK/FEHLER …“ und am Ende „Befugnisse OK (N Fehler)“.
 ## --powerstest=shot: Fenster Verwalter, Reiter Befugnisse (mit --shot); shot2: Reiter Vorschläge; shot3: Gutachten;
-## shot4: Fenster Nachrichten; soak: danach alle Befugnisse auf Selbst und schnell weiterspielen.
+## shot4: Fenster Nachrichten; shot5: Engpässe im Winter; soak: danach alle Befugnisse auf Selbst und schnell weiterspielen.
 
 static var fails := 0
 
@@ -184,6 +184,49 @@ static func run(main, mode: String) -> void:
 	var rep: Dictionary = Planner.report.get("islands", {}).get(str(int(w.island_id)), {})
 	_ok(not rep.is_empty() and not rep.get("tips", []).is_empty(), "Gutachten mit %d Tipps, %d Straßenfeldern, %d Verschiebungen" % [rep.get("tips", []).size(), rep.get("roads", []).size(), rep.get("moves", []).size()])
 	_ok(PlanReport.map_image(w, rep) != null, "Karte zum Gutachten")
+	# Lieferkette (josh 2026-10-30): Glas fehlt -> Glashütte hat keinen Lehm -> erst die Lehmgrube
+	for t in ["toepferei", "glasmacherei", "koehlerei"]:
+		if not t in Game.research.done:
+			Game.research.done.append(t)
+	Game.refresh_effects()
+	_ok(main._place_on(w, "glashuette"), "Glashütte gebaut")
+	for bb in w.buildings:
+		if bb.type == "glashuette" and not bb.complete:
+			_finish(bb)
+	w.stock["glas"] = 0
+	w.stock["lehm"] = 0
+	w.stock["kohle"] = 50
+	var tr1 := Steward.trace(w, "glas", 0, {})
+	_ok(tr1.has("block") and str(tr1.block).contains("Lehmgrube"), "Glas fehlt, Lehm fehlt, keine Lehmgrube: Hinweis „baue Lehmgrube“ (%s)" % str(tr1))
+	_ok(main._place_on(w, "lehmgrube"), "Lehmgrube gebaut")
+	for bb in w.buildings:
+		if bb.type == "lehmgrube" and not bb.complete:
+			_finish(bb)
+	for s in w.settlers:
+		if s.job == "steinmetz":
+			JobDesk.assign(s, "fischer", "spieler")
+	var tr2 := Steward.trace(w, "glas", 0, {})
+	_ok(tr2.get("job", "") == "steinmetz" and str(tr2.get("why", "")).contains("Lehm"), "mit Lehmgrube: zuerst ein Steinmetz für Lehm, nicht ein Handwerker für Glas (%s)" % str(tr2))
+	w.stock["lehm"] = 100
+	for f in Data.food_ids():
+		w.stock[f] = 0
+	w.stock["holz"] = 100
+	var tr3 := Steward.trace(w, "glas", 0, {})
+	_ok(tr3.get("job", "") == "handwerker" or str(tr3.get("block", "")).contains("Fachkräfte"), "Lehm da: jetzt die Glashütte selbst (Handwerker oder Fachkräfte fehlen) (%s)" % str(tr3))
+	# Natur: keine Bäume -> keine Holzfäller; Winter -> keine Sammler
+	var keep_amt := {}
+	for n in w.nodes:
+		if n.type == "baum":
+			keep_amt[n] = n.amount
+			n.amount = 0
+	_ok(Steward._raw_block(w, "holzfaeller") != "", "ohne Bäume keine Holzfäller (%s)" % Steward._raw_block(w, "holzfaeller"))
+	for n in keep_amt:
+		n.amount = keep_amt[n]
+	_ok(Steward._raw_block(w, "holzfaeller") == "", "mit Bäumen wieder Holzfäller")
+	var t0: float = Game.time_days
+	Game.time_days = Seasons.season_days() * 3.0 + 0.5 + floor(t0 / Seasons.year_days()) * Seasons.year_days()
+	_ok(Seasons.season() == Seasons.WINTER and Steward._raw_block(w, "sammler") != "" and Steward._food_job(w) != "sammler", "im Winter keine Sammler (%s; Essen: %s)" % [Steward._raw_block(w, "sammler"), Steward._food_job(w)])
+	Game.time_days = t0
 	# Verwalter stirbt: immer gleich nachbesetzt, auch mit Nachbesetzen auf Aus (josh 2026-10-29)
 	Powers.set_mode("nachbesetzen", Powers.AUS)
 	var f3 = _mk(w, "Frei3", "frei")
@@ -209,6 +252,13 @@ static func run(main, mode: String) -> void:
 		return
 	if mode.begins_with("shot"):
 		w.stock["fisch"] = 0
+		if mode == "shot5":  # Engpässe: Winter, Glas unter dem Mindestvorrat
+			Game.time_days = Seasons.season_days() * 3.0 + 0.5
+			for n in w.nodes:
+				if n.type == "fischgrund":
+					n.amount = 0
+			w.stock["lehm"] = 0
+			Steward.minmax[str(int(w.island_id))] = {"glas": [20, 0]}
 		Powers.set_mode("essen_waerme", Powers.FRAGEN)
 		Powers.set_mode("grundbesetzung", Powers.FRAGEN)
 		Steward._moved = {}

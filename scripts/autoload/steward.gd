@@ -42,6 +42,8 @@ var _free_since: Dictionary = {}  # Siedler-ID -> Tag, seit dem er frei ist
 var _emerg: Dictionary = {}       # Beruf -> letzter Tag mit ungesichertem Essen/Wärme (Notfall-Überstunden)
 var _day_stats: Dictionary = {}   # Insel-ID -> {day, start: {holz, kohle, food}, made: {...}, prev: {used_fuel, used_food, made_food, made_holz, food_w, wood_w}}
 var research_info := ""
+var _old_blocks: Dictionary = {}
+var blocks: Dictionary = {}  # Insel-ID -> {Ware oder Beruf: Text}: Engpässe, die Leute nicht beheben (Lieferkette, Natur)
 
 
 func _ready() -> void:
@@ -279,14 +281,25 @@ func needs(w) -> Array:
 	if _adults(w).is_empty():
 		return out
 	var info := secure_info(w)
-	# 1. Essen und Wärme für die nächsten 3 Tage
+	var iid := int(w.island_id)
+	_old_blocks[iid] = blocks.get(iid, {})
+	blocks[iid] = {}
+	# 1. Essen und Wärme für die nächsten 3 Tage (nur in Berufe, in denen es gerade etwas zu holen gibt)
 	if Powers.on("essen_waerme"):
 		var f: Array = info.food
 		if int(f[3]) < int(f[2]):
-			out.append({"job": _food_job(w), "why": tr("Essen für %d Tage") % int(PLAN_DAYS), "power": "essen_waerme", "src": "hard", "secure": true})
+			var fj := _food_job(w)
+			if fj != "":
+				out.append({"job": fj, "why": tr("Essen für %d Tage") % int(PLAN_DAYS), "power": "essen_waerme", "src": "hard", "secure": true})
+			else:
+				_note_block(w, "essen", _food_block(w))
 		var h: Array = info.fuel
 		if int(h[3]) < int(h[2]) and Data.job_unlocked("holzfaeller"):
-			out.append({"job": "holzfaeller", "why": tr("Brennstoff für %d Tage") % int(PLAN_DAYS), "power": "essen_waerme", "src": "hard", "secure": true})
+			var hb := _raw_block(w, "holzfaeller")
+			if hb == "":
+				out.append({"job": "holzfaeller", "why": tr("Brennstoff für %d Tage") % int(PLAN_DAYS), "power": "essen_waerme", "src": "hard", "secure": true})
+			else:
+				_note_block(w, "holz", tr("Brennstoff wird knapp: %s") % hb)
 	# 2. Grundbesetzung mit Freien
 	if Powers.on("grundbesetzung"):
 		var sites: Array = w.construction_sites()
@@ -294,10 +307,10 @@ func needs(w) -> Array:
 			out.append({"job": "baumeister", "why": tr("Baustellen"), "power": "grundbesetzung", "src": "free"})
 		var fields: int = w.buildings.filter(func(b): return b.complete and b.def.has("farm")).size()
 		var farmers := ceili(float(fields) / FIELDS_PER_FARMER) + _workplaces(w, "stall")
-		if farmers > 0 and _count(w, "bauer") < farmers:
+		if farmers > 0 and _count(w, "bauer") < farmers and _raw_block(w, "bauer") == "":
 			out.append({"job": "bauer", "why": tr("%d Felder und Ställe") % fields, "power": "grundbesetzung", "src": "free"})
 		var h: Array = info.fuel
-		if Data.job_unlocked("holzfaeller") and _count(w, "holzfaeller") < ceili(float(h[0]) / PLAN_DAYS / wood_rate(w)):
+		if Data.job_unlocked("holzfaeller") and _count(w, "holzfaeller") < ceili(float(h[0]) / PLAN_DAYS / wood_rate(w)) and _raw_block(w, "holzfaeller") == "":
 			out.append({"job": "holzfaeller", "why": tr("Brennholz für die Wärme"), "power": "grundbesetzung", "src": "free"})
 		var wj := _workshop_job(w)
 		if wj != "":
@@ -354,9 +367,15 @@ func _min_job(w) -> Dictionary:
 		var mn := int(mm[id][0])
 		if mn <= 0 or Game.amount(id, w) + incoming(int(w.island_id), id) >= mn:
 			continue
-		var j := _producer(w, str(id))
-		if j != "" and Data.job_unlocked(j) and _count(w, j) < 1 + w.settlers.size() / 4:
-			return {"job": j, "why": tr("%s unter dem Mindestvorrat") % Data.resource_name(str(id))}
+		# Lieferkette rückwärts: erst die Vorprodukte, dann die Werkstatt, Rohstoffe nur, wenn die Natur etwas hergibt
+		var r := trace(w, str(id), 0, {})
+		if r.has("job") and _count(w, r.job) < 1 + w.settlers.size() / 4:
+			var chain: String = r.why
+			if chain == Data.resource_name(str(id)):
+				return {"job": r.job, "why": tr("%s unter dem Mindestvorrat") % chain}
+			return {"job": r.job, "why": tr("%s unter dem Mindestvorrat, es fehlt: %s") % [Data.resource_name(str(id)), chain]}
+		if r.has("block"):
+			_note_block(w, "min:" + str(id), str(r.block))
 	return {}
 
 
@@ -403,12 +422,12 @@ func _take_worker(w, need: Dictionary):
 ## Schichtarbeit für die Leute dieses Berufs (Admin-Anordnungen gelten für den Beruf).
 func _emergency(w, need: Dictionary) -> void:
 	var job: String = need.job
-	if job in FOOD_JOBS:  # Essen: der Nahrungsberuf mit den meisten Leuten
+	if job in FOOD_JOBS:  # Essen: der Nahrungsberuf mit den meisten Leuten, in dem es etwas zu holen gibt
 		for j in FOOD_JOBS:
-			if _count(w, j) > _count(w, job):
+			if _count(w, j) > _count(w, job) and _raw_block(w, j) == "":
 				job = j
-	if _count(w, job) < 1:
-		return
+	if _count(w, job) < 1 or _raw_block(w, job) != "":
+		return  # Überstunden helfen nicht, wenn nichts wächst
 	_emerg[job] = Game.time_days
 	if not Admin.ordered(job, "ot") and not Admin.protesting(job):
 		Powers.decide("notfall", "ot:" + job, tr("Essen oder Wärme reichen nicht und niemand ist frei: Überstunden für die %s.") % Data.jobs[job].name,
@@ -508,13 +527,31 @@ func _workplaces(w, kind: String) -> int:
 	return n
 
 
+## Nur Berufe, in denen gerade etwas zu holen ist (kein Sammler im Winter, kein Bauer ohne Ernte); "" = keiner.
 func _food_job(w) -> String:
+	var order := []
 	var fields: Array = w.buildings.filter(func(b): return b.complete and b.def.has("farm"))
 	if not fields.is_empty() and _count(w, "bauer") < ceili(float(fields.size()) / FIELDS_PER_FARMER):
-		return "bauer"
-	if Data.job_unlocked("jaeger") and w.animals.size() > 6 and _count(w, "jaeger") < 1:
-		return "jaeger"
-	return "fischer" if Data.job_unlocked("fischer") and _count(w, "fischer") <= _count(w, "sammler") else "sammler"
+		order.append("bauer")
+	if w.animals.size() > 6 and _count(w, "jaeger") < 1:
+		order.append("jaeger")
+	order += ["fischer", "sammler"] if _count(w, "fischer") <= _count(w, "sammler") else ["sammler", "fischer"]
+	order += ["jaeger", "bauer"]
+	for j in order:
+		if Data.job_unlocked(j) and _raw_block(w, j) == "":
+			return j
+	return ""
+
+
+## Warum kein Nahrungsberuf hilft (Text für den Engpass).
+func _food_block(w) -> String:
+	var why := []
+	for j in ["sammler", "fischer", "bauer"]:
+		if Data.job_unlocked(j):
+			var b := _raw_block(w, j)
+			if b != "" and not b in why:
+				why.append(b)
+	return tr("Essen wird knapp, aber mehr Leute bringen gerade nichts: %s Lege Vorräte an (Räuchern, Backen) oder hol Essen per Schiff.") % " ".join(why)
 
 
 ## Wer stellt die Ware her? Rohstoffe aus RAW_JOB, sonst der Beruf einer Werkstatt, die sie herstellt.
@@ -525,6 +562,152 @@ func _producer(w, id: String) -> String:
 		if b.complete and b.def.has("production") and b.prod_def().get("outputs", {}).has(id):
 			return KIND_JOB.get(b.prod_def().get("job", ""), "")
 	return ""
+
+
+# ---------------------------------------------------------------- Lieferketten (josh 2026-10-30)
+## Quellen in der Natur je Beruf (Knoten aus nodes.json), für _raw_block.
+const RAW_NODES := {"holzfaeller": ["baum"], "sammler": ["busch", "palme", "pilzkreis", "gewuerzstrauch"],
+	"fischer": ["fischgrund"], "steinmetz": ["fels", "erzader", "goldader"], "jaeger": ["beute", "wolfsbau", "eberbau", "baerenhoehle"]}
+const RIPE_MIN := 3  # so viel muss in der Natur reif sein, damit ein weiterer Arbeiter etwas holen kann
+
+
+## Was gerade reif in der Natur liegt (Summe der Mengen) und wie stark es in dieser Jahreszeit nachwächst.
+func _ripe(w, types: Array) -> Array:
+	var n := 0
+	for o in w.nodes:
+		if is_instance_valid(o) and str(o.type) in types and int(o.amount) > 0:
+			n += int(o.amount)
+	var g := 0.0
+	for t in types:
+		g = maxf(g, Seasons.growth(str(t), w))
+	return [n, g]
+
+
+## Kann ein (weiterer) Siedler in diesem Rohstoffberuf gerade etwas holen? "" = ja, sonst der Grund.
+## Holzfäller ohne Bäume, Sammler im Winter, Bauern ohne Felder oder im Winter, Fischer an leeren Gründen.
+func _raw_block(w, job: String) -> String:
+	match job:
+		"bauer":
+			var fields: int = w.buildings.filter(func(b): return b.complete and b.def.has("farm")).size()
+			var stalls := _workplaces(w, "stall")
+			if fields == 0 and stalls == 0:
+				return tr("Es gibt keine Felder und keine Ställe.")
+			if stalls == 0 and Seasons.growth("feld", w) <= 0.0 and Seasons.growth("obstgarten", w) <= 0.0:
+				return tr("Im Winter wächst auf den Feldern nichts.")
+			return ""
+		"jaeger":
+			if w.animals.is_empty() and _ripe(w, ["beute"])[0] <= 0:
+				return tr("Es gibt keine Tiere zum Jagen.")
+			return ""
+		"steinmetz":
+			if _workplaces(w, "stein") > 0:
+				return ""
+	if not RAW_NODES.has(job):
+		return ""
+	var types: Array = RAW_NODES[job]
+	if job == "sammler":  # nur, was in dieser Jahreszeit wächst (im Winter nichts, außer Palmen und Gewürzen)
+		types = types.filter(func(t): return Seasons.growth(str(t), w) > 0.0)
+		if types.is_empty():
+			return tr("Im Winter wächst nichts zum Sammeln.")
+	var r := _ripe(w, types)
+	if int(r[0]) >= RIPE_MIN * (_count(w, job) + 1) or (int(r[0]) >= RIPE_MIN and float(r[1]) > 0.0):
+		return ""
+	match job:
+		"holzfaeller":
+			return tr("Es gibt gerade keine Bäume zum Fällen. Ein Förster pflanzt neue, sie wachsen erst nach.") if int(r[0]) < RIPE_MIN else tr("Die wenigen Bäume reichen nicht für mehr Holzfäller.")
+		"sammler":
+			if float(r[1]) <= 0.0 or Seasons.is_winter():
+				return tr("Im Winter wächst nichts zum Sammeln.")
+			return tr("Alle Sträucher sind abgeerntet und wachsen erst nach.")
+		"fischer":
+			return tr("Die Fischgründe sind leer gefischt und erholen sich erst.")
+		"steinmetz":
+			return tr("Es gibt keine Felsen mehr. Baue einen Steinbruch.")
+	return ""
+
+
+## Warum fehlt die Ware? Folgt der Lieferkette rückwärts (Glas -> Glashütte -> Lehm -> Lehmgrube) und gibt
+## den Beruf ganz vorne zurück, der wirklich etwas ändert: {job, why} oder {block: Text} oder {}.
+## Erst die Vorprodukte, dann die Werkstatt selbst; Rohstoffe nur, wenn die Natur etwas hergibt.
+func trace(w, id: String, depth := 0, seen: Dictionary = {}) -> Dictionary:
+	if depth > 6 or seen.has(id):
+		return {}
+	seen[id] = true
+	var name := Data.resource_name(id)
+	var first_block := {}
+	var any_maker := false
+	for b in w.buildings:
+		if not (b.complete and b.def.has("production") and not b.def.get("ships", false) and b.prod_def().get("outputs", {}).has(id)):
+			continue
+		any_maker = true
+		if b.paused:
+			if first_block.is_empty():
+				first_block = {"block": tr("%s steht still (angehalten), darum fehlt %s.") % [b.def.name, name]}
+			continue
+		var p: Dictionary = b.prod_def()
+		# Vorprodukte zuerst: fehlt eines, liegt dort die Ursache
+		for res in p.get("inputs", {}):
+			if Game.amount(res, w) >= int(p.inputs[res]) * 2:
+				continue
+			var r := trace(w, str(res), depth + 1, seen)
+			if r.has("job"):
+				if depth == 0 or not str(r.why).contains("→"):
+					r.why = "%s → %s" % [name, r.why] if r.why != "" else name
+				return r
+			if r.has("block") and first_block.is_empty():
+				first_block = r
+		var blk: String = b.prod_blocker()
+		if blk != "":
+			if first_block.is_empty() and not blk.begins_with(tr("Es fehlt")):
+				first_block = {"block": "%s: %s." % [b.def.name, blk]}
+			continue
+		var kind: String = p.get("job", "")
+		var j: String = KIND_JOB.get(kind, "")
+		if j == "" or not Data.job_unlocked(j):
+			continue
+		if not w.pool_allows(b):
+			if first_block.is_empty():
+				first_block = {"block": tr("%s braucht Fachkräfte ab Hausstufe %d (%s), darum fehlt %s.") % [b.def.name, b.worker_level(), HouseNeeds.level_name(b.worker_level()), name]}
+			continue
+		if b.free_slots() > 0 and _count(w, j) < _workplaces(w, kind):
+			return {"job": j, "why": name}
+		if first_block.is_empty():
+			first_block = {"block": tr("%s arbeitet schon voll. Für mehr %s baue eine weitere.") % [b.def.name, name]}
+	if RAW_JOB.has(id):
+		var j: String = RAW_JOB[id]
+		if not Data.job_unlocked(j):
+			return first_block
+		var rb := _raw_block(w, j)
+		if rb == "":
+			return {"job": j, "why": name}
+		return {"block": tr("%s fehlt: %s") % [name, rb]}
+	if not any_maker:
+		var bt := _maker_type(id)
+		if bt == "":
+			return first_block
+		if Game.is_unlocked(bt):
+			return {"block": tr("%s stellt niemand her: baue %s.") % [name, Data.buildings[bt].name]}
+		return {"block": tr("%s stellt niemand her: %s ist noch nicht erforscht.") % [name, Data.buildings[bt].name]}
+	return first_block
+
+
+## Gebäudeart, die die Ware herstellt (für den Hinweis „baue …“).
+func _maker_type(id: String) -> String:
+	for t in Data.buildings:
+		var d: Dictionary = Data.buildings[t]
+		if d.get("buildable", true) and d.has("production") and d.production.get("outputs", {}).has(id):
+			return t
+	return ""
+
+
+## Engpass merken (für das Fenster Verwalter und das Log; Meldung höchstens einmal am Tag über Game.notify).
+func _note_block(w, key: String, text: String) -> void:
+	var id := int(w.island_id)
+	if not blocks.has(id):
+		blocks[id] = {}
+	if _old_blocks.get(id, {}).get(key, "") != text and blocks[id].get(key, "") != text:
+		Admin.add_log(who() + ": " + text)
+	blocks[id][key] = text
 
 
 ## Ein Beruf ist überzählig, wenn alle seine Waren den Mindestvorrat bzw. das Lagerziel erreicht haben oder
@@ -555,6 +738,8 @@ func _surplus(w, job: String) -> bool:
 # ---------------------------------------------------------------- Spielstand
 func _on_reset() -> void:
 	on = false
+	blocks = {}
+	_old_blocks = {}
 	offered = false
 	offered_routes = false
 	offered_net = false

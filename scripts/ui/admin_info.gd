@@ -149,6 +149,13 @@ static func _powers_tab(_hud, b) -> void:
 		hl.custom_minimum_size.x = 110
 		rw.text.add_child(hl)  # eigene Zeile, nur rot, wenn der Brennstoff fehlt
 		_box.add_child(rw.box)
+	# Engpässe, die Leute nicht beheben (Lieferkette, Natur, Jahreszeit; josh 2026-10-30)
+	var bl: Dictionary = Steward.blocks.get(int(b.world.island_id), {})
+	if not bl.is_empty():
+		var lines := []
+		for k in bl:
+			lines.append("• " + str(bl[k]))
+		_box.add_child(Win.row(Data.icon("ereignis"), Loc.t("Engpässe"), "\n".join(lines), {"icon_px": 28, "sub_color": UiTheme.BAD}).box)
 	var last := 0
 	for p in Powers.LIST:
 		var lvl := int(p.level)

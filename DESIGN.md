@@ -121,6 +121,14 @@ teils das frühere Verhalten (Angebote, Automat baut, Planer) und schlagen dort 
   nach einem Tag; Reiter Vorschläge mit Ja/Nein/Alle annehmen; Zahl am Verwalter-Knopf). Selbst: sofort, nur ins Log
   und die Bilanz „Für dich erledigt“; eine Meldung nur, wenn er einen vom Spieler eingeteilten Siedler nimmt.
   Spielstand `powers`.
+- **Lieferketten und Engpässe** (josh 2026-10-30): `Steward.trace(w, ware)` folgt der Kette rückwärts: erst die
+  Vorprodukte jeder Werkstatt (unter 2 Arbeitsgängen Vorrat), dann die Werkstatt selbst, Rohstoffe nur, wenn die Natur
+  etwas hergibt (`_raw_block`: reife Knoten aus `RAW_NODES` mindestens `RIPE_MIN` je Arbeiter, Sammler nur mit
+  Wachstum in der Jahreszeit, Bauern nicht im Winter ohne Ställe). Ergebnis {job, why „Glas → Lehm“} oder {block: Text}
+  (keine Werkstatt: „baue …“, angehalten, Fachkräfte fehlen, Lager voll, arbeitet voll). Mindestvorräte nutzen
+  `trace`, Essen und Wärme sowie die Grundbesetzung setzen niemanden in Berufe ohne Ertrag, Notfall-Überstunden
+  nur dort. Engpässe stehen in `Steward.blocks[insel]` (bei jedem `needs` neu, neue Texte ins Log) und im Reiter
+  Befugnisse als Zeile „Engpässe“. Test in `--powerstest=1`, Bild `--powerstest=shot5`.
 - **Verwalter stirbt** (josh 2026-10-29): `Admin._refill_manager` besetzt den Posten immer sofort, ohne Befugnis
   (nach seinem Tod ist `Admin.level()` 0): ein Freier (Talent zuerst), sonst ein Erwachsener aus dem Beruf mit den
   meisten Leuten (keine Seeleute), sonst das nächste erwachsene Kind (`pending_jobs` vorn).
