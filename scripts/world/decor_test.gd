@@ -144,10 +144,11 @@ static func run(main) -> void:
 	var prev_scale := Engine.time_scale
 	var w = main.world
 	var types := decor_types()
-	_ok(types.size() >= 18, "%d Schmuckstücke im Bau-Reiter „Schmuck“" % types.size())
+	_ok(types.size() >= 16, "%d Schmuckstücke im Bau-Reiter „Schmuck“" % types.size())
 	var need := ["springbrunnen", "steinstatue", "bronzestatue", "reiterdenkmal", "blumenbeet_rot", "blumenbeet_gelb",
-		"blumenbeet_blau", "blumenkuebel", "hecke", "rosenbogen", "kiesweg", "ziegelweg", "parkanlage", "fahnenmast", "holzbank"]
-	_ok(need.all(func(t): return Data.buildings.has(t) and Data.buildings[t].category == "schmuck"), "Brunnen, Statuen, Blumen, Wege, Park, Fahnenmast, Bank")
+		"blumenbeet_blau", "blumenkuebel", "hecke", "rosenbogen", "parkanlage", "fahnenmast", "holzbank"]
+	_ok(need.all(func(t): return Data.buildings.has(t) and Data.buildings[t].category == "schmuck"), "Brunnen, Statuen, Blumen, Park, Fahnenmast, Bank")
+	_ok(["strasse", "kiesweg", "ziegelweg"].all(func(t): return Data.buildings[t].category == "wege"), "alle Wege im Reiter „Wege“ (josh 2026-10-30)")
 	_ok(Hud.BUILD_CATS.any(func(c): return c[0] == "schmuck"), "Reiter „Schmuck“ im Bau-Menü")
 	# Nach und nach freigeschaltet
 	var ages := {}

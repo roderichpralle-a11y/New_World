@@ -1674,7 +1674,7 @@
  "Aktiver Spielstand: %d": "Active slot: %d",
  "Alle an": "All on",
  "%d von %d an": "%d of %d on",
- "Wege": "Roads",
+ "Wege": "Paths",
  "Nachtschicht": "Night shift",
  "Beenden": "Stop",
  "%d arbeiten auch nachts, Laune eine Stufe schlechter.": "%d also work at night, mood one level lower.",
@@ -2532,5 +2532,7 @@
  "Auftrag ausgeblendet, bis der nächste kommt.": "Quest hidden until the next one comes.",
  "Immer aus": "Always off",
  "Aufträge hier nie mehr zeigen. Wieder an: Menü > Meldungen.": "Never show quests here again. Turn back on: Menu > Messages.",
- "Aufträge auf der Zielkarte sind aus. Öffnen über den Knopf Aufträge, wieder an unter Menü > Meldungen.": "Quests on the goal card are off. Open them with the Quests button, turn back on under Menu > Messages."
+ "Aufträge auf der Zielkarte sind aus. Öffnen über den Knopf Aufträge, wieder an unter Menü > Meldungen.": "Quests on the goal card are off. Open them with the Quests button, turn back on under Menu > Messages.",
+ "Land": "Land",
+ "Deko": "Decor"
 }

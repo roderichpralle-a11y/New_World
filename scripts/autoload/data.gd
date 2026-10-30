@@ -370,7 +370,7 @@ func building_tex(type: String) -> AtlasTexture:
 	var def: Dictionary = buildings.get(type, {})
 	if def.has("farm"):
 		return object_tex("%s3" % def.farm.get("tiles", "field"))
-	if def.has("icon_size"):
+	if def.has("icon_size") and not BIG.has(def.get("sprite", "")):  # Bilder in big/ sind schon knapp zugeschnitten
 		# Kleiner Schmuck in einer 64er-Zelle: für Listen nur das Quadrat unten mittig zeigen
 		var key := "b:" + type
 		if not _cache.has(key):

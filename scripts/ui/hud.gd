@@ -736,7 +736,7 @@ func _show_menu_help_box() -> void:
 # ================================================================== Bau-Menue
 const BUILD_CATS := [["wohnen", "Wohnen", "haus"], ["nahrung", "Nahrung", "nahrung"],
 	["handwerk", "Handwerk", "hammer"], ["lager", "Lager", "kiste"], ["wissen", "Wissen", "wissen"],
-	["see", "Seefahrt und Schutz", "boot"], ["land", "Land und Wege", "weg"], ["schmuck", "Schmuck", "schmuck"]]
+	["see", "Seefahrt und Schutz", "boot"], ["land", "Land", "pflug"], ["wege", "Wege", "weg"], ["schmuck", "Deko", "schmuck"]]
 
 
 func _build_build_panel() -> void:
@@ -774,7 +774,7 @@ func _build_build_panel() -> void:
 	_fill_build_list()
 
 
-const BUILD_TAB_NAMES := {"see": "Seefahrt", "land": "Wege"}
+const BUILD_TAB_NAMES := {"see": "Seefahrt"}
 
 
 func _fill_build_list() -> void:
