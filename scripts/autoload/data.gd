@@ -36,6 +36,7 @@ var font_bold: Font = preload("res://assets/fonts/pixelify-sans-latin-700-normal
 ## (size_override), darum bleiben alle Regionen, Zellen und Versätze im Code gleich; gezeichnet
 ## wird mit allen Details. Fehlt ein HD-Bild, gilt das alte aus assets/sprites.
 const HD := 4
+const MAX_TEX := 8192  # größte Bildseite, die WebGL sicher zeigt
 
 
 static func hd(name: String) -> Texture2D:
@@ -62,6 +63,10 @@ static func sized_tex(img: Image, size: Vector2i) -> ImageTexture:
 		img.decompress()
 	if small_screen() and img.get_width() > size.x * 4:
 		img.resize(maxi(size.x, img.get_width() / 2), maxi(size.y, img.get_height() / 2), Image.INTERPOLATE_CUBIC)
+	# WebGL kann oft nur 8192 Punkte je Seite (fine/icons.png ist 12648 breit): sonst schwarze Kästchen
+	var k := float(MAX_TEX) / maxf(img.get_width(), img.get_height())
+	if k < 1.0:
+		img.resize(int(img.get_width() * k), int(img.get_height() * k), Image.INTERPOLATE_LANCZOS)
 	img.generate_mipmaps()
 	var t := ImageTexture.create_from_image(img)
 	t.set_size_override(size)

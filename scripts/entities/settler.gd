@@ -1884,6 +1884,8 @@ func _animate(delta: float) -> void:
 		frame = int(_anim_t * 8.0) % 4
 	for k in _layers:
 		var s: Sprite2D = _layers[k]
+		if k == "fig" and _sied_kind != "":
+			continue  # Siedler-Bogen: ein Bild je Kästchen, _sied_frame wählt es
 		s.frame = _dir * 4 + frame
 		s.flip_h = _flip and _dir == DIR_SIDE
 	# Werkzeug schwingen
