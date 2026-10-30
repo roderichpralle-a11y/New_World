@@ -607,6 +607,23 @@ func _v2_test(w) -> void:
 			if Data.buildings.has(t):
 				info.append("%s %d" % [t, Building.roof_offsets(t).size()])
 		print("V2 ", "OK" if ok_roof else "FEHLER", " Dachfelder gesperrt und nach Abriss frei (%s)" % ", ".join(info))
+	# Aushelfen in Berufskleidung (josh 2026-10-30): Freie und Aushelfer tragen die Kleidung der Arbeit
+	var hs = w.settlers.filter(func(x): return x.is_adult())[0]
+	var oj: String = hs.job
+	hs.job = "frei"
+	hs._stat_kind = "job"
+	hs._task_job = Settler._job_for_target("baum")
+	var o1: String = hs._outfit_for()
+	hs.job = "sammler"
+	hs._stat_kind = "other"
+	hs._task_job = "baumeister"
+	var o2: String = hs._outfit_for()
+	hs._stat_kind = "job"
+	var o3: String = hs._outfit_for()
+	hs.job = oj
+	var ok_out: bool = o1 == "holzfaeller" and o2 == "baumeister" and o3 == "sammler"
+	all_ok = all_ok and ok_out
+	print("V2 ", "OK" if ok_out else "FEHLER", " Kleidung beim Aushelfen: frei fällt Bäume -> %s, Sammler hilft bauen -> %s, im Beruf -> %s" % [o1, o2, o3])
 	# Log des Verwalters (josh 2026-10-28): jede Verwaltungsmeldung landet im Log und im Spielstand
 	var n0: int = Admin.log_entries.size()
 	Game.notify("Test: Der Verwalter ordnet etwas an.", "wissen", "verwaltung")

@@ -66,6 +66,7 @@ var _battle_tool := ""
 const BUSY_DAYS := 1.0
 var busy: Dictionary = {}
 var _stat_kind: String = "needs"
+var _task_job := ""  # Beruf der gerade geplanten Arbeit (Aushelfen: dessen Kleidung, josh 2026-10-30)
 
 var _body: Node2D
 var _layers: Dictionary = {}
@@ -311,8 +312,8 @@ func _apply_outfit() -> void:
 	if not is_adult():
 		sheet_name = "kind_%s_%s" % ["maedchen" if sex == "f" else "junge", color]
 		_sied_kind = "kind"
-	elif _at_work() and job != "frei":
-		sheet_name = "%s_%s" % [job, "frau" if sex == "f" else "mann"]
+	elif _at_work() and _outfit_for() != "frei":
+		sheet_name = "%s_%s" % [_outfit_for(), "frau" if sex == "f" else "mann"]
 		_sied_kind = "job"
 	else:
 		sheet_name = "frei_%s_%s" % ["frau" if sex == "f" else "mann", color]
@@ -326,7 +327,7 @@ func _apply_outfit() -> void:
 		_update_scale()
 		return
 	_sied_kind = ""
-	s.texture = fig_sheet(job if _at_work() else "frei", sex)
+	s.texture = fig_sheet(_outfit_for() if _at_work() else "frei", sex)
 	s.hframes = 4
 	s.vframes = 3
 	s.offset = FIG_OFFSET
@@ -338,7 +339,23 @@ func _at_work() -> bool:
 
 
 func _outfit_key() -> String:
-	return job + str(_at_work()) + str(is_adult())
+	return _outfit_for() + str(_at_work()) + str(is_adult())
+
+
+## Kleidung bei der Arbeit: die des eigenen Berufs; wer aushilft oder frei ist und mitarbeitet, trägt die
+## Kleidung der Arbeit, die er gerade macht (josh 2026-10-30).
+func _outfit_for() -> String:
+	if (_stat_kind == "other" or job == "frei") and _task_job != "" and Data.jobs.has(_task_job):
+		return _task_job
+	return job
+
+
+## Beruf, zu dem ein Ziel gehört (Knotenart, "construction", "farm" oder "prod:<Werkstattart>").
+static func _job_for_target(t: String) -> String:
+	for j in Data.jobs:
+		if t in Data.jobs[j].get("targets", []):
+			return j
+	return ""
 
 
 ## by_admin: der Verwalter (Admin, Steward, KI) hat den Beruf zugewiesen; die Listen zeigen ihn pastellgelb.
@@ -940,6 +957,7 @@ func _plan_wander(radius: int, text: String, at = null) -> void:
 func _plan_work() -> bool:
 	# Erst die eigene Arbeit; was danach kommt, zählt in der Auslastung als "etwas anderes"
 	_stat_kind = "job"
+	_task_job = ""
 	match job:
 		"frei":
 			return _plan_free()
@@ -1043,6 +1061,7 @@ func _plan_gather(types: Array) -> bool:
 		var tool_name: String = job_def.get("tool", "")
 		if tool_name == "" or not t in job_def.get("targets", []):
 			tool_name = _tool_for_node(t)
+		_task_job = _job_for_target(t)
 		_plan.append({"a": "work", "t": float(def.work_time) / work_factor(def.skill, "gather_" + res), "act": _verb(t),
 			"tool": tool_name, "face": node.position, "done": _do_harvest.bind(node)})
 		activity = "%s (%s)" % [_verb(t), def.name]
@@ -1101,6 +1120,7 @@ func _plan_farm() -> bool:
 	var field = world.find_field_task(cell, id)
 	if field == null:
 		return false
+	_task_job = "bauer"
 	var task: String = field.farm_task()
 	var fd: Dictionary = field.farm_def()
 	if task == "harvest" and Game.space_for(fd.yield, world) <= 0:
@@ -1143,6 +1163,8 @@ func _do_field_harvest(field) -> void:
 
 func _plan_construction() -> bool:
 	var sites: Array = world.construction_sites()
+	if not sites.is_empty():
+		_task_job = "baumeister"
 	sites.sort_custom(func(a, b): return Vector2(a.cell - cell).length() < Vector2(b.cell - cell).length())
 	# Zuerst bauen, wo alles Material da ist
 	for site in sites:
@@ -1270,6 +1292,7 @@ func _plan_production_at(b) -> bool:
 		return false
 	_occupy(b)
 	var p: Dictionary = b.prod_def()
+	_task_job = _job_for_target("prod:" + str(p.get("job", "")))
 	var tool_name: String = p.get("tool", Data.jobs.get(job, {}).get("tool", "hammer"))
 	_plan.append({"a": "work", "t": 0.3, "act": tr("Holt Rohstoffe"), "done": _do_take_inputs.bind(b)})
 	_plan.append({"a": "work", "t": float(p.time) / (work_factor(p.get("skill", "handwerk"), "production") * b.biome_factor()), "act": p.get("verb", tr("Arbeitet")),
