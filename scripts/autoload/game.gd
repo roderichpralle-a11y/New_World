@@ -130,11 +130,16 @@ func _detect_test_build() -> void:
 		path = "/neu/"
 	if "--v2build" in OS.get_cmdline_user_args():
 		path = "/v2/"
+	if "--v21testbuild" in OS.get_cmdline_user_args():
+		path = "/v21test/"
 	var search := str(JavaScriptBridge.eval("window.location.search", true)) if OS.has_feature("web") else ""
 	if "--probelauf" in OS.get_cmdline_user_args():
 		path = "/v21test/"
 		search = "?probelauf"
-	if "/v21test/" in path and "probelauf" in search:  # Probelauf (josh 2026-10-31): der Bot spielt, eigener Spielstand
+	var probe_cfg := ConfigFile.new()
+	probe_cfg.load("user://settings.cfg")
+	var probe_on := bool(probe_cfg.get_value("game", "probelauf", false))  # Menü > Probelauf (falls die Adresse ohne ?probelauf ankommt)
+	if "/v21test/" in path and ("probelauf" in search or probe_on):  # Probelauf (josh 2026-10-31): der Bot spielt, eigener Spielstand
 		build_tag = "v2probe"
 		probelauf = true
 	elif "/v21test/" in path:  # Testversion von V2 (josh 2026-10-31): eigener Spielstand, anfangs eine Kopie von V2
@@ -1331,6 +1336,31 @@ func import_slot(n: int, text: String) -> String:
 		int(Time.get_unix_time_from_system())])
 	cf.save("user://settings.cfg")
 	return ""
+
+
+## Probelauf an/aus (nur /v21test/, josh 2026-10-31): merkt es in den Einstellungen und lädt neu.
+func set_probelauf(on: bool) -> void:
+	if not probelauf:
+		save_game()
+	var cf := ConfigFile.new()
+	cf.load("user://settings.cfg")
+	cf.set_value("game", "probelauf", on)
+	cf.save("user://settings.cfg")
+	if on:  # jeder Probelauf beginnt mit einem neuen Spiel
+		for n in range(1, SLOTS + 1):
+			var p := "user://savegame_v2probe.json" if n <= 1 else "user://savegame_v2probe_%d.json" % n
+			if FileAccess.file_exists(p):
+				DirAccess.remove_absolute(p)
+	save_locked = true
+	if OS.has_feature("web"):
+		JavaScriptBridge.eval("""(function () {
+			const u = new URL(window.location.href);
+			u.search = '';
+			window.location.replace(u.toString());
+		})();""", true)
+	else:
+		OS.set_restart_on_exit(true)
+		get_tree().quit()
 
 
 ## Laedt die neueste Version der Seite. Die Web-Version ist eine installierbare App, deren

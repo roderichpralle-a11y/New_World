@@ -2077,6 +2077,13 @@ func _build_menu_panel() -> void:
 	for rr in rows:
 		var rw := Win.row(Data.icon(rr[0]), rr[1], rr[2], {"button": rr[3], "on_press": rr[4], "icon_px": 28})
 		game_box.add_child(rw.box)
+	if Game.build_tag in ["v2t", "v2probe"]:  # Probelauf nur in der Testversion (josh 2026-10-31)
+		var on := Game.probelauf
+		var rw := Win.row(Data.icon("schnell"), tr("Probelauf (Bot spielt)"),
+			tr("Der Bot spielt ein neues Spiel, du steuerst nur das Tempo. Dein Spielstand bleibt unberührt.") if not on
+			else tr("Läuft gerade. Beenden bringt dich zu deinem Spielstand zurück."),
+			{"button": tr("Beenden") if on else tr("Starten"), "on_press": func(): Game.set_probelauf(not on), "icon_px": 28})
+		game_box.add_child(rw.box)
 	if OS.has_feature("web"):  # josh 2026-10-30: wieder da (2.0.30 hatte ihn entfernt)
 		var rw := Win.row(Data.icon("schnell"), tr("Nach neuer Version suchen"), tr("Laden erst nach deiner Bestätigung."),
 			{"button": tr("Prüfen"), "on_press": check_for_update, "icon_px": 28})

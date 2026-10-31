@@ -2574,5 +2574,8 @@
  "Nimmt Auftrag an: %s": "Accepts order: %s",
  "%s wird %s": "%s becomes %s",
  "Überspringt die Einführung": "Skips the tutorial",
- "Probelauf: der Bot spielt, du steuerst die Geschwindigkeit": "Trial run: the bot plays, you control the speed"
+ "Probelauf: der Bot spielt, du steuerst die Geschwindigkeit": "Trial run: the bot plays, you control the speed",
+ "Probelauf (Bot spielt)": "Trial run (bot plays)",
+ "Der Bot spielt ein neues Spiel, du steuerst nur das Tempo. Dein Spielstand bleibt unberührt.": "The bot plays a new game, you only control the speed. Your save stays untouched.",
+ "Läuft gerade. Beenden bringt dich zu deinem Spielstand zurück.": "Running now. Stop takes you back to your own save."
 }
