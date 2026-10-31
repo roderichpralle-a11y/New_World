@@ -34,6 +34,31 @@ def park_tree():
     print("   park_tree -> big/park_tree.png")
 
 
+# Größer als gemessen (josh): Name -> [Faktor, Höhe in Spielpixeln danach]. Wachturm 1,5-mal so hoch (2026-10-31).
+GROW = {"tower": [1.5, 53]}
+F = 8.5  # Bildpunkte je Spielpixel in big/
+
+
+def grow():
+    ip = os.path.join(HD, "big", "index.json")
+    index = json.load(open(ip))
+    for name, (k, target_h) in GROW.items():
+        if name not in index or int(index[name][2]) >= target_h:
+            continue
+        p = os.path.join(HD, "big", name + ".png")
+        img = Image.open(p).convert("RGBA")
+        body = img.crop(img.getbbox())
+        body = body.resize((round(body.width * k), round(body.height * k)), Image.LANCZOS)
+        w, h = -(-body.width // F), -(-body.height // F)
+        w, h = int(w), int(h)
+        out = Image.new("RGBA", (int(w * F), int(h * F)), (0, 0, 0, 0))
+        out.alpha_composite(body, ((out.width - body.width) // 2, out.height - body.height))
+        out.save(p, optimize=True)
+        print("   %s: %s -> %s Spielpixel" % (name, index[name][1:], [w, h]))
+        index[name] = [1, w, h]
+    json.dump(index, open(ip, "w"), indent=0, sort_keys=True)
+
+
 def icon_grid(path, cell):
     img = Image.open(path).convert("RGBA")
     if img.height != cell:
@@ -83,6 +108,7 @@ def halves():
 
 if __name__ == "__main__":
     park_tree()
+    grow()
     icon_grid(os.path.join(HD, "fine", "icons.png"), 136)
     icon_grid(os.path.join(HD, "icons.png"), 64)
     halves()

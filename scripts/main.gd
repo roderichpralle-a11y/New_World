@@ -264,6 +264,11 @@ func _maybe_autotest() -> void:
 		WorkDay.off = str(args.workday) == "0"
 	if args.has("agetest"):  # Zeitalter-Test nach dem Useraktionsplan (scripts/world/age_test.gd)
 		AgeTest.build(self, int(args.agetest))
+		if args.has("focus"):  # Testhilfe: Kamera auf das erste Gebäude dieser Art (Bildschirmfoto)
+			for b in world.buildings:
+				if b.type == str(args.focus):
+					camera.focus(b.position)
+					break
 		_bot = load("res://scripts/world/plan_bot.gd").new()
 		_bot.setup(self, args)
 		Game.set_speed(1)

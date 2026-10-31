@@ -589,7 +589,7 @@ func _defend(delta: float) -> void:
 		_shot_t = 0.3
 		return
 	_shot_t = float(d.interval)
-	var from := position + Vector2(0, -34)
+	var from := position + Vector2(0, -49)  # Spitze des Wachturms (1,5-mal so hoch, josh 2026-10-31)
 	world.spawn_arrow(from, an.position + Vector2(0, -6))
 	an.take_damage(float(d.damage) * Game.eff("tower"), self)
 
