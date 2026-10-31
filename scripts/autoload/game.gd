@@ -129,7 +129,14 @@ func _detect_test_build() -> void:
 		path = "/neu/"
 	if "--v2build" in OS.get_cmdline_user_args():
 		path = "/v2/"
-	if "/v2/" in path or "/v21/" in path:  # Version 2 mit joshs neuen Bildern: eigener Spielstand (seit 2026-10-30 unter /v21/, gleicher wie /v2/)
+	if "/v21test/" in path:  # Testversion von V2 (josh 2026-10-31): eigener Spielstand, anfangs eine Kopie von V2
+		build_tag = "v2t"
+		for n in range(1, SLOTS + 1):
+			var src := "user://savegame_v2.json" if n <= 1 else "user://savegame_v2_%d.json" % n
+			var dst := src.replace("_v2", "_v2t")
+			if FileAccess.file_exists(src) and not FileAccess.file_exists(dst):
+				DirAccess.copy_absolute(src, dst)
+	elif "/v2/" in path or "/v21/" in path:  # Version 2 mit joshs neuen Bildern: eigener Spielstand (seit 2026-10-30 unter /v21/, gleicher wie /v2/)
 		build_tag = "v2"
 	elif "/neu/" in path:  # Umbau "Mehr Herausforderung": eigener Spielstand
 		build_tag = "neu"
