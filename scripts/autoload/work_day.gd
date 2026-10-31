@@ -8,6 +8,7 @@ extends RefCounted
 ## Zahlen in data/people.json "workday": start, block, pause, awake (Stunden).
 
 const PHASES := ["sleep", "commute", "work", "pause", "free"]
+static var off := false  # Testhilfe --workday=0: alter Tagesablauf zum Vergleich
 
 
 static func _cfg(key: String, def: float) -> float:
@@ -16,7 +17,7 @@ static func _cfg(key: String, def: float) -> float:
 
 ## Gilt der feste Arbeitstag für diesen Siedler? Ab Lebensstil Wohlstand, nur Erwachsene, ohne Anordnung.
 static func active(s) -> bool:
-	if not s.is_adult() or s.world == null:
+	if off or not s.is_adult() or s.world == null:
 		return false
 	if SettlerMind.comfort() < _cfg("from_comfort", 0.75):
 		return false

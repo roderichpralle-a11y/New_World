@@ -249,7 +249,15 @@ func _maybe_autotest() -> void:
 			await sys.autotest_setup(args, self)
 	if args.has("integtest"):
 		await IntegrationTest.run(self)  # Zusammenspiel der Erweiterungen (scripts/autoload/integration_test.gd)
-	if args.has("bot"):
+	if args.has("workday"):
+		WorkDay.off = str(args.workday) == "0"
+	if args.has("agetest"):  # Zeitalter-Test nach dem Useraktionsplan (scripts/world/age_test.gd)
+		AgeTest.build(self, int(args.agetest))
+		_bot = load("res://scripts/world/plan_bot.gd").new()
+		_bot.setup(self, args)
+		Game.set_speed(1)
+		Engine.time_scale = scale
+	elif args.has("bot"):
 		_bot = load("res://scripts/world/bot.gd").new()  # Spiel-Bot v2 (scripts/world/bot.gd)
 		_bot.setup(self, args)
 	var elapsed := 0.0
@@ -332,6 +340,13 @@ func _maybe_autotest() -> void:
 				Game.population(), Game.housing_capacity(), Game.amount("holz"), Game.amount("stein"), Game.total_food(), jobs])
 		if Game.is_over:
 			break
+		if args.has("agetest") and (Exams.passed > AgeTest.age or Game.day() >= AgeTest.limit_day):
+			break
+	if args.has("agetest"):
+		print(AgeTest.start_text)
+		print("AGETEST Ende: Zeitalter %d %s, Pruefung %s am Tag %d (Limit %d), Siedler %d auf %d Inseln" % [AgeTest.age,
+			Data.age_name(AgeTest.age), "BESTANDEN" if Exams.passed > AgeTest.age else "NICHT bestanden", Game.day(), AgeTest.limit_day,
+			Sea.total_people(), Sea.settled_islands().size()])
 	if _bot:
 		_bot.finish()
 	if args.has("storetest"):
