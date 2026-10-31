@@ -324,7 +324,7 @@ func autotest_setup(args: Dictionary, main) -> void:
 	if args.has("queuetest"):
 		_queue_test(w)
 	if args.has("v2test"):
-		_v2_test(w)
+		_v2_test(w, main)
 	if args.has("cartshot"):
 		await CartTest.run(main, args)
 
@@ -480,7 +480,7 @@ func _name_test(w) -> void:
 
 ## --v2test=1: Wünsche vom 2026-10-28 für Version 2: Abriss gibt 70 % auch bei vollem Lager, Straße kostet
 ## 5 Steine, Beruf mit Vergeber, Bäume versperren keinen Weg, Expeditionsschiff zerfällt in sein Baumaterial.
-func _v2_test(w) -> void:
+func _v2_test(w, main = null) -> void:
 	var all_ok := true
 	# Abriss: Lager voll, trotzdem 70 %
 	var free := Vector2i(-1, -1)
@@ -632,6 +632,20 @@ func _v2_test(w) -> void:
 	var ok_log: bool = Admin.log_entries.size() == n0 + 1 and (sd.admin.log as Array).size() == n0 + 1
 	all_ok = all_ok and ok_log
 	print("V2 ", "OK" if ok_log else "FEHLER", " Log hat %d Einträge, gespeichert %d" % [Admin.log_entries.size(), (sd.admin.log as Array).size()])
+	# Infofenster in der Pause (josh 2026-10-31): auch der zweite gewählte Siedler zeigt gleich seine Laune
+	if main != null and w.settlers.size() >= 2:
+		var sp: int = Game.speed
+		Game.set_speed(0)
+		Game.select(w.settlers[0])
+		Game.select(w.settlers[1])
+		var mood_ok := false
+		for n in main.hud._info_box.find_children("*", "Label", true, false):
+			if (n as Label).text.begins_with(tr("Laune: %s").split("%")[0]) and (n as Label).text.length() > 8:
+				mood_ok = true
+		Game.select(null)
+		Game.set_speed(sp)
+		all_ok = all_ok and mood_ok
+		print("V2 ", "OK" if mood_ok else "FEHLER", " Pause: zweiter Siedler zeigt seine Laune sofort")
 	print("V2 ", "OK" if all_ok else "FEHLER", " (Ende)")
 
 
