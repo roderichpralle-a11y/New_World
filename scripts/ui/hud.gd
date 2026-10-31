@@ -68,7 +68,7 @@ var _toasts: VBoxContainer
 var _toasts_top: VBoxContainer  # über allen Fenstern
 var _toasts_top_y := 56.0  # Platz der Meldungen ohne Sprechblase (von _layout gesetzt)
 var _overlay: Control
-var _info_timer: float = 0.0
+var _info_next_ms := 0  # nächste Auffrischung des Infofensters (Time.get_ticks_msec)
 var _info_obj = null
 var _demolish_armed: bool = false
 var _follow: bool = false
@@ -3158,6 +3158,8 @@ func _rebuild_info() -> void:
 		_info_node(o)
 	elif o is Animal:
 		_info_animal(o)
+	for u in _updaters:  # Werte gleich füllen, nicht erst beim nächsten Auffrischen (in der Pause blieben sie leer)
+		u.call()
 
 
 func _info_settler(s: Settler) -> void:
@@ -4187,9 +4189,10 @@ func _process(delta: float) -> void:
 		_research_tick = 0.5
 		if not _research_panel.visible or user_just_acted():
 			_update_research_head()
-	_info_timer -= delta / max(Engine.time_scale, 0.001) if Engine.time_scale > 0 else delta
-	if _info_panel.visible and _info_timer <= 0.0:
-		_info_timer = 0.5
+	# echte Zeit: in der Pause ist delta 0 und das Fenster blieb sonst stehen (josh 2026-10-31)
+	var now_ms := Time.get_ticks_msec()
+	if _info_panel.visible and now_ms >= _info_next_ms:
+		_info_next_ms = now_ms + 500
 		if _info_obj == null or not is_instance_valid(_info_obj):
 			Game.select(null)
 		elif not _demolish_armed:
