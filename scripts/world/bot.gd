@@ -38,6 +38,14 @@ var _was_winter := false
 var _proven_pop := 0  # so viele Siedler hat der letzte Winter sicher ernährt
 var _limits_next := 0.0
 var _next_build := ""  # erstes Gebäude der Wunschliste, für das noch Material fehlt
+var shown: Array = []  # Probelauf im Browser (josh 2026-10-31): die letzten Spielerzüge in Worten, für die Anzeige
+
+
+## Ein Spielerzug in Worten (Probelauf zeigt die letzten an).
+func _show(text: String) -> void:
+	shown.append("%s  %s" % [Game.clock_text(), text])
+	if shown.size() > 5:
+		shown.pop_front()
 
 
 func setup(m, a: Dictionary) -> void:
@@ -124,6 +132,7 @@ func _skip_tutorial() -> void:
 	_tut_done = true
 	if Quests.in_tutorial():
 		main.hud.goal_card._skip.pressed.emit()
+		_show(tr("Überspringt die Einführung"))
 		print("BOT: Einführung übersprungen (Tag %.2f)" % Game.time_days)
 
 
@@ -278,6 +287,7 @@ func _research() -> void:
 				continue
 		if Game.start_research(t) == "":
 			_research_log.append([t, Game.day()])
+			_show(tr("Forschung: %s") % Data.techs[t].name)
 			print("BOT: Forschung gestartet: %s (Tag %d, %d erforscht)" % [t, Game.day(), Game.research.done.size()])
 			return
 
@@ -299,6 +309,7 @@ func _quests() -> void:
 	var txt: String = Quests.text_of(q)
 	if Quests.accept(best) == "":
 		_quest_log.append(txt)
+		_show(tr("Nimmt Auftrag an: %s") % txt)
 		print("BOT: Auftrag angenommen (Tag %d): %s | Belohnung %s | Wert %.1f" % [Game.day(), txt, Quests.reward_text(q.reward), best_v])
 
 
@@ -477,6 +488,7 @@ func _build() -> void:
 		w.place_building(type, c, false)
 		Game.player_action.emit("place", type)
 		_placed[type] = int(_placed.get(type, 0)) + 1
+		_show(tr("Baut: %s") % Data.buildings[type].name)
 		print("BOT: Baustelle %s bei %s (%s), Tag %d" % [type, c, item[1], Game.day()])
 		return  # eine Baustelle je Takt
 
@@ -758,6 +770,8 @@ func _skill_for(s, job: String) -> float:
 func _set_job(s, job: String) -> void:
 	if s.job == job:
 		return
+	if job != "frei":
+		_show(tr("%s wird %s") % [s.display_name, Data.jobs[job].name if Data.jobs.has(job) else job])
 	s.set_job(job)
 	Game.player_action.emit("job", job)
 	_job_changes += 1

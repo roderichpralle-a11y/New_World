@@ -33,6 +33,7 @@ var SAVE_PATH := LIVE_SAVE_PATH
 var is_test_build := false
 ## "test" (/test/) oder "neu" (/neu/, Umbau "Mehr Herausforderung"); leer im normalen Spiel
 var build_tag := ""
+var probelauf := false  # /v21test/?probelauf: Spiel-Bot spielt nach dem Useraktionsplan, der Spieler steuert nur das Tempo
 ## Fuenf Spielstaende: Platz 1 ist die bisherige Datei, die anderen haengen _2 .. _5 an.
 ## Der aktive Platz steht in user://settings.cfg [game] slot (Testversion: slot_test).
 const SLOTS := 5
@@ -129,7 +130,14 @@ func _detect_test_build() -> void:
 		path = "/neu/"
 	if "--v2build" in OS.get_cmdline_user_args():
 		path = "/v2/"
-	if "/v21test/" in path:  # Testversion von V2 (josh 2026-10-31): eigener Spielstand, anfangs eine Kopie von V2
+	var search := str(JavaScriptBridge.eval("window.location.search", true)) if OS.has_feature("web") else ""
+	if "--probelauf" in OS.get_cmdline_user_args():
+		path = "/v21test/"
+		search = "?probelauf"
+	if "/v21test/" in path and "probelauf" in search:  # Probelauf (josh 2026-10-31): der Bot spielt, eigener Spielstand
+		build_tag = "v2probe"
+		probelauf = true
+	elif "/v21test/" in path:  # Testversion von V2 (josh 2026-10-31): eigener Spielstand, anfangs eine Kopie von V2
 		build_tag = "v2t"
 		for n in range(1, SLOTS + 1):
 			var src := "user://savegame_v2.json" if n <= 1 else "user://savegame_v2_%d.json" % n
@@ -154,7 +162,7 @@ func _detect_test_build() -> void:
 		var p := LIVE_SAVE_PATH if n <= 1 else LIVE_SAVE_PATH.replace(".json", "_%d.json" % n)
 		if FileAccess.file_exists(p):
 			live = p
-	if not FileAccess.file_exists(SAVE_PATH) and FileAccess.file_exists(live):
+	if not probelauf and not FileAccess.file_exists(SAVE_PATH) and FileAccess.file_exists(live):  # Probelauf beginnt neu
 		DirAccess.copy_absolute(live, SAVE_PATH)
 
 

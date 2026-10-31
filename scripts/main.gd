@@ -36,7 +36,9 @@ func _ready() -> void:
 			world.cancel_placement())
 	_focus_start()
 	Game.set_speed(0)
-	if Game.autostart == "continue" and not save.is_empty():
+	if Game.probelauf:
+		_start_probe(save.is_empty())
+	elif Game.autostart == "continue" and not save.is_empty():
 		_on_continue()
 	elif Game.autostart != "":
 		_on_new_game()
@@ -1090,6 +1092,49 @@ func _autotest_school() -> void:
 
 var _args := {}
 var _bot = null  # Spiel-Bot v2 (--bot=1)
+var _probe_label: Label = null
+var _probe_t := 0.0
+
+
+## Probelauf im Browser (josh 2026-10-31, /v21test/?probelauf): neues Spiel oder weiter, der Bot spielt jede
+## Sekunde einen Takt, oben links stehen seine letzten Züge. Der Spieler steuert nur die Geschwindigkeit.
+func _start_probe(fresh: bool) -> void:
+	if fresh:
+		_on_new_game()
+	else:
+		_on_continue()
+	_bot = load("res://scripts/world/bot.gd").new()
+	_bot.setup(self, {})
+	Game.set_speed.call_deferred(1)
+	var panel := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0, 0, 0, 0.55)
+	sb.set_corner_radius_all(6)
+	sb.set_content_margin_all(8)
+	panel.add_theme_stylebox_override("panel", sb)
+	panel.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	panel.offset_left = 12
+	panel.offset_bottom = -12
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_probe_label = Label.new()
+	_probe_label.add_theme_font_size_override("font_size", 13)
+	_probe_label.add_theme_color_override("font_color", Color(1, 1, 0.85))
+	panel.add_child(_probe_label)
+	hud.add_child(panel)
+
+
+func _process(_delta: float) -> void:
+	if not Game.probelauf or _bot == null:
+		return
+	var now := Time.get_ticks_msec() / 1000.0  # echte Sekunden: delta steht bei Pause auf 0
+	if now - _probe_t < 1.0:
+		return
+	_probe_t = now
+	if Game.speed > 0:
+		_bot.tick(0.0)
+	if _probe_label:
+		_probe_label.text = tr("Probelauf: der Bot spielt, du steuerst die Geschwindigkeit") + "\n" + "\n".join(_bot.shown)
 const AGE_TECHS := ["glasmacherei", "papier", "hochschule", "stahl", "fabrik", "konservendose", "mietshaus",
 	"elektrizitaet", "gewaechshaus", "wohnblock", "computer", "solarenergie", "internet", "ki", "fusionsenergie", "zukunftsstadt"]
 
