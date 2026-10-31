@@ -64,6 +64,7 @@
   "leisure_share_max": 0.3,
   "leisure_break_min": 8.0,
   "leisure_break_max": 16.0,
+  "workday": {"from_comfort": 0.75, "start": 6.0, "block": 4.0, "pause": 1.0, "awake": 18.0, "get_up": 0.25},
 
   "work_hungry": 0.75,
   "work_starving": 0.5,

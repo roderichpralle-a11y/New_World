@@ -539,8 +539,15 @@ func _think() -> void:
 		if _plan_deliver():
 			return
 		_stat_kind = "needs"
+	# Fester Arbeitstag ab Wohlstand (WorkDay): in der Arbeitszeit essen nur sehr Hungrige, in der Pause alle
+	var wd := WorkDay.phase(self) if WorkDay.active(self) else ""
 	# 2. Essen
-	if hunger < float(Data.bal("eat_below")) and Game.total_food(world) > 0:
+	var eat_at := float(Data.bal("eat_below"))
+	if wd == "work":
+		eat_at *= 0.5
+	elif wd == "pause":
+		eat_at = float(Data.bal("eat_until")) - 10.0
+	if hunger < eat_at and Game.total_food(world) > 0:
 		if _plan_eat():
 			return
 	# 2b. Nichts im Lager (oder Lager voll): Hungrige essen direkt am Strauch oder Ufer
@@ -565,8 +572,15 @@ func _think() -> void:
 		else:
 			_plan_wander(5, tr("Spielt"))
 		return
-	# 5. Freizeit (erst wenn die Siedlung weiter entwickelt ist)
-	if mind.wants_break() and not Admin.overtime(job, world) and _plan_leisure():  # Überstunden: keine Pausen
+	# 5. Freizeit: mit festem Arbeitstag Mittagspause nahe der Arbeit und Feierabend, sonst nach Erholung
+	if wd == "pause":
+		_plan_wander(3, tr("Macht Mittagspause"), cell)  # in der Nähe, damit er nach einer Stunde wieder dort ist
+		return
+	if wd == "free":
+		if not _plan_leisure():
+			_plan_wander(4, tr("Hat Feierabend"))
+		return
+	if wd == "" and mind.wants_break() and not Admin.overtime(job, world) and _plan_leisure():  # Überstunden: keine Pausen
 		return
 	# 6. Arbeit
 	if _plan_work():
@@ -1308,6 +1322,8 @@ func _plan_office() -> bool:
 
 ## Schlafenszeit? Nachts, außer bei Schichtarbeit für die Hälfte, die diese Nacht durcharbeitet.
 func _sleep_time() -> bool:
+	if WorkDay.active(self):
+		return WorkDay.phase(self) == "sleep"  # fester Arbeitstag ab Wohlstand (josh 2026-10-31)
 	return Admin.sleep_time(self)
 
 

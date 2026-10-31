@@ -2568,5 +2568,7 @@
  "Holz für Wärme und Werkstätten": "Wood for heating and workshops",
  "Forschung %s": "Research %s",
  "%s ist jetzt frei: im Beruf %s gibt es gerade nichts zu tun (%d %% Leerlauf). Du kannst ihn einsetzen.": "%s is now free: there is nothing to do as %s right now (%d %% idle). You can assign them.",
- "Forschung %s wartet, es fehlen: %s.": "Research %s is waiting, missing: %s."
+ "Forschung %s wartet, es fehlen: %s.": "Research %s is waiting, missing: %s.",
+ "Macht Mittagspause": "Lunch break",
+ "Hat Feierabend": "Off work"
 }

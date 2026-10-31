@@ -157,6 +157,11 @@ teils das frühere Verhalten (Angebote, Automat baut, Planer) und schlagen dort 
   `_release`: liegt ein Beruf einen halben Tag über dem Soll, werden Leute mit mindestens 40 % Leerlauf frei
   (josh: wer weder arbeitet noch forscht und nicht gebraucht wird), mit Meldung. Notfall: lässt sich Essen/Wärme
   nicht sichern, Überstunden, dann Schichten; Ende nach 2 Tagen ohne Not.
+- **Arbeitstag ab Wohlstand** (josh 2026-10-31, Schritt 1, `WorkDay`, people.json `workday`): Erwachsene ab
+  Lebensstil Wohlstand (comfort 0,75) ohne Überstunden/Schicht sind um 6 Uhr am Arbeitsplatz (Aufstehen = 6 Uhr minus
+  Weg Wohnung–nächster Arbeitsplatz minus 0,25 h), arbeiten 6–10 und 11–15, Mittagspause nahe der Arbeit (essen,
+  wenn nicht satt), danach Feierabend in der Freizeit; 18 Stunden wach. In der Arbeitszeit essen nur sehr Hungrige.
+  Im Testlabor (voll) stieg der Ertrag gegenüber vorher etwa auf das 1,5- bis 2-Fache (Mehl 20 -> 30–40 am Tag).
 - **Testlabor** `--autotest=200 --scale=15 --vlab=1|voll|bad|free` (`StewardLab`): Insel mit 100 Siedlern, Verwaltung
   Stufe 4, Forschung bis Stufe 8, alle Befugnisse Selbst; täglich ein Bericht (Essen, Waren, Erzeugtes, Berufe mit
   Leerlauf, Soll, Werkstätten, Engpässe). Ergebnis 2026-10-30: Werkstätten schaffen wegen Freizeit und Wegen nur etwa
