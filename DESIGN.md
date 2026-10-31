@@ -141,25 +141,12 @@ teils das frühere Verhalten (Angebote, Automat baut, Planer) und schlagen dort 
 - **Verwalter stirbt** (josh 2026-10-29): `Admin._refill_manager` besetzt den Posten immer sofort, ohne Befugnis
   (nach seinem Tod ist `Admin.level()` 0): ein Freier (Talent zuerst), sonst ein Erwachsener aus dem Beruf mit den
   meisten Leuten (keine Seeleute), sonst das nächste erwachsene Kind (`pending_jobs` vorn).
-- **Stellenplan** (josh 2026-10-30, Versuch mit 100 Siedlern, `scripts/autoload/staff_plan.gd`, Klasse `StaffPlan`):
-  `targets(w)` gibt je Beruf ein Soll. Werkstätten zählen mit allen Plätzen, wenn eine ihrer Waren unter dem
-  Zielvorrat liegt (`stock_targets`: Mindestvorräte, Hausbedürfnisse für 4 Tage, Forschungskosten oder Rest-Schriften,
-  Baustellen, zubereitetes Essen für 6 Tage plus Wintervorrat, Zutaten der aktiven Werkstätten dreimal rückwärts
-  durchgereicht, jede Ware mindestens 30) und Zutaten da sind oder auf der Insel gerade entstehen (`_fed`).
-  Rohnahrung nach Vorrat: unter Bedarf für 3 Tage plus `winter_days()` (Sommer und Herbst ein ganzer Winter) arbeiten
-  alle Plätze, an denen etwas wächst (Felder je 4 ein Bauer, Fischgründe, wachsende Sträucher je 4, Tiere je 4), sonst
-  anteilig; `_useful` begrenzt auf die, die wirklich Arbeit finden. Holz nach Heizen plus Werkstätten, höchstens reife
-  Bäume / 6. Weizen oder Fisch über 150 im Lager, Essen knapp und die Küchen voll: Engpass „baue mehr davon“.
-- **Entscheidungen** (`Steward.tick` alle 0,25 Tage, je Runde 1 + Erwachsene/10 Wechsel): `needs` = Lücken zum
-  Stellenplan, nach Befugnis sortiert (Essen und Wärme dürfen Spieler-Siedler nehmen, sonst Freie, dann Überzählige).
-  `_release`: liegt ein Beruf einen halben Tag über dem Soll, werden Leute mit mindestens 40 % Leerlauf frei
-  (josh: wer weder arbeitet noch forscht und nicht gebraucht wird), mit Meldung. Notfall: lässt sich Essen/Wärme
-  nicht sichern, Überstunden, dann Schichten; Ende nach 2 Tagen ohne Not.
-- **Testlabor** `--autotest=200 --scale=15 --vlab=1|voll|bad|free` (`StewardLab`): Insel mit 100 Siedlern, Verwaltung
-  Stufe 4, Forschung bis Stufe 8, alle Befugnisse Selbst; täglich ein Bericht (Essen, Waren, Erzeugtes, Berufe mit
-  Leerlauf, Soll, Werkstätten, Engpässe). Ergebnis 2026-10-30: Werkstätten schaffen wegen Freizeit und Wegen nur etwa
-  ein Zehntel der Rechnung `CYCLES` (Windmühle rund 4 Mehl am Tag), darum staut sich Weizen; der Verwalter kann das
-  nur melden, nicht bauen.
+- **Entscheidungen** (`Steward.tick` alle 0,25 Tage, höchstens ein Wechsel je Insel und halben Tag, `Steward.needs`
+  in dieser Reihenfolge): Essen und Wärme für 3 Tage (`secure_info`: Bedarf aus Siedlern, Häusern, Gebäuden gegen
+  Vorrat + Ertrag der jetzigen Arbeiter; darf Spieler-Siedler nehmen), Grundbesetzung (Baumeister bei Baustellen,
+  Bauern nach Feldern UND Ställen, Holzfäller für die Wärme, Werkstätten mit Zutaten und Bedarf; nur Freie; wer einen
+  Tag frei ist, bekommt einen Beruf), Mindestvorräte (Reiter Vorräte). Notfall: lässt sich Essen/Wärme nicht sichern,
+  Überstunden, dann Schichten; Ende nach 2 Tagen ohne Not. Der Spieler teilt den Rest ein (JobDesk-Rang spieler).
 - **Planungsautomat** (Stufe 5, `Planner.active()` ist immer false: er baut nicht): jeden Sommer `PlanReport.make()`
   -> `Planner.report` (Spielstand); je Insel Karte (`PlanReport.map_image`), Straßen, Gebäude zum Verschieben,
   Tipps, nächste Insel zum Besiedeln; mit Rundfunkanstalt der Versorgungsplan. Reiter Gutachten im Fenster Verwalter.
