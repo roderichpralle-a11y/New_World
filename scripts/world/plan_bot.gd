@@ -242,6 +242,8 @@ func _goals() -> Dictionary:
 		g["werkzeug"] = 25
 		g["kohle"] = 40
 		g["bretter"] = 40
+	g["holz"] = int(heat_reserve()) + (40 if Seasons.season() == Seasons.SPRING else 30)
+	g["stein"] = 60 if _has("steinbruch") else 40
 	for x in Exams.status(Exams.passed):
 		var c: Dictionary = x[0]
 		if str(c.get("type", "")) == "stock":
@@ -311,7 +313,7 @@ func _min_stocks() -> void:
 	_mins_next = Game.time_days + 1.0
 	var g := _goals()
 	for k in g:
-		if not MIN_STOCK.has(k) and Exams.status(Exams.passed).all(func(x): return str(x[0].get("what", "")) != k):
+		if not MIN_STOCK.has(k) and not k in ["holz", "stein"] and Exams.status(Exams.passed).all(func(x): return str(x[0].get("what", "")) != k):
 			continue
 		var cur: Array = Steward.limits(0, k)
 		if int(cur[0]) != int(g[k]):
@@ -323,10 +325,54 @@ func _jobs() -> void:
 	# Mit Verwaltung teilt der Verwalter die Berufe ein; der Bot nur Forscher (Abschnitt 2, Punkt 6)
 	if _home() and Admin.level() >= 1 and Admin.manager() != null:
 		_researchers()
+		_emergency()
 		return
 	if not _home() and Powers.covers(w):
 		return
 	super._jobs()
+
+
+## Notfallregeln (Abschnitt 8) mit Verwalter: Kälte und Winterholz. Der Bot greift wie ein Spieler ein.
+var _emerg_next := 0.0
+var _cold := false
+
+
+func _emergency() -> void:
+	if Game.time_days < _emerg_next:
+		return
+	_emerg_next = Game.time_days + 0.25
+	var adults := _adults()
+	var pop: int = w.settlers.size()
+	var heat_day: float = Seasons.heat_per_settler() * pop
+	var fuel: float = Extras.fuel(w)
+	var cold: bool = heat_day > 0.0 and fuel < heat_day * 1.5
+	var burners := ["papiermuehle", "saegegrube", "ziegelei", "raeucherei", "glashuette"]
+	if cold != _cold:
+		_cold = cold
+		print("BOT: Kälte-Notfall %s (Brennstoff %d, Heizbedarf %.1f am Tag, Tag %d)" % ["an" if cold else "aus", int(fuel), heat_day, Game.day()])
+		if cold:
+			_show(tr("Kälte: Holzfäller und Werkstätten, die Holz verbrennen, angehalten"))
+	if cold:
+		for b in w.buildings:
+			if b.complete and b.type in burners:
+				b.paused = true
+			if b.complete and b.type == "baeckerei" and Game.food_days(w) >= 1.0:
+				b.paused = true
+	# Holzfäller-Soll: Kälte 2 zusätzlich, sonst so viele, dass die Heizreserve bis zum Frühling + 30 erreicht wird
+	var have: Array = adults.filter(func(s): return s.job == "holzfaeller")
+	var target: float = heat_reserve() + 30.0 + float(_site_need("holz"))
+	var want: int = have.size()
+	if cold:
+		want = have.size() + 2
+	elif Game.amount("holz", w) < target:
+		want = maxi(have.size(), 1 + ceili((target - Game.amount("holz", w)) / 40.0))
+	want = mini(want, maxi(2, adults.size() / 4))
+	if want <= have.size():
+		return
+	var cand: Array = adults.filter(func(s): return s.job in ["frei", "sammler", "steinmetz", "handwerker", "koch", "bauer"])
+	cand.sort_custom(func(a, b): return (0 if a.job == "frei" else 1) < (0 if b.job == "frei" else 1))
+	for i in mini(want - have.size(), cand.size()):
+		_set_job(cand[i], "holzfaeller")
 
 
 func _researchers() -> void:
@@ -391,7 +437,7 @@ func _ships() -> void:
 	if yard == null:
 		return
 	var known: Array = Sea.islands.filter(func(m): return m.state == "discovered")
-	var mine: Array = Sea.ships_of(0)
+	var mine: Array = Sea.ships.filter(func(sh): return int(sh.get("home", 0)) == 0)
 	var has_boat: bool = mine.any(func(sh): return not Sea.is_expedition(sh)) or "boot" in yard.ship_queue or yard.ship_wip == "boot"
 	var has_exp: bool = mine.any(func(sh): return Sea.is_expedition(sh)) or "expedition" in yard.ship_queue or yard.ship_wip == "expedition"
 	# 1. Ruderboot und Erkundung, bis 2 unbesiedelte Inseln bekannt sind
