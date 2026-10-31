@@ -1810,6 +1810,9 @@ func night_factor() -> float:
 func _process(delta: float) -> void:
 	if day_tint == null:
 		return
+	if not visible:
+		_hidden_process()  # unsichtbare Insel: nur rechnen, nicht zeichnen (Prüfbericht 2026-10-31)
+		return
 	var nf := night_factor()
 	var t := Game.time_of_day()
 	var day_col := Color(1, 1, 1)
@@ -1838,6 +1841,21 @@ func _process(delta: float) -> void:
 		d[0].frame = int(Time.get_ticks_msec() / 600) % 2
 		if Game.time_days > d[1]:
 			d[0].queue_free()
+			decor.remove_at(i)
+	_process_dens(delta)
+	_update_danger(delta)
+
+
+## Was auf einer unsichtbaren Insel weiterläuft: Gräber und Schmuck verschwinden, Tierbaue, Gefahren.
+func _hidden_process() -> void:
+	var delta := get_process_delta_time()
+	for i in range(graves.size() - 1, -1, -1):
+		if Game.time_days > graves[i][1]:
+			graves[i][0].queue_free()
+			graves.remove_at(i)
+	for i in range(decor.size() - 1, -1, -1):
+		if Game.time_days > decor[i][1]:
+			decor[i][0].queue_free()
 			decor.remove_at(i)
 	_process_dens(delta)
 	_update_danger(delta)

@@ -281,10 +281,22 @@ func _goals() -> Dictionary:
 
 
 func _workshops() -> Dictionary:
-	var jobs: Dictionary = super._workshops()
+	# Mit Verwalter: nur anhalten, was über dem Doppelten des Ziels liegt (Abschnitt 3, Grenzen). Fehlt ein
+	# Vorprodukt, bleibt die Werkstatt an, damit der Verwalter sie besetzt und der Nachschub nachgezogen wird.
+	var steward_mode: bool = _home() and Admin.level() >= 1 and Admin.manager() != null
+	var jobs: Dictionary = {} if steward_mode else super._workshops()
 	var g := _goals()
 	for b in w.buildings:
-		if not b.complete or not b.def.has("production") or b.type in OWN or b.def.get("ships", false):
+		if not b.complete or not b.def.has("production") or b.def.get("ships", false):
+			continue
+		if b.type in OWN and not steward_mode:
+			continue
+		if steward_mode:
+			var over := true
+			for o in b.prod_def().get("outputs", {}):
+				if Game.amount(o, w) < int(g.get(o, 0)) * 2 or (b.type in ["muehle", "baeckerei", "raeucherei", "huehnerhof"] and Game.food_days(w) < 4.0):
+					over = false
+			b.paused = over
 			continue
 		var outs: Dictionary = b.prod_def().get("outputs", {})
 		var ins: Dictionary = b.prod_def().get("inputs", {})
@@ -365,7 +377,7 @@ func _emergency() -> void:
 	if cold:
 		want = have.size() + 2
 	elif Game.amount("holz", w) < target:
-		want = maxi(have.size(), 1 + ceili((target - Game.amount("holz", w)) / 40.0))
+		want = maxi(have.size(), 1 + ceili((target - Game.amount("holz", w)) / 20.0))
 	want = mini(want, maxi(2, adults.size() / 4))
 	if want <= have.size():
 		return

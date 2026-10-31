@@ -437,7 +437,8 @@ func _process(delta: float) -> void:
 		_run_action(delta)
 	if is_adult() and not Game.is_night():
 		_count_busy(days)
-	_animate(delta)
+	if world.visible:  # unsichtbare Insel: rechnen ja, Bilder wechseln nein (Prüfbericht 2026-10-31)
+		_animate(delta)
 
 
 func _count_busy(days: float) -> void:

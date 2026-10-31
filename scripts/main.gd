@@ -249,6 +249,17 @@ func _maybe_autotest() -> void:
 			await sys.autotest_setup(args, self)
 	if args.has("integtest"):
 		await IntegrationTest.run(self)  # Zusammenspiel der Erweiterungen (scripts/autoload/integration_test.gd)
+	if args.has("genroofs"):  # Dachfelder vorab berechnen (Building.roof_offsets) und nach data/roofs.json schreiben
+		var out := {}
+		for t in Data.buildings:
+			var r: Array = Building.roof_offsets(t, true)
+			out[t] = r.map(func(v): return [v.x, v.y])
+		var f := FileAccess.open("res://data/roofs.json", FileAccess.WRITE)
+		f.store_string(JSON.stringify(out, "", true))
+		f.close()
+		print("Dachfelder: %d Gebäudearten nach data/roofs.json" % out.size())
+		get_tree().quit()
+		return
 	if args.has("workday"):
 		WorkDay.off = str(args.workday) == "0"
 	if args.has("agetest"):  # Zeitalter-Test nach dem Useraktionsplan (scripts/world/age_test.gd)

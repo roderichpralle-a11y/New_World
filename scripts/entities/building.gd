@@ -160,9 +160,27 @@ func roof_cells() -> Array:
 	return out
 
 
-static func roof_offsets(t: String) -> Array:
+static var _roof_file = null
+
+
+## Dachfelder, vorab berechnet (data/roofs.json, erzeugt mit --genroofs=1): das Spiel muss dafür keine
+## Bilddaten zurücklesen (Prüfbericht Grafik 2026-10-31). Fehlt ein Eintrag, wird wie früher gerechnet.
+static func roof_offsets(t: String, compute := false) -> Array:
 	if _roof_cache.has(t):
 		return _roof_cache[t]
+	if _roof_file == null:
+		_roof_file = {}
+		var f := FileAccess.open("res://data/roofs.json", FileAccess.READ)
+		if f:
+			var dd = JSON.parse_string(f.get_as_text())
+			if dd is Dictionary:
+				_roof_file = dd
+	if not compute and _roof_file.has(t):
+		var pre := []
+		for v in _roof_file[t]:
+			pre.append(Vector2i(int(v[0]), int(v[1])))
+		_roof_cache[t] = pre
+		return pre
 	var d: Dictionary = Data.buildings[t]
 	var res := []
 	_roof_cache[t] = res
@@ -492,6 +510,9 @@ var _smoke_t: float = 0.0
 
 
 func _process(delta: float) -> void:
+	if world != null and not world.visible:
+		_hidden_process()  # unsichtbare Insel: nur rechnen, nicht zeichnen (Prüfbericht 2026-10-31)
+		return
 	if complete and _sprite and is_active():
 		var frames := Data.object_frames(def.sprite)
 		if frames > 1:
@@ -540,6 +561,19 @@ func _process(delta: float) -> void:
 
 var _last_stage := -1
 var _shot_t: float = 0.0
+
+
+## Was auf einer unsichtbaren Insel weiterläuft: Wachturm und Wachstum der Felder (ohne Bildwechsel).
+func _hidden_process() -> void:
+	if complete and def.has("defense") and not world.animals.is_empty():
+		_defend(get_process_delta_time())
+	if _light and _light.visible:
+		_light.visible = false
+	if (is_ground() or def.has("farm")) and complete and farm_state == "growing":
+		farm_time += Seasons.dt_days * (1.0 - Seasons.growth(type, world))
+		if Game.time_days - farm_time >= grow_days():
+			farm_state = "ripe"
+			refresh()
 
 
 ## Wachturm: schiesst Pfeile auf das naechste Tier in Reichweite.

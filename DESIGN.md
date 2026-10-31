@@ -2112,3 +2112,15 @@ eine Meldung „schon die neueste“ oder „Server antwortet nicht“. Kein Abr
 Das Menü hat keinen Knopf „Neues Spiel“ mehr; ein neues Spiel beginnt über Spielstände oder das Titelbild. Test: `--panel=update --shot=...`. `Game.load_newest_version()` speichert,
 sperrt weiteres Speichern, löscht nur die Caches `Insel-Siedler-sw-cache-*` (die KI-Modelle liegen in
 anderen Caches), meldet den Service Worker ab, holt index.html/js/pck neu und lädt mit `?v=` neu.
+
+### Bilder vorbereitet vor dem Export (josh 2026-10-31, Prüfbericht Grafik, Testversion /v21test/)
+- `tools/art_v2/vorbereiten.py` (nach build.py / bilder_fein.py laufen lassen): Zierbaum `park_tree` als eigenes Bild in big/,
+  Symbolbögen `icons.png` als Raster mit 16 Symbolen je Zeile (fine war 12648 Punkte breit), halbe Fassungen für iPhone/iPad in
+  `assets/sprites_hd/half/` (fine/ und big/) samt `half/sizes.json`. `Data.game_tex` nimmt auf kleinen Bildschirmen die halbe Datei,
+  verkleinert wird zur Laufzeit nur noch als Ersatz. `Data.icon` rechnet Zeile und Spalte aus der Breite des Bogens.
+- Der alte Gebäudeatlas `assets/sprites_hd/buildings.png` wird nicht mehr geladen (`Data.tex_buildings` erst bei Bedarf) und nicht exportiert.
+- Dachfelder (`Building.roof_offsets`) stehen vorab in `data/roofs.json`; neu erzeugen nach Bildänderungen mit
+  `godot --headless -- --autotest=1 --genroofs=1`.
+- Unsichtbare Inseln: World, Gebäude, Siedler, Tiere und Rohstoffe wechseln keine Bilder (`_hidden_process`), die Simulation
+  (Bedürfnisse, Arbeit, Felder, Wachturm, Tierbaue) läuft weiter. Testhilfe `--small` tut so, als wäre es ein iPhone.
+- Zeitalter-Test: `--agetest=0..6 [--workday=0]` (scripts/world/age_test.gd, plan_bot.gd) spielt den Useraktionsplan je Zeitalter.
