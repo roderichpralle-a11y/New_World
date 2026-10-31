@@ -302,6 +302,12 @@ static func run(main, mode: String) -> void:
 	Powers.mode = {}
 	Powers._on_load(d, 99)
 	_ok(Powers.mode_of("notfall") == Powers.SELBST and Powers.mode_of("forschung") == Powers.FRAGEN, "Spielstand: Schalter bleiben")
+	# Stellenplan erst ab Baumeisterkunst (josh 2026-10-31)
+	_ok(Steward.plan_active(), "mit Baumeisterkunst gilt der Stellenplan")
+	Game.research.done.erase("baumeisterkunst")
+	var simple := Steward.needs(w)
+	_ok(not Steward.plan_active() and simple.all(func(n): return not n.has("rank")), "ohne Baumeisterkunst der einfache Verwalter (%d Bedarfe)" % simple.size())
+	Game.research.done.append("baumeisterkunst")
 	print("Befugnisse ", "OK" if fails == 0 else "FEHLER", " (%d Fehler)" % fails)
 	if mode == "soak":  # danach alles auf Selbst weiterlaufen lassen (Laufzeitfehler suchen)
 		for e in Powers.LIST:

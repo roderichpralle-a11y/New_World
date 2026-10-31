@@ -132,7 +132,15 @@ func tick(w) -> void:
 	_moved[iid] = Game.time_days
 	# Mehrere Wechsel je Runde, je mehr Siedler, desto mehr (100 Siedler: 11)
 	var budget := 1 + _adults(w).size() / 10
+	var full := plan_active()
+	if not full and Game.time_days - float(_moved.get(-iid - 1, -99.0)) < 0.5:
+		return  # einfacher Verwalter: wie früher höchstens alle halben Tage
+	_moved[-iid - 1] = Game.time_days
+	if not full:
+		budget = 1
 	for need in needs(w):
+		if not full:
+			need["miss"] = 1
 		for k in int(need.get("miss", 1)):
 			if budget <= 0:
 				return
@@ -149,7 +157,8 @@ func tick(w) -> void:
 			if not Powers.decide(need.power, "job:%d:%s" % [iid, need.job], Sea.island_name(w) + ": " + text if Sea.worlds.size() > 1 else text, act, force):
 				break  # Fragen: ein Vorschlag je Beruf genügt
 			budget -= 1
-	_release(w, budget)
+	if full:
+		_release(w, budget)
 
 
 ## Leute ohne Bedarf auf frei (josh 2026-10-30): Liegt ein Beruf seit einem halben Tag über dem Stellenplan,
@@ -350,6 +359,9 @@ func needs(w) -> Array:
 	var iid := int(w.island_id)
 	_old_blocks[iid] = blocks.get(iid, {})
 	blocks[iid] = {}
+	if not plan_active():
+		_plan[iid] = {}
+		return _needs_simple(w)
 	# Stellenplan (josh 2026-10-30): Soll je Beruf aus Bedarf und Kapazität, siehe StaffPlan
 	var tg := StaffPlan.targets(w)
 	_plan[iid] = tg
@@ -370,6 +382,72 @@ func needs(w) -> Array:
 	if Powers.on("forschung") and Sea.is_main(w):
 		_writing_job(w)
 		_research_block(w)
+	return out
+
+
+## Stellenplan erst ab der Forschung Baumeisterkunst (josh 2026-10-31); davor der einfache Verwalter.
+func plan_active() -> bool:
+	return "baumeisterkunst" in Game.research.get("done", [])
+
+
+## Der einfache Verwalter vor Baumeisterkunst: je Runde höchstens ein Wechsel je Bedarf, kein Freistellen.
+func _needs_simple(w) -> Array:
+	var out := []
+	var info := secure_info(w)
+	# 1. Essen und Wärme für die nächsten 3 Tage (nur in Berufe, in denen es gerade etwas zu holen gibt)
+	if Powers.on("essen_waerme"):
+		var f: Array = info.food
+		if int(f[3]) < int(f[2]):
+			var fj := _food_job(w)
+			if fj != "":
+				out.append({"job": fj, "why": tr("Essen für %d Tage") % int(PLAN_DAYS), "power": "essen_waerme", "src": "hard", "secure": true})
+			else:
+				_note_block(w, "essen", _food_block(w))
+		var h: Array = info.fuel
+		if int(h[3]) < int(h[2]) and Data.job_unlocked("holzfaeller"):
+			var hb := _raw_block(w, "holzfaeller")
+			if hb == "":
+				out.append({"job": "holzfaeller", "why": tr("Brennstoff für %d Tage") % int(PLAN_DAYS), "power": "essen_waerme", "src": "hard", "secure": true})
+			else:
+				_note_block(w, "holz", tr("Brennstoff wird knapp: %s") % hb)
+	# 2. Grundbesetzung mit Freien
+	if Powers.on("grundbesetzung"):
+		var sites: Array = w.construction_sites()
+		if not sites.is_empty() and _count(w, "baumeister") < 1 + sites.size() / 3:
+			out.append({"job": "baumeister", "why": tr("Baustellen"), "power": "grundbesetzung", "src": "free"})
+		var fields: int = w.buildings.filter(func(b): return b.complete and b.def.has("farm")).size()
+		var farmers := ceili(float(fields) / FIELDS_PER_FARMER) + _workplaces(w, "stall")
+		if farmers > 0 and _count(w, "bauer") < farmers and _raw_block(w, "bauer") == "":
+			out.append({"job": "bauer", "why": tr("%d Felder und Ställe") % fields, "power": "grundbesetzung", "src": "free"})
+		var h: Array = info.fuel
+		if Data.job_unlocked("holzfaeller") and _count(w, "holzfaeller") < ceili(float(h[0]) / PLAN_DAYS / wood_rate(w)) and _raw_block(w, "holzfaeller") == "":
+			out.append({"job": "holzfaeller", "why": tr("Brennholz für die Wärme"), "power": "grundbesetzung", "src": "free"})
+		var sj := _spoil_job(w)
+		if sj != "":
+			out.append({"job": sj, "why": tr("Frische Nahrung haltbar machen, bevor sie verdirbt"), "power": "grundbesetzung", "src": "spare"})
+		var dj := _danger_job(w)
+		if dj != "":
+			out.append({"job": dj, "why": tr("Raubtiere nahe den Arbeitsplätzen"), "power": "grundbesetzung", "src": "spare"})
+		var wj := _workshop_job(w)
+		if wj != "":
+			out.append({"job": wj, "why": tr("Werkstatt hat Arbeit"), "power": "grundbesetzung", "src": "free"})
+		if _adults(w).any(func(s): return s.job == "frei" and free_days(s) >= FREE_DAYS and JobDesk.may(s, "verwalter")):
+			var lj := _long_free_job(w)
+			if lj != "":
+				out.append({"job": lj, "why": tr("seit einem Tag frei"), "power": "grundbesetzung", "src": "long"})
+	# 3. Mindestvorräte, dann Waren für die Häuser (Möbel, Lesestoff …)
+	if Powers.on("mindestvorrat"):
+		var mj := _min_job(w)
+		if not mj.is_empty():
+			out.append({"job": mj.job, "why": mj.why, "power": "mindestvorrat", "src": "spare"})
+		var hj := _house_job(w)
+		if not hj.is_empty():
+			out.append({"job": hj.job, "why": hj.why, "power": "mindestvorrat", "src": "spare"})
+	# 4. Schriften für die Forschung (Tontafeln, Papier …)
+	if Powers.on("forschung") and Sea.is_main(w):
+		var rj := _writing_job(w)
+		if not rj.is_empty():
+			out.append({"job": rj.job, "why": rj.why, "power": "forschung", "src": "spare"})
 	return out
 
 

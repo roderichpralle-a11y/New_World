@@ -141,7 +141,9 @@ teils das frühere Verhalten (Angebote, Automat baut, Planer) und schlagen dort 
 - **Verwalter stirbt** (josh 2026-10-29): `Admin._refill_manager` besetzt den Posten immer sofort, ohne Befugnis
   (nach seinem Tod ist `Admin.level()` 0): ein Freier (Talent zuerst), sonst ein Erwachsener aus dem Beruf mit den
   meisten Leuten (keine Seeleute), sonst das nächste erwachsene Kind (`pending_jobs` vorn).
-- **Stellenplan** (josh 2026-10-30, Versuch mit 100 Siedlern, `scripts/autoload/staff_plan.gd`, Klasse `StaffPlan`):
+- **Stellenplan** (josh 2026-10-30, Versuch mit 100 Siedlern, `scripts/autoload/staff_plan.gd`, Klasse `StaffPlan`;
+  erst ab der Forschung Baumeisterkunst, josh 2026-10-31, `Steward.plan_active`; davor `_needs_simple` wie bis 2.0.52
+  mit einem Wechsel je halben Tag und ohne Freistellen):
   `targets(w)` gibt je Beruf ein Soll. Werkstätten zählen mit allen Plätzen, wenn eine ihrer Waren unter dem
   Zielvorrat liegt (`stock_targets`: Mindestvorräte, Hausbedürfnisse für 4 Tage, Forschungskosten oder Rest-Schriften,
   Baustellen, zubereitetes Essen für 6 Tage plus Wintervorrat, Zutaten der aktiven Werkstätten dreimal rückwärts
