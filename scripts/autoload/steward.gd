@@ -720,7 +720,10 @@ func _take_worker(w, need: Dictionary):
 	var over := func(j: String) -> bool:
 		if tg.is_empty():
 			return _surplus(w, j) and not j in FOOD_JOBS and j != "holzfaeller"
-		return _count(w, j) > int(tg.get(j, {}).get("n", 0))
+		# Überzählig erst, wenn der Beruf schon eine Weile über dem Plan liegt (josh 2026-11-01: Pläne schwanken,
+		# sonst wechselten Koch, Fischer und Holzfäller ständig hin und her)
+		var since := float(_over.get(int(w.island_id), {}).get(j, Game.time_days))
+		return _count(w, j) > int(tg.get(j, {}).get("n", 0)) and Game.time_days - since >= RELEASE_DAYS
 	# Wer gerade erst umgesetzt wurde, bleibt eine Weile (josh 2026-11-01: Köche wurden ständig hin und her geschoben)
 	var settled := func(s) -> bool: return Game.time_days - float(s.get_meta("adm_moved", -99.0)) >= KEEP_DAYS
 	var spare := adults.filter(func(s): return JobDesk.may(s, "verwalter") and over.call(s.job) and settled.call(s))
