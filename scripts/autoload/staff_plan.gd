@@ -109,6 +109,14 @@ static func limit_suggestion(w) -> Dictionary:
 			for g in p.get("inputs", {}):
 				if str(g) in ["weizen", "aepfel"]:
 					crop_use[g] = float(crop_use.get(g, 0.0)) + float(p.inputs[g]) * CYCLES / maxf(1.0, float(p.get("time", 10.0))) * 0.25
+	# Boden auch für die Kosten der nächsten Forschungen (Lauf mit 3 Forschern 2026-11-01: Schiffsbau braucht
+	# 80 Bretter, die Obergrenze war 50, die Forschung blieb stehen)
+	var res_cost := {}
+	for t in Data.techs:
+		if t.begins_with("_") or not (Game.tech_state(t) == "available" or t == Game.research.current):
+			continue
+		for g in Data.techs[t].get("cost", {}):
+			res_cost[g] = maxf(float(res_cost.get(g, 0.0)), float(Data.techs[t].cost[g]))
 	var kinds := 0
 	for g in made:
 		if Data.food_ids().has(g):
@@ -125,6 +133,7 @@ static func limit_suggestion(w) -> Dictionary:
 			fixed += float(Game.limit_of(g, w)) * Data.good_size(g)
 			continue
 		var need := maxf(float(want.get(g, BASE_KEEP)), 30.0) + float(crop_use.get(g, 0.0)) * Seasons.season_days() * 1.5
+		need = maxf(need, float(res_cost.get(g, 0.0)) * 1.25)
 		if Data.food_ids().has(g):
 			need = maxf(need, food_share / maxf(1.0, Data.food_satiety(g)))
 		lo[g] = need
@@ -260,7 +269,7 @@ static func targets(w) -> Dictionary:
 			for g in b.prod_def().get("outputs", {}):
 				food = food or Data.food_ids().has(str(g))
 			add.call(job, b.slots(), Loc.t("%s arbeitet") % b.def.name, "essen_waerme" if food and ew_on else _min_power(w, b.prod_def().get("outputs", {}).keys(), "grundbesetzung"),
-				food and ew_on and float(info.food[1]) < Steward.food_per_day(w) * (Steward.PLAN_DAYS + winter_days()))
+				food and ew_on and float(info.food[1]) < Steward.food_per_day(w) * Steward.PLAN_DAYS)
 			used_slots[kind] = int(used_slots.get(kind, 0)) + b.slots()
 	# Essen: Rohnahrung so viele Leute, dass Vorrat plus Ertrag 3 Tage reichen; verteilt nach Kapazität
 	var fields: int = w.buildings.filter(func(b): return b.complete and b.def.has("farm")).size()
@@ -282,7 +291,7 @@ static func targets(w) -> Dictionary:
 	# nach dem Zielvorrat. Liegt weniger als Bedarf für 3 Tage plus Wintervorrat im Lager, arbeiten alle Plätze,
 	# an denen gerade etwas wächst; liegt deutlich mehr da, nur so viele, wie der Verbrauch braucht.
 	var fpd := Steward.food_per_day(w)
-	var food_want := fpd * (Steward.PLAN_DAYS + winter_days())
+	var food_want := fpd * Steward.PLAN_DAYS  # nur 3 Tage, ohne Winterzuschlag (josh 2026-11-01: danach kommt der Frühling)
 	var food_have := float(info.food[1])
 	var share := 1.0
 	if food_have >= food_want * 1.3:
@@ -297,7 +306,7 @@ static func targets(w) -> Dictionary:
 		if n <= 0 or not (g_on or ew_on):
 			continue
 		raw_n += n
-		var why := Loc.t("%d Felder") % fields if e[0] == "bauer" else Loc.t("Essen für %d Tage") % roundi(Steward.PLAN_DAYS + winter_days())
+		var why := Loc.t("%d Felder") % fields if e[0] == "bauer" else Loc.t("Essen für %d Tage") % roundi(Steward.PLAN_DAYS)
 		add.call(e[0], n, why, "essen_waerme" if ew_on else "grundbesetzung", hard_food)
 	# Rohes liegt im Lager, aber die Küchen schaffen es nicht (josh 2026-10-30: im Lauf mit 100 Siedlern stauten sich
 	# über 1000 Weizen, während das Essen knapp wurde): dann helfen keine Bauern, sondern mehr Mühlen und Bäckereien.

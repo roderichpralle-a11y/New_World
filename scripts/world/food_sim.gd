@@ -5,11 +5,16 @@ extends RefCounted
 ## Kein Verwalter, kein Bot: die Siedler arbeiten nur in ihrem Beruf. Ein Spieljahr ab Frühlingsanfang, Bericht je Tag.
 ## Aufruf: godot --headless --fixed-fps 60 -- --autotest=4000 --scale=10 --seed=11 --foodsim=1
 
-const JOBS := {"forscher": 10, "handwerker": 5, "steinmetz": 3, "holzfaeller": 4, "bauer": 4, "koch": 1}  # Plan 2 (plan_insel.py, mit Tragen)
-const BUILD := [["lager", 2], ["grosslager", 2], ["holzhaus", 7], ["schreibstube4", 1], ["bibliothek", 2], ["muehle", 1], ["baeckerei", 1],
+static var JOBS := {"forscher": 10, "handwerker": 5, "steinmetz": 3, "holzfaeller": 4, "bauer": 4, "koch": 1}  # Plan 2 (plan_insel.py, mit Tragen)
+static var BUILD := [["lager", 2], ["grosslager", 2], ["holzhaus", 7], ["schreibstube4", 1], ["bibliothek", 2], ["muehle", 1], ["baeckerei", 1],
 	["schweinestall", 1], ["kuhstall", 1], ["huehnerhof", 2], ["obstgarten", 2], ["feld", 6], ["saegegrube", 1],
 	["tafelmacherei", 1], ["lehmgrube", 1], ["ziegelei", 1], ["koehlerei", 1], ["mine", 1], ["schmelze", 1], ["schmiede", 1]]
-const TOTAL := 27
+static var TOTAL := 27
+# Gleichgewicht mit 3 Forschern (josh 2026-11-01, plan_insel.py FORSCHER=3): ganze Leute je Beruf
+const JOBS3 := {"forscher": 3, "handwerker": 2, "steinmetz": 1, "holzfaeller": 1, "bauer": 2, "koch": 1}
+const BUILD3 := [["lager", 2], ["grosslager", 1], ["holzhaus", 3], ["bibliothek", 1], ["muehle", 1], ["baeckerei", 1],
+	["schweinestall", 1], ["kuhstall", 1], ["huehnerhof", 1], ["obstgarten", 2], ["feld", 3], ["saegegrube", 1],
+	["tafelmacherei", 1], ["lehmgrube", 1], ["ziegelei", 1], ["koehlerei", 1], ["mine", 1], ["schmelze", 1], ["schmiede", 1]]
 const STOCK := {"holz": 60, "bretter": 30, "stein": 30, "ziegel": 20, "tontafel": 30, "werkzeug": 20, "eisen": 10, "kohle": 10,
 	"weizen": 60, "brot": 20, "aepfel": 20, "eier": 20, "milch": 10, "fleisch": 10}
 const FOODS := ["brot", "fleisch", "milch", "eier", "aepfel", "weizen", "beeren", "fisch", "pilze"]
@@ -27,8 +32,12 @@ static var _acts := {}  # Beruf -> {Tätigkeit: Proben}
 static var admin := false
 
 
-static func build(main, with_admin := false) -> void:
+static func build(main, with_admin := false, plan := "") -> void:
 	admin = with_admin
+	if plan == "3":
+		JOBS = JOBS3
+		BUILD = BUILD3
+		TOTAL = 10
 	var w = main.world
 	Game.set_speed(0)
 	seed(Game.seed_value)

@@ -274,7 +274,7 @@ func _maybe_autotest() -> void:
 		Game.set_speed(1)
 		Engine.time_scale = scale
 	elif args.has("foodsim"):  # Prüflauf zur Essens-Matrix (scripts/world/food_sim.gd)
-		FoodSim.build(self, str(args.get("fsadmin", "0")) == "1")
+		FoodSim.build(self, str(args.get("fsadmin", "0")) == "1", str(args.get("fsplan", "")))
 		Game.set_speed(1)
 		Engine.time_scale = scale
 	elif args.has("bot"):
