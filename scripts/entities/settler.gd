@@ -572,7 +572,7 @@ func _think() -> void:
 	# 2. Essen
 	var eat_at := float(Data.bal("eat_below"))
 	if wd == "work":
-		eat_at *= 0.5
+		eat_at *= 0.3  # volle Arbeitszeit (josh 2026-11-01): nur wer kurz vorm Verhungern ist, geht vorher essen
 	elif wd == "pause":
 		eat_at = float(Data.bal("eat_until")) - 10.0
 	if hunger < eat_at and Game.total_food(world) > 0:
