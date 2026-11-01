@@ -258,6 +258,7 @@ static func _restore_sunk(w) -> int:
 			continue
 		var b = w.place_building(e.type, c, false)
 		b.delivered = Events.rebuild_delivered(b.def.cost)
+		b.repair = true
 		b.refresh()
 		w.sunk.erase(e)
 		back += 1

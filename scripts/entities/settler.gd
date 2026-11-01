@@ -998,6 +998,9 @@ func _plan_work() -> bool:
 	# Erst die eigene Arbeit; was danach kommt, zählt in der Auslastung als "etwas anderes"
 	_stat_kind = "job"
 	_task_job = ""
+	# Nach Katastrophen bauen alle Erwachsenen zuerst den alten Zustand wieder auf (josh 2026-11-01)
+	if is_adult() and _plan_repair():
+		return true
 	match job:
 		"frei":
 			return _plan_free()
@@ -1206,6 +1209,28 @@ func _plan_construction() -> bool:
 	if not sites.is_empty():
 		_task_job = "baumeister"
 	sites.sort_custom(func(a, b): return Vector2(a.cell - cell).length() < Vector2(b.cell - cell).length())
+	return _plan_sites(sites)
+
+
+## Wiederaufbau: zerstörte Gebäude nach Rang (World.repair_rank), im gleichen Rang das nächste zuerst.
+func _plan_repair() -> bool:
+	var sites: Array = world.repair_sites()
+	if sites.is_empty():
+		return false
+	sites.sort_custom(func(a, b):
+		var ra := World.repair_rank(a)
+		var rb := World.repair_rank(b)
+		return ra < rb if ra != rb else Vector2(a.cell - cell).length() < Vector2(b.cell - cell).length())
+	for site in sites:  # streng der Reihe nach: erst wenn hier nichts zu tun ist, das nächste
+		if _plan_sites([site]):
+			_task_job = "baumeister"
+			_stat_kind = "other"
+			activity = activity + tr(" (Wiederaufbau)")
+			return true
+	return false
+
+
+func _plan_sites(sites: Array) -> bool:
 	# Zuerst bauen, wo alles Material da ist
 	for site in sites:
 		if site.materials_complete():

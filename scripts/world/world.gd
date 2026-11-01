@@ -180,6 +180,7 @@ func build_from_save(w: Dictionary, m: Dictionary) -> void:
 		bld.farm_time = float(b.get("farm_time", 0.0))
 		bld.paused = bool(b.get("paused", false))
 		bld.adm = bool(b.get("adm", false))
+		bld.repair = bool(b.get("repair", false)) and not bld.complete
 		if Data.ships.has(b.get("ship", "")):
 			bld.ship_choice = b.ship
 		if b.has("ship_queue"):
@@ -1204,6 +1205,26 @@ func delivery_storage(from: Vector2i):
 ## nur seine Pflanzstellen (buildings.json "builder": "foerster").
 func construction_sites(builder: String = "") -> Array:
 	return buildings.filter(func(b): return not b.complete and str(b.def.get("builder", "")) == builder)
+
+
+## Wiederaufbau nach Katastrophen (josh 2026-11-01): zerstörte Gebäude in der Reihenfolge Deich, Häuser,
+## andere Gebäude, Felder, Straßen und Wege.
+func repair_sites() -> Array:
+	var out: Array = buildings.filter(func(b): return b.repair and not b.complete and str(b.def.get("builder", "")) == "")
+	out.sort_custom(func(a, b): return repair_rank(a) < repair_rank(b))
+	return out
+
+
+static func repair_rank(b) -> int:
+	if str(b.def.get("tile", "")) == "dike":
+		return 0
+	if b.def.has("housing"):
+		return 1
+	if b.def.has("farm"):
+		return 3
+	if str(b.def.get("category", "")) == "wege":
+		return 4
+	return 2
 
 
 ## Werkstatt einer Art ("kueche", "handwerk", "stein"), die gerade arbeiten kann.

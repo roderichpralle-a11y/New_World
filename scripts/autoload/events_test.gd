@@ -112,7 +112,7 @@ static func run(main, which: String) -> void:
 	var list: Array = TYPES if which == "all" else [which]
 	Events.enabled = true
 	await _wait(main, 0.5)
-	_prepare(main, 6 if "piraten" in list else 4)
+	_prepare(main, 6 if "piraten" in list or "piratenstaerke" in list else 4)
 	_weights_check()
 	for t in list:
 		match t:
@@ -128,6 +128,10 @@ static func run(main, which: String) -> void:
 				await _test_flood(main)
 			"piraten":
 				await _test_pirates(main)
+			"piratenstaerke":
+				await _test_pirate_balance(main)
+			"wiederaufbau":
+				await _test_rebuild(main)
 			_:
 				print("Ereignis-Test: unbekannte Art ", t)
 	if which == "all":
@@ -684,3 +688,76 @@ static func shot(main, spec: String) -> void:
 			var vs: Vector2 = chip.get_viewport().get_visible_rect().size
 			print("Ereignis-Knopf: sichtbar=%s bei x=%d..%d y=%d..%d, Bild %dx%d, im Bild=%s, Text '%s'" % [chip.is_visible_in_tree(), r.position.x, r.end.x,
 				r.position.y, r.end.y, vs.x, vs.y, r.end.x <= vs.x and r.position.x >= 0, chip.text]))
+
+
+# ---------------------------------------------------------------- Stärke der Piraten (josh 2026-11-01)
+## --eventtest=piratenstaerke: 20 Siedler gegen Piraten in drei Lagen: ohne Waffen (Stufe 4), mit Waffen und
+## Waffenkunde, mit Waffen und 3 Wachtürmen am Lager. Dazu: Landeplatz meidet Wachtürme, nicht hinter Deichen.
+static func _test_pirate_balance(main) -> void:
+	print("--- Ereignis-Test Piratenstärke")
+	var w = Game.world
+	if w.nearest_storage(w.center) == null or not w.buildings.any(func(b): return b.type == "lager" and b.complete):
+		_place_near(w, "lager", w.center, 12, 3)
+	for b in w.buildings.duplicate():
+		if b.def.has("defense"):
+			w.demolish(b)
+	var setups := [["ohne Waffen (Stufe 4)", false, 0], ["mit Waffen und Waffenkunde", true, 0], ["mit Waffen und 3 Wachtürmen", true, 3]]
+	for su in setups:
+		while w.settlers.filter(func(s): return s.is_adult()).size() < 20:
+			if w.spawn_newcomer("f" if w.settlers.size() % 2 else "m") == null:
+				break
+		for s in w.settlers:
+			s.health = 100.0
+			s.mind.sick = ""
+			if s.age > 50.0:
+				s.age = 30.0
+		_set_tech("waffenkunde", bool(su[1]))
+		w.stock["waffen"] = 30 if su[1] else 0
+		var st = w.nearest_storage(w.center)
+		var placed := 0
+		for i in int(su[2]):
+			if _place_near(w, "wachturm", st.cell, 8, 2) != null:
+				placed += 1
+		var adults: int = w.settlers.filter(func(s): return s.is_adult()).size()
+		var ev := await _force_wait(main, w, "piraten")
+		var land = ev.get("landing", [])
+		var towers: Array = w.buildings.filter(func(b): return b.complete and b.def.has("defense"))
+		var cover := Events._tower_cover(Vector2i(int(land[0]), int(land[1])), towers) if land.size() == 2 else -1
+		var t0 := Game.time_days
+		await _until(main, func(): return _gone(w), 1.2)
+		var hurt: int = w.settlers.filter(func(s): return s.health < 60.0).size()
+		print("Piratenstärke %s: %d Erwachsene, %d Wachtürme, %d Piraten, vertrieben %d, Tote %d, Verletzte %d, Beute %s, Landeplatz in Turmreichweite %d, %.2f Tage" % [
+			su[0], adults, placed, int(ev.get("count", 0)), int(ev.get("kills", 0)), int(ev.get("deaths", 0)), hurt, ev.get("loot", {}), cover, Game.time_days - t0])
+	w.stock["waffen"] = 0
+
+
+# ---------------------------------------------------------------- Wiederaufbau (josh 2026-11-01)
+## --eventtest=wiederaufbau: Straße, Feld, Sägegrube und Hütte zerstören; alle Erwachsenen bauen auf, in der
+## Reihenfolge Häuser, andere Gebäude, Felder, Straßen (Deiche kämen zuerst).
+static func _test_rebuild(main) -> void:
+	print("--- Ereignis-Test Wiederaufbau")
+	var w = Game.world
+	var st = w.nearest_storage(w.center)
+	var order := ["strasse", "feld", "saegegrube", "huette"]
+	var list := []
+	for t in order:
+		var b = _place_near(w, t, st.cell if st else w.center, 14, 2)
+		if b != null:
+			list.append(b)
+	for b in list:
+		Events.damage_building(w, b)
+	var adults: int = w.settlers.filter(func(s): return s.is_adult()).size()
+	var done := []
+	var most := 0
+	var t0 := Game.time_days
+	while done.size() < list.size() and Game.time_days < t0 + 3.0 and not Game.is_over:
+		var n: int = w.settlers.filter(func(s): return str(s.activity).ends_with(Loc.t(" (Wiederaufbau)"))).size()
+		most = maxi(most, n)
+		for b in list:
+			if b.complete and not b.type in done:
+				done.append(b.type)
+		await main.get_tree().process_frame
+	var want := list.duplicate()
+	want.sort_custom(func(a, b): return World.repair_rank(a) < World.repair_rank(b))
+	var exp: Array = want.map(func(b): return b.type)
+	print("Ereignis-Test Wiederaufbau ", _okf(done == exp), " fertig in der Reihenfolge %s (erwartet %s), bis zu %d von %d Erwachsenen gleichzeitig dabei, %.2f Tage" % [done, exp, most, adults, Game.time_days - t0])

@@ -120,6 +120,10 @@ Holz-Soll halten die Obergrenzen ein; Sammler und Werkstätten stoppen ohnehin a
 Prüflauf `--foodsim=1 [--fsadmin=1] [--fsdays=12]` (`scripts/world/food_sim.gd`): Stufe 5, 27 Siedler, feste Berufe,
 ein Jahr, Bericht je Tag; Ergebnisse unter /mnt/project-files/konzept/essen_matrix/.
 
+**Wiederaufbau nach Katastrophen (josh 2026-11-01, nur Testversion):** `Events.damage_building` und `Land._restore_sunk` setzen `Building.repair` (gespeichert). Solange es solche Baustellen gibt, nimmt jeder Erwachsene in `Settler._plan_work` zuerst `_plan_repair`: streng nach `World.repair_rank` (0 Deich, 1 Häuser, 2 andere Gebäude, 3 Felder, 4 Wege), im gleichen Rang die nächste Baustelle; fehlt Material, geht es zur nächsten. Test `--eventtest=wiederaufbau`.
+
+**Piraten (josh 2026-11-01, nur Testversion):** mehr und stärkere Piraten (events.json `count` [5, 3, 30], `armed_mult` 2,2 sobald Waffen im Lager oder Waffenkunde, Pirat 90 Leben und 15 Schaden, Siedler fliehen erst bei 20 Gesundheit, Waffe 6 Schaden; Wachturm 22 Schaden). Landeplatz (`Events._landing_cell`): nur Strand direkt am offenen Meer (`Land._open`, also nie hinter Deichen), Stellen in Reichweite eines Wachturms (+3 Felder) nur, wenn es keine andere gibt; ist alles eingedeicht, landen sie am Hafen (Werft, Steg, Hafen, Kai), sonst gar nicht. Probekampf `--eventtest=piratenstaerke` (20 Erwachsene, Mittel aus 3 Inseln): ohne Waffen etwa 6 Tote, mit Waffen und Waffenkunde etwa 2, mit 3 Wachtürmen am Lager etwa 1.
+
 - **Ausbaustufen**: Verwaltung (Stufe 1) und `verwaltung2`…`verwaltung7` in buildings.json (`office`, `office_level`,
   `upgrade`-Kette, nicht baubar, joshs Bilder `tools/art_v2/src/einzeln/verwaltung_N.png` -> `big/office*.png`):
   2 Amtshaus (Baumeisterkunst), 3 Kanzlei (Papier), 4 Inselamt (Buchdruck), 5 Planungsamt (Dampfmaschine, mit
