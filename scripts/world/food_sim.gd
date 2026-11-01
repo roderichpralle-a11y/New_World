@@ -6,7 +6,7 @@ extends RefCounted
 ## Aufruf: godot --headless --fixed-fps 60 -- --autotest=4000 --scale=10 --seed=11 --foodsim=1
 
 const JOBS := {"forscher": 10, "handwerker": 5, "steinmetz": 3, "holzfaeller": 4, "bauer": 4, "koch": 1}  # Plan 2 (plan_insel.py, mit Tragen)
-const BUILD := [["lager", 2], ["holzhaus", 7], ["schreibstube4", 1], ["bibliothek", 2], ["muehle", 1], ["baeckerei", 1],
+const BUILD := [["lager", 2], ["grosslager", 2], ["holzhaus", 7], ["schreibstube4", 1], ["bibliothek", 2], ["muehle", 1], ["baeckerei", 1],
 	["schweinestall", 1], ["kuhstall", 1], ["huehnerhof", 2], ["obstgarten", 2], ["feld", 6], ["saegegrube", 1],
 	["tafelmacherei", 1], ["lehmgrube", 1], ["ziegelei", 1], ["koehlerei", 1], ["mine", 1], ["schmelze", 1], ["schmiede", 1]]
 const TOTAL := 27
@@ -143,6 +143,7 @@ static func tick(main) -> void:
 			if str(Powers.proposals[i].power) == "obergrenzen":
 				print("FOODSIM Vorschlag angenommen: ", Powers.proposals[i].text)
 				Powers.answer(i, true)
+		_next_research()  # der Spieler startet die nächste Forschung (Stufe 2 hat „Forschung weiterführen“ noch nicht)
 		return
 	_next_research()
 	for s in w.settlers:
