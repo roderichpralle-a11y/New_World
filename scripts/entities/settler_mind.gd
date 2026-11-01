@@ -409,8 +409,8 @@ func _update_mood(days: float) -> void:
 			r.append([tr("Wohnt in schöner Umgebung"), dm])
 	# Freizeit
 	if leisure_share() > 0.0:
-		if rest < 25.0:
-			r.append([tr("Ist überarbeitet"), -(8.0 + 10.0 * c)])
+		if rest < 25.0 and s.is_adult() and (Admin.overtime(s.job, s.world) or Admin.shift(s.job, s.world)):
+			r.append([tr("Ist überarbeitet"), -(8.0 + 10.0 * c)])  # nur bei Überstunden oder Schicht (josh 2026-11-01)
 		elif rest > 70.0 and c > 0.1:
 			r.append([tr("Ist erholt"), 4.0])
 	# Trauer und Freude
@@ -419,7 +419,7 @@ func _update_mood(days: float) -> void:
 		if Game.time_days < float(g[1]):
 			keep.append(g)
 	grief = keep
-	if not grief.is_empty():
+	if not grief.is_empty() and Data.ppl("grief_on", false):  # Trauer drückt die Laune nicht mehr (josh 2026-11-01)
 		var g: Array = grief[-1]
 		var full := float(Data.ppl("grief_mood", 30.0)) * (1.0 if g.size() < 3 or g[2] else 0.3)
 		r.append([tr("Trauert um %s") % g[0], -full])

@@ -47,6 +47,7 @@
   "mood_unhappy_work": 0.5,
   "mood_birth_min": 0.4,
   "mood_birth_max": 1.3,
+  "grief_on": false,
   "grief_mood": 30.0,
   "grief_days": 2.5,
   "joy_mood": 12.0,

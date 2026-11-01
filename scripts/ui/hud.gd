@@ -2968,10 +2968,10 @@ Jeder Siedler ist anders: klug oder einfältig, robust oder kränklich, fleißig
 Siedler werden krank: Erkältung macht langsamer, bei Fieber und Ruhr liegen sie im Bett und können sterben. Kränkliche, Alte, Kinder, Hungrige, Frierende und wer draußen schläft erkranken leichter, Kranke stecken andere an. Vitamine aus Beeren, Äpfeln und Kokosnüssen schützen; wer lange keine bekommt, bekommt Skorbut. Heilkunde lässt Kranke schneller gesund werden.
 
 [b]Laune und Arbeitskraft[/b]
-Satt, gesund, abwechslungsreiches Essen und ein schönes Zuhause machen gute Laune, Hunger, Krankheit, Kälte und Trauer schlechte. Gut gelaunte Siedler arbeiten schneller und bekommen eher Kinder. Die Arbeitskraft im Infofenster zeigt, wie schnell ein Siedler gerade arbeitet.
+Satt, gesund, abwechslungsreiches Essen und ein schönes Zuhause machen gute Laune, Hunger, Krankheit und Kälte schlechte. Gut gelaunte Siedler arbeiten schneller und bekommen eher Kinder. Die Arbeitskraft im Infofenster zeigt, wie schnell ein Siedler gerade arbeitet.
 
 [b]Freizeit[/b]
-Am Anfang kennen die Siedler nur Arbeit. Je weiter deine Siedlung entwickelt ist (siehe Lebensstil in der Siedlerliste), desto mehr Freizeit wollen sie: am Feuer plaudern, am Strand spazieren, mit Kindern spielen oder lesen. Bekommen sie keine, sind sie überarbeitet und schlecht gelaunt. In einer Hungersnot arbeiten alle durch.
+Am Anfang kennen die Siedler nur Arbeit. Je weiter deine Siedlung entwickelt ist (siehe Lebensstil in der Siedlerliste), desto mehr Freizeit wollen sie: am Feuer plaudern, am Strand spazieren, mit Kindern spielen oder lesen. Mit Überstunden oder Schichtarbeit bleibt ihnen zu wenig davon, dann sind sie überarbeitet und schlecht gelaunt. In einer Hungersnot arbeiten alle durch.
 
 [b]Nahrung[/b]
 Siedler essen am Lagerfeuer. Jede Speise sättigt unterschiedlich stark und bringt unterschiedlich viele Vitamine: Beeren, Äpfel und Kokosnüsse machen kaum satt, sind aber voller Vitamine. Brot, Räucherfisch und Fleisch machen lange satt, haben aber kaum Vitamine. Rohes Getreide sättigt schlecht, erst Mühle und Bäckerei machen daraus gutes Brot.
