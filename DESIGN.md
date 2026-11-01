@@ -176,6 +176,7 @@ ein Jahr, Bericht je Tag; Ergebnisse unter /mnt/project-files/konzept/essen_matr
   Weg Wohnung–nächster Arbeitsplatz minus 0,25 h), arbeiten 6–10 und 11–15, Mittagspause nahe der Arbeit (essen,
   wenn nicht satt), danach Feierabend in der Freizeit; 18 Stunden wach. In der Arbeitszeit essen nur sehr Hungrige.
   Im Testlabor (voll) stieg der Ertrag gegenüber vorher etwa auf das 1,5- bis 2-Fache (Mehl 20 -> 30–40 am Tag).
+  Wege (josh 2026-11-01): Solange jemand mit festem Arbeitstag wach ist, läuft die Nacht nicht schneller (Admin.night_work_now), sonst wären die Wege nachts fünfmal so lang. Aus der Pause bricht jeder so früh auf (Weg zur Arbeit + 15 Min. Reserve), dass er um 11 Uhr zurück ist; gegessen wird in der Pause nur, wenn Hin, Essen und Rückweg in die Stunde passen. Abends geht jeder so früh heim, dass er zur Schlafenszeit (Aufstehen + 18 h) im Bett liegt. Kinder schlafen 18–6 Uhr. Gold braucht keinen Lagerplatz (size 0) und bekommt deshalb keine Obergrenze. `--daylog=1` druckt DAYARR mit Aufstehen, Arbeitsbeginn, Rückkehr aus der Pause und Bettzeit je Siedler.
 - **Testlabor** `--autotest=200 --scale=15 --vlab=1|voll|bad|free` (`StewardLab`): Insel mit 100 Siedlern, Verwaltung
   Stufe 4, Forschung bis Stufe 8, alle Befugnisse Selbst; täglich ein Bericht (Essen, Waren, Erzeugtes, Berufe mit
   Leerlauf, Soll, Werkstätten, Engpässe). Ergebnis 2026-10-30: Werkstätten schaffen wegen Freizeit und Wegen nur etwa

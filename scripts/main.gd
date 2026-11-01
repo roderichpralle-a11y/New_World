@@ -368,21 +368,47 @@ func _maybe_autotest() -> void:
 		if args.has("agetest") and (Exams.passed > AgeTest.age or Game.day() >= AgeTest.limit_day):
 			break
 		if args.has("daylog"):  # Tagesablauf (josh 2026-11-01): jede Spielstunde, was die Erwachsenen tun
-			var hr := int(Game.time_of_day() * 24.0)
+			WorkDay.log_on = true
+			_dl_arr = WorkDay.arr
+			if Game.day() != _dl_day:
+				if _dl_day >= 0:
+					var parts := []
+					for k in ["auf", "morgens", "mittags", "Bett"]:
+						var vs := []
+						for kk in _dl_arr.keys():
+							if kk.ends_with(k):
+								vs.append(_dl_arr[kk])
+						vs.sort()
+						parts.append("%s %s" % [k, " ".join(vs.map(func(v): return "%d:%02d" % [int(v) % 24, int(fposmod(v, 1.0) * 60.0)]))])
+					var awake := 0
+					for s in world.settlers:
+						if s.is_adult() and WorkDay.active(s) and not s.sleeping:
+							awake += 1
+					print("DAYARR Tag %d | %s | um 0 Uhr noch wach %d" % [_dl_day, " | ".join(parts), awake])
+				_dl_day = Game.day()
+				WorkDay.arr.clear()
+			var hr := int(Game.time_of_day() * 48.0)  # jede halbe Stunde
 			if hr != _dl_hour:
 				_dl_hour = hr
 				var cnt := {}
 				var wd := 0
+				var ph := {}  # Abschnitt -> [am Ort, unterwegs]
 				for s in world.settlers:
 					if not s.is_adult():
 						continue
 					if WorkDay.active(s):
 						wd += 1
+						var p := WorkDay.phase(s)
+						if not ph.has(p):
+							ph[p] = [0, 0]
+						var here: bool = s.sleeping if p == "sleep" else not s._moving
+						ph[p][0 if here else 1] += 1
 					var a := str(s.activity).split(" (")[0].split(":")[0]
 					cnt[a] = int(cnt.get(a, 0)) + 1
 				var ks: Array = cnt.keys()
 				ks.sort_custom(func(x, y): return int(cnt[x]) > int(cnt[y]))
-				print("DAYLOG Tag %d %02d Uhr | Lebensstil %.2f, fester Arbeitstag %d | %s" % [Game.day(), hr, SettlerMind.comfort(), wd,
+				print("DAYLOG Tag %d %02d:%02d | Lebensstil %.2f, fester Arbeitstag %d | Abschnitt (da/unterwegs) %s | %s" % [Game.day(), hr / 2, (hr % 2) * 30,
+					SettlerMind.comfort(), wd, ", ".join(ph.keys().map(func(k): return "%s %d/%d" % [k, ph[k][0], ph[k][1]])),
 					", ".join(ks.map(func(k): return "%s %d" % [k, cnt[k]]))])
 		if args.has("foodsim"):
 			FoodSim.tick(self)
@@ -1158,6 +1184,8 @@ func _autotest_school() -> void:
 var _args := {}
 var _fs_day := -1
 var _dl_hour := -1
+var _dl_day := -1
+var _dl_arr := {}
 var _bot = null  # Spiel-Bot v2 (--bot=1)
 var _probe_label: Label = null
 var _probe_t := 0.0

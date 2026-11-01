@@ -19,7 +19,7 @@
   "raeucherfisch": {"name": "Räucherfisch", "icon": "raeucherfisch", "category": "food", "nutrition": 34, "vitamins": 5, "size": 1, "order": 15, "price": 0.3},
   "brot": {"name": "Brot", "icon": "brot", "category": "food", "nutrition": 84, "vitamins": 6, "size": 1, "order": 16, "price": 0.4},
   "felle": {"name": "Felle", "icon": "felle", "category": "material", "size": 2, "order": 9.2, "price": 0.5},
-  "gold": {"name": "Gold", "icon": "gold", "category": "material", "size": 1, "order": 9.4, "price": 1},
+  "gold": {"name": "Gold", "icon": "gold", "category": "material", "size": 0, "order": 9.4, "price": 1},
   "gewuerze": {"name": "Gewürze", "icon": "gewuerze", "category": "material", "size": 1, "order": 9.45, "price": 1.5},
   "boot": {"name": "Ruderboot", "icon": "boot", "category": "ship", "size": 0, "order": 9.6},
   "expedition": {"name": "Expeditionsschiff", "icon": "kogge", "category": "ship", "size": 0, "order": 9.605},

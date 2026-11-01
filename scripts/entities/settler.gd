@@ -524,6 +524,8 @@ var _wd_phase := ""
 
 func _workday_switch() -> void:
 	var ph := WorkDay.phase(self) if WorkDay.active(self) else ""
+	if WorkDay.log_on and ph != "":
+		WorkDay.log_arrival(self, ph)
 	if ph == _wd_phase:
 		return
 	var was := _wd_phase
@@ -533,8 +535,10 @@ func _workday_switch() -> void:
 	if ph == "commute" or (was == "commute" and ph == "work"):
 		return  # Weg zur Arbeit läuft weiter
 	for st in _plan:
-		if st.get("defend", false) or st.get("done", null) == _do_eat:
+		if st.get("defend", false):
 			return
+	if _plan[0].get("done", null) == _do_eat:
+		return  # wer schon am Tisch sitzt, isst noch auf; wer erst hingeht, kehrt um
 	abort_plan()
 
 
@@ -572,7 +576,9 @@ func _think() -> void:
 	elif wd == "pause":
 		eat_at = float(Data.bal("eat_until")) - 10.0
 	if hunger < eat_at and Game.total_food(world) > 0:
-		if _plan_eat():
+		if wd == "pause" and not _lunch_fits():
+			pass  # Lager zu weit für die Stunde Pause: isst nach Feierabend (sehr Hungrige auch bei der Arbeit)
+		elif _plan_eat():
 			return
 	# 2b. Nichts im Lager (oder Lager voll): Hungrige essen direkt am Strauch oder Ufer
 	if hunger < float(Data.bal("eat_below")) * 0.6 and Game.total_food(world) <= 0 and not Game.is_night():
@@ -705,6 +711,20 @@ func _plan_eat() -> bool:
 	_plan.append({"a": "work", "t": 1.6, "act": tr("Isst"), "done": _do_eat})
 	activity = tr("Geht essen")
 	return true
+
+
+## Mittagspause (josh 2026-10-31): Hin zum Lager, essen und zurück zur Arbeit passen in die Pause?
+func _lunch_fits() -> bool:
+	var st = world.nearest_storage(cell)
+	if st == null:
+		return false
+	var eat_h := 1.6 / float(Data.bal("day_length")) * 24.0
+	var at: Vector2i = st.entrance_cell()
+	var there := WorkDay.walk_hours(cell, at)
+	var back := there
+	for c in Steward._job_spots(world, job):
+		back = minf(back, WorkDay.walk_hours(at, c))
+	return there + eat_h + back <= WorkDay.pause_left(self)
 
 
 func _do_eat() -> void:
@@ -1390,6 +1410,9 @@ func _plan_office() -> bool:
 
 ## Schlafenszeit? Nachts, außer bei Schichtarbeit für die Hälfte, die diese Nacht durcharbeitet.
 func _sleep_time() -> bool:
+	if not is_adult():  # Kinder schlafen von 18 bis 6 Uhr (josh 2026-11-01)
+		var h := Game.time_of_day() * 24.0
+		return h >= WorkDay._cfg("child_bed", 18.0) or h < WorkDay._cfg("child_wake", 6.0)
 	if WorkDay.active(self):
 		return WorkDay.phase(self) == "sleep"  # fester Arbeitstag ab Wohlstand (josh 2026-10-31)
 	return Admin.sleep_time(self)

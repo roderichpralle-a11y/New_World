@@ -198,6 +198,13 @@ func night_work_now() -> bool:
 		return _night_cached
 	_night_check_at = now + 500
 	_night_cached = false
+	# Fester Arbeitstag (josh 2026-11-01): Solange jemand wach ist, läuft die Nacht nicht schneller,
+	# sonst schafft er auf dem Heimweg nur ein Fünftel der Strecke je Spielstunde.
+	if Game.world != null and SettlerMind.comfort() >= WorkDay._cfg("from_comfort", 0.75):
+		for s in Game.world.settlers:
+			if WorkDay.active(s) and WorkDay.phase(s) != "sleep":
+				_night_cached = true
+				return true
 	if not active():
 		return false
 	for s in admin_world().settlers:
