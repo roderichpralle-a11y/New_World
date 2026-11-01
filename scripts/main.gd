@@ -367,6 +367,23 @@ func _maybe_autotest() -> void:
 			break
 		if args.has("agetest") and (Exams.passed > AgeTest.age or Game.day() >= AgeTest.limit_day):
 			break
+		if args.has("daylog"):  # Tagesablauf (josh 2026-11-01): jede Spielstunde, was die Erwachsenen tun
+			var hr := int(Game.time_of_day() * 24.0)
+			if hr != _dl_hour:
+				_dl_hour = hr
+				var cnt := {}
+				var wd := 0
+				for s in world.settlers:
+					if not s.is_adult():
+						continue
+					if WorkDay.active(s):
+						wd += 1
+					var a := str(s.activity).split(" (")[0].split(":")[0]
+					cnt[a] = int(cnt.get(a, 0)) + 1
+				var ks: Array = cnt.keys()
+				ks.sort_custom(func(x, y): return int(cnt[x]) > int(cnt[y]))
+				print("DAYLOG Tag %d %02d Uhr | Lebensstil %.2f, fester Arbeitstag %d | %s" % [Game.day(), hr, SettlerMind.comfort(), wd,
+					", ".join(ks.map(func(k): return "%s %d" % [k, cnt[k]]))])
 		if args.has("foodsim"):
 			FoodSim.tick(self)
 			if Game.day() != _fs_day:
@@ -1140,6 +1157,7 @@ func _autotest_school() -> void:
 
 var _args := {}
 var _fs_day := -1
+var _dl_hour := -1
 var _bot = null  # Spiel-Bot v2 (--bot=1)
 var _probe_label: Label = null
 var _probe_t := 0.0

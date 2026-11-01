@@ -156,9 +156,12 @@ func tick(w) -> void:
 			var text := tr("%s arbeitet jetzt als %s (%s, vorher %s).") % [pick.display_name, Data.jobs[need.job].name, need.why, pick.job_name()]
 			if force:
 				text += " " + tr("Den Beruf hattest du vergeben, aber Essen und Wärme gehen vor.")
+			if OS.get_cmdline_user_args().has("--stewarddebug"):
+				print("STEWARDDEBUG ", text, " | info ", secure_info(w), " fpd ", food_per_day(w), " plan ", _plan.get(iid, {}).get(need.job, {}), " need ", need)
 			var act := {"kind": "job", "island": iid, "sid": int(pick.id), "job": need.job, "force": force}
 			if not Powers.decide(need.power, "job:%d:%s" % [iid, need.job], Sea.island_name(w) + ": " + text if Sea.worlds.size() > 1 else text, act, force):
 				break  # Fragen: ein Vorschlag je Beruf genügt
+			pick.set_meta("adm_moved", Game.time_days)
 			budget -= 1
 	if full:
 		_release(w, budget)
@@ -320,7 +323,9 @@ func _need_per_head(w) -> float:
 func food_per_day(w) -> float:
 	var est := _need_per_head(w) * float(w.settlers.size())
 	var prev: Dictionary = _day_stats.get(int(w.island_id), {}).get("prev", {})
-	return maxf(est, float(prev.get("used_food", 0.0)) * 0.9)
+	# Gemessen zählt auch Getreide, das Mühle und Ställe verarbeiten, als "gegessen": höchstens 30 % über dem
+	# Bedarf der Siedler (josh 2026-11-01: der Verwalter sah Hunger bei 9 Tagen Vorrat und zog Forscher ab)
+	return maxf(est, minf(float(prev.get("used_food", 0.0)) * 0.9, est * 1.3))
 
 
 ## Brennstoff am Tag (Holz, Kohle doppelt): Heizen der Siedler in der kältesten Jahreszeit der nächsten
@@ -395,9 +400,27 @@ func needs(w) -> Array:
 		var miss := int(tg[j].n) - _count(w, j)
 		if miss <= 0 or not Powers.on(str(tg[j].power)):
 			continue
-		out.append({"job": j, "why": str(tg[j].why), "power": str(tg[j].power), "src": "hard" if tg[j].hard else "spare",
-			"secure": bool(tg[j].hard), "miss": miss, "rank": int(rank.get(str(tg[j].power), 9))})
-	out.sort_custom(func(x, y): return x.rank < y.rank or (x.rank == y.rank and int(x.miss) > int(y.miss)))
+		# Notfall nur für den Teil, der wirklich Not ist (hard_n); der Rest kommt von Freien und Überzähligen
+		var hard_miss := mini(miss, int(tg[j].get("hard_n", miss if tg[j].hard else 0)) - _count(w, j))
+		if hard_miss > 0:
+			out.append({"job": j, "why": str(tg[j].why), "power": str(tg[j].power), "src": "hard", "secure": true, "miss": hard_miss,
+				"rank": int(rank.get(str(tg[j].power), 9))})
+			miss -= hard_miss
+		if miss <= 0:
+			continue
+		out.append({"job": j, "why": str(tg[j].why), "power": str(tg[j].power), "src": "spare",
+			"secure": false, "miss": miss, "rank": int(rank.get(str(tg[j].power), 9))})
+	# Im gleichen Rang zuerst, was je Arbeiter am meisten Essen bringt (Essens-Matrix, josh 2026-11-01):
+	# Küchen und Ställe, dann Felder, Fischer, Jäger, zuletzt Sammler
+	var pref := {"koch": 0, "bauer": 1, "fischer": 2, "jaeger": 3, "sammler": 4}
+	out.sort_custom(func(x, y):
+		if x.rank != y.rank:
+			return x.rank < y.rank
+		var px := int(pref.get(x.job, 1))
+		var py := int(pref.get(y.job, 1))
+		if px != py:
+			return px < py
+		return int(x.miss) > int(y.miss))
 	# Engpässe der Lieferkette als Hinweis (Glas -> Lehm -> Lehmgrube …)
 	if Powers.on("mindestvorrat"):
 		_min_job(w)
@@ -698,12 +721,15 @@ func _take_worker(w, need: Dictionary):
 		if tg.is_empty():
 			return _surplus(w, j) and not j in FOOD_JOBS and j != "holzfaeller"
 		return _count(w, j) > int(tg.get(j, {}).get("n", 0))
-	var spare := adults.filter(func(s): return JobDesk.may(s, "verwalter") and over.call(s.job))
+	# Wer gerade erst umgesetzt wurde, bleibt eine Weile (josh 2026-11-01: Köche wurden ständig hin und her geschoben)
+	var settled := func(s) -> bool: return Game.time_days - float(s.get_meta("adm_moved", -99.0)) >= KEEP_DAYS
+	var spare := adults.filter(func(s): return JobDesk.may(s, "verwalter") and over.call(s.job) and settled.call(s))
 	if not spare.is_empty():
 		return _pick(w, spare, job)
 	if src != "hard":
 		return null
-	var safe := func(s): return not s.job in FOOD_JOBS and s.job != "holzfaeller" and s.job != "frei"
+	# Köche machen auch Essen (Mühle, Bäckerei, Räucherei): nicht für Rohnahrung abziehen (josh 2026-11-01)
+	var safe := func(s): return not s.job in FOOD_JOBS and s.job != "koch" and s.job != "holzfaeller" and s.job != "frei"
 	var mine := adults.filter(func(s): return safe.call(s) and JobDesk.may(s, "verwalter"))
 	if not mine.is_empty():
 		return _pick(w, mine, job)

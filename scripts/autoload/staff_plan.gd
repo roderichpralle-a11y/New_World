@@ -172,6 +172,18 @@ static func _active(w, b, want: Dictionary) -> bool:
 
 
 ## Hat die Werkstatt Zutaten für einen Arbeitsgang?
+## Ist die Ware Zutat einer Küche auf der Insel (Mehl für die Bäckerei)? Dann zählt die Werkstatt zum Essen
+## (josh 2026-11-01: die Mühle stand ohne Koch, weil der Stall vorging).
+static func _feeds_kitchen(w, g: String) -> bool:
+	for k in w.buildings:
+		if not k.complete or not k.prod_def().get("inputs", {}).has(g):
+			continue
+		for o in k.prod_def().get("outputs", {}):
+			if Data.food_ids().has(str(o)):
+				return true
+	return false
+
+
 static func _has_inputs(w, b) -> bool:
 	var p: Dictionary = b.prod_def()
 	for g in p.get("inputs", {}):
@@ -244,9 +256,10 @@ static func targets(w) -> Dictionary:
 		if n <= 0 or not Data.jobs.has(job) or not Data.job_unlocked(job):
 			return
 		if not out.has(job):
-			out[job] = {"n": 0, "why": why, "power": power, "hard": hard}
+			out[job] = {"n": 0, "why": why, "power": power, "hard": hard, "hard_n": 0}
 		out[job].n += n
 		if hard:
+			out[job].hard_n += n  # nur so viele dürfen notfalls aus jedem Beruf geholt werden
 			out[job].hard = true
 			out[job].power = power
 			out[job].why = why
@@ -267,7 +280,7 @@ static func targets(w) -> Dictionary:
 		if _has_inputs(w, b) or _fed(w, b):
 			var food := false
 			for g in b.prod_def().get("outputs", {}):
-				food = food or Data.food_ids().has(str(g))
+				food = food or Data.food_ids().has(str(g)) or _feeds_kitchen(w, str(g))
 			add.call(job, b.slots(), Loc.t("%s arbeitet") % b.def.name, "essen_waerme" if food and ew_on else _min_power(w, b.prod_def().get("outputs", {}).keys(), "grundbesetzung"),
 				food and ew_on and float(info.food[1]) < Steward.food_per_day(w) * Steward.PLAN_DAYS)
 			used_slots[kind] = int(used_slots.get(kind, 0)) + b.slots()
@@ -303,6 +316,8 @@ static func targets(w) -> Dictionary:
 		var n := ceili(float(cap) * share) if cap > 0 else 0
 		if e[0] == "bauer":
 			n = int(e[1])  # Felder brauchen ihre Bauern zur Ernte, auch wenn sie dazwischen warten
+		elif e[0] == "sammler" and not hard_food:
+			n = 0  # Beeren sammeln bringt am wenigsten (Essens-Matrix, josh 2026-11-01): nur, wenn das Essen knapp wird
 		if n <= 0 or not (g_on or ew_on):
 			continue
 		raw_n += n
@@ -335,7 +350,10 @@ static func targets(w) -> Dictionary:
 		var ripe: int = w.nodes.filter(func(n): return n.type == "baum" and int(n.amount) > 0).size()
 		cut = maxi(cut, int(info.fuel[2]))
 		cut = mini(cut, maxi(1, ripe / TREES_PER_CUTTER) if Steward._raw_block(w, "holzfaeller") == "" else 0)
-	add.call("holzfaeller", cut, Loc.t("Holz für Wärme und Werkstätten"), "essen_waerme" if int(info.fuel[2]) > 0 and ew_on else "grundbesetzung", int(info.fuel[2]) > 0 and ew_on)
+	# Nur das Heizen ist Not (josh 2026-11-01: sonst holte der Verwalter für Werkstatt-Holz 9 Holzfäller aus allen Berufen)
+	var heat_n := mini(cut, int(info.fuel[2])) if ew_on else 0
+	add.call("holzfaeller", heat_n, Loc.t("Brennstoff für %d Tage") % roundi(Steward.PLAN_DAYS), "essen_waerme", true)
+	add.call("holzfaeller", cut - heat_n, Loc.t("Holz für Wärme und Werkstätten"), "grundbesetzung")
 	# Stein aus Felsen, wenn kein Steinbruch arbeitet
 	if float(Game.amount("stein", w)) < float(want.get("stein", BASE_KEEP)) and int(used_slots.get("stein", 0)) == 0 and Steward._raw_block(w, "steinmetz") == "":
 		add.call("steinmetz", 2, Loc.t("Stein"), _min_power(w, ["stein"], "grundbesetzung"))

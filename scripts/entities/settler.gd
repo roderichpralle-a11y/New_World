@@ -429,6 +429,7 @@ func _process(delta: float) -> void:
 		return
 	if not world.animals.is_empty():
 		_check_danger(delta)
+	_workday_switch()
 	if _plan.is_empty():
 		_think_cooldown -= delta
 		if _think_cooldown <= 0.0:
@@ -516,9 +517,31 @@ func on_break() -> bool:
 
 
 # ------------------------------------------------------------------ Planung
+## Fester Arbeitstag (josh 2026-11-01): Wechselt der Abschnitt (Arbeit, Pause, Feierabend, Schlaf), bricht der
+## Siedler ab, was er gerade tut, und plant neu. Wer Ware trägt, bringt sie danach noch ins Lager.
+var _wd_phase := ""
+
+
+func _workday_switch() -> void:
+	var ph := WorkDay.phase(self) if WorkDay.active(self) else ""
+	if ph == _wd_phase:
+		return
+	var was := _wd_phase
+	_wd_phase = ph
+	if was == "" or ph == "" or _plan.is_empty() or _hiding != null or sleeping:
+		return
+	if ph == "commute" or (was == "commute" and ph == "work"):
+		return  # Weg zur Arbeit läuft weiter
+	for st in _plan:
+		if st.get("defend", false) or st.get("done", null) == _do_eat:
+			return
+	abort_plan()
+
+
 func _think() -> void:
 	_think_cooldown = 0.6 + _rng.randf() * 0.6
 	_release()
+	_unstick()
 	var prev_kind := _stat_kind
 	_stat_kind = "needs"
 	if sleeping and AiRule.ending:
@@ -974,6 +997,25 @@ func _plan_decor_leisure(kind: String, b, text: String) -> bool:
 		_plan.append({"a": "wait", "t": t, "rest": true, "act": text, "sit": seat, "sit_b": b.id})
 	activity = tr("Freizeit: ") + text
 	return true
+
+
+## Steht der Siedler mitten in einem Gebäude (darüber gebaut, josh 2026-11-01: ein Koch verhungerte so im
+## Großen Lager), kommt er nirgends hin: dann auf das nächste freie Feld daneben.
+func _unstick() -> void:
+	if sleeping or _hiding != null or not is_inside_tree() or world.is_walkable(cell):
+		return
+	for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+		if world.is_walkable(cell + d):
+			return  # am Rand: der Weg hinaus ist frei
+	for r in range(1, 8):
+		for dy in range(-r, r + 1):
+			for dx in range(-r, r + 1):
+				var c := cell + Vector2i(dx, dy)
+				if maxi(absi(dx), absi(dy)) == r and world.is_walkable(c):
+					cell = c
+					position = world.cell_to_pos(c)
+					_plan.clear()
+					return
 
 
 func _plan_wander(radius: int, text: String, at = null) -> void:
