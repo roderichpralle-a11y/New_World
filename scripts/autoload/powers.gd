@@ -24,6 +24,8 @@ const LIST := [
 		"desc": "Rechnet aus, was die Insel in den nächsten 3 Tagen an Essen und Brennstoff braucht (alle Bewohner und arbeitenden Gebäude; leere Häuser verbrauchen nichts), und vergleicht es mit Vorrat und Ertrag der jetzigen Arbeiter. Fehlt etwas, setzt er gerade so viele Leute ein, dass es reicht, notfalls auch deine."},
 	{"id": "mindestvorrat", "level": 2, "icon": "haus", "name": "Mindestvorräte",
 		"desc": "Liegt eine Ware unter dem Mindestvorrat, den du im Reiter Vorräte einstellst, schickt er Siedler in den passenden Beruf: Freie und solche, die er selbst eingeteilt hat und die gerade nicht gebraucht werden. Er folgt der Lieferkette bis zum Anfang (fehlt Glas, prüft er zuerst Lehm). Genauso sorgt er für die Waren, die die Häuser brauchen (Möbel, Lesestoff, Glas …)."},
+	{"id": "obergrenzen", "level": 2, "icon": "haus", "name": "Lager-Obergrenzen",
+		"desc": "Hat eine Ware im Lager noch keine Obergrenze, schlägt er eine vernünftige vor: etwa doppelt so viel, wie Werkstätten, Häuser, Forschung und Baustellen in den nächsten Tagen brauchen, bei Getreide und Äpfeln dazu der Vorrat für den Winter. Ist eine Ware an ihrer Obergrenze, wird dafür niemand mehr eingeteilt. So läuft das Lager nicht voll, und Steinmetze schlagen keine Steine, die keiner braucht. Grenzen, die du selbst eingestellt hast, ändert er nie."},
 	{"id": "notfall", "level": 3, "icon": "sonne", "name": "Überstunden im Notfall",
 		"desc": "Lassen sich Essen oder Wärme nicht sichern, weil Leute fehlen, ordnet er für diese Berufe Überstunden an, reicht das nicht, Schichtarbeit. Ist die Not vorbei, beendet er sie."},
 	{"id": "forschung", "level": 3, "icon": "wissen", "name": "Forschung weiterführen",
@@ -179,6 +181,19 @@ func do_action(a: Dictionary) -> bool:
 			if Game.research.current != "" or Game.start_research(str(a.tech)) != "":
 				return false
 			count("research")
+			return true
+		"limits":  # Lager-Obergrenzen (josh 2026-11-01): nur Waren, die noch keine Grenze haben
+			var lw = Sea.worlds.get(int(a.island))
+			if lw == null:
+				return false
+			var n := 0
+			for id in a.goods:
+				if Game.limit_of(str(id), lw) < 0:
+					Game.set_limit(str(id), int(a.goods[id]), lw)
+					n += 1
+			if n == 0:
+				return false
+			count("limits")
 			return true
 		"trip":
 			if not Steward.ship_now(int(a.from), int(a.to), a.goods, str(a.why)):

@@ -110,6 +110,16 @@ widersprechen. Selbsttest `--powerstest=1` („Befugnisse OK (0 Fehler)“, `scr
 spielt danach mit allem auf Selbst weiter. Die alten Tests `--admintest`, `--stewardtest`, `--plannertest` prüfen
 teils das frühere Verhalten (Angebote, Automat baut, Planer) und schlagen dort fehl.
 
+**Lager-Obergrenzen (josh 2026-11-01, Befugnis `obergrenzen`, Stufe 2):** Hat eine Ware auf der Insel noch keine
+Obergrenze (`Game.store_limits`), schlägt der Verwalter höchstens alle 3 Tage eine vor (`Steward._limits_tick`, Vorschlag
+`{kind: "limits", island, goods}`, `Powers.do_action` setzt nur Waren ohne Grenze). Werte aus
+`StaffPlan.limit_suggestion`: Boden = Zielvorrat (mindestens 30; Getreide und Äpfel plus Winterbedarf der Mühlen und
+Ställe; Essen sein Anteil an 3 Tagen plus einem Winter), Wunsch = doppelt; alles zusammen höchstens 85 % des Lagers,
+sonst Richtung Boden, notfalls darunter, mit Hinweis „Baue ein weiteres Lager“. Der Zielvorrat (`stock_targets`) und das
+Holz-Soll halten die Obergrenzen ein; Sammler und Werkstätten stoppen ohnehin an der Grenze (`Game.space_for`).
+Prüflauf `--foodsim=1 [--fsadmin=1] [--fsdays=12]` (`scripts/world/food_sim.gd`): Stufe 5, 27 Siedler, feste Berufe,
+ein Jahr, Bericht je Tag; Ergebnisse unter /mnt/project-files/konzept/essen_matrix/.
+
 - **Ausbaustufen**: Verwaltung (Stufe 1) und `verwaltung2`…`verwaltung7` in buildings.json (`office`, `office_level`,
   `upgrade`-Kette, nicht baubar, joshs Bilder `tools/art_v2/src/einzeln/verwaltung_N.png` -> `big/office*.png`):
   2 Amtshaus (Baumeisterkunst), 3 Kanzlei (Papier), 4 Inselamt (Buchdruck), 5 Planungsamt (Dampfmaschine, mit

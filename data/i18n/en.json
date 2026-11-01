@@ -1,4 +1,7 @@
 {
+ "Obergrenzen fürs Lager: %s. Darüber wird nichts mehr hergestellt, damit das Lager nicht voll läuft.": "Storage limits: %s. Nothing more is produced above them, so the storage does not fill up.",
+ "Hat eine Ware im Lager noch keine Obergrenze, schlägt er eine vernünftige vor: etwa doppelt so viel, wie Werkstätten, Häuser, Forschung und Baustellen in den nächsten Tagen brauchen, bei Getreide und Äpfeln dazu der Vorrat für den Winter. Ist eine Ware an ihrer Obergrenze, wird dafür niemand mehr eingeteilt. So läuft das Lager nicht voll, und Steinmetze schlagen keine Steine, die keiner braucht. Grenzen, die du selbst eingestellt hast, ändert er nie.": "If a good in storage has no limit yet, he proposes a sensible one: about twice what workshops, houses, research and construction sites need in the next days, plus the winter reserve for grain and apples. Once a good is at its limit, nobody is assigned to it any more. That way the storage does not fill up, and stonemasons do not cut stone nobody needs. Limits you set yourself are never changed.",
+ "Lager-Obergrenzen": "Storage limits",
  "\nAuf allen Inseln und See: %d": "\nOn all islands and at sea: %d",
  "\nBenötigt Forschung: %s": "\nRequires research: %s",
  "\nFähigkeit: %s (Stufe %d)": "\nSkill: %s (level %d)",

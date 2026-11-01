@@ -76,7 +76,80 @@ static func stock_targets(w) -> Dictionary:
 				put.call(str(g), float(p.inputs[g]) * cyc * STOCK_DAYS * 0.5)
 	for g in want:
 		want[g] = maxf(float(want[g]), float(BASE_KEEP))
+		var lim := Game.limit_of(str(g), w)
+		if lim >= 0:
+			want[g] = minf(float(want[g]), float(lim))  # Obergrenze im Lager geht vor (josh 2026-11-01)
 	return want
+
+
+## Vorschlag für Lager-Obergrenzen (josh 2026-11-01): für jede Ware ohne Grenze, die hier entsteht oder im Lager
+## liegt, etwa doppelt so viel wie der Zielvorrat; Getreide und Äpfel dazu so viel, wie Mühlen und Ställe im Winter
+## brauchen. Passt alles zusammen nicht ins Lager, werden die Grenzen gleichmäßig kleiner (höchstens 85 % des Raums).
+static func limit_suggestion(w) -> Dictionary:
+	var want := stock_targets(w)
+	var made := {}
+	for b in w.buildings:
+		if not b.complete:
+			continue
+		if b.def.has("farm"):
+			made[str(b.def.farm.get("yield", ""))] = true
+		for g in b.prod_def().get("outputs", {}):
+			made[str(g)] = true
+	for n in w.nodes:
+		var y := str(n.def.get("yield", ""))
+		if y != "" and int(n.amount) > 0:
+			made[y] = true
+	for g in w.stock:
+		if int(w.stock[g]) > 0:
+			made[str(g)] = true
+	var crop_use := {}
+	for b in w.buildings:
+		if b.complete and not b.paused and b.def.has("production"):
+			var p: Dictionary = b.prod_def()
+			for g in p.get("inputs", {}):
+				if str(g) in ["weizen", "aepfel"]:
+					crop_use[g] = float(crop_use.get(g, 0.0)) + float(p.inputs[g]) * CYCLES / maxf(1.0, float(p.get("time", 10.0))) * 0.25
+	var kinds := 0
+	for g in made:
+		if Data.food_ids().has(g):
+			kinds += 1
+	var food_share := Steward.food_per_day(w) * (Steward.PLAN_DAYS + Seasons.season_days()) / maxf(1.0, float(kinds))
+	# Je Ware: Wunsch (doppelter Bedarf) und Boden (einfacher Bedarf). Essen: Anteil am Bedarf für 3 Tage plus einen Winter.
+	var hi := {}
+	var lo := {}
+	var fixed := 0.0
+	for g in made:
+		if not Data.resources.has(g) or Data.good_size(g) <= 0:
+			continue
+		if Game.limit_of(g, w) >= 0:
+			fixed += float(Game.limit_of(g, w)) * Data.good_size(g)
+			continue
+		var need := maxf(float(want.get(g, BASE_KEEP)), 30.0) + float(crop_use.get(g, 0.0)) * Seasons.season_days() * 1.5
+		if Data.food_ids().has(g):
+			need = maxf(need, food_share / maxf(1.0, Data.food_satiety(g)))
+		lo[g] = need
+		hi[g] = need * 2.0
+	# Alles zusammen höchstens 85 % des Lagers: erst vom Wunsch Richtung Boden, dann auch den Boden kürzen
+	var room := float(Game.storage_volume(w)) * 0.85 - fixed
+	var v_hi := 0.0
+	var v_lo := 0.0
+	for g in hi:
+		v_hi += float(hi[g]) * Data.good_size(g)
+		v_lo += float(lo[g]) * Data.good_size(g)
+	var out := {}
+	var small := false
+	for g in hi:
+		var n: float = hi[g]
+		if v_hi > room:
+			if v_lo <= room:
+				n = float(lo[g]) + (float(hi[g]) - float(lo[g])) * (room - v_lo) / maxf(1.0, v_hi - v_lo)
+			else:
+				n = float(lo[g]) * maxf(0.0, room) / maxf(1.0, v_lo)
+				small = true
+		out[g] = maxi(10, int(ceil(n / 10.0)) * 10)
+	if small:
+		Steward._note_block(w, "lager_klein", Loc.t("Das Lager ist zu klein für den Bedarf der nächsten Tage: es fehlen etwa %d Raum. Baue ein weiteres Lager.") % roundi(v_lo - room))
+	return out
 
 
 ## Werkstatt soll arbeiten: fertig, nicht angehalten, keine Werft, eine Ware unter dem Zielvorrat und Platz im Lager.
@@ -243,6 +316,8 @@ static func targets(w) -> Dictionary:
 		if _active(w, b, want) and b.prod_def().get("inputs", {}).has("holz"):
 			wood_day += float(b.prod_def().inputs.holz) * CYCLES / maxf(1.0, float(b.prod_def().get("time", 10.0))) * float(b.slots())
 	var wood_want := maxf(float(want.get("holz", BASE_KEEP)), wood_day * STOCK_DAYS)
+	if Game.limit_of("holz", w) >= 0:
+		wood_want = minf(wood_want, float(Game.limit_of("holz", w)))
 	var wood_have := float(Game.amount("holz", w))
 	var cut := 0
 	if wood_have < wood_want or float(info.fuel[3]) < float(info.fuel[2]):

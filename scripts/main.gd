@@ -273,6 +273,10 @@ func _maybe_autotest() -> void:
 		_bot.setup(self, args)
 		Game.set_speed(1)
 		Engine.time_scale = scale
+	elif args.has("foodsim"):  # Prüflauf zur Essens-Matrix (scripts/world/food_sim.gd)
+		FoodSim.build(self, str(args.get("fsadmin", "0")) == "1")
+		Game.set_speed(1)
+		Engine.time_scale = scale
 	elif args.has("bot"):
 		_bot = load("res://scripts/world/bot.gd").new()  # Spiel-Bot v2 (scripts/world/bot.gd)
 		_bot.setup(self, args)
@@ -358,6 +362,14 @@ func _maybe_autotest() -> void:
 			break
 		if args.has("agetest") and (Exams.passed > AgeTest.age or Game.day() >= AgeTest.limit_day):
 			break
+		if args.has("foodsim"):
+			FoodSim.tick(self)
+			if Game.day() != _fs_day:
+				_fs_day = Game.day()
+				FoodSim.day_report(self)
+			if Game.time_days >= FoodSim.start_day + float(args.get("fsdays", "12")):
+				FoodSim.finish(self)
+				break
 	if args.has("agetest"):
 		print(AgeTest.start_text)
 		print("AGETEST Ende: Zeitalter %d %s, Pruefung %s am Tag %d (Limit %d), Siedler %d auf %d Inseln" % [AgeTest.age,
@@ -1122,6 +1134,7 @@ func _autotest_school() -> void:
 
 
 var _args := {}
+var _fs_day := -1
 var _bot = null  # Spiel-Bot v2 (--bot=1)
 var _probe_label: Label = null
 var _probe_t := 0.0

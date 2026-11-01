@@ -41,6 +41,8 @@ var offered := false
 var offered_routes := false
 var _next := 0.0
 var _moved: Dictionary = {}       # Insel-ID -> Tag des letzten Wechsels
+var _limit_next: Dictionary = {}  # Insel-ID -> Tag, ab dem wieder Obergrenzen vorgeschlagen werden
+const LIMIT_DAYS := 3.0
 var _free_since: Dictionary = {}  # Siedler-ID -> Tag, seit dem er frei ist
 var _emerg: Dictionary = {}       # Beruf -> letzter Tag mit ungesichertem Essen/Wärme (Notfall-Überstunden)
 var _day_stats: Dictionary = {}   # Insel-ID -> {day, start: {holz, kohle, food}, made: {...}, prev: {used_fuel, used_food, made_food, made_holz, food_w, wood_w}}
@@ -126,6 +128,7 @@ func tick(w) -> void:
 	_track_free(w)
 	if Sea.is_main(w):
 		_check_research(w)
+	_limits_tick(w)
 	var iid := int(w.island_id)
 	if Game.time_days - float(_moved.get(iid, -99.0)) < MOVE_DAYS:
 		return
@@ -159,6 +162,26 @@ func tick(w) -> void:
 			budget -= 1
 	if full:
 		_release(w, budget)
+
+
+## Lager-Obergrenzen vorschlagen (josh 2026-11-01): Waren ohne Grenze bekommen einen Vorschlag; lehnt der Spieler ab
+## oder verfällt er, fragt der Verwalter frühestens nach LIMIT_DAYS wieder.
+func _limits_tick(w) -> void:
+	if not Powers.on("obergrenzen"):
+		return
+	var iid := int(w.island_id)
+	if Game.time_days < float(_limit_next.get(iid, -1.0)) or Powers.proposed("limits:%d" % iid):
+		return
+	_limit_next[iid] = Game.time_days + LIMIT_DAYS
+	var sug := StaffPlan.limit_suggestion(w)
+	if sug.is_empty():
+		return
+	var names := []
+	for g in sug:
+		names.append("%s %d" % [Data.resource_name(str(g)), int(sug[g])])
+	var text := tr("Obergrenzen fürs Lager: %s. Darüber wird nichts mehr hergestellt, damit das Lager nicht voll läuft.") % ", ".join(names)
+	Powers.decide("obergrenzen", "limits:%d" % iid, Sea.island_name(w) + ": " + text if Sea.worlds.size() > 1 else text,
+		{"kind": "limits", "island": iid, "goods": sug})
 
 
 ## Leute ohne Bedarf auf frei (josh 2026-10-30): Liegt ein Beruf seit einem halben Tag über dem Stellenplan,
@@ -1022,6 +1045,7 @@ func _on_reset() -> void:
 	tasks = {}
 	_next = 0.0
 	_moved = {}
+	_limit_next = {}
 	_free_since = {}
 	_emerg = {}
 	_day_stats = {}
