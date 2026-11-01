@@ -275,6 +275,11 @@ func _maybe_autotest() -> void:
 		Engine.time_scale = scale
 	elif args.has("foodsim"):  # Prüflauf zur Essens-Matrix (scripts/world/food_sim.gd)
 		FoodSim.build(self, str(args.get("fsadmin", "0")) == "1", str(args.get("fsplan", "")))
+		if args.has("fssave"):  # Startstand als Spielstand zum Importieren (josh 2026-11-01)
+			Game.save_locked = false
+			Game.SAVE_PATH = str(args.fssave)
+			Game.save_game()
+			print("FOODSIM Spielstand gespeichert: ", Game.SAVE_PATH)
 		Game.set_speed(1)
 		Engine.time_scale = scale
 	elif args.has("bot"):

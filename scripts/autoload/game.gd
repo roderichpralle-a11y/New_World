@@ -132,14 +132,10 @@ func _detect_test_build() -> void:
 		path = "/v2/"
 	if "--v21testbuild" in OS.get_cmdline_user_args():
 		path = "/v21test/"
-	var search := str(JavaScriptBridge.eval("window.location.search", true)) if OS.has_feature("web") else ""
 	if "--probelauf" in OS.get_cmdline_user_args():
 		path = "/v21test/"
-		search = "?probelauf"
-	var probe_cfg := ConfigFile.new()
-	probe_cfg.load("user://settings.cfg")
-	var probe_on := bool(probe_cfg.get_value("game", "probelauf", false))  # Menü > Probelauf (falls die Adresse ohne ?probelauf ankommt)
-	if "/v21test/" in path and ("probelauf" in search or probe_on):  # Probelauf (josh 2026-10-31): der Bot spielt, eigener Spielstand
+	# Probelauf (Bot spielt) nur noch als Testhilfe ohne Browser: josh 2026-11-01 will ihn nicht mehr in der Testversion
+	if "/v21test/" in path and "--probelauf" in OS.get_cmdline_user_args():
 		build_tag = "v2probe"
 		probelauf = true
 	elif "/v21test/" in path:  # Testversion von V2 (josh 2026-10-31): eigener Spielstand, anfangs eine Kopie von V2
