@@ -429,6 +429,7 @@ func _process(delta: float) -> void:
 		return
 	if not world.animals.is_empty():
 		_check_danger(delta)
+	_workday_switch()
 	if _plan.is_empty():
 		_think_cooldown -= delta
 		if _think_cooldown <= 0.0:
@@ -437,7 +438,8 @@ func _process(delta: float) -> void:
 		_run_action(delta)
 	if is_adult() and not Game.is_night():
 		_count_busy(days)
-	_animate(delta)
+	if world.visible:  # unsichtbare Insel: rechnen ja, Bilder wechseln nein (Prüfbericht 2026-10-31)
+		_animate(delta)
 
 
 func _count_busy(days: float) -> void:
@@ -515,9 +517,35 @@ func on_break() -> bool:
 
 
 # ------------------------------------------------------------------ Planung
+## Fester Arbeitstag (josh 2026-11-01): Wechselt der Abschnitt (Arbeit, Pause, Feierabend, Schlaf), bricht der
+## Siedler ab, was er gerade tut, und plant neu. Wer Ware trägt, bringt sie danach noch ins Lager.
+var _wd_phase := ""
+
+
+func _workday_switch() -> void:
+	var ph := WorkDay.phase(self) if WorkDay.active(self) else ""
+	if WorkDay.log_on and ph != "":
+		WorkDay.log_arrival(self, ph)
+	if ph == _wd_phase:
+		return
+	var was := _wd_phase
+	_wd_phase = ph
+	if was == "" or ph == "" or _plan.is_empty() or _hiding != null or sleeping:
+		return
+	if ph == "commute" or (was == "commute" and ph == "work"):
+		return  # Weg zur Arbeit läuft weiter
+	for st in _plan:
+		if st.get("defend", false):
+			return
+	if _plan[0].get("done", null) == _do_eat:
+		return  # wer schon am Tisch sitzt, isst noch auf; wer erst hingeht, kehrt um
+	abort_plan()
+
+
 func _think() -> void:
 	_think_cooldown = 0.6 + _rng.randf() * 0.6
 	_release()
+	_unstick()
 	var prev_kind := _stat_kind
 	_stat_kind = "needs"
 	if sleeping and AiRule.ending:
@@ -539,9 +567,18 @@ func _think() -> void:
 		if _plan_deliver():
 			return
 		_stat_kind = "needs"
+	# Fester Arbeitstag ab Wohlstand (WorkDay): in der Arbeitszeit essen nur sehr Hungrige, in der Pause alle
+	var wd := WorkDay.phase(self) if WorkDay.active(self) else ""
 	# 2. Essen
-	if hunger < float(Data.bal("eat_below")) and Game.total_food(world) > 0:
-		if _plan_eat():
+	var eat_at := float(Data.bal("eat_below"))
+	if wd == "work":
+		eat_at *= 0.3  # volle Arbeitszeit (josh 2026-11-01): nur wer kurz vorm Verhungern ist, geht vorher essen
+	elif wd == "pause":
+		eat_at = float(Data.bal("eat_until")) - 10.0
+	if hunger < eat_at and Game.total_food(world) > 0:
+		if wd == "pause" and not _lunch_fits():
+			pass  # Lager zu weit für die Stunde Pause: isst nach Feierabend (sehr Hungrige auch bei der Arbeit)
+		elif _plan_eat():
 			return
 	# 2b. Nichts im Lager (oder Lager voll): Hungrige essen direkt am Strauch oder Ufer
 	if hunger < float(Data.bal("eat_below")) * 0.6 and Game.total_food(world) <= 0 and not Game.is_night():
@@ -565,8 +602,15 @@ func _think() -> void:
 		else:
 			_plan_wander(5, tr("Spielt"))
 		return
-	# 5. Freizeit (erst wenn die Siedlung weiter entwickelt ist)
-	if mind.wants_break() and not Admin.overtime(job, world) and _plan_leisure():  # Überstunden: keine Pausen
+	# 5. Freizeit: mit festem Arbeitstag Mittagspause nahe der Arbeit und Feierabend, sonst nach Erholung
+	if wd == "pause":
+		_plan_wander(3, tr("Macht Mittagspause"), cell)  # in der Nähe, damit er nach einer Stunde wieder dort ist
+		return
+	if wd == "free":
+		if not _plan_leisure():
+			_plan_wander(4, tr("Hat Feierabend"))
+		return
+	if wd == "" and mind.wants_break() and not Admin.overtime(job, world) and _plan_leisure():  # Überstunden: keine Pausen
 		return
 	# 6. Arbeit
 	if _plan_work():
@@ -667,6 +711,20 @@ func _plan_eat() -> bool:
 	_plan.append({"a": "work", "t": 1.6, "act": tr("Isst"), "done": _do_eat})
 	activity = tr("Geht essen")
 	return true
+
+
+## Mittagspause (josh 2026-10-31): Hin zum Lager, essen und zurück zur Arbeit passen in die Pause?
+func _lunch_fits() -> bool:
+	var st = world.nearest_storage(cell)
+	if st == null:
+		return false
+	var eat_h := 1.6 / float(Data.bal("day_length")) * 24.0
+	var at: Vector2i = st.entrance_cell()
+	var there := WorkDay.walk_hours(cell, at)
+	var back := there
+	for c in Steward._job_spots(world, job):
+		back = minf(back, WorkDay.walk_hours(at, c))
+	return there + eat_h + back <= WorkDay.pause_left(self)
 
 
 func _do_eat() -> void:
@@ -961,6 +1019,25 @@ func _plan_decor_leisure(kind: String, b, text: String) -> bool:
 	return true
 
 
+## Steht der Siedler mitten in einem Gebäude (darüber gebaut, josh 2026-11-01: ein Koch verhungerte so im
+## Großen Lager), kommt er nirgends hin: dann auf das nächste freie Feld daneben.
+func _unstick() -> void:
+	if sleeping or _hiding != null or not is_inside_tree() or world.is_walkable(cell):
+		return
+	for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+		if world.is_walkable(cell + d):
+			return  # am Rand: der Weg hinaus ist frei
+	for r in range(1, 8):
+		for dy in range(-r, r + 1):
+			for dx in range(-r, r + 1):
+				var c := cell + Vector2i(dx, dy)
+				if maxi(absi(dx), absi(dy)) == r and world.is_walkable(c):
+					cell = c
+					position = world.cell_to_pos(c)
+					_plan.clear()
+					return
+
+
 func _plan_wander(radius: int, text: String, at = null) -> void:
 	var anchor: Vector2i = cell
 	var st = world.nearest_storage(cell)
@@ -983,6 +1060,9 @@ func _plan_work() -> bool:
 	# Erst die eigene Arbeit; was danach kommt, zählt in der Auslastung als "etwas anderes"
 	_stat_kind = "job"
 	_task_job = ""
+	# Nach Katastrophen bauen alle Erwachsenen zuerst den alten Zustand wieder auf (josh 2026-11-01)
+	if is_adult() and _plan_repair():
+		return true
 	match job:
 		"frei":
 			return _plan_free()
@@ -1191,6 +1271,28 @@ func _plan_construction() -> bool:
 	if not sites.is_empty():
 		_task_job = "baumeister"
 	sites.sort_custom(func(a, b): return Vector2(a.cell - cell).length() < Vector2(b.cell - cell).length())
+	return _plan_sites(sites)
+
+
+## Wiederaufbau: zerstörte Gebäude nach Rang (World.repair_rank), im gleichen Rang das nächste zuerst.
+func _plan_repair() -> bool:
+	var sites: Array = world.repair_sites()
+	if sites.is_empty():
+		return false
+	sites.sort_custom(func(a, b):
+		var ra := World.repair_rank(a)
+		var rb := World.repair_rank(b)
+		return ra < rb if ra != rb else Vector2(a.cell - cell).length() < Vector2(b.cell - cell).length())
+	for site in sites:  # streng der Reihe nach: erst wenn hier nichts zu tun ist, das nächste
+		if _plan_sites([site]):
+			_task_job = "baumeister"
+			_stat_kind = "other"
+			activity = activity + tr(" (Wiederaufbau)")
+			return true
+	return false
+
+
+func _plan_sites(sites: Array) -> bool:
 	# Zuerst bauen, wo alles Material da ist
 	for site in sites:
 		if site.materials_complete():
@@ -1308,6 +1410,11 @@ func _plan_office() -> bool:
 
 ## Schlafenszeit? Nachts, außer bei Schichtarbeit für die Hälfte, die diese Nacht durcharbeitet.
 func _sleep_time() -> bool:
+	if not is_adult():  # Kinder schlafen von 18 bis 6 Uhr (josh 2026-11-01)
+		var h := Game.time_of_day() * 24.0
+		return h >= WorkDay._cfg("child_bed", 18.0) or h < WorkDay._cfg("child_wake", 6.0)
+	if WorkDay.active(self):
+		return WorkDay.phase(self) == "sleep"  # fester Arbeitstag ab Wohlstand (josh 2026-10-31)
 	return Admin.sleep_time(self)
 
 

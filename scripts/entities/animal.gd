@@ -457,6 +457,8 @@ func _flee_home() -> void:
 
 
 func _animate(delta: float) -> void:
+	if world != null and not world.visible:
+		return  # unsichtbare Insel: keine Bildwechsel (Prüfbericht 2026-10-31)
 	_anim += delta
 	var frame := 0
 	if _attack_anim > 0.0:

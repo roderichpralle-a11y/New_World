@@ -17,6 +17,7 @@ var reserved_by: int = 0
 var occupants: Array = []  # Siedler-IDs, die hier arbeiten (Produktion, Forschung)
 var paused: bool = false
 var adm: bool = false  # Verwaltung: Vertretung erlaubt (Admin)
+var repair: bool = false  # nach einer Katastrophe zerstört: alle Erwachsenen bauen es zuerst wieder auf (josh 2026-11-01)
 var ship_choice: String = "boot"  # Werft (alte Spielstände): Schiff, das früher immer wieder gebaut wurde
 var ship_queue: Array = []  # Werft: Bauaufträge der Reihe nach (josh 2026-10-17); leer = baut nichts
 var ship_wip: String = ""  # Werft: Schiff, fuer das die Rohstoffe schon genommen sind
@@ -160,9 +161,27 @@ func roof_cells() -> Array:
 	return out
 
 
-static func roof_offsets(t: String) -> Array:
+static var _roof_file = null
+
+
+## Dachfelder, vorab berechnet (data/roofs.json, erzeugt mit --genroofs=1): das Spiel muss dafür keine
+## Bilddaten zurücklesen (Prüfbericht Grafik 2026-10-31). Fehlt ein Eintrag, wird wie früher gerechnet.
+static func roof_offsets(t: String, compute := false) -> Array:
 	if _roof_cache.has(t):
 		return _roof_cache[t]
+	if _roof_file == null:
+		_roof_file = {}
+		var f := FileAccess.open("res://data/roofs.json", FileAccess.READ)
+		if f:
+			var dd = JSON.parse_string(f.get_as_text())
+			if dd is Dictionary:
+				_roof_file = dd
+	if not compute and _roof_file.has(t):
+		var pre := []
+		for v in _roof_file[t]:
+			pre.append(Vector2i(int(v[0]), int(v[1])))
+		_roof_cache[t] = pre
+		return pre
 	var d: Dictionary = Data.buildings[t]
 	var res := []
 	_roof_cache[t] = res
@@ -492,6 +511,9 @@ var _smoke_t: float = 0.0
 
 
 func _process(delta: float) -> void:
+	if world != null and not world.visible:
+		_hidden_process()  # unsichtbare Insel: nur rechnen, nicht zeichnen (Prüfbericht 2026-10-31)
+		return
 	if complete and _sprite and is_active():
 		var frames := Data.object_frames(def.sprite)
 		if frames > 1:
@@ -542,6 +564,19 @@ var _last_stage := -1
 var _shot_t: float = 0.0
 
 
+## Was auf einer unsichtbaren Insel weiterläuft: Wachturm und Wachstum der Felder (ohne Bildwechsel).
+func _hidden_process() -> void:
+	if complete and def.has("defense") and not world.animals.is_empty():
+		_defend(get_process_delta_time())
+	if _light and _light.visible:
+		_light.visible = false
+	if (is_ground() or def.has("farm")) and complete and farm_state == "growing":
+		farm_time += Seasons.dt_days * (1.0 - Seasons.growth(type, world))
+		if Game.time_days - farm_time >= grow_days():
+			farm_state = "ripe"
+			refresh()
+
+
 ## Wachturm: schiesst Pfeile auf das naechste Tier in Reichweite.
 func _defend(delta: float) -> void:
 	_shot_t -= delta
@@ -555,7 +590,7 @@ func _defend(delta: float) -> void:
 		_shot_t = 0.3
 		return
 	_shot_t = float(d.interval)
-	var from := position + Vector2(0, -34)
+	var from := position + Vector2(0, -49)  # Spitze des Wachturms (1,5-mal so hoch, josh 2026-10-31)
 	world.spawn_arrow(from, an.position + Vector2(0, -6))
 	an.take_damage(float(d.damage) * Game.eff("tower"), self)
 
@@ -564,6 +599,6 @@ func serialize() -> Dictionary:
 	return {
 		"id": id, "type": type, "x": cell.x, "y": cell.y, "complete": complete,
 		"progress": progress, "delivered": delivered,
-		"farm_state": farm_state, "farm_time": farm_time, "paused": paused, "ship": ship_choice, "adm": adm,
+		"farm_state": farm_state, "farm_time": farm_time, "paused": paused, "ship": ship_choice, "adm": adm, "repair": repair,
 		"ship_queue": ship_queue, "ship_wip": ship_wip,
 	}

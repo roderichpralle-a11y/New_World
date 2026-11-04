@@ -141,6 +141,8 @@ func _process(delta: float) -> void:
 			refresh()
 		elif def.sprites.has("growing") and _sprite.texture != Data.object_tex(sprite_name()):
 			refresh()
+	if world != null and not world.visible:
+		return  # unsichtbare Insel: keine Bildwechsel
 	if type == "fischgrund" and amount > 0:
 		_anim_t += delta
 		_sprite.texture = Data.object_tex("fish_anim", int(_anim_t * 3.0) % 4)

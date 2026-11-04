@@ -93,7 +93,11 @@ static func run(main, mode: String) -> void:
 	for i in Powers.proposals.size():
 		if str(Powers.proposals[i].power) == "essen_waerme":
 			pi = i
-	_ok(pi >= 0 and Powers.proposals.filter(func(p): return p.power == "essen_waerme").size() == 1, "Fragen: ein Vorschlag für Essen (%d Vorschläge)" % Powers.proposals.size())
+	var ew_keys := Powers.proposals.filter(func(p): return p.power == "essen_waerme").map(func(p): return str(p.get("key", "")))
+	var uniq := {}
+	for k in ew_keys:
+		uniq[k] = true
+	_ok(pi >= 0 and uniq.size() == ew_keys.size(), "Fragen: je Nahrungsberuf höchstens ein Vorschlag (%d Vorschläge)" % Powers.proposals.size())
 	var before := adults.filter(func(s): return s.job in Steward.FOOD_JOBS).size()
 	Powers.answer(pi, true)
 	var after := adults.filter(func(s): return s.job in Steward.FOOD_JOBS).size()
@@ -148,7 +152,7 @@ static func run(main, mode: String) -> void:
 	var first := true
 	for s in w.settlers:
 		if s.is_adult() and s != v:
-			JobDesk.assign(s, "fischer" if first else "forscher", "spieler")
+			JobDesk.assign(s, "fischer" if first else "sammler", "spieler")
 			first = false
 	for f in Data.food_ids():
 		w.stock[f] = 0
@@ -298,6 +302,12 @@ static func run(main, mode: String) -> void:
 	Powers.mode = {}
 	Powers._on_load(d, 99)
 	_ok(Powers.mode_of("notfall") == Powers.SELBST and Powers.mode_of("forschung") == Powers.FRAGEN, "Spielstand: Schalter bleiben")
+	# Stellenplan erst ab Baumeisterkunst (josh 2026-10-31)
+	_ok(Steward.plan_active(), "mit Baumeisterkunst gilt der Stellenplan")
+	Game.research.done.erase("baumeisterkunst")
+	var simple := Steward.needs(w)
+	_ok(not Steward.plan_active() and simple.all(func(n): return not n.has("rank")), "ohne Baumeisterkunst der einfache Verwalter (%d Bedarfe)" % simple.size())
+	Game.research.done.append("baumeisterkunst")
 	print("Befugnisse ", "OK" if fails == 0 else "FEHLER", " (%d Fehler)" % fails)
 	if mode == "soak":  # danach alles auf Selbst weiterlaufen lassen (Laufzeitfehler suchen)
 		for e in Powers.LIST:

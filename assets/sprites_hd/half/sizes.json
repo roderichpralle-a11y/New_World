@@ -1,0 +1,66 @@
+{
+"fine/animals.png": [
+120,
+96
+],
+"fine/cart.png": [
+96,
+144
+],
+"fine/grund_fruehling.png": [
+64,
+64
+],
+"fine/grund_herbst.png": [
+64,
+64
+],
+"fine/grund_sand.png": [
+64,
+64
+],
+"fine/grund_sommer.png": [
+64,
+64
+],
+"fine/grund_winter.png": [
+64,
+64
+],
+"fine/icons.png": [
+256,
+96
+],
+"fine/menu_icons.png": [
+120,
+20
+],
+"fine/objects.png": [
+256,
+256
+],
+"fine/objects2.png": [
+288,
+144
+],
+"fine/seasons.png": [
+80,
+24
+],
+"fine/settler_droid.png": [
+64,
+72
+],
+"fine/terrain_deco.png": [
+256,
+16
+],
+"fine/ui.png": [
+96,
+24
+],
+"fine/wege.png": [
+256,
+48
+]
+}

@@ -180,6 +180,7 @@ func build_from_save(w: Dictionary, m: Dictionary) -> void:
 		bld.farm_time = float(b.get("farm_time", 0.0))
 		bld.paused = bool(b.get("paused", false))
 		bld.adm = bool(b.get("adm", false))
+		bld.repair = bool(b.get("repair", false)) and not bld.complete
 		if Data.ships.has(b.get("ship", "")):
 			bld.ship_choice = b.ship
 		if b.has("ship_queue"):
@@ -1206,6 +1207,26 @@ func construction_sites(builder: String = "") -> Array:
 	return buildings.filter(func(b): return not b.complete and str(b.def.get("builder", "")) == builder)
 
 
+## Wiederaufbau nach Katastrophen (josh 2026-11-01): zerstörte Gebäude in der Reihenfolge Deich, Häuser,
+## andere Gebäude, Felder, Straßen und Wege.
+func repair_sites() -> Array:
+	var out: Array = buildings.filter(func(b): return b.repair and not b.complete and str(b.def.get("builder", "")) == "")
+	out.sort_custom(func(a, b): return repair_rank(a) < repair_rank(b))
+	return out
+
+
+static func repair_rank(b) -> int:
+	if str(b.def.get("tile", "")) == "dike":
+		return 0
+	if b.def.has("housing"):
+		return 1
+	if b.def.has("farm"):
+		return 3
+	if str(b.def.get("category", "")) == "wege":
+		return 4
+	return 2
+
+
 ## Werkstatt einer Art ("kueche", "handwerk", "stein"), die gerade arbeiten kann.
 ## Bevorzugt wird die, deren Ware am knappsten ist.
 func find_workshop(kind: String, from: Vector2i, sid: int):
@@ -1810,6 +1831,9 @@ func night_factor() -> float:
 func _process(delta: float) -> void:
 	if day_tint == null:
 		return
+	if not visible:
+		_hidden_process()  # unsichtbare Insel: nur rechnen, nicht zeichnen (Prüfbericht 2026-10-31)
+		return
 	var nf := night_factor()
 	var t := Game.time_of_day()
 	var day_col := Color(1, 1, 1)
@@ -1838,6 +1862,21 @@ func _process(delta: float) -> void:
 		d[0].frame = int(Time.get_ticks_msec() / 600) % 2
 		if Game.time_days > d[1]:
 			d[0].queue_free()
+			decor.remove_at(i)
+	_process_dens(delta)
+	_update_danger(delta)
+
+
+## Was auf einer unsichtbaren Insel weiterläuft: Gräber und Schmuck verschwinden, Tierbaue, Gefahren.
+func _hidden_process() -> void:
+	var delta := get_process_delta_time()
+	for i in range(graves.size() - 1, -1, -1):
+		if Game.time_days > graves[i][1]:
+			graves[i][0].queue_free()
+			graves.remove_at(i)
+	for i in range(decor.size() - 1, -1, -1):
+		if Game.time_days > decor[i][1]:
+			decor[i][0].queue_free()
 			decor.remove_at(i)
 	_process_dens(delta)
 	_update_danger(delta)

@@ -12,6 +12,9 @@ Zeitalterwechsel mit Wertung und Aufträge mit Wahl. Überblick und Zusammenspie
 
 Eigener Zweig `claude/project-thread-9zqobi`, Web-Adresse `/v21/` (seit josh 2026-10-30; vorher `/v2/`, dort bleibt 2.0.35 stehen; web.yml nur auf diesem Zweig),
 eigener Spielstand (`Game.build_tag = "v2"`), Version 2.0.N (N = Stände seit main). main und /neu/
+Seit josh 2026-11-04 trägt /v21/ den Stand der Testversion 2.0.72 (Zweig `claude/v21-test`, /v21test/): neuer Verwalter mit
+Stellenplan, fester Arbeitstag. Die Versionszählung auf diesem Zweig schließt an 2.0.72 an (web.yml: Stände seit main + 15).
+Zurück zum alten Stand 2.0.55: Baum von b8a8c97 wiederherstellen.
 bleiben bei der alten Grafik; dieser Zweig wird nicht nach main gemischt, solange josh es nicht sagt.
 
 - **Bögen:** `tools/art_v2/src/*.png` (23 Bögen von josh: Figuren je Beruf, Gebäude, Boden, Wege,
@@ -110,6 +113,20 @@ widersprechen. Selbsttest `--powerstest=1` („Befugnisse OK (0 Fehler)“, `scr
 spielt danach mit allem auf Selbst weiter. Die alten Tests `--admintest`, `--stewardtest`, `--plannertest` prüfen
 teils das frühere Verhalten (Angebote, Automat baut, Planer) und schlagen dort fehl.
 
+**Lager-Obergrenzen (josh 2026-11-01, Befugnis `obergrenzen`, Stufe 2):** Hat eine Ware auf der Insel noch keine
+Obergrenze (`Game.store_limits`), schlägt der Verwalter höchstens alle 3 Tage eine vor (`Steward._limits_tick`, Vorschlag
+`{kind: "limits", island, goods}`, `Powers.do_action` setzt nur Waren ohne Grenze). Werte aus
+`StaffPlan.limit_suggestion`: Boden = Zielvorrat (mindestens 30; Getreide und Äpfel plus Winterbedarf der Mühlen und
+Ställe; Essen sein Anteil an 3 Tagen plus einem Winter), Wunsch = doppelt; alles zusammen höchstens 85 % des Lagers,
+sonst Richtung Boden, notfalls darunter, mit Hinweis „Baue ein weiteres Lager“. Der Zielvorrat (`stock_targets`) und das
+Holz-Soll halten die Obergrenzen ein; Sammler und Werkstätten stoppen ohnehin an der Grenze (`Game.space_for`).
+Prüflauf `--foodsim=1 [--fsadmin=1] [--fsdays=12]` (`scripts/world/food_sim.gd`): Stufe 5, 27 Siedler, feste Berufe,
+ein Jahr, Bericht je Tag; Ergebnisse unter /mnt/project-files/konzept/essen_matrix/.
+
+**Wiederaufbau nach Katastrophen (josh 2026-11-01, nur Testversion):** `Events.damage_building` und `Land._restore_sunk` setzen `Building.repair` (gespeichert). Solange es solche Baustellen gibt, nimmt jeder Erwachsene in `Settler._plan_work` zuerst `_plan_repair`: streng nach `World.repair_rank` (0 Deich, 1 Häuser, 2 andere Gebäude, 3 Felder, 4 Wege), im gleichen Rang die nächste Baustelle; fehlt Material, geht es zur nächsten. Test `--eventtest=wiederaufbau`.
+
+**Piraten (josh 2026-11-01, nur Testversion):** mehr und stärkere Piraten (events.json `count` [5, 3, 30], `armed_mult` 2,2 sobald Waffen im Lager oder Waffenkunde, Pirat 90 Leben und 15 Schaden, Siedler fliehen erst bei 20 Gesundheit, Waffe 6 Schaden; Wachturm 22 Schaden). Landeplatz (`Events._landing_cell`): nur Strand direkt am offenen Meer (`Land._open`, also nie hinter Deichen), Stellen in Reichweite eines Wachturms (+3 Felder) nur, wenn es keine andere gibt; ist alles eingedeicht, landen sie am Hafen (Werft, Steg, Hafen, Kai), sonst gar nicht. Probekampf `--eventtest=piratenstaerke` (20 Erwachsene, Mittel aus 3 Inseln): ohne Waffen etwa 6 Tote, mit Waffen und Waffenkunde etwa 2, mit 3 Wachtürmen am Lager etwa 1.
+
 - **Ausbaustufen**: Verwaltung (Stufe 1) und `verwaltung2`…`verwaltung7` in buildings.json (`office`, `office_level`,
   `upgrade`-Kette, nicht baubar, joshs Bilder `tools/art_v2/src/einzeln/verwaltung_N.png` -> `big/office*.png`):
   2 Amtshaus (Baumeisterkunst), 3 Kanzlei (Papier), 4 Inselamt (Buchdruck), 5 Planungsamt (Dampfmaschine, mit
@@ -141,12 +158,33 @@ teils das frühere Verhalten (Angebote, Automat baut, Planer) und schlagen dort 
 - **Verwalter stirbt** (josh 2026-10-29): `Admin._refill_manager` besetzt den Posten immer sofort, ohne Befugnis
   (nach seinem Tod ist `Admin.level()` 0): ein Freier (Talent zuerst), sonst ein Erwachsener aus dem Beruf mit den
   meisten Leuten (keine Seeleute), sonst das nächste erwachsene Kind (`pending_jobs` vorn).
-- **Entscheidungen** (`Steward.tick` alle 0,25 Tage, höchstens ein Wechsel je Insel und halben Tag, `Steward.needs`
-  in dieser Reihenfolge): Essen und Wärme für 3 Tage (`secure_info`: Bedarf aus Siedlern, Häusern, Gebäuden gegen
-  Vorrat + Ertrag der jetzigen Arbeiter; darf Spieler-Siedler nehmen), Grundbesetzung (Baumeister bei Baustellen,
-  Bauern nach Feldern UND Ställen, Holzfäller für die Wärme, Werkstätten mit Zutaten und Bedarf; nur Freie; wer einen
-  Tag frei ist, bekommt einen Beruf), Mindestvorräte (Reiter Vorräte). Notfall: lässt sich Essen/Wärme nicht sichern,
-  Überstunden, dann Schichten; Ende nach 2 Tagen ohne Not. Der Spieler teilt den Rest ein (JobDesk-Rang spieler).
+- **Stellenplan** (josh 2026-10-30, Versuch mit 100 Siedlern, `scripts/autoload/staff_plan.gd`, Klasse `StaffPlan`;
+  erst ab der Forschung Baumeisterkunst, josh 2026-10-31, `Steward.plan_active`; davor `_needs_simple` wie bis 2.0.52
+  mit einem Wechsel je halben Tag und ohne Freistellen):
+  `targets(w)` gibt je Beruf ein Soll. Werkstätten zählen mit allen Plätzen, wenn eine ihrer Waren unter dem
+  Zielvorrat liegt (`stock_targets`: Mindestvorräte, Hausbedürfnisse für 4 Tage, Forschungskosten oder Rest-Schriften,
+  Baustellen, zubereitetes Essen für 6 Tage plus Wintervorrat, Zutaten der aktiven Werkstätten dreimal rückwärts
+  durchgereicht, jede Ware mindestens 30) und Zutaten da sind oder auf der Insel gerade entstehen (`_fed`).
+  Rohnahrung nach Vorrat: unter Bedarf für 3 Tage plus `winter_days()` (Sommer und Herbst ein ganzer Winter) arbeiten
+  alle Plätze, an denen etwas wächst (Felder je 4 ein Bauer, Fischgründe, wachsende Sträucher je 4, Tiere je 4), sonst
+  anteilig; `_useful` begrenzt auf die, die wirklich Arbeit finden. Holz nach Heizen plus Werkstätten, höchstens reife
+  Bäume / 6. Weizen oder Fisch über 150 im Lager, Essen knapp und die Küchen voll: Engpass „baue mehr davon“.
+- **Entscheidungen** (`Steward.tick` alle 0,25 Tage, je Runde 1 + Erwachsene/10 Wechsel): `needs` = Lücken zum
+  Stellenplan, nach Befugnis sortiert (Essen und Wärme dürfen Spieler-Siedler nehmen, sonst Freie, dann Überzählige).
+  `_release`: liegt ein Beruf einen halben Tag über dem Soll, werden Leute mit mindestens 40 % Leerlauf frei
+  (josh: wer weder arbeitet noch forscht und nicht gebraucht wird), mit Meldung. Notfall: lässt sich Essen/Wärme
+  nicht sichern, Überstunden, dann Schichten; Ende nach 2 Tagen ohne Not.
+- **Arbeitstag ab Wohlstand** (josh 2026-10-31, Schritt 1, `WorkDay`, people.json `workday`): Erwachsene ab
+  Lebensstil Wohlstand (comfort 0,75) ohne Überstunden/Schicht sind um 6 Uhr am Arbeitsplatz (Aufstehen = 6 Uhr minus
+  Weg Wohnung–nächster Arbeitsplatz minus 0,25 h), arbeiten 6–10 und 11–15, Mittagspause nahe der Arbeit (essen,
+  wenn nicht satt), danach Feierabend in der Freizeit; 18 Stunden wach. In der Arbeitszeit essen nur sehr Hungrige.
+  Im Testlabor (voll) stieg der Ertrag gegenüber vorher etwa auf das 1,5- bis 2-Fache (Mehl 20 -> 30–40 am Tag).
+  Wege (josh 2026-11-01): Solange jemand mit festem Arbeitstag wach ist, läuft die Nacht nicht schneller (Admin.night_work_now), sonst wären die Wege nachts fünfmal so lang. Aus der Pause bricht jeder so früh auf (Weg zur Arbeit + 15 Min. Reserve), dass er um 11 Uhr zurück ist; gegessen wird in der Pause nur, wenn Hin, Essen und Rückweg in die Stunde passen. Abends geht jeder so früh heim, dass er zur Schlafenszeit (Aufstehen + 18 h) im Bett liegt. Kinder schlafen 18–6 Uhr. Gold braucht keinen Lagerplatz (size 0) und bekommt deshalb keine Obergrenze. `--daylog=1` druckt DAYARR mit Aufstehen, Arbeitsbeginn, Rückkehr aus der Pause und Bettzeit je Siedler.
+- **Testlabor** `--autotest=200 --scale=15 --vlab=1|voll|bad|free` (`StewardLab`): Insel mit 100 Siedlern, Verwaltung
+  Stufe 4, Forschung bis Stufe 8, alle Befugnisse Selbst; täglich ein Bericht (Essen, Waren, Erzeugtes, Berufe mit
+  Leerlauf, Soll, Werkstätten, Engpässe). Ergebnis 2026-10-30: Werkstätten schaffen wegen Freizeit und Wegen nur etwa
+  ein Zehntel der Rechnung `CYCLES` (Windmühle rund 4 Mehl am Tag), darum staut sich Weizen; der Verwalter kann das
+  nur melden, nicht bauen.
 - **Planungsautomat** (Stufe 5, `Planner.active()` ist immer false: er baut nicht): jeden Sommer `PlanReport.make()`
   -> `Planner.report` (Spielstand); je Insel Karte (`PlanReport.map_image`), Straßen, Gebäude zum Verschieben,
   Tipps, nächste Insel zum Besiedeln; mit Rundfunkanstalt der Versorgungsplan. Reiter Gutachten im Fenster Verwalter.
@@ -2092,3 +2130,15 @@ eine Meldung „schon die neueste“ oder „Server antwortet nicht“. Kein Abr
 Das Menü hat keinen Knopf „Neues Spiel“ mehr; ein neues Spiel beginnt über Spielstände oder das Titelbild. Test: `--panel=update --shot=...`. `Game.load_newest_version()` speichert,
 sperrt weiteres Speichern, löscht nur die Caches `Insel-Siedler-sw-cache-*` (die KI-Modelle liegen in
 anderen Caches), meldet den Service Worker ab, holt index.html/js/pck neu und lädt mit `?v=` neu.
+
+### Bilder vorbereitet vor dem Export (josh 2026-10-31, Prüfbericht Grafik, Testversion /v21test/)
+- `tools/art_v2/vorbereiten.py` (nach build.py / bilder_fein.py laufen lassen): Zierbaum `park_tree` als eigenes Bild in big/,
+  Symbolbögen `icons.png` als Raster mit 16 Symbolen je Zeile (fine war 12648 Punkte breit), halbe Fassungen für iPhone/iPad in
+  `assets/sprites_hd/half/` (fine/ und big/) samt `half/sizes.json`. `Data.game_tex` nimmt auf kleinen Bildschirmen die halbe Datei,
+  verkleinert wird zur Laufzeit nur noch als Ersatz. `Data.icon` rechnet Zeile und Spalte aus der Breite des Bogens.
+- Der alte Gebäudeatlas `assets/sprites_hd/buildings.png` wird nicht mehr geladen (`Data.tex_buildings` erst bei Bedarf) und nicht exportiert.
+- Dachfelder (`Building.roof_offsets`) stehen vorab in `data/roofs.json`; neu erzeugen nach Bildänderungen mit
+  `godot --headless -- --autotest=1 --genroofs=1`.
+- Unsichtbare Inseln: World, Gebäude, Siedler, Tiere und Rohstoffe wechseln keine Bilder (`_hidden_process`), die Simulation
+  (Bedürfnisse, Arbeit, Felder, Wachturm, Tierbaue) läuft weiter. Testhilfe `--small` tut so, als wäre es ein iPhone.
+- Zeitalter-Test: `--agetest=0..6 [--workday=0]` (scripts/world/age_test.gd, plan_bot.gd) spielt den Useraktionsplan je Zeitalter.

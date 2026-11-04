@@ -840,6 +840,9 @@ func damage_building(w, b) -> void:
 		if s.home_id == b.id and s.sleeping:
 			s._wake_up()
 	var dl := rebuild_delivered(b.def.cost)
+	b.repair = true
+	if w.settlers.size() > 0:
+		Game.notify_at(w, tr("Nach dem Unglück bauen alle Erwachsenen zuerst wieder auf: Deiche, Häuser, andere Gebäude, Felder, Straßen."), "hammer", "ereignis")
 	b.complete = false
 	b.progress = 0.0
 	b.delivered = dl
@@ -899,23 +902,51 @@ func _raiders_of(w) -> Array:
 	return list.filter(func(r): return is_instance_valid(r) and not r.dead and not r.gone)
 
 
-## Landeplatz der Piraten: Strand mit Wasser davor, etwa 12 Felder vom Lager, Weg zum Lager frei.
+## Landeplatz der Piraten (josh 2026-11-01): Strand direkt am offenen Meer (über Deiche kommen sie nicht),
+## möglichst weit weg von Wachtürmen, etwa 12 Felder vom Lager, Weg zum Lager frei. Ist die ganze Küste
+## eingedeicht, kommen sie über den Hafen (Werft, Steg, Hafen, Kai). Gibt es auch den nicht: null.
 func _landing_cell(w, rng: RandomNumberGenerator):
 	var st = w.nearest_storage(w.center)
 	var origin: Vector2i = st.entrance_cell() if st != null else w.center
+	var open: PackedByteArray = Land._open(w, false)
+	var towers: Array = w.buildings.filter(func(b): return b.complete and b.def.has("defense"))
+	var n: int = w.size
+	var sea := func(c: Vector2i) -> bool:
+		for d in Land.DIRS:
+			var m: Vector2i = c + d
+			if w.is_inside(m) and open[m.y * n + m.x] == 1:
+				return true
+		return false
 	var cands := []
-	for y in w.size:
-		for x in w.size:
+	for y in n:
+		for x in n:
 			var c := Vector2i(x, y)
-			if w.terrain_at(c) == World.SAND and w.is_walkable(c) and not w.building_at.has(c):
-				var d := Vector2(c - origin).length()
-				cands.append([absf(d - 12.0) + rng.randf() * 4.0, c])
+			if w.terrain_at(c) == World.SAND and w.is_walkable(c) and not w.building_at.has(c) and sea.call(c):
+				cands.append([absf(Vector2(c - origin).length() - 12.0) + rng.randf() * 4.0 + _tower_cover(c, towers) * 1000.0, c])
 	cands.sort_custom(func(a, b): return a[0] < b[0])
-	for i in mini(16, cands.size()):
+	for i in mini(24, cands.size()):
 		var c: Vector2i = cands[i][1]
-		if w._water_near(c, 5) != null and not w.find_path(c, origin).is_empty():
+		if not w.find_path(c, origin).is_empty():
 			return c
-	return w.beach_near(rng)
+	# Alles eingedeicht: über den Hafen
+	for b in w.buildings:
+		if not b.complete or not (b.def.has("harbor") or b.def.has("berths") or b.def.has("ships") or str(b.type).ends_with("kai") or b.type in ["anlegesteg", "hafen", "grosser_hafen"]):
+			continue
+		for c in b.cells():
+			for d in [Vector2i(0, 1), Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, -1), Vector2i(1, 1), Vector2i(-1, 1)]:
+				var q: Vector2i = c + d
+				if w.is_inside(q) and w.is_walkable(q) and not w.building_at.has(q) and not w.find_path(q, origin).is_empty():
+					return q
+	return null
+
+
+## Wie viele Wachtürme reichen bis an diese Stelle (Reichweite plus 3 Felder Abstand)?
+func _tower_cover(c: Vector2i, towers: Array) -> int:
+	var k := 0
+	for t in towers:
+		if Vector2(t.cell - c).length() <= float(t.def.defense.get("range", 7)) + 3.0:
+			k += 1
+	return k
 
 
 func _pirates_land(w, st: Dictionary, ev: Dictionary) -> void:
@@ -924,6 +955,9 @@ func _pirates_land(w, st: Dictionary, ev: Dictionary) -> void:
 	var c: Array = d.get("count", [2, 10, 7])
 	var n := clampi(int(c[0]) + w.settlers.size() / maxi(1, int(c[1])) + maxi(0, Game.max_tier() - int(d.get("min_tier", 4))) / 2,
 		int(c[0]), int(c[2]))
+	# Mehr Piraten, wenn die Insel Waffen hat (josh 2026-11-01): der Kampf bleibt schwer
+	if Game.amount("waffen", w) > 0 or Game.eff("weapons") > 1.0:
+		n = mini(roundi(float(n) * float(d.get("armed_mult", 1.6))), int(c[2]))
 	ev.end = Game.time_days + float(d.get("timeout", 0.8))
 	ev.count = n
 	ev.kills = 0

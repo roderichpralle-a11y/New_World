@@ -19,11 +19,13 @@ const LIST := [
 	{"id": "nachbesetzen", "level": 1, "icon": "person", "name": "Nachbesetzen",
 		"desc": "Stirbt ein Siedler, übernimmt ein Freier seinen Beruf (einer mit passendem Talent zuerst). Gibt es keinen, lernt ihn das nächste Kind, das erwachsen wird. Den Verwalter selbst ersetzt das Spiel immer sofort, auch ohne diese Befugnis."},
 	{"id": "grundbesetzung", "level": 1, "icon": "hammer", "name": "Grundbesetzung",
-		"desc": "Freie gehen nur dorthin, wo Arbeit wartet: Werkstätten mit Zutaten, deren Ware gebraucht wird; Bauern nach Feldern und Ställen; Holzfäller so viele, wie die Wärme braucht; Baumeister für Baustellen; ein Koch, wenn frische Nahrung haltbar gemacht werden muss, bevor sie verdirbt; ein Jäger, wenn Raubtiere nahe den Arbeitsplätzen sind. Niemand kommt in einen Beruf, in dem gerade nichts zu holen ist (keine Bäume, Winter). Er nimmt den Geübtesten, der nah wohnt. Bleibt ein Siedler einen Tag frei, bekommt er einen Beruf, wo Mindestvorräte fehlen oder eine Werkstatt Arbeit hat."},
+		"desc": "Freie gehen nur dorthin, wo Arbeit wartet: Werkstätten mit Zutaten, deren Ware gebraucht wird; Bauern nach Feldern und Ställen; Holzfäller so viele, wie die Wärme braucht; Baumeister für Baustellen; ein Koch, wenn frische Nahrung haltbar gemacht werden muss, bevor sie verdirbt; ein Jäger, wenn Raubtiere nahe den Arbeitsplätzen sind. Niemand kommt in einen Beruf, in dem gerade nichts zu holen ist (keine Bäume, Winter). Er nimmt den Geübtesten, der nah wohnt. Bleibt ein Siedler einen Tag frei, bekommt er einen Beruf, wo Mindestvorräte fehlen oder eine Werkstatt Arbeit hat. Ab der Forschung Baumeisterkunst rechnet er einen Stellenplan: wie viele Leute jeder Beruf gerade braucht. Wer mehr als 40 % der Zeit nichts zu tun hat und nicht gebraucht wird, kommt auf frei, damit du ihn einsetzen kannst."},
 	{"id": "essen_waerme", "level": 2, "icon": "weizen", "name": "Essen und Wärme sichern",
 		"desc": "Rechnet aus, was die Insel in den nächsten 3 Tagen an Essen und Brennstoff braucht (alle Bewohner und arbeitenden Gebäude; leere Häuser verbrauchen nichts), und vergleicht es mit Vorrat und Ertrag der jetzigen Arbeiter. Fehlt etwas, setzt er gerade so viele Leute ein, dass es reicht, notfalls auch deine."},
 	{"id": "mindestvorrat", "level": 2, "icon": "haus", "name": "Mindestvorräte",
 		"desc": "Liegt eine Ware unter dem Mindestvorrat, den du im Reiter Vorräte einstellst, schickt er Siedler in den passenden Beruf: Freie und solche, die er selbst eingeteilt hat und die gerade nicht gebraucht werden. Er folgt der Lieferkette bis zum Anfang (fehlt Glas, prüft er zuerst Lehm). Genauso sorgt er für die Waren, die die Häuser brauchen (Möbel, Lesestoff, Glas …)."},
+	{"id": "obergrenzen", "level": 2, "icon": "haus", "name": "Lager-Obergrenzen",
+		"desc": "Hat eine Ware im Lager noch keine Obergrenze, schlägt er eine vernünftige vor: etwa doppelt so viel, wie Werkstätten, Häuser, Forschung und Baustellen in den nächsten Tagen brauchen, bei Getreide und Äpfeln dazu der Vorrat für den Winter. Ist eine Ware an ihrer Obergrenze, wird dafür niemand mehr eingeteilt. So läuft das Lager nicht voll, und Steinmetze schlagen keine Steine, die keiner braucht. Grenzen, die du selbst eingestellt hast, ändert er nie."},
 	{"id": "notfall", "level": 3, "icon": "sonne", "name": "Überstunden im Notfall",
 		"desc": "Lassen sich Essen oder Wärme nicht sichern, weil Leute fehlen, ordnet er für diese Berufe Überstunden an, reicht das nicht, Schichtarbeit. Ist die Not vorbei, beendet er sie."},
 	{"id": "forschung", "level": 3, "icon": "wissen", "name": "Forschung weiterführen",
@@ -180,6 +182,19 @@ func do_action(a: Dictionary) -> bool:
 				return false
 			count("research")
 			return true
+		"limits":  # Lager-Obergrenzen (josh 2026-11-01): nur Waren, die noch keine Grenze haben
+			var lw = Sea.worlds.get(int(a.island))
+			if lw == null:
+				return false
+			var n := 0
+			for id in a.goods:
+				if Game.limit_of(str(id), lw) < 0:
+					Game.set_limit(str(id), int(a.goods[id]), lw)
+					n += 1
+			if n == 0:
+				return false
+			count("limits")
+			return true
 		"trip":
 			if not Steward.ship_now(int(a.from), int(a.to), a.goods, str(a.why)):
 				return false
@@ -239,6 +254,8 @@ func _process(_delta: float) -> void:
 func autotest_setup(args: Dictionary, main) -> void:
 	if args.has("powerstest"):
 		await PowersTest.run(main, str(args.powerstest))
+	if args.has("vlab"):
+		await StewardLab.run(main, str(args.vlab))
 
 
 # ---------------------------------------------------------------- Spielstand

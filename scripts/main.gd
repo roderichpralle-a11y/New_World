@@ -36,7 +36,9 @@ func _ready() -> void:
 			world.cancel_placement())
 	_focus_start()
 	Game.set_speed(0)
-	if Game.autostart == "continue" and not save.is_empty():
+	if Game.probelauf:
+		_start_probe(save.is_empty())
+	elif Game.autostart == "continue" and not save.is_empty():
 		_on_continue()
 	elif Game.autostart != "":
 		_on_new_game()
@@ -247,7 +249,40 @@ func _maybe_autotest() -> void:
 			await sys.autotest_setup(args, self)
 	if args.has("integtest"):
 		await IntegrationTest.run(self)  # Zusammenspiel der Erweiterungen (scripts/autoload/integration_test.gd)
-	if args.has("bot"):
+	if args.has("genroofs"):  # Dachfelder vorab berechnen (Building.roof_offsets) und nach data/roofs.json schreiben
+		var out := {}
+		for t in Data.buildings:
+			var r: Array = Building.roof_offsets(t, true)
+			out[t] = r.map(func(v): return [v.x, v.y])
+		var f := FileAccess.open("res://data/roofs.json", FileAccess.WRITE)
+		f.store_string(JSON.stringify(out, "", true))
+		f.close()
+		print("Dachfelder: %d Gebäudearten nach data/roofs.json" % out.size())
+		get_tree().quit()
+		return
+	if args.has("workday"):
+		WorkDay.off = str(args.workday) == "0"
+	if args.has("agetest"):  # Zeitalter-Test nach dem Useraktionsplan (scripts/world/age_test.gd)
+		AgeTest.build(self, int(args.agetest))
+		if args.has("focus"):  # Testhilfe: Kamera auf das erste Gebäude dieser Art (Bildschirmfoto)
+			for b in world.buildings:
+				if b.type == str(args.focus):
+					camera.focus(b.position)
+					break
+		_bot = load("res://scripts/world/plan_bot.gd").new()
+		_bot.setup(self, args)
+		Game.set_speed(1)
+		Engine.time_scale = scale
+	elif args.has("foodsim"):  # Prüflauf zur Essens-Matrix (scripts/world/food_sim.gd)
+		FoodSim.build(self, str(args.get("fsadmin", "0")) == "1", str(args.get("fsplan", "")))
+		if args.has("fssave"):  # Startstand als Spielstand zum Importieren (josh 2026-11-01)
+			Game.save_locked = false
+			Game.SAVE_PATH = str(args.fssave)
+			Game.save_game()
+			print("FOODSIM Spielstand gespeichert: ", Game.SAVE_PATH)
+		Game.set_speed(1)
+		Engine.time_scale = scale
+	elif args.has("bot"):
 		_bot = load("res://scripts/world/bot.gd").new()  # Spiel-Bot v2 (scripts/world/bot.gd)
 		_bot.setup(self, args)
 	var elapsed := 0.0
@@ -330,6 +365,64 @@ func _maybe_autotest() -> void:
 				Game.population(), Game.housing_capacity(), Game.amount("holz"), Game.amount("stein"), Game.total_food(), jobs])
 		if Game.is_over:
 			break
+		if args.has("agetest") and (Exams.passed > AgeTest.age or Game.day() >= AgeTest.limit_day):
+			break
+		if args.has("daylog"):  # Tagesablauf (josh 2026-11-01): jede Spielstunde, was die Erwachsenen tun
+			WorkDay.log_on = true
+			_dl_arr = WorkDay.arr
+			if Game.day() != _dl_day:
+				if _dl_day >= 0:
+					var parts := []
+					for k in ["auf", "morgens", "mittags", "Bett"]:
+						var vs := []
+						for kk in _dl_arr.keys():
+							if kk.ends_with(k):
+								vs.append(_dl_arr[kk])
+						vs.sort()
+						parts.append("%s %s" % [k, " ".join(vs.map(func(v): return "%d:%02d" % [int(v) % 24, int(fposmod(v, 1.0) * 60.0)]))])
+					var awake := 0
+					for s in world.settlers:
+						if s.is_adult() and WorkDay.active(s) and not s.sleeping:
+							awake += 1
+					print("DAYARR Tag %d | %s | um 0 Uhr noch wach %d" % [_dl_day, " | ".join(parts), awake])
+				_dl_day = Game.day()
+				WorkDay.arr.clear()
+			var hr := int(Game.time_of_day() * 48.0)  # jede halbe Stunde
+			if hr != _dl_hour:
+				_dl_hour = hr
+				var cnt := {}
+				var wd := 0
+				var ph := {}  # Abschnitt -> [am Ort, unterwegs]
+				for s in world.settlers:
+					if not s.is_adult():
+						continue
+					if WorkDay.active(s):
+						wd += 1
+						var p := WorkDay.phase(s)
+						if not ph.has(p):
+							ph[p] = [0, 0]
+						var here: bool = s.sleeping if p == "sleep" else not s._moving
+						ph[p][0 if here else 1] += 1
+					var a := str(s.activity).split(" (")[0].split(":")[0]
+					cnt[a] = int(cnt.get(a, 0)) + 1
+				var ks: Array = cnt.keys()
+				ks.sort_custom(func(x, y): return int(cnt[x]) > int(cnt[y]))
+				print("DAYLOG Tag %d %02d:%02d | Lebensstil %.2f, fester Arbeitstag %d | Abschnitt (da/unterwegs) %s | %s" % [Game.day(), hr / 2, (hr % 2) * 30,
+					SettlerMind.comfort(), wd, ", ".join(ph.keys().map(func(k): return "%s %d/%d" % [k, ph[k][0], ph[k][1]])),
+					", ".join(ks.map(func(k): return "%s %d" % [k, cnt[k]]))])
+		if args.has("foodsim"):
+			FoodSim.tick(self)
+			if Game.day() != _fs_day:
+				_fs_day = Game.day()
+				FoodSim.day_report(self)
+			if Game.time_days >= FoodSim.start_day + float(args.get("fsdays", "12")):
+				FoodSim.finish(self)
+				break
+	if args.has("agetest"):
+		print(AgeTest.start_text)
+		print("AGETEST Ende: Zeitalter %d %s, Pruefung %s am Tag %d (Limit %d), Siedler %d auf %d Inseln" % [AgeTest.age,
+			Data.age_name(AgeTest.age), "BESTANDEN" if Exams.passed > AgeTest.age else "NICHT bestanden", Game.day(), AgeTest.limit_day,
+			Sea.total_people(), Sea.settled_islands().size()])
 	if _bot:
 		_bot.finish()
 	if args.has("storetest"):
@@ -1089,7 +1182,54 @@ func _autotest_school() -> void:
 
 
 var _args := {}
+var _fs_day := -1
+var _dl_hour := -1
+var _dl_day := -1
+var _dl_arr := {}
 var _bot = null  # Spiel-Bot v2 (--bot=1)
+var _probe_label: Label = null
+var _probe_t := 0.0
+
+
+## Probelauf im Browser (josh 2026-10-31, /v21test/?probelauf): neues Spiel oder weiter, der Bot spielt jede
+## Sekunde einen Takt, oben links stehen seine letzten Züge. Der Spieler steuert nur die Geschwindigkeit.
+func _start_probe(fresh: bool) -> void:
+	if fresh:
+		_on_new_game()
+	else:
+		_on_continue()
+	_bot = load("res://scripts/world/bot.gd").new()
+	_bot.setup(self, {})
+	Game.set_speed.call_deferred(1)
+	var panel := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0, 0, 0, 0.55)
+	sb.set_corner_radius_all(6)
+	sb.set_content_margin_all(8)
+	panel.add_theme_stylebox_override("panel", sb)
+	panel.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	panel.offset_left = 12
+	panel.offset_bottom = -12
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_probe_label = Label.new()
+	_probe_label.add_theme_font_size_override("font_size", 13)
+	_probe_label.add_theme_color_override("font_color", Color(1, 1, 0.85))
+	panel.add_child(_probe_label)
+	hud.add_child(panel)
+
+
+func _process(_delta: float) -> void:
+	if not Game.probelauf or _bot == null:
+		return
+	var now := Time.get_ticks_msec() / 1000.0  # echte Sekunden: delta steht bei Pause auf 0
+	if now - _probe_t < 1.0:
+		return
+	_probe_t = now
+	if Game.speed > 0:
+		_bot.tick(0.0)
+	if _probe_label:
+		_probe_label.text = tr("Probelauf: der Bot spielt, du steuerst die Geschwindigkeit") + "\n" + "\n".join(_bot.shown)
 const AGE_TECHS := ["glasmacherei", "papier", "hochschule", "stahl", "fabrik", "konservendose", "mietshaus",
 	"elektrizitaet", "gewaechshaus", "wohnblock", "computer", "solarenergie", "internet", "ki", "fusionsenergie", "zukunftsstadt"]
 

@@ -20,7 +20,13 @@ var people: Dictionary = {}  # Charaktere: Eigenschaften, Krankheiten, Laune, Fr
 
 var tex_terrain: Texture2D = hd("terrain")
 var tex_objects: Texture2D = hd("objects")
-var tex_buildings: Texture2D = hd("buildings")
+## Alter Gebäudeatlas: nur noch Ersatz, falls ein Bild in big/ fehlt; wird erst dann geladen (Prüfbericht 2026-10-31)
+var tex_buildings: Texture2D:
+	get:
+		if _tex_buildings == null:
+			_tex_buildings = hd("buildings")
+		return _tex_buildings
+var _tex_buildings: Texture2D = null
 var tex_icons: Texture2D = hd("icons")
 var tex_tools: Texture2D = hd("tools")
 var tex_ui: Texture2D = hd("ui")
@@ -42,8 +48,11 @@ const MAX_TEX := 8192  # größte Bildseite, die WebGL sicher zeigt
 static func hd(name: String) -> Texture2D:
 	var fp := "res://assets/sprites_hd/fine/%s.png" % name
 	if ResourceLoader.exists(fp):  # joshs feine Fassung (136 je Feld) desselben Bogens
-		var fi: Image = (load(fp) as Texture2D).get_image()
-		return sized_tex(fi, Vector2i(fi.get_width() * 16 / 136, fi.get_height() * 16 / 136))
+		var sz = _half_sizes().get("fine/%s.png" % name)
+		if sz is Array and small_screen():
+			return game_tex(fp, Vector2i(int(sz[0]), int(sz[1])))  # das große Bild wird gar nicht geladen
+		var ft: Texture2D = load(fp)
+		return game_tex(fp, Vector2i(ft.get_width() * 16 / 136, ft.get_height() * 16 / 136), ft)
 	var path := "res://assets/sprites_hd/%s.png" % name
 	if not ResourceLoader.exists(path):
 		return load("res://assets/sprites/%s.png" % name)
@@ -58,6 +67,41 @@ static func hd(name: String) -> Texture2D:
 
 ## Feine Bilder (josh 2026-10-30, tools/art_v2/bilder_fein.py) als Textur, die size in Spielpixeln meldet.
 ## Auf iPhone und iPad in halber Auflösung wie die Siedler-Bögen (Arbeitsspeicher).
+static var _sizes = null
+
+
+static func _half_sizes() -> Dictionary:
+	if _sizes == null:
+		_sizes = {}
+		var f := FileAccess.open("res://assets/sprites_hd/half/sizes.json", FileAccess.READ)
+		if f:
+			var d = JSON.parse_string(f.get_as_text())
+			if d is Dictionary:
+				_sizes = d
+	return _sizes
+
+
+## Bild aus res:// als Textur, die size in Spielpixeln meldet. Auf iPhone und iPad die halbe Fassung aus
+## assets/sprites_hd/half (tools/art_v2/vorbereiten.py): verkleinert wird vor dem Export, nicht beim Laden.
+static func game_tex(path: String, size: Vector2i, loaded: Texture2D = null) -> ImageTexture:
+	var p := path
+	if small_screen():
+		var hp := path.replace("res://assets/sprites_hd/", "res://assets/sprites_hd/half/")
+		if ResourceLoader.exists(hp):
+			p = hp
+			loaded = null
+	var tex: Texture2D = loaded if loaded != null else load(p)
+	var img: Image = tex.get_image()
+	if p != path or (img.get_width() <= MAX_TEX and img.get_height() <= MAX_TEX and not (small_screen() and img.get_width() > size.x * 4)):
+		if img.is_compressed():
+			img.decompress()
+		img.generate_mipmaps()
+		var t := ImageTexture.create_from_image(img)
+		t.set_size_override(size)
+		return t
+	return sized_tex(img, size)  # Ersatz, falls vorbereiten.py nicht gelaufen ist
+
+
 static func sized_tex(img: Image, size: Vector2i) -> ImageTexture:
 	if img.is_compressed():
 		img.decompress()
@@ -74,6 +118,8 @@ static func sized_tex(img: Image, size: Vector2i) -> ImageTexture:
 
 
 static func small_screen() -> bool:
+	if "--small" in OS.get_cmdline_user_args():  # Testhilfe: so tun, als wäre es ein iPhone
+		return true
 	return OS.has_feature("web_ios") or OS.has_feature("web_android") or OS.has_feature("mobile") \
 		or DisplayServer.is_touchscreen_available()
 
@@ -297,8 +343,7 @@ func object_tex(name: String, frame: int = 0) -> AtlasTexture:
 	if BIG.has(name):
 		var b: Array = BIG[name]
 		if not _cache.has("big:" + name):
-			var bimg: Image = (load("res://assets/sprites_hd/big/%s.png" % name) as Texture2D).get_image()
-			_cache["big:" + name] = sized_tex(bimg, Vector2i(int(b[0]) * int(b[1]), int(b[2])))
+			_cache["big:" + name] = game_tex("res://assets/sprites_hd/big/%s.png" % name, Vector2i(int(b[0]) * int(b[1]), int(b[2])))
 		at.atlas = _cache["big:" + name]
 		at.region = Rect2(float(b[1]) * (frame % int(b[0])), 0, float(b[1]), float(b[2]))
 	elif BUILDING_CELLS.has(name):
@@ -337,7 +382,10 @@ func icon(name: String) -> AtlasTexture:
 		return _cache[key]
 	var at := AtlasTexture.new()
 	at.atlas = tex_icons
-	at.region = Rect2(16 * int(_icon_index.get(name, 0)), 0, 16, 16)
+	# Raster mit mehreren Zeilen (tools/art_v2/vorbereiten.py), ältere Bögen eine lange Reihe
+	var cols: int = maxi(1, int(round(tex_icons.get_width() / 16.0)))
+	var i := int(_icon_index.get(name, 0))
+	at.region = Rect2(16 * (i % cols), 16 * (i / cols), 16, 16)
 	_cache[key] = at
 	return at
 

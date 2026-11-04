@@ -33,6 +33,7 @@ var SAVE_PATH := LIVE_SAVE_PATH
 var is_test_build := false
 ## "test" (/test/) oder "neu" (/neu/, Umbau "Mehr Herausforderung"); leer im normalen Spiel
 var build_tag := ""
+var probelauf := false  # /v21test/?probelauf: Spiel-Bot spielt nach dem Useraktionsplan, der Spieler steuert nur das Tempo
 ## Fuenf Spielstaende: Platz 1 ist die bisherige Datei, die anderen haengen _2 .. _5 an.
 ## Der aktive Platz steht in user://settings.cfg [game] slot (Testversion: slot_test).
 const SLOTS := 5
@@ -129,7 +130,22 @@ func _detect_test_build() -> void:
 		path = "/neu/"
 	if "--v2build" in OS.get_cmdline_user_args():
 		path = "/v2/"
-	if "/v2/" in path or "/v21/" in path:  # Version 2 mit joshs neuen Bildern: eigener Spielstand (seit 2026-10-30 unter /v21/, gleicher wie /v2/)
+	if "--v21testbuild" in OS.get_cmdline_user_args():
+		path = "/v21test/"
+	if "--probelauf" in OS.get_cmdline_user_args():
+		path = "/v21test/"
+	# Probelauf (Bot spielt) nur noch als Testhilfe ohne Browser: josh 2026-11-01 will ihn nicht mehr in der Testversion
+	if "/v21test/" in path and "--probelauf" in OS.get_cmdline_user_args():
+		build_tag = "v2probe"
+		probelauf = true
+	elif "/v21test/" in path:  # Testversion von V2 (josh 2026-10-31): eigener Spielstand, anfangs eine Kopie von V2
+		build_tag = "v2t"
+		for n in range(1, SLOTS + 1):
+			var src := "user://savegame_v2.json" if n <= 1 else "user://savegame_v2_%d.json" % n
+			var dst := src.replace("_v2", "_v2t")
+			if FileAccess.file_exists(src) and not FileAccess.file_exists(dst):
+				DirAccess.copy_absolute(src, dst)
+	elif "/v2/" in path or "/v21/" in path:  # Version 2 mit joshs neuen Bildern: eigener Spielstand (seit 2026-10-30 unter /v21/, gleicher wie /v2/)
 		build_tag = "v2"
 	elif "/neu/" in path:  # Umbau "Mehr Herausforderung": eigener Spielstand
 		build_tag = "neu"
@@ -147,7 +163,7 @@ func _detect_test_build() -> void:
 		var p := LIVE_SAVE_PATH if n <= 1 else LIVE_SAVE_PATH.replace(".json", "_%d.json" % n)
 		if FileAccess.file_exists(p):
 			live = p
-	if not FileAccess.file_exists(SAVE_PATH) and FileAccess.file_exists(live):
+	if not probelauf and not FileAccess.file_exists(SAVE_PATH) and FileAccess.file_exists(live):  # Probelauf beginnt neu
 		DirAccess.copy_absolute(live, SAVE_PATH)
 
 
@@ -1316,6 +1332,31 @@ func import_slot(n: int, text: String) -> String:
 		int(Time.get_unix_time_from_system())])
 	cf.save("user://settings.cfg")
 	return ""
+
+
+## Probelauf an/aus (nur /v21test/, josh 2026-10-31): merkt es in den Einstellungen und lädt neu.
+func set_probelauf(on: bool) -> void:
+	if not probelauf:
+		save_game()
+	var cf := ConfigFile.new()
+	cf.load("user://settings.cfg")
+	cf.set_value("game", "probelauf", on)
+	cf.save("user://settings.cfg")
+	if on:  # jeder Probelauf beginnt mit einem neuen Spiel
+		for n in range(1, SLOTS + 1):
+			var p := "user://savegame_v2probe.json" if n <= 1 else "user://savegame_v2probe_%d.json" % n
+			if FileAccess.file_exists(p):
+				DirAccess.remove_absolute(p)
+	save_locked = true
+	if OS.has_feature("web"):
+		JavaScriptBridge.eval("""(function () {
+			const u = new URL(window.location.href);
+			u.search = '';
+			window.location.replace(u.toString());
+		})();""", true)
+	else:
+		OS.set_restart_on_exit(true)
+		get_tree().quit()
 
 
 ## Laedt die neueste Version der Seite. Die Web-Version ist eine installierbare App, deren
