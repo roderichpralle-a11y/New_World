@@ -12,10 +12,10 @@ Zeitalterwechsel mit Wertung und Aufträge mit Wahl. Überblick und Zusammenspie
 
 Eigener Zweig `claude/project-thread-9zqobi`, Web-Adresse `/v21/` (seit josh 2026-10-30; vorher `/v2/`, dort bleibt 2.0.35 stehen; web.yml nur auf diesem Zweig),
 eigener Spielstand (`Game.build_tag = "v2"`), Version 2.0.N (N = Stände seit main). main und /neu/
+bleiben bei der alten Grafik; dieser Zweig wird nicht nach main gemischt, solange josh es nicht sagt.
 Seit josh 2026-11-04 trägt /v21/ den Stand der Testversion 2.0.72 (Zweig `claude/v21-test`, /v21test/): neuer Verwalter mit
 Stellenplan, fester Arbeitstag. Die Versionszählung auf diesem Zweig schließt an 2.0.72 an (web.yml: Stände seit main + 15).
 Zurück zum alten Stand 2.0.55: Baum von b8a8c97 wiederherstellen.
-bleiben bei der alten Grafik; dieser Zweig wird nicht nach main gemischt, solange josh es nicht sagt.
 
 - **Bögen:** `tools/art_v2/src/*.png` (23 Bögen von josh: Figuren je Beruf, Gebäude, Boden, Wege,
   Rohstoffe, Symbole, Tiere und Piraten, Oberfläche). Sie werden nicht neu gezeichnet:
