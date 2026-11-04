@@ -73,3 +73,13 @@ jobs:
           destination_dir: ${{ github.ref_name == 'main' && '.' || (github.ref_name == 'claude/project-thread-m73c7d' && 'neu' || (github.ref_name == 'claude/project-thread-9zqobi' && 'v21' || (github.ref_name == 'claude/v21-test' && 'v21test' || 'test'))) }}
           keep_files: true
           commit_message: Web-Version (${{ github.ref_name }})
+
+      - name: V2 auch unter /v2/ veröffentlichen (josh 2026-11-04)
+        if: github.ref_name == 'claude/project-thread-9zqobi'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: build/web
+          destination_dir: v2
+          keep_files: true
+          commit_message: Web-Version (${{ github.ref_name }}, /v2/)
