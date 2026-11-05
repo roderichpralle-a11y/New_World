@@ -7,7 +7,10 @@ signal tapped(world_pos: Vector2, touch: bool)
 signal hovered(world_pos: Vector2)
 signal right_tapped
 
-const ZOOM_MIN := 0.5  # weiter herauszoomen (josh 2026-10-23)
+const ZOOM_MIN_PC := 0.5  # weiter herauszoomen (josh 2026-10-23)
+## Handy-Fassung (josh 2026-11-05): nicht so weit herauszoomen, die Bilder haben dort keine Verkleinerungsstufen
+## und würden sonst flimmern; es wird auch weniger auf einmal gezeichnet.
+static var ZOOM_MIN: float = 1.0 if OS.has_feature("handy") else ZOOM_MIN_PC
 const ZOOM_MAX := 6.0
 const TAP_SLOP := 10.0
 
