@@ -268,6 +268,10 @@ func _maybe_autotest() -> void:
 		WorkDay.off = str(args.workday) == "0"
 	if args.has("agetest"):  # Zeitalter-Test nach dem Useraktionsplan (scripts/world/age_test.gd)
 		AgeTest.build(self, int(args.agetest))
+		if args.has("savetest"):  # Messhilfe (josh 2026-11-05): mit Autospeichern alle N Sekunden, wie im echten Spiel
+			Game.save_locked = false
+			Game.SAVE_PATH = "user://savetest.json"
+			Data.balance["autosave_seconds"] = float(args.savetest)
 		if args.has("focus"):  # Testhilfe: Kamera auf das erste Gebäude dieser Art (Bildschirmfoto)
 			for b in world.buildings:
 				if b.type == str(args.focus):

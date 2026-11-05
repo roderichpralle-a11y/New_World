@@ -33,6 +33,7 @@ var _streams: Dictionary = {}  # Effekt -> Array[AudioStream]
 var _music_streams: Dictionary = {}
 var _voices: Array = []
 var _last_play: Dictionary = {}
+var off := false  # ?nosound / --nosound: kein Ton
 var _music_a: AudioStreamPlayer
 var _music_b: AudioStreamPlayer
 var _music_cur: String = ""
@@ -51,6 +52,18 @@ func _ready() -> void:
 	_music_bus = _make_bus("Musik")
 	_sfx_bus = _make_bus("Effekte")
 	_load_settings()
+	# Testschalter (josh 2026-11-05, Abstürze auf dem iPhone): ?nosound in der Adresse oder --nosound schaltet jeden
+	# Ton ab; es wird dann auch nichts geladen. So lässt sich auf dem Gerät prüfen, ob der Ton den Speicher füllt.
+	off = "--nosound" in OS.get_cmdline_user_args()
+	if OS.has_feature("web") and not off:
+		off = str(JavaScriptBridge.eval("window.location.search", true)).contains("nosound")
+	if off:
+		_music_a = _player("Musik")
+		_music_b = _player("Musik")
+		_amb_a = _player("Effekte")
+		_amb_b = _player("Effekte")
+		set_process(false)
+		return
 	for name in SFX:
 		var list := []
 		var n: int = SFX[name]
