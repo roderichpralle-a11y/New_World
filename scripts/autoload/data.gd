@@ -46,6 +46,7 @@ const MAX_TEX := 8192  # größte Bildseite, die WebGL sicher zeigt
 
 
 static func hd(name: String) -> Texture2D:
+	tex_tag = name
 	var fp := "res://assets/sprites_hd/fine/%s.png" % name
 	if ResourceLoader.exists(fp):  # joshs feine Fassung (136 je Feld) desselben Bogens
 		var sz = _half_sizes().get("fine/%s.png" % name)
@@ -60,7 +61,7 @@ static func hd(name: String) -> Texture2D:
 	if img.is_compressed():
 		img.decompress()
 	img.generate_mipmaps()
-	var t := ImageTexture.create_from_image(img)
+	var t := mk_tex(img)
 	t.set_size_override(Vector2i(img.get_width() / HD, img.get_height() / HD))
 	return t
 
@@ -84,6 +85,7 @@ static func _half_sizes() -> Dictionary:
 ## Bild aus res:// als Textur, die size in Spielpixeln meldet. Auf iPhone und iPad die halbe Fassung aus
 ## assets/sprites_hd/half (tools/art_v2/vorbereiten.py): verkleinert wird vor dem Export, nicht beim Laden.
 static func game_tex(path: String, size: Vector2i, loaded: Texture2D = null) -> ImageTexture:
+	tex_tag = path.get_file()
 	var p := path
 	if small_screen():
 		var hp := path.replace("res://assets/sprites_hd/", "res://assets/sprites_hd/half/")
@@ -96,7 +98,7 @@ static func game_tex(path: String, size: Vector2i, loaded: Texture2D = null) -> 
 		if img.is_compressed():
 			img.decompress()
 		img.generate_mipmaps()
-		var t := ImageTexture.create_from_image(img)
+		var t := mk_tex(img)
 		t.set_size_override(size)
 		return t
 	return sized_tex(img, size)  # Ersatz, falls vorbereiten.py nicht gelaufen ist
@@ -112,9 +114,26 @@ static func sized_tex(img: Image, size: Vector2i) -> ImageTexture:
 	if k < 1.0:
 		img.resize(int(img.get_width() * k), int(img.get_height() * k), Image.INTERPOLATE_LANCZOS)
 	img.generate_mipmaps()
-	var t := ImageTexture.create_from_image(img)
+	var t := mk_tex(img)
 	t.set_size_override(size)
 	return t
+
+
+## Messhilfe (josh 2026-11-05, Abstürze auf dem iPhone): jede Textur aus einem Bild läuft hier durch und wird
+## mit ihrer Größe im Grafikspeicher gezählt (Breite x Höhe x 4 Byte, mit Verkleinerungsstufen ein Drittel mehr).
+static var tex_made := 0
+static var tex_bytes := {}  # Bildgröße "BxH" -> Zahl, nur mit --texstats
+
+
+static var tex_tag := ""  # Messhilfe: Name des Bilds, das gerade geladen wird
+
+
+static func mk_tex(img: Image) -> ImageTexture:
+	tex_made += 1
+	if "--texstats" in OS.get_cmdline_user_args():
+		var key := "%dx%d%s %s" % [img.get_width(), img.get_height(), "m" if img.has_mipmaps() else "", tex_tag]
+		tex_bytes[key] = int(tex_bytes.get(key, 0)) + 1
+	return ImageTexture.create_from_image(img)
 
 
 static func small_screen() -> bool:
@@ -127,6 +146,7 @@ static func small_screen() -> bool:
 ## Feine Bilder von josh (2026-10-30, assets/sprites_hd/fine, tools/art_v2/boden_fein.py): 136 Punkte je Feld,
 ## gemeldet in Spielpixeln (16 je Feld). null, wenn es die Datei nicht gibt.
 static func fine(name: String) -> Texture2D:
+	tex_tag = "fine/" + name
 	var path := "res://assets/sprites_hd/fine/%s.png" % name
 	if not ResourceLoader.exists(path):
 		return null
@@ -134,7 +154,7 @@ static func fine(name: String) -> Texture2D:
 	if img.is_compressed():
 		img.decompress()
 	img.generate_mipmaps()
-	var t := ImageTexture.create_from_image(img)
+	var t := mk_tex(img)
 	t.set_size_override(Vector2i(img.get_width() * 16 / 136, img.get_height() * 16 / 136))
 	return t
 
@@ -334,7 +354,7 @@ func object_tex(name: String, frame: int = 0) -> AtlasTexture:
 			# eigenes Bild je Wegstück: aus einem gemeinsamen Atlas färbten beim Verkleinern die Nachbarn ab (Nähte)
 			var img := _fine_paths.get_region(Rect2i(int(name.substr(pk.length())) * 136, int(FINE_PATH_ROW[pk]) * 136, 136, 136))
 			img.generate_mipmaps()
-			var tt := ImageTexture.create_from_image(img)
+			var tt := mk_tex(img)
 			tt.set_size_override(Vector2i(16, 16))
 			at.atlas = tt
 			at.region = Rect2(0, 0, 16, 16)

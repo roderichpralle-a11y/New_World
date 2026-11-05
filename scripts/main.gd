@@ -7,6 +7,10 @@ var hud: Hud
 
 
 func _ready() -> void:
+	# Testversion (josh 2026-11-05, Abstürze auf dem iPhone): Handy und Tablet im Browser höchstens 30 Bilder pro
+	# Sekunde; dazu zeichnet die Seite dort mit doppelter statt dreifacher Auflösung (export_presets head_include).
+	if OS.has_feature("web") and DisplayServer.is_touchscreen_available():
+		Engine.max_fps = 30
 	get_window().size_changed.connect(_update_ui_scale)
 	Game.ui_size_changed.connect(_update_ui_scale)
 	_update_ui_scale()
@@ -367,6 +371,24 @@ func _maybe_autotest() -> void:
 			break
 		if args.has("agetest") and (Exams.passed > AgeTest.age or Game.day() >= AgeTest.limit_day):
 			break
+		if args.has("memlog") and int(elapsed) % int(args.memlog) == 0:  # Speicher über die Zeit (josh 2026-11-05)
+			var tb := 0.0
+			for k in Data.tex_bytes:
+				var wh: PackedStringArray = str(k).split(" ")[0].trim_suffix("m").split("x")
+				tb += float(wh[0]) * float(wh[1]) * 4.0 * (1.33 if str(k).split(" ")[0].ends_with("m") else 1.0) * int(Data.tex_bytes[k])
+			print("MEMLOG t=%d Tag %d | Speicher %.1f MB (Spitze %.1f) | Knoten %d, Objekte %d, verwaist %d, Ressourcen %d | Texturen erzeugt %d (%.0f MB) | Siedler %d, Gebäude %d, Inseln %d" % [
+				elapsed, Game.day(), OS.get_static_memory_usage() / 1048576.0, OS.get_static_memory_peak_usage() / 1048576.0,
+				int(Performance.get_monitor(Performance.OBJECT_NODE_COUNT)), int(Performance.get_monitor(Performance.OBJECT_COUNT)),
+				int(Performance.get_monitor(Performance.OBJECT_ORPHAN_NODE_COUNT)), int(Performance.get_monitor(Performance.OBJECT_RESOURCE_COUNT)),
+				Data.tex_made, tb / 1048576.0, Sea.total_people(), world.buildings.size(), Sea.settled_islands().size()])
+		if args.has("texstats") and elapsed + 1.0 >= secs:
+			var ks: Array = Data.tex_bytes.keys()
+			var mb := func(k): 
+				var wh: PackedStringArray = str(k).split(" ")[0].trim_suffix("m").split("x")
+				return float(wh[0]) * float(wh[1]) * 4.0 * (1.33 if str(k).split(" ")[0].ends_with("m") else 1.0) * int(Data.tex_bytes[k]) / 1048576.0
+			ks.sort_custom(func(a, b): return mb.call(a) > mb.call(b))
+			for k in ks.slice(0, 40):
+				print("TEX %s x%d = %.1f MB" % [k, Data.tex_bytes[k], mb.call(k)])
 		if args.has("daylog"):  # Tagesablauf (josh 2026-11-01): jede Spielstunde, was die Erwachsenen tun
 			WorkDay.log_on = true
 			_dl_arr = WorkDay.arr

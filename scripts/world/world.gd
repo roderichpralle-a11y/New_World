@@ -408,7 +408,7 @@ func _update_grass_mask() -> void:
 		for x in range(-1, size):
 			if _gtex_layer.get_cell_source_id(Vector2i(x, y)) >= 0:
 				img.set_pixel(x + 1, y + 1, Color(1, 1, 1))
-	_mat_gtex.set_shader_parameter("gmask", ImageTexture.create_from_image(img))
+	_mat_gtex.set_shader_parameter("gmask", Data.mk_tex(img))
 	_mat_gtex.set_shader_parameter("gmask_size", Vector2(n, n))
 	_mat_gtex.set_shader_parameter("tile", float(T))
 
@@ -458,7 +458,7 @@ func _update_shore() -> void:
 	for i in w * w:
 		bytes[i] = int(clampf(dist[i] / 6.0, 0.0, 1.0) * 255.0)
 	var img := Image.create_from_data(w, w, false, Image.FORMAT_L8, bytes)
-	_mat_water.set_shader_parameter("shore", ImageTexture.create_from_image(img))
+	_mat_water.set_shader_parameter("shore", Data.mk_tex(img))
 	_mat_water.set_shader_parameter("shore_origin", Vector2(-m, -m))
 	_mat_water.set_shader_parameter("shore_size", Vector2(w, w))
 	_mat_water.set_shader_parameter("tile", float(T))

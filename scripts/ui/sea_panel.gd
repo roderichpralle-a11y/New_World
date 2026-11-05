@@ -278,7 +278,7 @@ func _island_tex(m: Dictionary) -> Texture2D:
 				img.set_pixel(x, y, Color("#ecd49a"))
 			elif t == 2:
 				img.set_pixel(x, y, grass)
-	var tex := ImageTexture.create_from_image(img)
+	var tex := Data.mk_tex(img)
 	_tex_cache[id] = tex
 	return tex
 

@@ -111,7 +111,7 @@ var _sied_i := 0  # gezeigtes Kästchen: Zeile * 8 + Bild
 ## iPhone und iPad (und andere Touch-Geräte) laden die kleinen Bögen (60 Pixel je Kästchen, 32 Punkte je Feld),
 ## damit der Speicher reicht; PC und Mac die vollen aus sied_hd (120 Pixel, 64 Punkte je Feld wie Gebäude und Gras).
 static func small_sheets() -> bool:
-	return OS.has_feature("web_ios") or OS.has_feature("web_android") or OS.has_feature("mobile") \
+	return Data.small_screen() or OS.has_feature("web_ios") or OS.has_feature("web_android") or OS.has_feature("mobile") \
 		or DisplayServer.is_touchscreen_available()
 
 
@@ -133,11 +133,12 @@ static func sied_cells(name: String) -> Array:
 			var f := FileAccess.open("res://assets/sprites_hd/sied_pack/%s/index.json" % folder, FileAccess.READ)
 			_pack_index[folder] = JSON.parse_string(f.get_as_text()) if f else {}
 		var meta: Dictionary = _pack_index[folder].get(name, {})
+		Data.tex_tag = "sied/" + name
 		var img: Image = (load(path) as Texture2D).get_image()
 		if img.is_compressed():
 			img.decompress()
 		img.generate_mipmaps()
-		var t := ImageTexture.create_from_image(img)
+		var t := Data.mk_tex(img)
 		t.set_size_override(Vector2i(img.get_width() / div, img.get_height() / div))
 		var d := float(div)
 		var cell := float(SIED_CELL)

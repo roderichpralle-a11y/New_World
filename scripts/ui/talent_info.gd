@@ -28,7 +28,7 @@ static func star() -> Texture2D:
 				img.set_pixel(x, y, Color("#f2c230") if y < 9 else Color("#e0a020"))
 			elif inside.has(c + Vector2i(1, 0)) or inside.has(c + Vector2i(-1, 0)) or inside.has(c + Vector2i(0, 1)) or inside.has(c + Vector2i(0, -1)):
 				img.set_pixel(x, y, Color("#6a4a30"))
-	_star = ImageTexture.create_from_image(img)
+	_star = Data.mk_tex(img)
 	return _star
 
 

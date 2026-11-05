@@ -289,7 +289,7 @@ static func map_image(w, rep: Dictionary, px: int = 4) -> ImageTexture:
 		var fr := Rect2i(int(m.from[0]) * px, int(m.from[1]) * px, int(sz[0]) * px, int(sz[1]) * px)
 		_frame(img, fr, Color("#d03030"))
 		img.fill_rect(Rect2i(int(m.to[0]) * px, int(m.to[1]) * px, int(sz[0]) * px, int(sz[1]) * px), Color("#2fbf4a"))
-	return ImageTexture.create_from_image(img)
+	return Data.mk_tex(img)
 
 
 static func _frame(img: Image, r: Rect2i, col: Color) -> void:
