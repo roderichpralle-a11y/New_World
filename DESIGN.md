@@ -2139,3 +2139,4 @@ anderen Caches), meldet den Service Worker ab, holt index.html/js/pck neu und l�
 - Unsichtbare Inseln: World, Geb채ude, Siedler, Tiere und Rohstoffe wechseln keine Bilder (`_hidden_process`), die Simulation
   (Bed체rfnisse, Arbeit, Felder, Wachturm, Tierbaue) l채uft weiter. Testhilfe `--small` tut so, als w채re es ein iPhone.
 - Zeitalter-Test: `--agetest=0..6 [--workday=0]` (scripts/world/age_test.gd, plan_bot.gd) spielt den Useraktionsplan je Zeitalter.
+- **Testversion: weniger Zustandsrechnung** (josh 2026-11-05, nur /v21test/): Siedler rechnen Hunger, Gesundheit, Laune, Alter, Gefahr, Tagesabschnitt und Auslastung nur in 30 % der Bilder (balance.json `state_rate` 0.3, Settler._process mit aufgelaufener Zeit). Bewegung und Arbeit laufen jedes Bild. Zweck: pr체fen, ob die Abst체rze auf dem iPhone seltener werden.

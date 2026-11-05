@@ -423,23 +423,36 @@ func job_label(short := false) -> String:
 func _process(delta: float) -> void:
 	if Game.is_over:
 		return
-	var days := delta / float(Data.bal("day_length"))
-	_needs(days)
-	if not is_instance_valid(self) or is_queued_for_deletion():
-		return
-	if not world.animals.is_empty():
-		_check_danger(delta)
-	_workday_switch()
+	# Testversion (josh 2026-11-05, Abstürze auf dem Handy): Zustände (Hunger, Gesundheit, Laune, Alter, Gefahr,
+	# Tagesabschnitt, Auslastung) nur noch in 30 % der Bilder rechnen, mit der aufgelaufenen Zeit. Bewegung und
+	# Arbeit laufen weiter jedes Bild. Anteil: balance.json "state_rate".
+	_state_acc += float(Data.bal("state_rate", 1.0))
+	_state_dt += delta
+	if _state_acc >= 1.0:
+		_state_acc -= 1.0
+		var dt := _state_dt
+		_state_dt = 0.0
+		var days := dt / float(Data.bal("day_length"))
+		_needs(days)
+		if not is_instance_valid(self) or is_queued_for_deletion():
+			return
+		if not world.animals.is_empty():
+			_check_danger(dt)
+		_workday_switch()
+		if is_adult() and not Game.is_night():
+			_count_busy(days)
 	if _plan.is_empty():
 		_think_cooldown -= delta
 		if _think_cooldown <= 0.0:
 			_think()
 	else:
 		_run_action(delta)
-	if is_adult() and not Game.is_night():
-		_count_busy(days)
 	if world.visible:  # unsichtbare Insel: rechnen ja, Bilder wechseln nein (Prüfbericht 2026-10-31)
 		_animate(delta)
+
+
+var _state_acc := randf()  # verteilt die Rechnung der Siedler auf verschiedene Bilder
+var _state_dt := 0.0
 
 
 func _count_busy(days: float) -> void:
