@@ -137,7 +137,7 @@ static func sied_cells(name: String) -> Array:
 		var img: Image = (load(path) as Texture2D).get_image()
 		if img.is_compressed():
 			img.decompress()
-		img.generate_mipmaps()
+		Data.mips(img)
 		var t := Data.mk_tex(img)
 		t.set_size_override(Vector2i(img.get_width() / div, img.get_height() / div))
 		var d := float(div)

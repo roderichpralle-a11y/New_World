@@ -48,8 +48,8 @@ const MAX_TEX := 8192  # größte Bildseite, die WebGL sicher zeigt
 static func hd(name: String) -> Texture2D:
 	tex_tag = name
 	var fp := "res://assets/sprites_hd/fine/%s.png" % name
-	if ResourceLoader.exists(fp):  # joshs feine Fassung (136 je Feld) desselben Bogens
-		var sz = _half_sizes().get("fine/%s.png" % name)
+	var sz = _half_sizes().get("fine/%s.png" % name)
+	if ResourceLoader.exists(fp) or (sz is Array and small_screen()):  # joshs feine Fassung (136 je Feld) desselben Bogens
 		if sz is Array and small_screen():
 			return game_tex(fp, Vector2i(int(sz[0]), int(sz[1])))  # das große Bild wird gar nicht geladen
 		var ft: Texture2D = load(fp)
@@ -60,7 +60,7 @@ static func hd(name: String) -> Texture2D:
 	var img: Image = (load(path) as Texture2D).get_image()
 	if img.is_compressed():
 		img.decompress()
-	img.generate_mipmaps()
+	mips(img)
 	var t := mk_tex(img)
 	t.set_size_override(Vector2i(img.get_width() / HD, img.get_height() / HD))
 	return t
@@ -97,7 +97,7 @@ static func game_tex(path: String, size: Vector2i, loaded: Texture2D = null) -> 
 	if p != path or (img.get_width() <= MAX_TEX and img.get_height() <= MAX_TEX and not (small_screen() and img.get_width() > size.x * 4)):
 		if img.is_compressed():
 			img.decompress()
-		img.generate_mipmaps()
+		mips(img)
 		var t := mk_tex(img)
 		t.set_size_override(size)
 		return t
@@ -113,7 +113,7 @@ static func sized_tex(img: Image, size: Vector2i) -> ImageTexture:
 	var k := float(MAX_TEX) / maxf(img.get_width(), img.get_height())
 	if k < 1.0:
 		img.resize(int(img.get_width() * k), int(img.get_height() * k), Image.INTERPOLATE_LANCZOS)
-	img.generate_mipmaps()
+	mips(img)
 	var t := mk_tex(img)
 	t.set_size_override(size)
 	return t
@@ -123,6 +123,13 @@ static func sized_tex(img: Image, size: Vector2i) -> ImageTexture:
 ## mit ihrer Größe im Grafikspeicher gezählt (Breite x Höhe x 4 Byte, mit Verkleinerungsstufen ein Drittel mehr).
 static var tex_made := 0
 static var tex_bytes := {}  # Bildgröße "BxH" -> Zahl, nur mit --texstats
+
+
+## Verkleinerungsstufen (ein Drittel mehr Grafikspeicher) nur am PC; die Handy-Fassung spart sie
+## (josh 2026-11-05, Speicher auf dem iPhone), dafür kann es beim weiten Herauszoomen etwas flimmern.
+static func mips(img: Image) -> void:
+	if not OS.has_feature("handy") and not "--nomips" in OS.get_cmdline_user_args():
+		img.generate_mipmaps()
 
 
 static var tex_tag := ""  # Messhilfe: Name des Bilds, das gerade geladen wird
@@ -137,6 +144,8 @@ static func mk_tex(img: Image) -> ImageTexture:
 
 
 static func small_screen() -> bool:
+	if OS.has_feature("handy"):  # Handy-Fassung (/v21test/handy/): hat nur die halben Bilder
+		return true
 	if "--small" in OS.get_cmdline_user_args():  # Testhilfe: so tun, als wäre es ein iPhone
 		return true
 	return OS.has_feature("web_ios") or OS.has_feature("web_android") or OS.has_feature("mobile") \
@@ -148,14 +157,18 @@ static func small_screen() -> bool:
 static func fine(name: String) -> Texture2D:
 	tex_tag = "fine/" + name
 	var path := "res://assets/sprites_hd/fine/%s.png" % name
+	var k := 1
+	if small_screen() and ResourceLoader.exists(path.replace("sprites_hd/fine/", "sprites_hd/half/fine/")):
+		path = path.replace("sprites_hd/fine/", "sprites_hd/half/fine/")  # halbe Fassung auf Handy und Tablet
+		k = 2
 	if not ResourceLoader.exists(path):
 		return null
 	var img: Image = (load(path) as Texture2D).get_image()
 	if img.is_compressed():
 		img.decompress()
-	img.generate_mipmaps()
+	mips(img)
 	var t := mk_tex(img)
-	t.set_size_override(Vector2i(img.get_width() * 16 / 136, img.get_height() * 16 / 136))
+	t.set_size_override(Vector2i(img.get_width() * k * 16 / 136, img.get_height() * k * 16 / 136))
 	return t
 
 
@@ -163,6 +176,7 @@ static func fine(name: String) -> Texture2D:
 const FINE_PATH_ROW := {"road": 0, "gravel": 1, "bricks": 2}
 var _fine_paths: Image
 var _fine_paths_tried := false
+var _fine_cell := 136  # Punkte je Wegstück im Bild (halbe Fassung: 68)
 
 
 ## Regionen in objects.png: name -> [x, y, w, h, frames]
@@ -346,14 +360,18 @@ func object_tex(name: String, frame: int = 0) -> AtlasTexture:
 	if FINE_PATH_ROW.has(pk) and name.length() > pk.length():
 		if not _fine_paths_tried:
 			_fine_paths_tried = true
-			if ResourceLoader.exists("res://assets/sprites_hd/fine/wege.png"):
-				_fine_paths = (load("res://assets/sprites_hd/fine/wege.png") as Texture2D).get_image()
+			var wp := "res://assets/sprites_hd/fine/wege.png"
+			if small_screen() and ResourceLoader.exists("res://assets/sprites_hd/half/fine/wege.png"):
+				wp = "res://assets/sprites_hd/half/fine/wege.png"
+				_fine_cell = 68
+			if ResourceLoader.exists(wp):
+				_fine_paths = (load(wp) as Texture2D).get_image()
 				if _fine_paths.is_compressed():
 					_fine_paths.decompress()
 		if _fine_paths != null:
 			# eigenes Bild je Wegstück: aus einem gemeinsamen Atlas färbten beim Verkleinern die Nachbarn ab (Nähte)
-			var img := _fine_paths.get_region(Rect2i(int(name.substr(pk.length())) * 136, int(FINE_PATH_ROW[pk]) * 136, 136, 136))
-			img.generate_mipmaps()
+			var img := _fine_paths.get_region(Rect2i(int(name.substr(pk.length())) * _fine_cell, int(FINE_PATH_ROW[pk]) * _fine_cell, _fine_cell, _fine_cell))
+			mips(img)
 			var tt := mk_tex(img)
 			tt.set_size_override(Vector2i(16, 16))
 			at.atlas = tt

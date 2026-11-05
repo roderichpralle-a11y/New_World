@@ -61,6 +61,13 @@ jobs:
           mkdir -p build/web
           ./godot-bin --headless --export-release "Web" build/web/index.html
           test -f build/web/index.wasm
+          # Testzweig: zusätzlich die Handy-Fassung ohne die PC-Bilder unter /v21test/handy/ (josh 2026-11-05, Speicher iPhone)
+          if [ "${{ github.ref_name }}" = "claude/v21-test" ]; then
+            mkdir -p build/web/handy
+            ./godot-bin --headless --export-release "WebHandy" build/web/handy/index.html
+            test -f build/web/handy/index.wasm
+            echo "$GAME_VERSION" > build/web/handy/version.txt
+          fi
           # Das Spiel fragt diese Datei ab, um eine neuere Version zu erkennen
           echo "$GAME_VERSION" > build/web/version.txt
           touch build/web/.nojekyll
