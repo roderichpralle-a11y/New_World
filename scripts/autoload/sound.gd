@@ -34,6 +34,9 @@ var _music_streams: Dictionary = {}
 var _voices: Array = []
 var _last_play: Dictionary = {}
 var off := false  # ?nosound / --nosound: kein Ton
+var nomusic := false
+var _amb_streams := {}
+var nosfx := false
 var _music_a: AudioStreamPlayer
 var _music_b: AudioStreamPlayer
 var _music_cur: String = ""
@@ -57,6 +60,11 @@ func _ready() -> void:
 	off = "--nosound" in OS.get_cmdline_user_args()
 	if OS.has_feature("web") and not off:
 		off = str(JavaScriptBridge.eval("window.location.search", true)).contains("nosound")
+	var q := ""
+	if OS.has_feature("web"):
+		q = str(JavaScriptBridge.eval("window.location.search", true))
+	nomusic = "--nomusic" in OS.get_cmdline_user_args() or q.contains("nomusic")  # nur Musik und Meeresrauschen aus
+	nosfx = "--nosfx" in OS.get_cmdline_user_args() or q.contains("nosfx")  # nur Geräusche aus
 	if off:
 		_music_a = _player("Musik")
 		_music_b = _player("Musik")
@@ -164,6 +172,8 @@ func _now() -> float:
 
 ## Spielt einen Effekt ohne Ort (Oberflaeche, Meldungen).
 func play(name: String, db: float = 0.0, pitch_var: float = 0.0) -> void:
+	if nosfx:
+		return
 	if sfx_volume <= 0.001 or not _streams.has(name) or _streams[name].is_empty():
 		return
 	var now := _now()
@@ -240,6 +250,8 @@ func _process(_delta: float) -> void:
 
 
 func _switch_music(m: String) -> void:
+	if nomusic:
+		return
 	if not _music_streams.has(m):
 		return
 	# Altes Stueck ausblenden und Stelle merken
@@ -257,10 +269,17 @@ func _switch_music(m: String) -> void:
 
 
 func _switch_ambient(a: String) -> void:
-	var s = load("res://assets/audio/ambient/%s.ogg" % a)
-	if s == null:
+	if nomusic:
 		return
-	s.loop = true
+	# Einmal laden und behalten (josh 2026-11-05, Abstürze iPhone): ein neu geladenes Rauschen wurde im Browser bei
+	# jedem Tag-Nacht-Wechsel neu entpackt (7,7 MB) und der Speicher wuchs.
+	if not _amb_streams.has(a):
+		var ls = load("res://assets/audio/ambient/%s.ogg" % a)
+		if ls == null:
+			return
+		ls.loop = true
+		_amb_streams[a] = ls
+	var s = _amb_streams[a]
 	var old := _amb_a
 	if old.playing:
 		_fade(old, -50.0, 4.0, true)
