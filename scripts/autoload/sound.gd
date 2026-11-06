@@ -88,6 +88,9 @@ func _ready() -> void:
 	for i in VOICES:
 		var p := AudioStreamPlayer.new()
 		p.bus = "Effekte"
+		# Geräusche spielt der Browser selbst ab (sofort, ohne Aussetzer). Musik und Rauschen mischt das Spiel
+		# (project.godot default_playback_type.web=0), sonst wächst der Speicher (josh 2026-11-06, Tonaussetzer).
+		p.playback_type = AudioServer.PLAYBACK_TYPE_SAMPLE
 		add_child(p)
 		_voices.append(p)
 	_music_a = _player("Musik")
