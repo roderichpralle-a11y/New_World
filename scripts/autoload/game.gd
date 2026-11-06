@@ -135,10 +135,10 @@ func _detect_test_build() -> void:
 	if "--probelauf" in OS.get_cmdline_user_args():
 		path = "/v21test/"
 	# Probelauf (Bot spielt) nur noch als Testhilfe ohne Browser: josh 2026-11-01 will ihn nicht mehr in der Testversion
-	if "/v21test/" in path and "--probelauf" in OS.get_cmdline_user_args():
+	if "/v21test" in path and "--probelauf" in OS.get_cmdline_user_args():
 		build_tag = "v2probe"
 		probelauf = true
-	elif "/v21test/" in path:  # Testversion von V2 (josh 2026-10-31): eigener Spielstand, anfangs eine Kopie von V2
+	elif "/v21test" in path:  # Testversion von V2 (josh 2026-10-31), auch /v21test2/ (2026-11-06): eigener Spielstand, anfangs eine Kopie von V2
 		build_tag = "v2t"
 		for n in range(1, SLOTS + 1):
 			var src := "user://savegame_v2.json" if n <= 1 else "user://savegame_v2_%d.json" % n
