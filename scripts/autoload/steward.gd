@@ -86,7 +86,7 @@ func blocked_on(w) -> String:
 		return ""
 	if Admin.level() < 1:
 		return tr("Keine Verwaltung mit Verwalter.")
-	return tr("Nur mit der Befugnis „Andere Inseln mitverwalten“ und einer Rundfunkanstalt.")
+	return tr("Nur mit einer Rundfunkanstalt auf dieser Insel und auf der Insel der Verwaltung.")
 
 
 ## Früherer Schalter: jetzt nur noch für die KI-Geschichte.

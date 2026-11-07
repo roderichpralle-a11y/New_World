@@ -84,7 +84,8 @@ func set_weights_file(path: String) -> bool:
 
 ## Steuert die KI auf dieser Insel die Berufe?
 func controls(w) -> bool:
-	return on and available and not weights.is_empty() and w != null and is_instance_valid(w)
+	return on and available and not weights.is_empty() and w != null and is_instance_valid(w) \
+		and (Sea.is_main(w) or Powers.covers(w))  # Nebeninseln nur mit Rundfunkanstalt hier und dort (josh 2026-11-07)
 
 
 func set_on(v: bool) -> void:

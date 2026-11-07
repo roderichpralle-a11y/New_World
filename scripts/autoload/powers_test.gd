@@ -213,6 +213,29 @@ static func run(main, mode: String) -> void:
 	var old := {"powers": {"mode": {"grundbesetzung": Powers.AUS}}}
 	Powers._on_load(old, 0)
 	_ok(Powers.mode_of("auslastung") == Powers.SELBST, "alter Spielstand mit Grundbesetzung aus: Auslastung startet auf Selbst")
+	# Nebeninsel ohne Rundfunkanstalt: Verwalter (und KI) steuern dort nichts (josh 2026-11-07 20:59)
+	var m2: Dictionary = Sea.make_island(Sea.islands.size())
+	Sea.islands.append(m2)
+	var w2 = Sea.create_world_node(int(m2.id))
+	w2.build_colony(m2)
+	m2.state = "settled"
+	var side := []
+	for k in 9:
+		var ns = w2.spawn_settler({"name": "N%d" % k, "sex": "m", "age": 30.0, "max_age": 70.0, "x": w2.center.x, "y": w2.center.y,
+			"mind": {"traits": {}, "talents": {}}})
+		ns.set_job("frei")
+		side.append(ns)
+	_ok(not Powers.covers(w2) and Steward.blocked_on(w2) != "", "Nebeninsel ohne Rundfunkanstalt: nicht verwaltet")
+	KiBrain.on = true
+	_ok(not KiBrain.controls(w2), "Nebeninsel ohne Rundfunkanstalt: die KI steuert dort auch nicht")
+	KiBrain.on = false
+	for k in 6:
+		Steward._moved = {}
+		Steward._next = 0.0
+		Steward._process(0.0)
+	_ok(side.all(func(o): return o.job == "frei"), "Nebeninsel ohne Rundfunkanstalt: der Verwalter teilt dort niemanden ein")
+	for o in side:
+		w2.kill_settler(o, "test", "old")
 	# Schalter „nur Spieler“ (josh 2026-11-07 18:43)
 	_ok(Steward.IDLE_ORDER.find("steinmetz") == Steward.IDLE_ORDER.find("handwerker") + 1, "Steinmetz steht direkt nach Handwerker in der Reihe")
 	var pc = _mk(w, "Spielerfigur", "holzfaeller")

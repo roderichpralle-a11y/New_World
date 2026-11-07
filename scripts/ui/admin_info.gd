@@ -110,6 +110,13 @@ static func _powers_tab(_hud, _b) -> void:
 	var today := int(Powers.tally(true).get("job", 0))
 	var year := int(Powers.tally(false).get("job", 0))
 	_box.add_child(Win.row(Data.icon("sonne"), Loc.t("Für dich erledigt"), Loc.t("Berufe vergeben: heute %d, dieses Jahr %d") % [today, year], {"icon_px": 28}).box)
+	# Nebeninsel ohne Rundfunkanstalt hier und auf der Insel der Verwaltung: hier gibt es keinen Verwalter und nichts
+	# zu wählen (josh 2026-11-07)
+	if Game.world != null and not Sea.is_main(Game.world) and not Powers.covers(Game.world):
+		var note := UiTheme.label(Loc.t("Auf %s arbeitet der Verwalter nicht. Hier teilst nur du ein, bis auf dieser Insel und auf der Insel der Verwaltung eine Rundfunkanstalt steht.") % Sea.island_name(Game.world), 14, UiTheme.BAD, true)
+		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_box.add_child(note)
+		return
 	if KiBrain.available:  # nur unter /v21test2/?ki (josh 2026-11-07)
 		_ki_row()
 	for p in Powers.LIST:

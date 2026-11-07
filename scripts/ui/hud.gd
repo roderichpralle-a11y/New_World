@@ -1823,7 +1823,7 @@ func _refresh_settler_list() -> void:
 	var used := {}
 	for s in list:
 		var rk := "%s|%s|%s|%s|%s|%s|%s|%s" % [s.is_adult(), s.job, s.job_by if s.by_admin else "", s.world == world, narrow, jsig,
-			JobDesk.player_controlled(s), KiBrain.controls(s.world)]
+			JobDesk.player_controlled(s), KiBrain.controls(s.world), Powers.covers(s.world)]
 		var sid: int = s.get_instance_id()
 		var target: VBoxContainer = _settler_list if (s.is_adult() and s.job != "frei") else _settler_list_free
 		var cr = _settler_rows.get(sid, null)
@@ -1896,7 +1896,7 @@ func _refresh_settler_list() -> void:
 				if j == s.job:
 					ob.select(ids.size() - 1)
 			ob.tooltip_text = tr("Beruf wählen") + (tr("\nStern: passt zum Talent (%s)") % TalentInfo.short_list(s.mind) if not s.mind.best_talents().is_empty() else "")
-			if s.by_admin:  # kein Gelb mehr (josh 2026-10-30), der Vergeber steht in Klammern
+			if s.by_admin and (Powers.covers(s.world) or KiBrain.controls(s.world)):  # kein Gelb mehr (josh 2026-10-30), der Vergeber steht in Klammern
 				var sel := ids.find(s.job)
 				if sel >= 0:
 					ob.set_item_text(sel, s.job_label(true))  # „Bauer (Verwalter)“, josh 2026-10-28
@@ -1913,7 +1913,9 @@ func _refresh_settler_list() -> void:
 		# Steuerung (josh 2026-11-07): Verwalter/KI oder nur der Spieler
 		var cw: int = SETTLER_COLS[5][3] if narrow else SETTLER_COLS[5][2]
 		if s.is_adult():
-			var mine: bool = JobDesk.player_controlled(s)
+			# Insel ohne Verwalter (Nebeninsel ohne Rundfunkanstalt hier und auf der Hauptinsel): keine Wahl (josh 2026-11-07)
+			var managed: bool = Powers.covers(s.world) or KiBrain.controls(s.world)
+			var mine: bool = JobDesk.player_controlled(s) or not managed
 			var auto_name: String = tr("KI") if KiBrain.controls(s.world) else tr("Verwalter")
 			var cb := Button.new()
 			cb.focus_mode = Control.FOCUS_NONE
@@ -1930,6 +1932,9 @@ func _refresh_settler_list() -> void:
 				cb.text = tr("Spieler") if mine else auto_name
 			cb.tooltip_text = (tr("Nur du teilst diesen Siedler ein. Stirbt er, übernimmt ein Freier den Beruf, ebenfalls nur von dir gesteuert. Antippen: %s darf ihn einteilen.") % auto_name) if mine \
 				else (tr("%s darf diesen Siedler einteilen. Antippen: nur du steuerst ihn.") % auto_name)
+			if not managed:
+				cb.disabled = true
+				cb.tooltip_text = tr("Auf dieser Insel teilt nur du ein. Den Verwalter gibt es hier erst, wenn auf dieser Insel und auf der Insel der Verwaltung eine Rundfunkanstalt steht.")
 			cb.toggled.connect(func(on: bool):
 				JobDesk.set_player_controlled(sref, on)
 				Game.player_action.emit("job_ctrl", "spieler" if on else "auto")

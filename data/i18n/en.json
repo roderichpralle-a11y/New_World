@@ -2620,5 +2620,8 @@
  "%s darf diesen Siedler einteilen. Antippen: nur du steuerst ihn.": "%s may assign this settler. Tap: only you control them.",
  "Steuerung": "Control",
  "S": "P",
- "V": "A"
+ "V": "A",
+ "Auf dieser Insel teilt nur du ein. Den Verwalter gibt es hier erst, wenn auf dieser Insel und auf der Insel der Verwaltung eine Rundfunkanstalt steht.": "On this island only you assign jobs. The steward works here only once there is a radio station on this island and on the island with the administration.",
+ "Auf %s arbeitet der Verwalter nicht. Hier teilst nur du ein, bis auf dieser Insel und auf der Insel der Verwaltung eine Rundfunkanstalt steht.": "The steward does not work on %s. Here only you assign jobs until there is a radio station on this island and on the island with the administration.",
+ "Nur mit einer Rundfunkanstalt auf dieser Insel und auf der Insel der Verwaltung.": "Only with a radio station on this island and on the island with the administration."
 }
