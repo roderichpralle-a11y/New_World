@@ -37,6 +37,9 @@ jobs:
           fi
           if [ "${{ github.ref_name }}" = "claude/v21-test" ]; then
             n=$(( $(git rev-list --count --first-parent origin/main..HEAD) - 2 ))  # Testversion von V2 unter /v21test/ (josh 2026-10-31)
+            if grep -q '^config/version="2\.1\.' project.godot; then
+              n=$(( $(git rev-list --count --first-parent cede54c..HEAD) - 1 ))  # 2.1.0 = erster Stand nach cede54c (josh 2026-11-07)
+            fi
           fi
           base=$(sed -n 's/^config\/version="\([0-9]*\.[0-9]*\)\..*"/\1/p' project.godot)
           sed -i "s/^config\/version=\".*\"/config\/version=\"$base.$n\"/" project.godot

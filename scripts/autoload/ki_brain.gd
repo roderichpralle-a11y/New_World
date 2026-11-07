@@ -49,7 +49,9 @@ func _ready() -> void:
 	Game.state_save.connect(_on_save)
 	Game.state_load.connect(_on_load)
 	Game.settler_died.connect(func(_s, _c): deaths_today += 1)
-	if OS.has_feature("web"):
+	if OS.has_feature("itch"):
+		available = false  # itch.io-Fassung 2.1.0 ohne KI (josh 2026-11-07)
+	elif OS.has_feature("web"):
 		var q := str(JavaScriptBridge.eval("window.location.search", true))
 		available = RegEx.create_from_string("[?&]ki(=|&|$)").search(q) != null
 	_load_weights(BRAIN_PATH)

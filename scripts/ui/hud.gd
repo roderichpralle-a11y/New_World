@@ -2953,7 +2953,7 @@ func _update_notify_footer() -> void:
 ## Versionsnummer steht nur in project.godot (application/config/version).
 static func version_text() -> String:
 	var ver := str(ProjectSettings.get_setting("application/config/version", "?"))
-	return Loc.t("Version %s%s") % [ver, Loc.t(" (Testversion)") if Game.is_test_build and Game.build_tag != "v2" else ""]
+	return Loc.t("Version %s%s") % [ver, Loc.t(" (Testversion)") if Game.is_test_build and not Game.build_tag in ["v2", "v2t"] else ""]
 
 
 func _version_label() -> Label:
@@ -3864,7 +3864,7 @@ func show_title(has_save: bool) -> void:
 	var st := UiTheme.label(tr("Zwei Siedler. Eine Insel. Viele Generationen."), 15)
 	st.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(st)
-	if Game.is_test_build and Game.build_tag != "v2":  # V2 ohne roten Hinweis (josh 2026-10-30)
+	if Game.is_test_build and not Game.build_tag in ["v2", "v2t"]:  # V2 ohne roten Hinweis (josh 2026-10-30), 2.1.0 auch nicht (2026-11-07)
 		var tx := tr("Testversion mit eigenem Spielstand.\nDein normales Spiel bleibt unverändert.")
 		var tb := UiTheme.label(tx, 14, Color("#c03a2a"), true)
 		tb.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
