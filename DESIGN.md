@@ -262,6 +262,18 @@ ein Jahr, Bericht je Tag; Ergebnisse unter /mnt/project-files/konzept/essen_matr
   Die 12-Tage-Runden brachten gegenüber 3 Tagen nur +42, innerhalb der Streuung. Kein Vergleich mit dem
   Verwalter (josh 2026-11-07: „das messen gegen den Verwalter nicht ausführen“). Protokolle unter
   /mnt/project-files/ki_berufe/.
+- **Forschung und Bauen (josh 2026-11-07, Punkte von josh bestätigt)**: Die KI teilt auch Forscher ein (Plätze der
+  Forschungsgebäude, nur wenn eine Forschung läuft). `research_tick`: läuft nichts und ist nichts vorgemerkt, nimmt
+  sie die erste `available` Forschung aus `Data.sorted_tech_ids()` (Ziel `KiBrain.target`) und startet sie, sobald
+  die Kosten im Lager liegen. `build_tick` (josh-Karte „KI darf auch bauen“, feste Regel, alle 0,5 Tage, höchstens
+  eine eigene Baustelle `ki_site`): fehlt dem Ziel eine Ware ohne Werkstatt auf der Insel (`Steward._maker_type`,
+  zwei Stufen der Zutaten zurück), legt sie die Baustelle nahe `w.center` an. Neue Eingänge 39..49 (Forschung läuft,
+  Fortschritt, fehlende Eisen/Werkzeug/Kohle/Bretter/Ziegel/Rest, Eisen, Werkzeug, Anteil Forscher), 9 Berufe x 50.
+  Zusätzliche Punkte je Tag: 1 je Forschungspunkt (`Game.add_research` -> `note_research`), +100 je fertiger
+  Forschung, verarbeitete Ware 3 statt 2, wenn sie dem Ziel fehlt. Ältere Gewichte werden mit Nullen aufgefüllt.
+  Training 25 Runden zu 12 Tagen ab Stand Tag 163. Prüfung mit 8 neuen Würfeln: untrainiert 2008 ± 309 (Schmiedekunst
+  in 3 von 8 Läufen fertig), vorige KI 2690 ± 117 (2 von 8), neue KI 2945 ± 65 (8 von 8, Tag 171–174). Danach geht es in
+  diesem Stand nicht weiter: alle weiteren Forschungen brauchen die Prüfung zur Antike.
 
 ## Spielregeln (Etappe 1)
 

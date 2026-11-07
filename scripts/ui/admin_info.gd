@@ -117,7 +117,7 @@ static func _powers_tab(_hud, _b) -> void:
 
 ## Umschalter Verwalter / lernende KI für die Berufe (josh 2026-11-07, Testversion).
 static func _ki_row() -> void:
-	var sub := Loc.t("Wer teilt die Berufe ein? Die lernende KI wurde ab deinem Spielstand Tag 163 trainiert: Punkte für Nahrungstage im Lager, Holz (bis 1000), verarbeitete Waren, satte und zufriedene Siedler, Abzug für jeden Toten. Sie vergibt Holzfäller, Steinmetze, Sammler, Fischer, Bauern, Köche, Handwerker und Jäger, Baumeister nach den Baustellen. Forscher, Verwalter und Seeleute sowie Siedler, die du selbst einteilst, lässt sie, wie sie sind.")
+	var sub := Loc.t("Wer teilt die Berufe ein? Die lernende KI wurde ab deinem Spielstand Tag 163 trainiert: Punkte für Nahrungstage im Lager, Holz (bis 1000), verarbeitete Waren (mehr für Waren, die der Forschung fehlen), Forschungspunkte, fertige Forschungen, satte und zufriedene Siedler, Abzug für jeden Toten. Sie vergibt Holzfäller, Steinmetze, Sammler, Fischer, Bauern, Köche, Handwerker, Jäger und Forscher, Baumeister nach den Baustellen. Hast du keine Forschung gewählt, startet sie die nächste der Liste und baut die Werkstatt, die dafür fehlt. Verwalter, Seeleute und Siedler, die nur du einteilst, lässt sie, wie sie sind.")
 	if KiBrain.weights.is_empty():
 		sub = Loc.t("Noch keine trainierte KI in dieser Version.")
 	elif KiBrain.brain_score > 0:

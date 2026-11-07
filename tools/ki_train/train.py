@@ -21,8 +21,8 @@ import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor
 
-JOBS = 8
-FEAT = 39
+JOBS = 9
+FEAT = 50
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
@@ -114,8 +114,8 @@ def main():
         for r in rs:
             if r[1]:
                 for d in r[1]["days"]:
-                    for k in ("food", "wood", "proc", "sat", "mood", "dead"):
-                        parts[k] = parts.get(k, 0.0) + float(d[k]) / len(sc)
+                    for k in ("food", "wood", "proc", "res", "sat", "mood", "dead"):
+                        parts[k] = parts.get(k, 0.0) + float(d.get(k, 0.0)) / len(sc)
         jobs = [r[1]["jobs"] for r in rs if r[1]]
         rec = {"iter": it, "tag": tag, "mean": mean, "scores": sc, "parts": parts, "jobs": jobs[:1], "t": time.time()}
         evf.write(json.dumps(rec) + "\n")
