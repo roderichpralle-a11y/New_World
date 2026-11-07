@@ -20,7 +20,8 @@ const WOOD_CAP := 1000
 
 var on := false             # Schalter im Fenster Verwalter (Spielstand)
 var weights: Array = []     # JOBS.size() Zeilen mit FEATURES Zahlen
-var brain_info := ""        # aus der Datei: wie trainiert
+var brain_score := 0        # aus der Datei: Punkte im Prüflauf (12 Tage ab Tag 163)
+var brain_base := 0         # ... und untrainiert
 var _next := 0.0
 
 # Punkte (Training und Anzeige)
@@ -52,7 +53,8 @@ func _load_weights(path: String) -> bool:
 	if w.size() != JOBS.size():
 		return false
 	weights = w
-	brain_info = str(d.get("info", ""))
+	brain_score = int(d.get("score", 0))
+	brain_base = int(d.get("base", 0))
 	return true
 
 

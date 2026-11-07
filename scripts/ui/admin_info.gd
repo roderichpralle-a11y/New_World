@@ -120,8 +120,8 @@ static func _ki_row() -> void:
 	var sub := Loc.t("Wer teilt die Berufe ein? Die lernende KI wurde ab deinem Spielstand Tag 163 trainiert: Punkte für Nahrungstage im Lager, Holz (bis 1000), verarbeitete Waren, satte und zufriedene Siedler, Abzug für jeden Toten. Sie vergibt Holzfäller, Steinmetze, Sammler, Fischer, Bauern, Köche, Handwerker und Jäger, Baumeister nach den Baustellen. Forscher, Verwalter und Seeleute sowie Siedler, die du selbst einteilst, lässt sie, wie sie sind.")
 	if KiBrain.weights.is_empty():
 		sub = Loc.t("Noch keine trainierte KI in dieser Version.")
-	elif KiBrain.brain_info != "":
-		sub += "\n" + KiBrain.brain_info
+	elif KiBrain.brain_score > 0:
+		sub += "\n" + Loc.t("Prüfung über ein Spieljahr (12 Tage) ab Tag 163: %d Punkte, untrainiert %d.") % [KiBrain.brain_score, KiBrain.brain_base]
 	var r := Win.row(Data.icon("ki"), Loc.t("Berufe vergeben"), sub, {"icon_px": 28, "hi": KiBrain.on})
 	if not KiBrain.weights.is_empty():
 		var chips := Win.chip_row()

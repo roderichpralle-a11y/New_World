@@ -222,15 +222,14 @@ ein Jahr, Bericht je Tag; Ergebnisse unter /mnt/project-files/konzept/essen_matr
 ## Lernende KI für die Berufe (josh 2026-11-07, nur Testversion /v21test2/, `scripts/autoload/ki_brain.gd`)
 
 - **Schalter**: Fenster Verwalter, Reiter Befugnisse, Zeile „Berufe vergeben“: Verwalter / Lernende KI (`KiBrain.on`,
-  Spielstand `ki_brain`). Mit KI an überspringt `Steward.tick` die Berufswahl (Forschung weiterführen und
-  Obergrenzen laufen weiter), `Admin._on_settler_died` besetzt nicht nach.
+  Spielstand `ki_brain`). Mit KI an überspringt `Steward.tick` die Berufswahl (vor `load_tick`, der Auslastung), `Admin._on_settler_died` besetzt nicht nach.
 - **Strategie**: linear, 8 Berufe (`KiBrain.JOBS`: Holzfäller, Steinmetz, Sammler, Fischer, Bauer, Koch, Handwerker,
   Jäger) x 39 Eingänge (`features`: Jahreszeit, Vorräte, Nahrungstage, Sättigung, Laune, Erwachsene/Kinder,
   Brennstofftage, Lagerfüllung, reife Bäume/Sträucher, jetzige Anteile). Softmax -> Anteile, gedeckelt mit
   `capacities` (Werkstattplätze, Felder/4, Fischgründe x2, Felsen, Tiere), ganzzahlig verteilt. Alle 0,25 Tage
   höchstens 2 + Leute/6 Wechsel (`Steward._pick` wählt den Geeignetsten), JobDesk-Rang "ki". Baumeister nach
   Regel (1 + Baustellen/2, höchstens ein Drittel). Forscher, Verwalter, Seeleute und vom Spieler Eingeteilte
-  fasst sie nicht an, Freie immer. Gewichte in `data/ki_brain.json` (`w`, `info`).
+  fasst sie nicht an, Freie immer. Gewichte in `data/ki_brain.json` (`w`, `score`, `base` für die Anzeige).
 - **Punkte** (`KiBrain.score_day`, je Spieltag ab Start): 1 je Nahrungstag im Lager, 1 je 100 Holz (bis 1000),
   2 je an diesem Tag in einer Werkstatt/Stall/Steinbruch/Mine erzeugtem Gut (`Settler._do_produce` ->
   `note_processed`), 1 je Siedler mit Sättigung > 50, 1 je Siedler mit Laune > 50, -20 je Toter.
@@ -240,6 +239,15 @@ ein Jahr, Bericht je Tag; Ergebnisse unter /mnt/project-files/konzept/essen_matr
   --fixture=<stand> --noevents=1 --kitrain=1 --kiw=<w.json> --kidays=3 --kiseed=N --kiout=<r.json>` (`--kioff=1`
   ohne KI). 3 Spieltage dauern etwa 13 s, 4 Läufe parallel. Gleicher Seed streut trotzdem um etwa 5 %.
   Trainingsstand: joshs Spielstand Tag 163 (18 Siedler, 17 frei).
+- **Ergebnis 2026-11-07** (Prüfung mit 8 neuen Würfeln, je 12 Tage ab Tag 163, ohne Ereignisse): untrainiert
+  (alle Berufe gleich verteilt) 1800 ± 109 Punkte, nach 30 Runden zu 3 Tagen 2390 ± 67, nach weiteren 20 Runden zu
+  12 Tagen 2432 ± 85 (diese Gewichte in data/ki_brain.json). Der Zugewinn kommt fast ganz aus verarbeiteten Waren
+  (1387 -> 2027); satt +23, Nahrungstage +7, Holz -38 (sie verarbeitet Holz, statt es zu lagern). In jedem Lauf
+  stirbt genau ein Siedler (Fritz, Alter, Tag 172), das ist keine Folge der KI. Die KI setzt fast alle in
+  Werkstätten und Felder (am Ende etwa Bauer 6, Koch 4, Handwerker 4, Steinmetz 2, Fischer 1, kein Holzfäller).
+  Die 12-Tage-Runden brachten gegenüber 3 Tagen nur +42, innerhalb der Streuung. Kein Vergleich mit dem
+  Verwalter (josh 2026-11-07: „das messen gegen den Verwalter nicht ausführen“). Protokolle unter
+  /mnt/project-files/ki_berufe/.
 
 ## Spielregeln (Etappe 1)
 
