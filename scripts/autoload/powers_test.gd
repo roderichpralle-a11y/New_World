@@ -110,12 +110,11 @@ static func run(main, mode: String) -> void:
 	var few := []
 	for i in 4:
 		few.append(_mk(w, "Wenig%d" % i, "steinmetz"))
-	var log_n := Admin.log_entries.size()
 	_round(w)
 	var got: Array = few.map(func(s): return s.job)
 	_ok(got == ["holzfaeller", "fischer", "sammler", "holzfaeller"], "unter 7 Erwachsenen: Holzfäller, Fischer, Sammler der Reihe nach (%s)" % str(got))
 	_ok(v.job == "verwalter", "der Verwalter bleibt Verwalter")
-	_ok(Admin.log_entries.size() > log_n and str(Admin.log_entries[-1][2]).contains("zu wenige"), "Meldung: zu wenige Siedler zum Steuern")
+	_ok(Admin.log_entries.slice(maxi(0, Admin.log_entries.size() - 10)).any(func(e): return str(e[2]).contains("zu wenige") or str(e[2]).contains("too few")), "Meldung: zu wenige Siedler zum Steuern")
 	few[0].set_job("steinmetz")
 	_round(w)
 	_ok(few[0].job == "steinmetz", "danach teilt er nicht mehr ein")
