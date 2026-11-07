@@ -110,7 +110,8 @@ static func _powers_tab(_hud, _b) -> void:
 	var today := int(Powers.tally(true).get("job", 0))
 	var year := int(Powers.tally(false).get("job", 0))
 	_box.add_child(Win.row(Data.icon("sonne"), Loc.t("Für dich erledigt"), Loc.t("Berufe vergeben: heute %d, dieses Jahr %d") % [today, year], {"icon_px": 28}).box)
-	_ki_row()
+	if KiBrain.available:  # nur unter /v21test2/?ki (josh 2026-11-07)
+		_ki_row()
 	for p in Powers.LIST:
 		_power_row(p)
 

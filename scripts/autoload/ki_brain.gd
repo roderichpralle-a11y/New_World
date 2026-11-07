@@ -22,6 +22,10 @@ const DEATH_PTS := -20.0
 const WOOD_CAP := 1000
 
 var on := false             # Schalter im Fenster Verwalter (Spielstand)
+## Im Browser nur mit ?ki in der Adresse (josh 2026-11-07: /v21test2/ ohne „Berufe vergeben“, die KI unter
+## /v21test2/?ki); außerhalb des Browsers (Tests, Training) immer.
+var available := true
+var _kept_on := false  # Schalter aus dem Spielstand, solange die KI hier nicht verfügbar ist (bleibt beim Speichern erhalten)
 var weights: Array = []     # JOBS.size() Zeilen mit FEATURES Zahlen
 var brain_score := 0        # aus der Datei: Punkte im Prüflauf (12 Tage ab Tag 163)
 var brain_base := 0         # ... und untrainiert
@@ -45,6 +49,9 @@ func _ready() -> void:
 	Game.state_save.connect(_on_save)
 	Game.state_load.connect(_on_load)
 	Game.settler_died.connect(func(_s, _c): deaths_today += 1)
+	if OS.has_feature("web"):
+		var q := str(JavaScriptBridge.eval("window.location.search", true))
+		available = RegEx.create_from_string("[?&]ki(=|&|$)").search(q) != null
 	_load_weights(BRAIN_PATH)
 
 
@@ -77,11 +84,11 @@ func set_weights_file(path: String) -> bool:
 
 ## Steuert die KI auf dieser Insel die Berufe?
 func controls(w) -> bool:
-	return on and not weights.is_empty() and w != null and is_instance_valid(w)
+	return on and available and not weights.is_empty() and w != null and is_instance_valid(w)
 
 
 func set_on(v: bool) -> void:
-	on = v
+	on = v and available
 	_next = 0.0
 
 
@@ -542,15 +549,17 @@ func score_day() -> Dictionary:
 # ---------------------------------------------------------------- Spielstand
 func _on_reset() -> void:
 	on = false
+	_kept_on = false
 	_next = 0.0
 
 
 func _on_save(d: Dictionary) -> void:
-	d["ki_brain"] = {"on": on}
+	d["ki_brain"] = {"on": on or (_kept_on and not available)}
 
 
 func _on_load(data: Dictionary, _old_rules: int) -> void:
 	_on_reset()
 	var k = data.get("ki_brain", null)
 	if k is Dictionary:
-		on = bool(k.get("on", false))
+		_kept_on = bool(k.get("on", false))
+		on = _kept_on and available

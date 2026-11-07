@@ -131,6 +131,7 @@ Gilt vor dem Abschnitt „Neue Verwaltung in V2“ darunter, wo sie sich widersp
   darauf. `JobDesk.assign` lehnt dann jeden anderen Vergeber ab, auch mit force (KI, Unter-7-Regel). Stirbt so ein
   Siedler, übernimmt ein Freier den Beruf und wird ebenfalls nur vom Spieler gesteuert (`Admin._player_refill`, ohne
   Befugnis, auch mit KI). Setzt der Spieler jemanden auf Frei, ist die Sperre weg (der Verwalter teilt ihn ein).
+- **KI nur mit `?ki`** (josh 2026-11-07): im Browser zeigt das Fenster Verwalter „Berufe vergeben“ und läuft die lernende KI nur, wenn die Adresse `?ki` enthält (`KiBrain.available`, z. B. /v21test2/?ki; die Weiterleitung aufs Handy behält die Adresse). Ohne `?ki` bleibt der Schalter im Spielstand erhalten (`_kept_on`), wirkt aber nicht. Außerhalb des Browsers (Tests, Training) immer verfügbar.
 - **Siedlerliste mit festen Spaltenbreiten** (`SETTLER_COLS`, PC/Handy): nur „Tätigkeit“ füllt den Rest; der Kopf hat
   links den Rahmenrand und rechts Platz für die Rollleiste, damit er über den Spalten steht.
 - **Unter 7 Erwachsenen** (`FEW_ADULTS`): einmal Meldung und Log, alle außer Verwalter und Seeleute werden der Reihe
