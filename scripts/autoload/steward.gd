@@ -128,6 +128,8 @@ func tick(w) -> void:
 	if Game.time_days - float(_moved.get(iid, -99.0)) < MOVE_DAYS:
 		return
 	_moved[iid] = Game.time_days
+	if KiBrain.controls(w):
+		return  # Berufe vergibt die lernende KI (josh 2026-11-07)
 	load_tick(w)
 
 

@@ -219,6 +219,28 @@ ein Jahr, Bericht je Tag; Ergebnisse unter /mnt/project-files/konzept/essen_matr
   Filter „Nur ausgeschaltete“). Oben neben der Geschwindigkeit drei kleine Knöpfe Ziele (Zielkarte zeigen/ausblenden),
   Aufträge, Nachrichten (`Hud._head_btns`); ist die Leiste zu eng, steht die Jahreszeit nur als Symbol.
 
+## Lernende KI für die Berufe (josh 2026-11-07, nur Testversion /v21test2/, `scripts/autoload/ki_brain.gd`)
+
+- **Schalter**: Fenster Verwalter, Reiter Befugnisse, Zeile „Berufe vergeben“: Verwalter / Lernende KI (`KiBrain.on`,
+  Spielstand `ki_brain`). Mit KI an überspringt `Steward.tick` die Berufswahl (Forschung weiterführen und
+  Obergrenzen laufen weiter), `Admin._on_settler_died` besetzt nicht nach.
+- **Strategie**: linear, 8 Berufe (`KiBrain.JOBS`: Holzfäller, Steinmetz, Sammler, Fischer, Bauer, Koch, Handwerker,
+  Jäger) x 39 Eingänge (`features`: Jahreszeit, Vorräte, Nahrungstage, Sättigung, Laune, Erwachsene/Kinder,
+  Brennstofftage, Lagerfüllung, reife Bäume/Sträucher, jetzige Anteile). Softmax -> Anteile, gedeckelt mit
+  `capacities` (Werkstattplätze, Felder/4, Fischgründe x2, Felsen, Tiere), ganzzahlig verteilt. Alle 0,25 Tage
+  höchstens 2 + Leute/6 Wechsel (`Steward._pick` wählt den Geeignetsten), JobDesk-Rang "ki". Baumeister nach
+  Regel (1 + Baustellen/2, höchstens ein Drittel). Forscher, Verwalter, Seeleute und vom Spieler Eingeteilte
+  fasst sie nicht an, Freie immer. Gewichte in `data/ki_brain.json` (`w`, `info`).
+- **Punkte** (`KiBrain.score_day`, je Spieltag ab Start): 1 je Nahrungstag im Lager, 1 je 100 Holz (bis 1000),
+  2 je an diesem Tag in einer Werkstatt/Stall/Steinbruch/Mine erzeugtem Gut (`Settler._do_produce` ->
+  `note_processed`), 1 je Siedler mit Sättigung > 50, 1 je Siedler mit Laune > 50, -20 je Toter.
+- **Training**: `python3 tools/ki_train/train.py --save <spielstand.json> --days 3 --iters 30 --out p1`, dann
+  `--days 12 --init p1/best.json`. ARS (Augmented Random Search): 8 Richtungen, beste 4, Rauschen 0,3, Schritt
+  0,1, je Paar dieselben Würfel; ein Lauf = `godot --headless --fixed-fps 60 -- --autotest=999999 --scale=10
+  --fixture=<stand> --noevents=1 --kitrain=1 --kiw=<w.json> --kidays=3 --kiseed=N --kiout=<r.json>` (`--kioff=1`
+  ohne KI). 3 Spieltage dauern etwa 13 s, 4 Läufe parallel. Gleicher Seed streut trotzdem um etwa 5 %.
+  Trainingsstand: joshs Spielstand Tag 163 (18 Siedler, 17 frei).
+
 ## Spielregeln (Etappe 1)
 
 - Start: eine zufällige Insel aus einem Seed, Lagerfeuer und eine Hütte, zwei Siedler

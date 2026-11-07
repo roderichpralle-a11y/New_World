@@ -98,6 +98,36 @@ static func _user_args() -> Dictionary:
 	return args
 
 
+## Training der lernenden KI: Gewichte laden, Zufall festlegen (gleiche Würfel für beide Seiten eines
+## ARS-Paares), KI an, Punkte zählen. --kiw=<gewichte.json> --kidays=3 --kiseed=N --kiout=<ergebnis.json>
+## --kioff=1: ohne KI (alle bleiben, wie sie sind) als Vergleichswert.
+func _ki_train_setup(args: Dictionary) -> void:
+	Game.save_locked = true
+	var sd := int(args.get("kiseed", "1"))
+	seed(sd)
+	for w in Sea.all_worlds():
+		for s in w.settlers:
+			s.mind._rng.seed = hash(sd * 7919 + int(s.id))
+	if args.has("kiw") and not KiBrain.set_weights_file(str(args.kiw)):
+		push_error("KI-Gewichte fehlen: " + str(args.kiw))
+	KiBrain.set_on(not args.has("kioff"))
+	KiBrain.score_start()
+	print("KITRAIN Start Tag %.2f, Siedler %d, KI %s" % [Game.time_days, Game.population(), "an" if KiBrain.on else "aus"])
+
+
+func _ki_train_finish(args: Dictionary) -> void:
+	var jobs := {}
+	for s in world.settlers:
+		jobs[s.job] = int(jobs.get(s.job, 0)) + 1
+	var res := {"score": KiBrain.score_total, "days": KiBrain.score_log, "jobs": jobs, "seed": int(args.get("kiseed", "1"))}
+	var out := str(args.get("kiout", ""))
+	if out != "":
+		var f := FileAccess.open(out, FileAccess.WRITE)
+		f.store_string(JSON.stringify(res))
+		f.close()
+	print("KITRAIN Ende ", JSON.stringify(res))
+
+
 ## Testhilfe --fixture=<pfad>: alten Spielstand vor dem Laden in den aktiven Platz kopieren
 ## (danach laeuft der Test wie mit --keep weiter).
 func _copy_fixture() -> void:
@@ -293,6 +323,8 @@ func _maybe_autotest() -> void:
 	elif args.has("bot"):
 		_bot = load("res://scripts/world/bot.gd").new()  # Spiel-Bot v2 (scripts/world/bot.gd)
 		_bot.setup(self, args)
+	if args.has("kitrain"):  # Training der lernenden KI (tools/ki_train/train.py, josh 2026-11-07)
+		_ki_train_setup(args)
 	var elapsed := 0.0
 	var next_report := 0.0
 	while elapsed < secs:
@@ -436,6 +468,9 @@ func _maybe_autotest() -> void:
 				print("DAYLOG Tag %d %02d:%02d | Lebensstil %.2f, fester Arbeitstag %d | Abschnitt (da/unterwegs) %s | %s" % [Game.day(), hr / 2, (hr % 2) * 30,
 					SettlerMind.comfort(), wd, ", ".join(ph.keys().map(func(k): return "%s %d/%d" % [k, ph[k][0], ph[k][1]])),
 					", ".join(ks.map(func(k): return "%s %d" % [k, cnt[k]]))])
+		if args.has("kitrain") and KiBrain.score_log.size() >= int(args.get("kidays", "3")):
+			_ki_train_finish(args)
+			break
 		if args.has("foodsim"):
 			FoodSim.tick(self)
 			if Game.day() != _fs_day:
@@ -508,6 +543,9 @@ func _maybe_autotest() -> void:
 					hud.show_menu_help("bauen", Loc.t("Bauen"))
 				"score":
 					hud._toggle(hud._score_panel)
+				"admin":  # Fenster Verwalter, Reiter Befugnisse (mit dem Schalter der lernenden KI)
+					AdminInfo._tab = 0
+					hud._open_admin()
 				"quests":
 					hud._toggle(hud._quest_panel)
 				"notify":

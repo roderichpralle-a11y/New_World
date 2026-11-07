@@ -363,6 +363,8 @@ func _on_settler_died(s, _cause: String) -> void:
 		return
 	if not auto_on() or s == null or not s.is_adult() or s.job == "frei":
 		return
+	if KiBrain.controls(s.world):
+		return  # Berufe vergibt die lernende KI (josh 2026-11-07)
 	if not _covers(s.world, s.job) or not Data.jobs.has(s.job):
 		return
 	if s.job == JOB and local_manager() != null:

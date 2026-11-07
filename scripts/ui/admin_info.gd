@@ -110,8 +110,29 @@ static func _powers_tab(_hud, _b) -> void:
 	var today := int(Powers.tally(true).get("job", 0))
 	var year := int(Powers.tally(false).get("job", 0))
 	_box.add_child(Win.row(Data.icon("sonne"), Loc.t("Für dich erledigt"), Loc.t("Berufe vergeben: heute %d, dieses Jahr %d") % [today, year], {"icon_px": 28}).box)
+	_ki_row()
 	for p in Powers.LIST:
 		_power_row(p)
+
+
+## Umschalter Verwalter / lernende KI für die Berufe (josh 2026-11-07, Testversion).
+static func _ki_row() -> void:
+	var sub := Loc.t("Wer teilt die Berufe ein? Die lernende KI wurde ab deinem Spielstand Tag 163 trainiert: Punkte für Nahrungstage im Lager, Holz (bis 1000), verarbeitete Waren, satte und zufriedene Siedler, Abzug für jeden Toten. Sie vergibt Holzfäller, Steinmetze, Sammler, Fischer, Bauern, Köche, Handwerker und Jäger, Baumeister nach den Baustellen. Forscher, Verwalter und Seeleute sowie Siedler, die du selbst einteilst, lässt sie, wie sie sind.")
+	if KiBrain.weights.is_empty():
+		sub = Loc.t("Noch keine trainierte KI in dieser Version.")
+	elif KiBrain.brain_info != "":
+		sub += "\n" + KiBrain.brain_info
+	var r := Win.row(Data.icon("ki"), Loc.t("Berufe vergeben"), sub, {"icon_px": 28, "hi": KiBrain.on})
+	if not KiBrain.weights.is_empty():
+		var chips := Win.chip_row()
+		chips.add_child(Win.chip(Loc.t("Verwalter"), not KiBrain.on, func(_on):
+			KiBrain.set_on(false)
+			_rebuild.call()))
+		chips.add_child(Win.chip(Loc.t("Lernende KI"), KiBrain.on, func(_on):
+			KiBrain.set_on(true)
+			_rebuild.call()))
+		r.text.add_child(chips)
+	_box.add_child(r.box)
 
 
 static func _power_row(p: Dictionary) -> void:
