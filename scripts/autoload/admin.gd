@@ -361,6 +361,8 @@ func _on_settler_died(s, _cause: String) -> void:
 	if s != null and s.is_adult() and s.job == JOB:
 		_refill_manager(s)
 		return
+	if _player_refill(s):
+		return
 	if not auto_on() or s == null or not s.is_adult() or s.job == "frei":
 		return
 	if KiBrain.controls(s.world):
@@ -385,6 +387,30 @@ func _on_settler_died(s, _cause: String) -> void:
 	Powers.decide("nachbesetzen", "nach:%d" % int(pick.id), tr("%s übernimmt den Beruf %s von %s.") % [pick.display_name, _name(s.job), s.display_name],
 		{"kind": "job", "island": int(s.world.island_id), "sid": int(pick.id), "job": s.job})
 	changed.emit()
+
+
+## Ein Siedler, den nur der Spieler steuert, ist gestorben (josh 2026-11-07): Ein Freier übernimmt den Beruf
+## (passendes Talent zuerst) und wird ebenfalls nur vom Spieler gesteuert. Gilt ohne Befugnis und auch mit KI.
+func _player_refill(s) -> bool:
+	if s == null or not s.is_adult() or s.job == "frei" or not Data.jobs.has(s.job) or not JobDesk.player_controlled(s):
+		return false
+	JobDesk.release(int(s.id))
+	var pick = null
+	for o in s.world.settlers:
+		if o == s or not o.is_adult() or o.job != "frei" or JobDesk.player_controlled(o) or o.is_queued_for_deletion():
+			continue
+		if pick == null or (TalentInfo.job_match(o.mind, s.job) and not TalentInfo.job_match(pick.mind, s.job)):
+			pick = o
+	if pick == null:
+		Game.notify_at(s.world, tr("Für den Beruf %s von %s gibt es keinen freien Siedler.") % [_name(s.job), s.display_name], "wissen", "verwaltung")
+		return true
+	JobDesk.assign(pick, s.job, "spieler")
+	Powers.count("job")
+	var txt := tr("%s übernimmt den Beruf %s von %s und wird wie vorher nur von dir gesteuert.") % [pick.display_name, _name(s.job), s.display_name]
+	Game.notify_at(s.world, txt, "person", "verwaltung")
+	add_log(txt)
+	changed.emit()
+	return true
 
 
 ## Der Verwalter ist gestorben: immer sofort nachbesetzen, ohne Befugnis und Nachfrage (josh 2026-10-29;

@@ -57,6 +57,8 @@ func holder(s) -> String:
 ## force: Ereignisse der Geschichte (Superintelligenz) setzen sich über alles hinweg. Gibt true zurück, wenn
 ## der Beruf jetzt gilt.
 func assign(s, job: String, by: String, days: float = -1.0, force := false) -> bool:
+	if by != "spieler" and player_controlled(s):
+		return false  # „nur vom Spieler“ gilt auch gegen force (josh 2026-11-07)
 	if not force and not may(s, by):
 		return false
 	s.set_job(job, by != "spieler")
@@ -78,6 +80,23 @@ func hold(s, by: String, days: float = -1.0) -> void:
 		if by == "spieler" and AiRule.ki():
 			days = AiRule.OVERRIDE_DAYS
 	claims[int(s.id)] = [Game.time_days + days, int(RANK.get(by, 0))]
+
+
+## Steuert nur der Spieler diesen Siedler (Schalter in der Siedlerliste, josh 2026-11-07)? Das ist die Sperre
+## des Spielers: Verwalter, KI, Automat und KI-Zentrum ändern seinen Beruf dann nie.
+func player_controlled(s) -> bool:
+	return s != null and is_instance_valid(s) and holder(s) == "spieler"
+
+
+## Schalter je Siedler: on = nur der Spieler, off = Verwalter/KI dürfen ihn einteilen.
+func set_player_controlled(s, on: bool) -> void:
+	if s == null:
+		return
+	if on:
+		claims[int(s.id)] = [Game.time_days + float(HOLD.spieler), int(RANK.spieler)]
+	else:
+		release(int(s.id))
+	AiRule.player_changed("job:%d" % int(s.id))
 
 
 func release(sid: int) -> void:

@@ -121,10 +121,18 @@ Gilt vor dem Abschnitt „Neue Verwaltung in V2“ darunter, wo sie sich widersp
   Beruf wartet er `LOAD_DAYS` (1 Tag), bis neu gemessen ist. Höchstens 1 + Erwachsene/10 Wechsel je Runde.
 - **Freie einteilen** (josh 2026-11-07, `Steward.idle_tick` nach `load_tick`, ab 7 Erwachsenen): jeder Freie (auch vom
   Spieler freigestellte) bekommt den nächsten Beruf aus `IDLE_ORDER` (Bauer, Sammler, Fischer, Koch, Handwerker,
-  Holzfäller, Forscher), in dem es Arbeit und Platz gibt (`_idle_job_ok`), höchstens `IDLE_PER_ROUND` je Runde. Nach
+  Steinmetz, Holzfäller, Förster, Jäger, Forscher; Förster höchstens einer je zwei Holzfäller, Jäger nur mit Tieren,
+  einer je drei Tiere), in dem es Arbeit und Platz gibt (`_idle_job_ok`), höchstens `IDLE_PER_ROUND` je Runde. Nach
   `LOAD_DAYS` prüft er: unter `LOAD_LOW` % im Beruf -> wieder frei, nächster Beruf (Meta `try_idx`); nach dem letzten
   `IDLE_RETRY_DAYS` Pause. Wer von der Auslastung freigestellt wird, macht mit dem Beruf nach seinem alten weiter.
   Die Auslastung startet in jedem Spielstand auf Selbst (der alte Schalter der Grundbesetzung gilt nicht).
+- **Nur vom Spieler gesteuert** (josh 2026-11-07, Spalte „Steuerung“ der Siedlerliste): das ist die Sperre des
+  Spielers in der JobDesk (`player_controlled`, `set_player_controlled`); wer einen Beruf vom Spieler bekommt, steht
+  darauf. `JobDesk.assign` lehnt dann jeden anderen Vergeber ab, auch mit force (KI, Unter-7-Regel). Stirbt so ein
+  Siedler, übernimmt ein Freier den Beruf und wird ebenfalls nur vom Spieler gesteuert (`Admin._player_refill`, ohne
+  Befugnis, auch mit KI). Setzt der Spieler jemanden auf Frei, ist die Sperre weg (der Verwalter teilt ihn ein).
+- **Siedlerliste mit festen Spaltenbreiten** (`SETTLER_COLS`, PC/Handy): nur „Tätigkeit“ füllt den Rest; der Kopf hat
+  links den Rahmenrand und rechts Platz für die Rollleiste, damit er über den Spalten steht.
 - **Unter 7 Erwachsenen** (`FEW_ADULTS`): einmal Meldung und Log, alle außer Verwalter und Seeleute werden der Reihe
   nach (nach ID) Holzfäller, Fischer, Sammler; danach teilt er auf der Insel nichts mehr ein, bis es wieder 7 sind.
 - **Die letzten zwei Siedler sterben nicht** (wieder eingebaut, siehe unten „Die letzten zwei Siedler“):

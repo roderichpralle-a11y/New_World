@@ -745,6 +745,17 @@ func _maybe_autotest() -> void:
 					b.refresh()
 		if args.has("zoom"):  # Testhilfe 2.0.0: Bildschirmfoto mit festem Zoom (Details der neuen Bilder)
 			camera.zoom = Vector2.ONE * float(args.zoom)
+		if args.has("settlershot"):  # Testhilfe (josh 2026-11-07): Siedlerliste mit festen Spalten
+			hud._toggle(hud._settler_panel)
+			await get_tree().process_frame
+			hud._refresh_settler_list()
+			await get_tree().create_timer(0.3).timeout
+			for grp in [hud._settler_head_row, hud._settler_list.get_child(0).get_child(0)]:
+				var xs := []
+				for c in grp.get_children():
+					if c.visible:
+						xs.append("%d-%d" % [c.global_position.x, c.global_position.x + c.size.x])
+				print("SPALTEN ", " ".join(xs))
 		if args.has("rulesdialog"):
 			# Bildschirmfoto des Fensters "Neue Regeln" (ohne alten Spielstand mit Beispielzeilen)
 			hud.show_rules_dialog(Game.rules_lines if not Game.rules_lines.is_empty() else _sample_rules_lines(), Callable(), false)

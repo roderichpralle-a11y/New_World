@@ -54,7 +54,7 @@ const ALWAYS := ["baumeister", "fischer"]  # dazu der Verwalter (Admin besetzt i
 const FEW_ORDER := ["holzfaeller", "fischer", "sammler"]
 ## Freie bekommen einen Beruf, der Reihe nach (josh 2026-11-07); nach LOAD_DAYS prüft er, ob es klappt (Anteil im
 ## Beruf mindestens LOAD_LOW), sonst wird der Siedler wieder frei und probiert den nächsten.
-const IDLE_ORDER := ["bauer", "sammler", "fischer", "koch", "handwerker", "holzfaeller", "forscher"]
+const IDLE_ORDER := ["bauer", "sammler", "fischer", "koch", "handwerker", "steinmetz", "holzfaeller", "foerster", "jaeger", "forscher"]  # Steinmetz nach Handwerker, Förster und Jäger dazu (josh 2026-11-07 18:43/18:49)
 const IDLE_PER_ROUND := 3
 const IDLE_RETRY_DAYS := 2.0  # alle Berufe probiert: so lange frei, dann wieder von vorn
 var blocks: Dictionary = {}  # Insel-ID -> {Ware oder Beruf: Text}: Engpässe, die Leute nicht beheben (Lieferkette, Natur)
@@ -257,6 +257,10 @@ func _idle_job_ok(w, job: String) -> bool:
 				if b.complete and b.def.has("research"):
 					slots += int(b.def.research.get("slots", 1))
 			return _count(w, job) < slots
+		"foerster":  # einer je zwei Holzfäller, mindestens einer
+			return _count(w, job) < maxi(1, ceili(_count(w, "holzfaeller") / 2.0))
+		"jaeger":  # Tiere da, einer je drei Tiere, mindestens einer
+			return _raw_block(w, job) == "" and _count(w, job) < maxi(1, w.animals.size() / 3)
 		"bauer":
 			if _raw_block(w, job) != "":
 				return false

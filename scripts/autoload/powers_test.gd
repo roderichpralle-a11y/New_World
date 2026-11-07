@@ -213,6 +213,23 @@ static func run(main, mode: String) -> void:
 	var old := {"powers": {"mode": {"grundbesetzung": Powers.AUS}}}
 	Powers._on_load(old, 0)
 	_ok(Powers.mode_of("auslastung") == Powers.SELBST, "alter Spielstand mit Grundbesetzung aus: Auslastung startet auf Selbst")
+	# Schalter „nur Spieler“ (josh 2026-11-07 18:43)
+	_ok(Steward.IDLE_ORDER.find("steinmetz") == Steward.IDLE_ORDER.find("handwerker") + 1, "Steinmetz steht direkt nach Handwerker in der Reihe")
+	var pc = _mk(w, "Spielerfigur", "holzfaeller")
+	JobDesk.set_player_controlled(pc, true)
+	_ok(not JobDesk.assign(pc, "frei", "verwalter", -1.0, true), "nur Spieler: Verwalter darf ihn nicht umsetzen, auch nicht mit force")
+	_ok(not JobDesk.assign(pc, "bauer", "ki", 0.5, true) and pc.job == "holzfaeller", "nur Spieler: KI darf ihn nicht umsetzen")
+	JobDesk.set_player_controlled(pc, false)
+	_ok(JobDesk.assign(pc, "sammler", "verwalter") and pc.job == "sammler", "Schalter zurück: Verwalter darf ihn wieder einteilen")
+	JobDesk.assign(pc, "holzfaeller", "spieler")
+	_ok(JobDesk.player_controlled(pc), "vom Spieler eingeteilt: nur Spieler")
+	for o in w.settlers:
+		if o.is_adult() and o.job == "frei":
+			o.set_job("sammler")
+	var heir = _mk(w, "Erbe", "frei")
+	w.kill_settler(pc, "gestorben", "old")
+	_ok(heir.job == "holzfaeller", "nur Spieler, gestorben (Nachbesetzen aus): ein Freier übernimmt den Beruf (%s)" % heir.job)
+	_ok(JobDesk.player_controlled(heir), "der Nachfolger wird ebenfalls nur vom Spieler gesteuert")
 	Powers._on_load(d, 0)
 	# Fenster Verwalter: drei Reiter
 	_ok(AdminInfo.TAB_POWERS == 0 and AdminInfo.TAB_HOURS == 1 and AdminInfo.TAB_LOG == 2, "Fenster Verwalter: Befugnisse, Arbeitszeit, Log")

@@ -94,6 +94,8 @@ func _adults(w) -> Array:
 func _movable(s) -> bool:
 	if s.job in ["verwalter", "seemann", "forscher"]:
 		return false
+	if JobDesk.player_controlled(s):
+		return false  # Schalter „Spieler“ in der Siedlerliste (josh 2026-11-07)
 	if s.job == "frei":
 		return true  # Freie nimmt sie immer (josh hat sie für die KI freigestellt)
 	return JobDesk.may(s, "ki")

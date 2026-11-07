@@ -44,6 +44,7 @@ var _settler_list_free: VBoxContainer
 var _settler_scroll_free: ScrollContainer
 var _settler_head_job: Label
 var _settler_head_row: HBoxContainer
+var _settler_head_tail: Control  # Platz rechts im Kopf: Rahmen der Zeile und Rollleiste
 var _settler_head_free: Label
 var _menu_panel: PanelContainer
 var _help_panel: PanelContainer
@@ -1521,8 +1522,10 @@ func _on_placement(active: bool, type: String, valid: bool) -> void:
 # ================================================================== Siedlerliste
 const DIM := Color("#6e5a50")
 ## Sortierbare Spalten: Schluessel, Text, Breite (0 = dehnbar; breit / schmal)
-const SETTLER_COLS := [["name", "Name", 0, 0], ["age", "Alter", 62, 30], ["act", "Tätigkeit", 0, -1],
-	["talent", "Talent", -1, -1], ["job", "Beruf", 150, 84], ["busy", "Auslastung", 110, 40], ["hunger", "Satt", 120, 44], ["mood", "Laune", 120, 44]]
+## Feste Spaltenbreiten (josh 2026-11-07): nur „Tätigkeit“ (0) füllt den Rest, alle anderen sind gleich breit.
+## [Schlüssel, Kopf, Breite PC, Breite Handy]; -1 = ausgeblendet.
+const SETTLER_COLS := [["name", "Name", 150, 64], ["age", "Alter", 58, 26], ["act", "Tätigkeit", 0, -1],
+	["talent", "Talent", -1, -1], ["job", "Beruf", 170, 96], ["ctrl", "Steuerung", 90, 34], ["busy", "Auslastung", 100, 34], ["hunger", "Satt", 100, 36], ["mood", "Laune", 100, 36]]
 ## Dichte Liste (josh 2026-10-22): keine Talent-Spalte, keine Zahlen über den Balken, Filter, Zähler und
 ## „Freie zeigen“ in einer Zeile, beide Gruppen in einer Liste ohne Lücke, das Fenster reicht bis unten
 ## (die Knöpfe unten liegen darüber, die Liste rollt unter ihnen hervor).
@@ -1607,11 +1610,15 @@ func _build_settler_panel() -> void:
 				_refresh_settler_list())
 		head.add_child(b)
 		_settler_head[key] = b
+	# Rand wie die Zeilen (Rahmen links/rechts) und Platz für die Rollleiste, damit die Köpfe über den Spalten stehen
+	_settler_head_tail = Control.new()
+	head.add_child(_settler_head_tail)
 	v.add_child(head)
 	_settler_head_row = head
 	# Eine Liste: oben die Siedler mit Beruf, direkt darunter die freien (und die Kinder)
 	_settler_scroll = ScrollContainer.new()
 	_settler_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_settler_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_ALWAYS
 	_settler_scroll.custom_minimum_size = Vector2(560, 120)
 	_settler_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.add_child(_settler_scroll)
@@ -1660,14 +1667,18 @@ func _size_settler_panel(avail_h: float = -1.0) -> void:
 	var tight := avail_h < 360.0  # Handy quer: ohne Spaltenköpfe
 	_settler_head_row.visible = not tight
 	_settler_scroll.custom_minimum_size = Vector2(w, 60.0)
+	# Rollleiste immer da (sonst ändert sich die Breite der Zeilen), Kopf rechts so breit wie Rahmen + Rollleiste
+	var sbar := _settler_scroll.get_v_scroll_bar()
+	_settler_head_tail.custom_minimum_size.x = maxf(0.0, 3.0 + maxf(sbar.size.x, sbar.get_combined_minimum_size().x) - 6.0)
 	for col in SETTLER_COLS:
 		var b: Button = _settler_head[col[0]]
 		var cw: int = col[3] if _settler_narrow else col[2]
 		b.visible = cw >= 0
-		b.custom_minimum_size.x = max(cw, 40)
+		b.custom_minimum_size.x = cw + (3 if col[0] == "name" else 0)  # + linker Rand des Zeilenrahmens
 		b.add_theme_font_size_override("font_size", 12 if _settler_narrow else 14)
 		b.add_theme_constant_override("h_separation", 0)
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL if cw == 0 else Control.SIZE_FILL
+		b.alignment = HORIZONTAL_ALIGNMENT_CENTER if col[0] in ["age", "ctrl"] else HORIZONTAL_ALIGNMENT_LEFT
 		if col[0] == "act":
 			b.size_flags_stretch_ratio = 1.4
 
@@ -1769,6 +1780,9 @@ func _refresh_settler_list() -> void:
 			"talent":
 				va = TalentInfo.short_list(a.mind)
 				vb = TalentInfo.short_list(b.mind)
+			"ctrl":
+				va = 1 if JobDesk.player_controlled(a) else 0
+				vb = 1 if JobDesk.player_controlled(b) else 0
 			"busy":
 				va = a.busy_percent() if a.is_adult() else -2
 				vb = b.busy_percent() if b.is_adult() else -2
@@ -1808,7 +1822,8 @@ func _refresh_settler_list() -> void:
 	var jsig := str(Data.jobs.keys().filter(func(j): return Data.job_unlocked(j)).size())
 	var used := {}
 	for s in list:
-		var rk := "%s|%s|%s|%s|%s|%s" % [s.is_adult(), s.job, s.job_by if s.by_admin else "", s.world == world, narrow, jsig]
+		var rk := "%s|%s|%s|%s|%s|%s|%s|%s" % [s.is_adult(), s.job, s.job_by if s.by_admin else "", s.world == world, narrow, jsig,
+			JobDesk.player_controlled(s), KiBrain.controls(s.world)]
 		var sid: int = s.get_instance_id()
 		var target: VBoxContainer = _settler_list if (s.is_adult() and s.job != "frei") else _settler_list_free
 		var cr = _settler_rows.get(sid, null)
@@ -1827,8 +1842,8 @@ func _refresh_settler_list() -> void:
 		var nb := Button.new()
 		nb.focus_mode = Control.FOCUS_NONE
 		nb.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		nb.custom_minimum_size = Vector2(40, row_h)
-		nb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		nb.custom_minimum_size = Vector2(SETTLER_COLS[0][3] if narrow else SETTLER_COLS[0][2], row_h)
+		nb.size_flags_horizontal = Control.SIZE_FILL
 		nb.clip_text = true
 		nb.add_theme_font_size_override("font_size", 14)
 		_compact(nb)
@@ -1863,10 +1878,7 @@ func _refresh_settler_list() -> void:
 			var ob := OptionButton.new()
 			ob.focus_mode = Control.FOCUS_NONE
 			ob.custom_minimum_size = Vector2(jw, row_h - 2)
-			if narrow:
-				# Talent-Sterne im Menue machen den Knopf sonst breiter als das Handy
-				ob.fit_to_longest_item = false
-				ob.custom_minimum_size.x = 136
+			ob.fit_to_longest_item = false  # feste Breite, sonst rutschen die Spalten (josh 2026-11-07)
 			ob.clip_text = true
 			ob.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 			ob.add_theme_font_size_override("font_size", 14)
@@ -1898,9 +1910,38 @@ func _refresh_settler_list() -> void:
 			var kl := UiTheme.label(tr("Kind"), 14, DIM)
 			kl.custom_minimum_size.x = jw
 			h.add_child(kl)
+		# Steuerung (josh 2026-11-07): Verwalter/KI oder nur der Spieler
+		var cw: int = SETTLER_COLS[5][3] if narrow else SETTLER_COLS[5][2]
+		if s.is_adult():
+			var mine: bool = JobDesk.player_controlled(s)
+			var auto_name: String = tr("KI") if KiBrain.controls(s.world) else tr("Verwalter")
+			var cb := Button.new()
+			cb.focus_mode = Control.FOCUS_NONE
+			cb.toggle_mode = true
+			cb.button_pressed = mine
+			cb.clip_text = true
+			cb.custom_minimum_size = Vector2(cw, row_h - 2)
+			cb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			cb.add_theme_font_size_override("font_size", 12 if narrow else 14)
+			_compact(cb)
+			if narrow:
+				cb.text = tr("S") if mine else tr("V")  # S = Spieler, V = Verwalter/KI (Handy)
+			else:
+				cb.text = tr("Spieler") if mine else auto_name
+			cb.tooltip_text = (tr("Nur du teilst diesen Siedler ein. Stirbt er, übernimmt ein Freier den Beruf, ebenfalls nur von dir gesteuert. Antippen: %s darf ihn einteilen.") % auto_name) if mine \
+				else (tr("%s darf diesen Siedler einteilen. Antippen: nur du steuerst ihn.") % auto_name)
+			cb.toggled.connect(func(on: bool):
+				JobDesk.set_player_controlled(sref, on)
+				Game.player_action.emit("job_ctrl", "spieler" if on else "auto")
+				_refresh_settler_list.call_deferred())
+			h.add_child(cb)
+		else:
+			var cl := Control.new()
+			cl.custom_minimum_size.x = cw
+			h.add_child(cl)
 		# Auslastung: Anteil der eigenen Arbeit an der Tageszeit
 		var bz := VBoxContainer.new()
-		bz.custom_minimum_size.x = SETTLER_COLS[5][3] if narrow else SETTLER_COLS[5][2]
+		bz.custom_minimum_size.x = SETTLER_COLS[6][3] if narrow else SETTLER_COLS[6][2]
 		bz.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		bz.add_theme_constant_override("separation", 1)
 		bz.mouse_filter = Control.MOUSE_FILTER_PASS
@@ -1914,7 +1955,7 @@ func _refresh_settler_list() -> void:
 		h.add_child(bz)
 		# Saettigung: Balken mit Prozentzahl
 		var sat := VBoxContainer.new()
-		sat.custom_minimum_size.x = SETTLER_COLS[6][3] if narrow else SETTLER_COLS[6][2]
+		sat.custom_minimum_size.x = SETTLER_COLS[7][3] if narrow else SETTLER_COLS[7][2]
 		sat.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		sat.add_theme_constant_override("separation", 1)
 		sat.mouse_filter = Control.MOUSE_FILTER_PASS
@@ -1927,7 +1968,7 @@ func _refresh_settler_list() -> void:
 		h.add_child(sat)
 		# Laune, rot bei Krankheit
 		var md := VBoxContainer.new()
-		md.custom_minimum_size.x = SETTLER_COLS[7][3] if narrow else SETTLER_COLS[7][2]
+		md.custom_minimum_size.x = SETTLER_COLS[8][3] if narrow else SETTLER_COLS[8][2]
 		md.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		md.add_theme_constant_override("separation", 1)
 		md.mouse_filter = Control.MOUSE_FILTER_PASS
