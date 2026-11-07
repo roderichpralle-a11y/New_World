@@ -9,8 +9,11 @@ extends Node
 ## Die KI vergibt nur Produktionsberufe (JOBS). Verwalter, Seeleute und Forscher fasst sie nie an; Baumeister nach
 ## einer festen Regel (Baustellen). Vom Spieler eingeteilte Siedler bleiben, Freie nimmt sie immer.
 
-const JOBS := ["holzfaeller", "steinmetz", "sammler", "fischer", "bauer", "koch", "handwerker", "jaeger"]
-const FEATURES := 39
+const JOBS := ["holzfaeller", "steinmetz", "sammler", "fischer", "bauer", "koch", "handwerker", "jaeger", "forscher"]
+const FEATURES := 50
+const RESEARCH_PTS := 1.0        # je Forschungspunkt (josh 2026-11-07, Vorschlag)
+const RESEARCH_DONE_PTS := 100.0 # je fertiger Forschung
+const NEEDED_PTS := 3.0          # verarbeitete Ware, die der nächsten Forschung noch fehlt
 const TICK_DAYS := 0.25
 const HOLD_DAYS := 0.5
 const BRAIN_PATH := "res://data/ki_brain.json"
@@ -25,8 +28,11 @@ var brain_base := 0         # ... und untrainiert
 var _next := 0.0
 
 # Punkte (Training und Anzeige)
-var processed_today := 0
+var processed_today := 0.0
 var deaths_today := 0
+var research_today := 0.0
+var finished_today := 0
+var target := ""            # Forschung, auf die die KI hinarbeitet (läuft schon oder als Nächstes)
 var score_log: Array = []   # je Tag {day, food, wood, proc, sat, mood, dead, total}
 var score_total := 0.0
 var _score_day := -1
@@ -50,9 +56,16 @@ func _load_weights(path: String) -> bool:
 	if not d is Dictionary or not d.get("w") is Array:
 		return false
 	var w: Array = d.w
-	if w.size() != JOBS.size():
+	if w.is_empty() or w.size() > JOBS.size():
 		return false
-	weights = w
+	# ältere Gewichte (weniger Berufe oder Eingänge) mit Nullen auffüllen
+	var out: Array = []
+	for i in JOBS.size():
+		var row: Array = (w[i] as Array).duplicate() if i < w.size() else []
+		while row.size() < FEATURES:
+			row.append(0.0)
+		out.append(row)
+	weights = out
 	brain_score = int(d.get("score", 0))
 	brain_base = int(d.get("base", 0))
 	return true
@@ -92,7 +105,7 @@ func _adults(w) -> Array:
 
 ## Darf die KI diesen Siedler umsetzen?
 func _movable(s) -> bool:
-	if s.job in ["verwalter", "seemann", "forscher"]:
+	if s.job in ["verwalter", "seemann"]:
 		return false
 	if JobDesk.player_controlled(s):
 		return false  # Schalter „Spieler“ in der Siedlerliste (josh 2026-11-07)
@@ -102,6 +115,9 @@ func _movable(s) -> bool:
 
 
 func tick(w) -> void:
+	if Sea.is_main(w):
+		research_tick()
+		build_tick(w)
 	var adults := _adults(w)
 	var pool: Array = adults.filter(func(s): return _movable(s))
 	if pool.is_empty():
@@ -135,6 +151,112 @@ func tick(w) -> void:
 		count[gap_job] = int(count.get(gap_job, 0)) + 1
 		JobDesk.assign(pick, gap_job, "ki", HOLD_DAYS, true)
 		budget -= 1
+
+
+## Forschung (josh 2026-11-07): hat der Spieler nichts gewählt, nimmt die KI die nächste noch nicht erforschte
+## Forschung der Liste (Stufe, dann Punkte) und startet sie, sobald die Kosten im Lager liegen.
+func research_tick() -> void:
+	if Game.research.current != "":
+		target = Game.research.current
+		return
+	var nx := str(Game.research.get("next", ""))
+	if nx != "" and Game.tech_state(nx) == "available":
+		target = nx
+	else:
+		target = ""
+		for t in Data.sorted_tech_ids():
+			if Game.tech_state(t) == "available":
+				target = t
+				break
+	if target != "" and Game.start_research(target) == "":
+		Game.notify(Loc.t("KI: Forschung gestartet: %s") % Data.techs[target].name, "wissen")
+
+
+## Bauen für die Forschung (josh 2026-11-07, Karte „KI darf auch bauen“): fehlt der Ziel-Forschung eine Ware und
+## steht auf der Insel keine Werkstatt dafür, legt die KI eine Baustelle an (nur erforschte Gebäude, höchstens
+## eine eigene Baustelle zugleich). Fehlen der Werkstatt Zutaten ohne Werkstatt, geht sie eine Stufe zurück.
+## Das ist eine feste Regel; was gelernt wird, ist die Einteilung der Leute (auch Steinmetze, Handwerker für das Material).
+var _build_next := 0.0
+const BUILD_DAYS := 0.5
+
+func build_tick(w) -> void:
+	if Game.time_days < _build_next:
+		return
+	_build_next = Game.time_days + BUILD_DAYS
+	if w.buildings.any(func(b): return not b.complete and b.has_meta("ki_site")):
+		return
+	for id in research_missing():
+		var t := _missing_maker(w, str(id), 0)
+		if t == "":
+			continue
+		var c = _spot(w, t)
+		if c == null:
+			continue
+		var b = w.place_building(t, c, false)
+		b.set_meta("ki_site", true)
+		Game.notify_at(w, Loc.t("KI baut: %s (für die Forschung %s)") % [Data.buildings[t].name, Data.techs[target].name], "hammer")
+		return
+
+
+## Welche Werkstatt fehlt, damit `id` entstehen kann? "" = keine nötig oder keine möglich.
+func _missing_maker(w, id: String, depth: int) -> String:
+	if depth > 2:
+		return ""
+	var t: String = Steward._maker_type(id)
+	if t == "" or not Game.is_unlocked(t):
+		return ""
+	var have = null
+	for b in w.buildings:
+		if b.type == t or str(b.def.get("base", "")) == t:
+			have = b
+			break
+	if have == null:
+		return t
+	if not have.complete:
+		return ""
+	var ins: Dictionary = Data.buildings[t].production.get("inputs", {})
+	for r in ins:
+		if Game.amount(r, w) < int(ins[r]) * 2:
+			var sub := _missing_maker(w, str(r), depth + 1)
+			if sub != "":
+				return sub
+	return ""
+
+
+func _spot(w, type: String):
+	var sz: Array = Data.buildings[type].size
+	var center: Vector2i = w.center
+	for rad in range(3, 30):
+		for dy in range(-rad, rad + 1):
+			for dx in range(-rad, rad + 1):
+				if maxi(absi(dx), absi(dy)) != rad:
+					continue
+				var cc: Vector2i = center + Vector2i(dx, dy)
+				if not w.can_place(type, cc):
+					continue
+				var ok := true
+				for y in range(-1, int(sz[1]) + 2):
+					for x in range(-1, int(sz[0]) + 1):
+						var p := cc + Vector2i(x, y)
+						if w.building_at.has(p) or not w.is_walkable(p):
+							ok = false
+				if ok:
+					return cc
+	return null
+
+
+## Was der Ziel-Forschung im Lager noch fehlt {Ware: Menge} (leer, wenn sie läuft oder bezahlt ist).
+func research_missing() -> Dictionary:
+	var out := {}
+	if target == "" or target in Game.research.paid:
+		return out
+	var cost: Dictionary = Data.techs.get(target, {}).get("cost", {})
+	var mw = Sea.main_world()
+	for id in cost:
+		var miss := int(cost[id]) - Game.amount(id, mw)
+		if miss > 0:
+			out[id] = miss
+	return out
 
 
 ## Soll je Beruf für `n` umsetzbare Erwachsene (Baumeister nach Regel, Rest nach dem Netz).
@@ -215,13 +337,17 @@ func targets(w, n: int) -> Dictionary:
 
 ## Wie viele Leute in jedem Beruf überhaupt Arbeit finden können.
 func capacities(w) -> Dictionary:
-	var c := {"holzfaeller": 99, "sammler": 99, "fischer": 99, "steinmetz": 0, "bauer": 0, "koch": 0, "handwerker": 0, "jaeger": 0}
+	var c := {"holzfaeller": 99, "sammler": 99, "fischer": 99, "steinmetz": 0, "bauer": 0, "koch": 0, "handwerker": 0, "jaeger": 0, "forscher": 0}
+	var researching: bool = Game.research.current != "" and Sea.is_main(w)
 	var fields := 0
 	for b in w.buildings:
 		if not b.complete:
 			continue
 		if b.def.has("farm"):
 			fields += 1
+		elif b.def.has("research"):
+			if researching:
+				c["forscher"] = int(c.forscher) + b.slots()
 		elif b.def.has("production") and not b.paused and not b.def.get("ships", false):
 			var j: String = Steward.KIND_JOB.get(b.prod_def().get("job", ""), "")
 			if c.has(j):
@@ -311,8 +437,28 @@ func features(w) -> PackedFloat32Array:
 	if not adults.is_empty():
 		for s in adults:
 			var k := JOBS.find(s.job)
-			if k >= 0:
+			if k >= 0 and k < 8:
 				x[31 + k] += 1.0 / adults.size()
+			elif s.job == "forscher":
+				x[49] += 1.0 / adults.size()
+	# 39..48 Forschung
+	var cur := str(Game.research.current)
+	x[39] = 1.0 if cur != "" else 0.0
+	if cur != "":
+		x[40] = clampf(Game.tech_progress(cur) / maxf(1.0, Game.tech_points(cur)), 0.0, 1.0)
+	var miss := research_missing()
+	x[41] = minf(float(miss.get("eisen", 0)) / 20.0, 3.0)
+	x[42] = minf(float(miss.get("werkzeug", 0)) / 20.0, 3.0)
+	x[43] = minf(float(miss.get("kohle", 0)) / 20.0, 3.0)
+	x[44] = minf(float(miss.get("bretter", 0)) / 40.0, 3.0)
+	x[45] = minf(float(miss.get("ziegel", 0)) / 40.0, 3.0)
+	var other := 0.0
+	for id in miss:
+		if not id in ["eisen", "werkzeug", "kohle", "bretter", "ziegel"]:
+			other += float(miss[id])
+	x[46] = minf(other / 40.0, 3.0)
+	x[47] = minf(_amt("eisen", w) / 50.0, 3.0)
+	x[48] = minf(_amt("werkzeug", w) / 50.0, 3.0)
 	return x
 
 
@@ -331,16 +477,26 @@ func food_days(w) -> float:
 ## 50 satt, 1 je Siedler über 50 zufrieden, -20 je gestorbenem Siedler.
 var score_on := false
 
-func note_processed(n: int) -> void:
-	processed_today += n
+func note_processed(res: String, n: int) -> void:
+	processed_today += float(n) * (NEEDED_PTS if research_missing().has(res) else PROCESSED_PTS)
+
+
+func note_research(points: float) -> void:
+	research_today += points
+
+
+func note_research_done() -> void:
+	finished_today += 1
 
 
 func score_start() -> void:
 	score_on = true
 	score_log = []
 	score_total = 0.0
-	processed_today = 0
+	processed_today = 0.0
 	deaths_today = 0
+	research_today = 0.0
+	finished_today = 0
 	_score_t0 = Game.time_days
 	_score_day = 0
 
@@ -358,7 +514,9 @@ func score_day() -> Dictionary:
 	var r := {"day": int(floor(Game.time_days))}
 	r["food"] = food_days(w)
 	r["wood"] = minf(_amt("holz", w), WOOD_CAP) / 100.0
-	r["proc"] = PROCESSED_PTS * processed_today
+	r["proc"] = processed_today
+	r["res"] = RESEARCH_PTS * research_today + RESEARCH_DONE_PTS * finished_today
+	r["rpts"] = research_today
 	var sat := 0
 	var mood := 0
 	for s in w.settlers:
@@ -371,11 +529,13 @@ func score_day() -> Dictionary:
 	r["mood"] = mood
 	r["dead"] = DEATH_PTS * deaths_today
 	r["pop"] = w.settlers.size()
-	r["total"] = float(r.food) + float(r.wood) + float(r.proc) + sat + mood + float(r.dead)
+	r["total"] = float(r.food) + float(r.wood) + float(r.proc) + float(r.res) + sat + mood + float(r.dead)
 	score_total += float(r.total)
 	score_log.append(r)
-	processed_today = 0
+	processed_today = 0.0
 	deaths_today = 0
+	research_today = 0.0
+	finished_today = 0
 	return r
 
 

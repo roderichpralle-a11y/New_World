@@ -110,16 +110,45 @@ func _ki_train_setup(args: Dictionary) -> void:
 			s.mind._rng.seed = hash(sd * 7919 + int(s.id))
 	if args.has("kiw") and not KiBrain.set_weights_file(str(args.kiw)):
 		push_error("KI-Gewichte fehlen: " + str(args.kiw))
+	if args.has("kibuild"):  # Trainingshilfe: fertige Gebäude einsetzen (z. B. Schmelzofen), Liste mit Kommas
+		for t in str(args.kibuild).split(","):
+			_ki_place(t)
 	KiBrain.set_on(not args.has("kioff"))
 	KiBrain.score_start()
 	print("KITRAIN Start Tag %.2f, Siedler %d, KI %s" % [Game.time_days, Game.population(), "an" if KiBrain.on else "aus"])
+
+
+## Setzt ein fertiges Gebäude nahe dem Lagerfeuer (nur Training). Gibt true zurück, wenn es steht.
+func _ki_place(t: String) -> bool:
+	if not Data.buildings.has(t) or world.buildings.any(func(b): return b.type == t):
+		return false
+	var c0: Vector2i = world.settlers[0].cell if not world.settlers.is_empty() else Vector2i(40, 40)
+	for b in world.buildings:
+		if b.type == "lagerfeuer":
+			c0 = b.cell
+	for r in range(2, 40):
+		for dx in range(-r, r + 1):
+			for dy in [-r, r]:
+				for c in [c0 + Vector2i(dx, dy), c0 + Vector2i(dy, dx)]:
+					if world.can_place(t, c):
+						world.place_building(t, c, true)
+						print("KITRAIN Gebäude eingesetzt: %s bei %s" % [t, c])
+						return true
+	return false
+
+
+## Trainingshilfe --kiauto=1: ist Schmiedekunst erforscht, steht eine Schmiede (josh-Entscheidung 2026-11-07).
+func _ki_train_auto() -> void:
+	if Game.is_researched("schmiedekunst"):
+		_ki_place("schmiede")
 
 
 func _ki_train_finish(args: Dictionary) -> void:
 	var jobs := {}
 	for s in world.settlers:
 		jobs[s.job] = int(jobs.get(s.job, 0)) + 1
-	var res := {"score": KiBrain.score_total, "days": KiBrain.score_log, "jobs": jobs, "seed": int(args.get("kiseed", "1"))}
+	var res := {"score": KiBrain.score_total, "days": KiBrain.score_log, "jobs": jobs, "seed": int(args.get("kiseed", "1")),
+		"research": Game.research.done.slice(maxi(0, Game.research.done.size() - 5)), "current": Game.research.current}
 	var out := str(args.get("kiout", ""))
 	if out != "":
 		var f := FileAccess.open(out, FileAccess.WRITE)
@@ -468,6 +497,8 @@ func _maybe_autotest() -> void:
 				print("DAYLOG Tag %d %02d:%02d | Lebensstil %.2f, fester Arbeitstag %d | Abschnitt (da/unterwegs) %s | %s" % [Game.day(), hr / 2, (hr % 2) * 30,
 					SettlerMind.comfort(), wd, ", ".join(ph.keys().map(func(k): return "%s %d/%d" % [k, ph[k][0], ph[k][1]])),
 					", ".join(ks.map(func(k): return "%s %d" % [k, cnt[k]]))])
+		if args.has("kiauto"):
+			_ki_train_auto()
 		if args.has("kitrain") and KiBrain.score_log.size() >= int(args.get("kidays", "3")):
 			_ki_train_finish(args)
 			break
