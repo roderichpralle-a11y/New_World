@@ -2592,5 +2592,16 @@
  "Werft: Ruderboot in Auftrag": "Shipyard: rowing boat ordered",
  "Schiff sucht eine neue Insel": "Ship searches for a new island",
  "Werft: Expeditionsschiff in Auftrag": "Shipyard: expedition ship ordered",
- "Expedition nach %s": "Expedition to %s"
+ "Expedition nach %s": "Expedition to %s",
+ "Auf %s leben wieder zwei Siedler: %s kommen dazu.": "Two settlers live on %s again: %s join.",
+ "Er schaut je Insel, wie ausgelastet jeder Beruf ist (Anteil der Arbeitszeit im eigenen Beruf). Unter 80 % stellt er einen Siedler dieses Berufs frei, über 90 % bekommt der Beruf einen Freien dazu. Es gibt immer einen Baumeister, einen Verwalter und einen Fischer. Leben auf einer Insel weniger als 7 Erwachsene, meldet er das, teilt einmal Holzfäller, Fischer und Sammler in dieser Reihenfolge ein und hört dann auf. Er verteilt Berufe auf der Insel der Verwaltung und auf Inseln, die mit einer Rundfunkanstalt am Funknetz hängen (die Insel der Verwaltung braucht dann auch eine).": "Per island he checks how busy each job is (share of work time spent in the job). Below 80 % he frees one settler of that job, above 90 % the job gets one free settler more. There is always a builder, a steward and a fisher. If fewer than 7 adults live on an island, he reports it, assigns woodcutter, fisher and gatherer once in that order and then stops. He assigns jobs on the island of the administration and on islands connected to the radio network with a broadcasting station (the administration's island needs one too).",
+ "es muss immer einen %s geben": "there must always be a %s",
+ "%s ausgelastet zu %d %%": "%s busy %d %%",
+ "%s nur zu %d %% ausgelastet": "%s only %d %% busy",
+ "Auf %s leben nur %d Erwachsene, zu wenige, um die Berufe zu steuern. Der Verwalter teilt Holzfäller, Fischer und Sammler ein und hört dann auf, bis es wieder %d sind.": "On %s only %d adults live, too few to manage the jobs. The steward assigns woodcutter, fisher and gatherer and then stops until there are %d again.",
+ "%s ist jetzt frei (%s).": "%s is now free (%s).",
+ "Berufe vergeben: heute %d, dieses Jahr %d": "Jobs assigned: today %d, this year %d",
+ "Einführung übersprungen und als gelernt gezählt. Jetzt warten Ziele mit Belohnungen auf dich. Die Spielanleitung findest du im Menü.": "Tutorial skipped and counted as learned. Goals with rewards are waiting for you now. You find the game guide in the menu.",
+ "Öffnet das Fenster Verwalter.": "Opens the steward window.",
+ "%s überlebt knapp. Die letzten zwei Siedler sterben nicht.": "%s barely survives. The last two settlers do not die."
 }

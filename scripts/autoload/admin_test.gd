@@ -277,7 +277,7 @@ static func shot(main, kind: String) -> void:
 			if kind == "workshop":
 				Game.select(b)
 		if b.type == "verwaltung" and kind in ["office", "night", "stats", "shifts", "islands"]:
-			AdminInfo._tab = {"night": 2, "stats": 4, "shifts": 1, "islands": AdminInfo.TAB_ISLANDS}.get(kind, 0)
+			AdminInfo._tab = {"night": AdminInfo.TAB_HOURS, "shifts": AdminInfo.TAB_HOURS, "stats": AdminInfo.TAB_LOG}.get(kind, AdminInfo.TAB_POWERS)
 			if kind == "islands":  # mit --fixture=<sea.json>: Inselverbund, Rundfunkanstalt nur auf der Heimatinsel
 				Game.research.done.append("papier")
 				Steward.on = true
@@ -287,8 +287,7 @@ static func shot(main, kind: String) -> void:
 				Steward.offered_automat = true
 				main._place_on(w, "rundfunk")
 				var ids: Array = Sea.settled_islands().map(func(m): return int(m.id))
-				if ids.size() > 1:
-					AdminInfo._task_island = int(ids[1])
+				print("Inseln: ", ids)
 				var close := func():  # Hinweisfenster (Verwalter, KI) aus dem Bild nehmen
 					main.hud._offers.clear()
 					for c in main.hud.root.get_children():

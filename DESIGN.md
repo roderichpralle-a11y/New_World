@@ -102,6 +102,35 @@ bleiben bei der alten Grafik; dieser Zweig wird nicht nach main gemischt, solang
 - Test `--tutclick=1` (unter xvfb, `--resolution 1440x900` bzw. `402x874`, `--shotdir=<Ordner>` für Bilder je Schritt):
   klickt jeden Schritt genau auf die Pfeilspitze bzw. auf Weiter; meldet FEHLER, wenn es danach nicht weitergeht.
 
+## Verwalter nur noch mit Auslastung (josh 2026-11-07, Testzweig claude/v21-test)
+
+Gilt vor dem Abschnitt „Neue Verwaltung in V2“ darunter, wo sie sich widersprechen.
+- **Befugnisse** (`Powers.LIST`): nur noch Nachbesetzen und Auslastung (früher Grundbesetzung). Alle anderen
+  (Essen und Wärme, Mindestvorräte, Obergrenzen, Notfall, Forschung, andere Inseln, Waren, Gutachten,
+  Versorgungsplan, Droiden, KI) sind gestrichen, mit ihrem Code in steward.gd (needs, Stellenplan `StaffPlan` und
+  staff_plan.gd, _release, Obergrenzen-Vorschläge, Notfall-Überstunden, Forschung weiterführen, Warenausgleich) und
+  steward_test.gd. Schalter nur noch Aus / Selbst (Standard Selbst); Fragen und Vorschläge gibt es nicht mehr
+  (`Powers.decide` führt immer aus; alte Spielstände: Fragen zählt als Selbst, grundbesetzung -> auslastung).
+- **Fenster Verwalter**: nur noch die Reiter Befugnisse, Arbeitszeit, Log (`AdminInfo.TAB_POWERS/HOURS/LOG`).
+- **Auslastung** (`Steward.load_tick`, alle `TICK_DAYS` je Insel, die `Powers.covers`: Insel der Verwaltung, andere
+  nur mit Rundfunkanstalt auf beiden Inseln): Auslastung je Beruf = Mittel des Anteils im eigenen Beruf
+  (`Admin.job_load`). Unter `LOAD_LOW` 80 %: der Siedler mit dem wenigsten Anteil wird frei (auch vom Spieler
+  eingeteilte). Über `LOAD_HIGH` 90 %: ein Freier kommt dazu (`_free_for`, auch Freie, die der Verwalter selbst
+  freigestellt hat). Immer ein Baumeister und ein Fischer (`ALWAYS`; ohne Freie aus dem am wenigsten ausgelasteten
+  Beruf), der letzte von beiden wird nie frei; den Verwalter besetzt Admin immer nach. Nach einem Wechsel in einem
+  Beruf wartet er `LOAD_DAYS` (1 Tag), bis neu gemessen ist. Höchstens 1 + Erwachsene/10 Wechsel je Runde.
+- **Unter 7 Erwachsenen** (`FEW_ADULTS`): einmal Meldung und Log, alle außer Verwalter und Seeleute werden der Reihe
+  nach (nach ID) Holzfäller, Fischer, Sammler; danach teilt er auf der Insel nichts mehr ein, bis es wieder 7 sind.
+- **Die letzten zwei Siedler sterben nicht** (wieder eingebaut, siehe unten „Die letzten zwei Siedler“):
+  `World.kill_settler`/`spare_settler`, `Game.ensure_min_people` beim Laden.
+- **Einführung überspringen** (`GoalCard._skip_tutorial`): gilt als gelernt, alle Belohnungen der übrigen Schritte
+  und die Schlussbelohnung (`Extras.tutorial_reward`).
+- **Ton**: nur noch ein Lied `assets/audio/music/lied.ogg` (125 s, `tools/gen_audio.py lied`), immer, auch nachts und
+  auf anderen Inseln; Hämmern seltener (`GAP` 0,7 s) und leiser (-13 dB).
+- **itch.io-Fassung**: Export-Vorlage `WebItch` (Feature `itch`, ohne Weiterleitung zur Handy-Fassung), ohne
+  „Nach neuer Version suchen“ und ohne Update-Frage (`Hud._watch_updates`).
+- Test `--powerstest=1` prüft all das („Befugnisse OK (0 Fehler)“).
+
 ## Neue Verwaltung in V2 (josh 2026-10-29, Plan https://claude.ai/artifact/TAaaHP2qGTuyYcJKmfY64L)
 
 Ersetzt in V2 die älteren Abschnitte zu Verwalter-Steuerung, Automat und Planungsautomat (unten), wo sie sich
@@ -2143,3 +2172,10 @@ anderen Caches), meldet den Service Worker ab, holt index.html/js/pck neu und l�
 - **Handy-Fassung** (josh 2026-11-05, nur Testzweig): Export-Vorlage `WebHandy` (Feature `handy`) ohne die PC-Bilder (sied_pack/sied_hd, fine/ und big/ mit halber Fassung), veröffentlicht unter /v21test/handy/ (web.yml). Spieldatei 26 statt 77 MB. Mit `handy` gilt immer small_screen(), Bilder ohne Verkleinerungsstufen (Data.mips). Boden (Data.fine) und Wege nehmen auf Handy/Tablet die halbe Fassung. Gemessen im Browser als iPhone: Browser-Speicher 70 statt 120–200 MB, Bilder 49 statt 69 MB.
 - **Ton im Browser als Stream** (josh 2026-11-05): project.godot `audio/general/default_playback_type.web=0`. Im Standard (Samples) legt Godot Musik und Meeresrauschen als Browser-AudioBuffer an; gemessen wuchs der Browser-Speicher damit um etwa 30 MB pro Minute (1020 auf 1430 MB in 11 Min), mit Stream mischt Godot im Spiel selbst und der Speicher blieb flach (rund 900 MB, wie ganz ohne Ton). Testschalter `?nosound`, `?nomusic`, `?nosfx` (sound.gd); Meeresrauschen wird nur einmal geladen (`_amb_streams`).
   Seit 2.0.79 (josh 2026-11-06, Tonaussetzer): die Geräusch-Stimmen (sound.gd `_voices`) laufen wieder als Browser-Samples (`playback_type = SAMPLE`, sofort, Speicher blieb 10 Min. flach), und der Tonpuffer für Musik und Rauschen ist größer: `audio/driver/output_latency.web=300` (rund 0,34 s statt 0,04 s). Im Einzelfaden-Build mischt Godot nur zwischen zwei Bildern; ein Bild länger als der Puffer gab eine Lücke. Gemessen im (langsamen) Testbrowser: Aussetzer 87 % → 19 % der Tonblöcke.
+
+## Die letzten zwei Siedler sterben nicht (josh 2026-10-25, wieder 2026-11-07)
+`World.kill_settler`: leben im ganzen Spiel (`Sea.total_people`, mit Schiffen) höchstens `World.MIN_ALIVE` (2)
+Siedler, stirbt keiner mehr. `spare_settler` gibt Gesundheit und Sättigung 40, beendet die Krankheit und schiebt
+bei Altersschwäche das Lebensende 3 Jahre hinaus; Meldung „überlebt knapp“ höchstens einmal am Tag. Beim Laden
+(`Game.after_load` -> `ensure_min_people`) bekommt ein Spielstand mit weniger als 2 Siedlern auf der Heimatinsel
+erwachsene Siedler dazu.

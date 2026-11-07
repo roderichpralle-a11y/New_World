@@ -171,13 +171,7 @@ static func _report(w, first: bool) -> void:
 	_made = made
 	print("LAB   erzeugt seit letztem Bericht: ", ", ".join(md))
 	print("LAB   Berufe: ", ", ".join(jt))
-	var tg := StaffPlan.targets(w)
-	print("LAB   Soll: ", ", ".join(tg.keys().map(func(j): return "%s %d" % [j, int(tg[j].n)])))
-	var ws := []
-	for b in w.buildings:
-		if b.complete and b.def.has("production") and not b.def.has("farm") and not b.def.get("ships", false):
-			ws.append("%s%s%s" % [b.type, "" if StaffPlan._active(w, b, StaffPlan.stock_targets(w)) else "-", "" if StaffPlan._has_inputs(w, b) else "!"])
-	print("LAB   Werkstätten (- ruht, ! keine Zutaten): ", " ".join(ws))
+	print("LAB   Auslastung: ", Admin.job_load(w))
 	var to := Planner.tech_order()
 	print("LAB   Forschung: next=%s, nächste wählbar=%s (Kosten %s) | " % [str(Game.research.get("next", "")), to[0] if not to.is_empty() else "-", Data.techs[to[0]].get("cost", {}) if not to.is_empty() else {}], "%s %d%%" % [Game.research.current, roundi(100.0 * Game.tech_progress(Game.research.current) / maxf(1.0, Game.tech_points(Game.research.current))) if Game.research.current != "" else 0])
 	if not first:
@@ -191,11 +185,6 @@ static func _report(w, first: bool) -> void:
 		for e in Admin.log_entries.slice(mini(_log_n, Admin.log_entries.size())):
 			print("LAB     - ", str(e[2]))
 		_log_n = Admin.log_entries.size()
-		var bl: Dictionary = Steward.blocks.get(int(w.island_id), {})
-		if not bl.is_empty():
-			print("LAB   Engpässe: ", " | ".join(bl.values()))
-		var needs := Steward.needs(w)
-		print("LAB   offener Bedarf: ", needs.map(func(n): return "%s (%s)" % [n.job, n.why]))
 
 
 ## Wie ein Spieler, der eng baut: Gitter mit einer Zelle Abstand (Gebäude 3x2 auf 4x3, Felder dicht), Bäume

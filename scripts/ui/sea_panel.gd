@@ -1099,9 +1099,9 @@ func _steward_row() -> void:
 	l.custom_minimum_size.x = 150
 	h.add_child(l)
 	var b := _small_btn(tr("Verwalter"), "person")
-	b.tooltip_text = tr("Berufe, Inselverbund und Spezialisierung der Inseln stellst du im Fenster Verwalter ein (Reiter Inseln).")
+	b.tooltip_text = tr("Öffnet das Fenster Verwalter.")
 	b.pressed.connect(func():
-		AdminInfo._tab = AdminInfo.TAB_ISLANDS
+		AdminInfo._tab = AdminInfo.TAB_POWERS
 		if hud:
 			hud._open_admin())
 	h.add_child(b)

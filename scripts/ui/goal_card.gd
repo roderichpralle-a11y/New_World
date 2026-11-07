@@ -271,11 +271,23 @@ func _give_gift(g: Dictionary) -> void:
 		hud.toast(tr("Geschenkt: %s") % ", ".join(parts), "ziel")
 
 
+## Überspringen (josh 2026-11-07): die Einführung gilt als gelernt. Es geht ans Ende, mit allen Belohnungen der
+## übrigen Schritte und der Schlussbelohnung (2 Siedler, Hütte, Lagerhaus und zwei Forschungen).
 func _skip_tutorial() -> void:
-	Game.goals.tut = Data.goals.get("tutorial", []).size()
+	var steps: Array = Data.goals.get("tutorial", [])
+	var parts := []
+	for i in range(int(Game.goals.get("tut", 0)), steps.size()):
+		var got := Extras.tutorial_step_reward(Game.world, steps[i].get("reward", {}))
+		if got != "":
+			parts.append(got)
+	Game.goals.tut = steps.size()
 	_actions.clear()
 	_cur_id = ""
-	hud.toast(tr("Einführung übersprungen. Die Spielanleitung findest du im Menü."), "ziel")
+	Sound.play("ziel")
+	Extras.tutorial_reward(Game.world)
+	hud.toast(tr("Einführung übersprungen und als gelernt gezählt. Jetzt warten Ziele mit Belohnungen auf dich. Die Spielanleitung findest du im Menü."), "ziel")
+	if not parts.is_empty():
+		hud.toast(tr("Belohnung: %s.") % ", ".join(parts), "ziel")
 
 
 # ---------------------------------------------------------------- Anzeige

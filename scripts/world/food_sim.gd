@@ -103,7 +103,6 @@ static func build(main, with_admin := false, plan := "") -> void:
 		v.max_age = 200.0
 		for e in Powers.LIST:
 			Powers.mode[e.id] = Powers.SELBST
-		Powers.mode["obergrenzen"] = Powers.FRAGEN
 		w.assign_homes()
 		print("FOODSIM Verwaltung Stufe %d, Befugnisse %s" % [Admin.level(), Powers.LIST.filter(func(e): return Powers.on(e.id)).map(func(e): return e.id)])
 	start_day = Game.time_days
@@ -147,11 +146,6 @@ static func _next_research() -> void:
 static func tick(main) -> void:
 	var w = main.world
 	if admin:
-		# Der Spieler nimmt den Vorschlag für Obergrenzen an, sobald er kommt
-		for i in range(Powers.proposals.size() - 1, -1, -1):
-			if str(Powers.proposals[i].power) == "obergrenzen":
-				print("FOODSIM Vorschlag angenommen: ", Powers.proposals[i].text)
-				Powers.answer(i, true)
 		_next_research()  # der Spieler startet die nächste Forschung (Stufe 2 hat „Forschung weiterführen“ noch nicht)
 		return
 	_next_research()

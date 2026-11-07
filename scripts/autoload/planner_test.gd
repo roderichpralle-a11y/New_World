@@ -311,7 +311,7 @@ static func _count_buildings() -> Array:
 static func shot(main) -> void:
 	prepare(main, true)
 	Planner.tick()
-	AdminInfo._tab = AdminInfo.TAB_ISLANDS
+	AdminInfo._tab = AdminInfo.TAB_POWERS
 	for j in Data.jobs:
 		Admin.reported[j] = 1e9
 	var close := func():

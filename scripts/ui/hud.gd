@@ -2077,7 +2077,7 @@ func _build_menu_panel() -> void:
 	for rr in rows:
 		var rw := Win.row(Data.icon(rr[0]), rr[1], rr[2], {"button": rr[3], "on_press": rr[4], "icon_px": 28})
 		game_box.add_child(rw.box)
-	if OS.has_feature("web"):  # josh 2026-10-30: wieder da (2.0.30 hatte ihn entfernt)
+	if OS.has_feature("web") and not OS.has_feature("itch"):  # josh 2026-10-30: wieder da; nicht in der itch.io-Fassung (josh 2026-11-07)
 		var rw := Win.row(Data.icon("schnell"), tr("Nach neuer Version suchen"), tr("Laden erst nach deiner Bestätigung."),
 			{"button": tr("Prüfen"), "on_press": check_for_update, "icon_px": 28})
 		_update_btn = rw.button
@@ -2379,7 +2379,7 @@ var _update_dialog: Control
 
 
 func _watch_updates() -> void:
-	if not OS.has_feature("web"):
+	if not OS.has_feature("web") or OS.has_feature("itch"):  # itch.io: kein Update-Knopf, keine Update-Frage
 		return
 	JavaScriptBridge.pwa_update_available.connect(func(): _pwa_update = true)
 	_version_cb = JavaScriptBridge.create_callback(func(args): _on_server_version(str(args[0]) if args.size() > 0 else ""))

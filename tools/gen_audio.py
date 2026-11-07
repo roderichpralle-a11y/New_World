@@ -10,6 +10,7 @@ Ausgabe:
   assets/audio/sfx/*.wav     kurze Effekte
 """
 import os
+import sys
 import subprocess
 import tempfile
 import wave
@@ -316,6 +317,46 @@ def song_tag():
     return s.mixdown()
 
 
+def song_lied(bars=48):
+    """Das eine Lied (josh 2026-11-07): das Tag-Stück, länger (48 Takte, gut 2 Minuten), läuft immer."""
+    s = Song(92, bars)
+    A = ["F", "C", "Dm", "Bb", "F", "C", "Bb", "C"]
+    A2 = ["F", "C", "Dm", "Bb", "F", "C", "Bb", "F"]
+    B = ["Dm", "Bb", "F", "C", "Dm", "Bb", "Gm", "C"]
+    mel_a = ("A4:1 C5:1 F5:1.5 E5:0.5 | D5:1 C5:1 G4:2 | A4:1 D5:1 F5:1 E5:0.5 D5:0.5 | C5:3 r:1 | "
+             "A4:1 C5:1 F5:1 G5:1 | A5:1.5 G5:0.5 E5:1 C5:1 | D5:1 F5:1 E5:1 D5:0.5 E5:0.5 | E5:3 r:1")
+    mel_a2 = ("A4:1 C5:1 F5:1.5 E5:0.5 | D5:1 C5:1 G4:2 | A4:1 D5:1 F5:1 E5:0.5 D5:0.5 | C5:3 r:1 | "
+              "A4:1 C5:1 F5:1 G5:1 | A5:1.5 G5:0.5 E5:1 C5:1 | D5:1 C5:1 Bb4:1 G4:1 | F4:3 r:1")
+    mel_b = ("F5:1.5 E5:0.5 D5:1 A4:1 | Bb4:1 D5:1 F5:2 | C5:1.5 A4:0.5 C5:1 F5:1 | E5:2 G5:2 | "
+             "A5:1.5 G5:0.5 F5:1 D5:1 | F5:1 D5:1 Bb4:2 | G4:1 Bb4:1 D5:1 G5:1 | E5:1 D5:1 C5:1 E5:1")
+    mel_b2 = ("D5:2 F5:1 A5:1 | Bb5:1.5 A5:0.5 F5:2 | C5:1 F5:1 A5:1 G5:1 | G5:3 r:1 | "
+              "F5:1 E5:1 D5:1 F5:1 | D5:1.5 C5:0.5 Bb4:2 | Bb4:1 D5:1 G5:1 Bb5:1 | A5:1 G5:1 E5:1 C5:1")
+    arp8 = (0.5, [0, 1, 2, 3, 4, 3, 2, 1], inst_pluck, -0.3)
+    walk = [(0, 1.5), (1.5, 0.5, 7), (2, 2, 12)]
+    place_chords(s, A, 0, arp=arp8, bass_pattern=walk)
+    place_melody(s, "lead", mel_a, 0, inst_flute, pan=0.15, vel=0.9)
+    place_drums(s, 0, 8, shaker=[(1, 0.6), (3, 0.6), (3.5, 0.4)])
+    place_chords(s, A2, 8, arp=arp8, pad=True, bass_pattern=walk, pad_vel=0.45)
+    place_melody(s, "lead", mel_a2, 8, inst_flute, pan=0.15, vel=0.9)
+    place_drums(s, 8, 8, kick=[0, 2], shaker=[(0.5, 0.5), (1, 0.7), (1.5, 0.4), (2.5, 0.5), (3, 0.7), (3.5, 0.4)])
+    place_chords(s, B, 16, pad=True, arp=(1.0, [0, 2, 4, 2], inst_pluck, -0.3), bass_pattern=[(0, 2), (2, 2, 7)])
+    place_melody(s, "lead", mel_b, 16, inst_flute, pan=0.15, vel=0.95)
+    place_melody(s, "harm", mel_b, 16, inst_pluck, transpose=-12, pan=-0.4, vel=0.35)
+    place_drums(s, 16, 8, kick=[0, 2.5], snare=[], shaker=[(1, 0.6), (3, 0.6)])
+    place_chords(s, A, 24, arp=(0.5, [0, 2, 1, 3, 2, 4, 3, 2], inst_pluck, -0.3), bass_pattern=[(0, 4)])
+    place_melody(s, "bell", mel_a, 24, inst_bell, transpose=12, pan=0.25, vel=0.55, verb=0.45)
+    if bars >= 48:
+        # zweiter Teil: ruhigere Wiederholung von B mit neuer Melodie, dann A2 zum Schluss (läuft nahtlos weiter)
+        place_chords(s, B, 32, pad=True, arp=(1.0, [0, 1, 2, 1], inst_pluck, -0.3), bass_pattern=[(0, 4)], pad_vel=0.5)
+        place_melody(s, "lead", mel_b2, 32, inst_flute, pan=0.15, vel=0.8)
+        place_melody(s, "bell", mel_b2, 32, inst_bell, pan=-0.25, vel=0.25, verb=0.5)
+        place_drums(s, 32, 8, shaker=[(1, 0.5), (3, 0.5)])
+        place_chords(s, A2, 40, arp=arp8, pad=True, bass_pattern=walk, pad_vel=0.45)
+        place_melody(s, "lead", mel_a2, 40, inst_flute, pan=0.15, vel=0.85)
+        place_drums(s, 40, 8, kick=[0, 2], shaker=[(1, 0.6), (3, 0.6), (3.5, 0.4)])
+    return s.mixdown()
+
+
 def song_nacht():
     """Nacht: a-Moll im Dreiertakt, Spieluhr und weiche Flaechen."""
     s = Song(68, 24, beats_per_bar=3)
@@ -562,6 +603,13 @@ def write_ogg(path, x, sr, quality=3):
     os.remove(tmp)
 
 
+def main_lied():
+    """Nur das eine Lied neu schreiben (josh 2026-11-07): python3 tools/gen_audio.py lied"""
+    x = song_lied()
+    write_ogg(os.path.join(OUT, "music", "lied.ogg"), x, SR)
+    print("Musik lied", "%.1f s" % (len(x) / SR))
+
+
 def main():
     for d in ("music", "ambient", "sfx"):
         os.makedirs(os.path.join(OUT, d), exist_ok=True)
@@ -580,4 +628,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) > 1 and sys.argv[1] == "lied":
+        main_lied()
+    else:
+        main()

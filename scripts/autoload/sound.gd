@@ -6,7 +6,7 @@ extends Node
 ## der Ort im Bild ist; leiser, je weiter weg vom Bildmittelpunkt.
 
 const SETTINGS_PATH := "user://settings.cfg"
-const MUSIC := ["tag", "nacht", "insel"]
+const MUSIC := ["lied"]  # nur noch ein Lied, gut 2 Minuten (josh 2026-11-07)
 ## Effekt -> Anzahl Varianten (Dateien name0, name1, ... oder nur name)
 const SFX := {
 	"klick": 1, "auf": 1, "zu": 1, "platzieren": 1, "hammer": 3, "axt": 2, "stein": 2,
@@ -16,11 +16,11 @@ const SFX := {
 	"fehler": 1, "stufe": 1, "essen": 1, "ziel": 1,
 }
 ## Mindestabstand in Sekunden, bevor derselbe Effekt wieder erklingt
-const GAP := {"hammer": 0.16, "axt": 0.2, "stein": 0.2, "pfluecken": 0.3, "platsch": 0.4,
+const GAP := {"hammer": 0.7, "axt": 0.2, "stein": 0.2, "pfluecken": 0.3, "platsch": 0.4,
 	"saege": 0.8, "treffer": 0.12, "pfeil": 0.15, "klick": 0.04, "essen": 0.6, "heulen": 6.0,
 	"knurren": 1.5, "grunzen": 1.5, "morgen": 20.0, "stufe": 15.0, "autsch": 0.3}
 ## Grundlautstaerke je Effekt in dB
-const LEVEL := {"klick": -8.0, "hammer": -7.0, "axt": -6.0, "stein": -9.0, "pfluecken": -9.0,
+const LEVEL := {"klick": -8.0, "hammer": -13.0, "axt": -6.0, "stein": -9.0, "pfluecken": -9.0,
 	"platsch": -8.0, "saege": -12.0, "essen": -12.0, "morgen": -6.0, "heulen": -4.0,
 	"pfeil": -6.0, "treffer": -5.0, "autsch": -6.0}
 const VOICES := 12
@@ -236,16 +236,10 @@ func _process(_delta: float) -> void:
 			if a.type == "wolf":
 				play("heulen", -8.0, 0.08)
 				break
-	var want := "tag"
+	var want := "lied"  # immer dasselbe Lied (josh 2026-11-07), nur das Meeresrauschen wechselt
 	var amb := "meer_tag"
-	if not in_title and Game.world != null and is_instance_valid(Game.world):
-		if Game.is_night():
-			want = "nacht"
-			amb = "meer_nacht"
-		elif Sea.meta(Game.world.island_id).get("biome", "heimat") != "heimat":
-			want = "insel"
-	if Game.is_over:
-		want = "nacht"
+	if not in_title and Game.world != null and is_instance_valid(Game.world) and Game.is_night():
+		amb = "meer_nacht"
 	if want != _music_cur:
 		_switch_music(want)
 	if amb != _amb_cur:

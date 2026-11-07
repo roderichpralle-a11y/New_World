@@ -1506,7 +1506,7 @@ func _lang_check() -> void:
 ## (wie ein Finger mit emulate_mouse_from_touch) in die Liste und druckt, ob sie gerollt hat.
 func _scroll_test(kind: String) -> void:
 	if kind == "admin":
-		AdminInfo._tab = 4
+		AdminInfo._tab = AdminInfo.TAB_LOG
 		for i in 40:
 			Admin.note_produced(Data.sorted_resource_ids()[i % Data.sorted_resource_ids().size()], 5)
 		hud._open_admin()

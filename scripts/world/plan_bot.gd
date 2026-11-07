@@ -134,13 +134,9 @@ func _powers() -> void:
 		var id := str(e.id)
 		if not Powers.unlocked(id) or id == "ki":
 			continue
-		var mode: int = Powers.FRAGEN if id in ["notfall", "forschung"] else Powers.SELBST
-		if id == "inseln" and not Steward.islands_without_radio().is_empty():
-			mode = Powers.FRAGEN
-		if Powers.mode_of(id) != mode:
-			Powers.set_mode(id, mode)
-			_show(tr("Befugnis %s: %s") % [str(e.name), tr("Selbst") if mode == Powers.SELBST else tr("Fragen")])
-			print("BOT: Befugnis %s -> %s" % [id, "Selbst" if mode == Powers.SELBST else "Fragen"])
+		if Powers.mode_of(id) != Powers.SELBST:
+			Powers.set_mode(id, Powers.SELBST)
+			print("BOT: Befugnis %s -> Selbst" % id)
 	# Verwalter einsetzen (der mit dem meisten Wissen)
 	if Admin.office() != null and Admin.manager() == null:
 		var best = null
@@ -151,25 +147,9 @@ func _powers() -> void:
 			_set_job(best, "verwalter")
 
 
-## Vorschläge beantworten (Abschnitt 4, Tabelle „Wie Vorschläge beantwortet werden“).
+## Vorschläge gibt es seit josh 2026-11-07 nicht mehr.
 func _answer() -> void:
-	var i := 0
-	while i < Powers.proposals.size():
-		var p: Dictionary = Powers.proposals[i]
-		var kind := str(p.get("act", {}).get("kind", ""))
-		var yes := true
-		match kind:
-			"order":
-				var on := bool(p.act.get("on", true))
-				yes = (not on) or Game.food_days(w) < 1.0 or Steward.fuel_days(w) < 1.0
-			"research":
-				yes = str(p.act.get("tech", "")) == _wanted_tech()
-			"job":
-				for s in w.settlers:
-					if int(s.id) == int(p.act.get("sid", -1)) and s.job in ["forscher", "seemann", "verwalter"]:
-						yes = false
-		Powers.answer(i, yes)
-		_show(tr("Vorschlag %s: %s") % ["ja" if yes else "nein", str(p.text)])
+	pass
 
 
 ## Ausbau der Verwaltung, sobald Forschung und Material da sind.
