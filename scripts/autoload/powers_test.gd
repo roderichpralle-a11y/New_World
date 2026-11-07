@@ -52,11 +52,11 @@ static func _jobs(w) -> Dictionary:
 	return out
 
 
-## Eine Runde Auslastung, ohne Wartezeiten.
+## Eine Runde Auslastung (ohne das Einteilen der Freien, das prüft der Test eigens), ohne Wartezeiten.
 static func _round(w) -> void:
 	Steward._moved = {}
 	Steward._job_moved = {}
-	Steward.tick(w)
+	Steward.load_tick(w)
 
 
 static func run(main, mode: String) -> void:
@@ -157,14 +157,37 @@ static func run(main, mode: String) -> void:
 			_busy(s, 40.0)
 	Steward._moved = {}
 	Steward._job_moved = {}
-	Steward.tick(w)
+	Steward.load_tick(w)
 	var n1 := int(_jobs(w).get("sammler", 0))
 	for s in w.settlers:
 		if s.is_adult() and s.job == "sammler":
 			_busy(s, 40.0)
 	Steward._moved = {}
-	Steward.tick(w)
+	Steward.load_tick(w)
 	_ok(int(_jobs(w).get("sammler", 0)) == n1, "gleich danach kein zweiter Wechsel im selben Beruf")
+	# Freie bekommen einen Beruf der Reihe nach, mit Prüfung nach einem Tag (josh 2026-11-07)
+	var idl = _mk(w, "Idle1", "frei")
+	JobDesk.assign(idl, "frei", "spieler")
+	for k in 8:  # je Runde höchstens IDLE_PER_ROUND Freie
+		if idl.job != "frei":
+			break
+		Steward.idle_tick(w)
+	var first: String = idl.job
+	_ok(first in Steward.IDLE_ORDER, "Freier (vom Spieler freigestellt) bekommt einen Beruf aus der Reihe (%s)" % first)
+	_busy(idl, 20.0)
+	idl.set_meta("try_at", Game.time_days - 2.0)
+	Steward.idle_tick(w)
+	var second: String = idl.job
+	_ok(second != first and (second == "frei" or Steward.IDLE_ORDER.find(second) > Steward.IDLE_ORDER.find(first)), "klappt es nicht (20 %%), probiert er den nächsten Beruf (%s -> %s)" % [first, second])
+	if second == "frei":
+		Steward.idle_tick(w)
+		second = idl.job
+	_ok(second == "frei" or Steward.IDLE_ORDER.find(second) > Steward.IDLE_ORDER.find(first), "nächster Versuch weiter hinten in der Reihe (%s)" % second)
+	_busy(idl, 95.0)
+	idl.set_meta("try_at", Game.time_days - 2.0)
+	var kept: String = idl.job
+	Steward.idle_tick(w)
+	_ok(idl.job == kept, "klappt es (95 %%), bleibt er (%s)" % idl.job)
 	# Aus: nichts passiert
 	Powers.set_mode("auslastung", Powers.AUS)
 	var j5a := _jobs(w)
@@ -187,9 +210,9 @@ static func run(main, mode: String) -> void:
 	Powers._on_save(d)
 	Powers._on_load(d, 0)
 	_ok(Powers.mode_of("nachbesetzen") == Powers.AUS and Powers.mode_of("auslastung") == Powers.SELBST, "Spielstand: Schalter bleiben")
-	var old := {"powers": {"mode": {"grundbesetzung": Powers.FRAGEN}}}
+	var old := {"powers": {"mode": {"grundbesetzung": Powers.AUS}}}
 	Powers._on_load(old, 0)
-	_ok(Powers.mode_of("auslastung") == Powers.SELBST, "alter Spielstand: Grundbesetzung Fragen -> Auslastung Selbst")
+	_ok(Powers.mode_of("auslastung") == Powers.SELBST, "alter Spielstand mit Grundbesetzung aus: Auslastung startet auf Selbst")
 	Powers._on_load(d, 0)
 	# Fenster Verwalter: drei Reiter
 	_ok(AdminInfo.TAB_POWERS == 0 and AdminInfo.TAB_HOURS == 1 and AdminInfo.TAB_LOG == 2, "Fenster Verwalter: Befugnisse, Arbeitszeit, Log")

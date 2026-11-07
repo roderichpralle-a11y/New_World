@@ -52,6 +52,11 @@ const LOAD_DAYS := 1.0
 const FEW_ADULTS := 7
 const ALWAYS := ["baumeister", "fischer"]  # dazu der Verwalter (Admin besetzt ihn immer nach)
 const FEW_ORDER := ["holzfaeller", "fischer", "sammler"]
+## Freie bekommen einen Beruf, der Reihe nach (josh 2026-11-07); nach LOAD_DAYS prüft er, ob es klappt (Anteil im
+## Beruf mindestens LOAD_LOW), sonst wird der Siedler wieder frei und probiert den nächsten.
+const IDLE_ORDER := ["bauer", "sammler", "fischer", "koch", "handwerker", "holzfaeller", "forscher"]
+const IDLE_PER_ROUND := 3
+const IDLE_RETRY_DAYS := 2.0  # alle Berufe probiert: so lange frei, dann wieder von vorn
 var blocks: Dictionary = {}  # Insel-ID -> {Ware oder Beruf: Text}: Engpässe, die Leute nicht beheben (Lieferkette, Natur)
 
 
@@ -131,6 +136,8 @@ func tick(w) -> void:
 	if KiBrain.controls(w):
 		return  # Berufe vergibt die lernende KI (josh 2026-11-07)
 	load_tick(w)
+	if Powers.on("auslastung") and _adults(w).size() >= FEW_ADULTS:
+		idle_tick(w)
 
 
 # ---------------------------------------------------------------- Auslastung (josh 2026-11-07)
@@ -183,6 +190,79 @@ func load_tick(w) -> void:
 			cands.sort_custom(func(x, y): return float(x.busy_shares()[0]) < float(y.busy_shares()[0]))
 			if _move(w, cands[0], "frei", tr("%s nur zu %d %% ausgelastet") % [Data.jobs[job].name, pct]):
 				budget -= 1
+
+
+## Freie einteilen und Versuche prüfen (josh 2026-11-07): Wer frei ist (auch vom Spieler freigestellt), bekommt
+## den nächsten Beruf aus IDLE_ORDER, in dem es gerade Arbeit gibt. Nach LOAD_DAYS: arbeitet er weniger als
+## LOAD_LOW % im Beruf, wird er frei und probiert den nächsten. Nach dem letzten wartet er IDLE_RETRY_DAYS.
+func idle_tick(w) -> void:
+	# Versuche prüfen
+	for s in _adults(w):
+		if not s.has_meta("try_job"):
+			continue
+		if s.job != str(s.get_meta("try_job")):  # inzwischen anders eingeteilt
+			s.remove_meta("try_job")
+			continue
+		if Game.time_days - float(s.get_meta("try_at", 0.0)) < LOAD_DAYS:
+			continue
+		var sh: Array = s.busy_shares()
+		s.remove_meta("try_job")
+		if sh.is_empty() or float(sh[0]) >= LOAD_LOW:
+			s.set_meta("try_idx", 0)  # klappt: beim nächsten Mal wieder von vorn
+			continue
+		var job: String = s.job
+		_move(w, s, "frei", tr("als %s nur %d %% beschäftigt, probiert den nächsten Beruf") % [Data.jobs[job].name, roundi(float(sh[0]))])
+		s.set_meta("try_idx", IDLE_ORDER.find(job) + 1)
+	# Freie einteilen
+	var n := 0
+	for s in _adults(w):
+		if n >= IDLE_PER_ROUND:
+			break
+		if s.job != "frei" or not (JobDesk.may(s, "verwalter") or JobDesk.holder(s) == "verwalter"):
+			continue
+		if Game.time_days < float(s.get_meta("try_wait", -1.0)):
+			continue
+		var i := int(s.get_meta("try_idx", 0))
+		var job := ""
+		while i < IDLE_ORDER.size():
+			if _idle_job_ok(w, str(IDLE_ORDER[i])):
+				job = str(IDLE_ORDER[i])
+				break
+			i += 1
+		if job == "":
+			s.set_meta("try_idx", 0)
+			s.set_meta("try_wait", Game.time_days + IDLE_RETRY_DAYS)
+			continue
+		if _move(w, s, job, tr("war frei, Versuch %d von %d") % [i + 1, IDLE_ORDER.size()]):
+			s.set_meta("try_job", job)
+			s.set_meta("try_at", Game.time_days)
+			s.set_meta("try_idx", i + 1)
+			n += 1
+
+
+## Gibt es in dem Beruf gerade Arbeit und Platz? (Forschung, Werkstattplätze, Natur, Felder)
+func _idle_job_ok(w, job: String) -> bool:
+	if not Data.jobs.has(job) or not Data.job_unlocked(job):
+		return false
+	match job:
+		"koch":
+			return _count(w, job) < _workplaces(w, "kueche")
+		"handwerker":
+			return _count(w, job) < _workplaces(w, "handwerk")
+		"forscher":
+			if not Sea.is_main(w) or Game.research.current == "":
+				return false
+			var slots := 0
+			for b in w.buildings:
+				if b.complete and b.def.has("research"):
+					slots += int(b.def.research.get("slots", 1))
+			return _count(w, job) < slots
+		"bauer":
+			if _raw_block(w, job) != "":
+				return false
+			var fields: int = w.buildings.filter(func(b): return b.complete and b.def.has("farm")).size()
+			return _count(w, job) < ceili(float(fields) / FIELDS_PER_FARMER) + _workplaces(w, "stall")
+	return _raw_block(w, job) == ""
 
 
 ## Weniger als FEW_ADULTS Erwachsene: Meldung und einmal Holzfäller, Fischer, Sammler der Reihe nach.
@@ -243,6 +323,8 @@ func _move(w, s, job: String, why: String) -> bool:
 	if not Powers.decide("auslastung", "job:%d:%s" % [iid, job], text, act):
 		return false
 	s.set_meta("adm_moved", Game.time_days)
+	if job == "frei" and old in IDLE_ORDER:  # beim Einteilen der Freien mit dem nächsten Beruf weitermachen
+		s.set_meta("try_idx", IDLE_ORDER.find(old) + 1)
 	_job_moved["%d:%s" % [iid, old]] = Game.time_days
 	_job_moved["%d:%s" % [iid, job]] = Game.time_days
 	return true

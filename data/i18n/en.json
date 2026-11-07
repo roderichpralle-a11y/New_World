@@ -2608,5 +2608,7 @@
  "Berufe vergeben: heute %d, dieses Jahr %d": "Jobs assigned: today %d, this year %d",
  "Einführung übersprungen und als gelernt gezählt. Jetzt warten Ziele mit Belohnungen auf dich. Die Spielanleitung findest du im Menü.": "Tutorial skipped and counted as learned. Goals with rewards are waiting for you now. You find the game guide in the menu.",
  "Öffnet das Fenster Verwalter.": "Opens the steward window.",
- "%s überlebt knapp. Die letzten zwei Siedler sterben nicht.": "%s barely survives. The last two settlers do not die."
+ "%s überlebt knapp. Die letzten zwei Siedler sterben nicht.": "%s barely survives. The last two settlers do not die.",
+ "als %s nur %d %% beschäftigt, probiert den nächsten Beruf": "as %s only %d %% busy, tries the next job",
+ "war frei, Versuch %d von %d": "was free, try %d of %d"
 }

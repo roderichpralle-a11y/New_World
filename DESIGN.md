@@ -119,6 +119,12 @@ Gilt vor dem Abschnitt „Neue Verwaltung in V2“ darunter, wo sie sich widersp
   freigestellt hat). Immer ein Baumeister und ein Fischer (`ALWAYS`; ohne Freie aus dem am wenigsten ausgelasteten
   Beruf), der letzte von beiden wird nie frei; den Verwalter besetzt Admin immer nach. Nach einem Wechsel in einem
   Beruf wartet er `LOAD_DAYS` (1 Tag), bis neu gemessen ist. Höchstens 1 + Erwachsene/10 Wechsel je Runde.
+- **Freie einteilen** (josh 2026-11-07, `Steward.idle_tick` nach `load_tick`, ab 7 Erwachsenen): jeder Freie (auch vom
+  Spieler freigestellte) bekommt den nächsten Beruf aus `IDLE_ORDER` (Bauer, Sammler, Fischer, Koch, Handwerker,
+  Holzfäller, Forscher), in dem es Arbeit und Platz gibt (`_idle_job_ok`), höchstens `IDLE_PER_ROUND` je Runde. Nach
+  `LOAD_DAYS` prüft er: unter `LOAD_LOW` % im Beruf -> wieder frei, nächster Beruf (Meta `try_idx`); nach dem letzten
+  `IDLE_RETRY_DAYS` Pause. Wer von der Auslastung freigestellt wird, macht mit dem Beruf nach seinem alten weiter.
+  Die Auslastung startet in jedem Spielstand auf Selbst (der alte Schalter der Grundbesetzung gilt nicht).
 - **Unter 7 Erwachsenen** (`FEW_ADULTS`): einmal Meldung und Log, alle außer Verwalter und Seeleute werden der Reihe
   nach (nach ID) Holzfäller, Fischer, Sammler; danach teilt er auf der Insel nichts mehr ein, bis es wieder 7 sind.
 - **Die letzten zwei Siedler sterben nicht** (wieder eingebaut, siehe unten „Die letzten zwei Siedler“):

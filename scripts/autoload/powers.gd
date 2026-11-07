@@ -174,8 +174,7 @@ func _on_load(data: Dictionary, _old_rules: int) -> void:
 	if e is Dictionary:
 		for k in e.get("mode", {}):
 			mode[str(k)] = int(e.mode[k])
-		if mode.has("grundbesetzung") and not mode.has("auslastung"):  # früher Grundbesetzung, jetzt Auslastung
-			mode["auslastung"] = AUS if int(mode.grundbesetzung) == AUS else SELBST
+		# Auslastung ist neu (josh 2026-11-07): der alte Schalter der Grundbesetzung gilt nicht, sie startet auf Selbst
 		var dn = e.get("done", {})
 		if dn is Dictionary:
 			done = dn
