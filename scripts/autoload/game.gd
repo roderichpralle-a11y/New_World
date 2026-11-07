@@ -1184,6 +1184,7 @@ func add_research(points: float, apply_bonus: bool = true) -> void:
 	if apply_bonus:
 		points *= eff("research")
 	research.progress[t] = tech_progress(t) + points
+	KiBrain.note_research(points)  # Punkte der lernenden KI (josh 2026-11-07)
 	if tech_progress(t) >= tech_points(t):
 		_finish_research(t)
 
@@ -1220,6 +1221,7 @@ func _finish_research(t: String) -> void:
 	research.progress.erase(t)
 	research.done.append(t)
 	research.current = ""
+	KiBrain.note_research_done()
 	_recompute_effects()
 	var unlocks := Data.tech_unlocks(t).map(func(b): return Data.buildings[b].name)
 	var text := tr("Erforscht: %s!") % Data.techs[t].name
