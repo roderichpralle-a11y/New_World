@@ -1966,6 +1966,8 @@ func _refresh_settler_list() -> void:
 			cb.custom_minimum_size = Vector2(cw, row_h - 2)
 			cb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 			cb.add_theme_font_size_override("font_size", 12 if narrow else 14)
+			for fc in ["font_pressed_color", "font_hover_pressed_color"]:  # „Spieler“ schwarz statt weiß (josh 2026-11-08)
+				cb.add_theme_color_override(fc, UiTheme.TEXT)
 			_compact(cb)
 			if narrow:
 				cb.text = tr("S") if mine else tr("V")  # S = Spieler, V = Verwalter/KI (Handy)
