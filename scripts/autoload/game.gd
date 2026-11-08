@@ -38,6 +38,8 @@ var probelauf := false  # /v21test/?probelauf: Spiel-Bot spielt nach dem Userakt
 ## Der aktive Platz steht in user://settings.cfg [game] slot (Testversion: slot_test).
 const SLOTS := 5
 var slot := 1
+## Einstellung „Bewegungen ausblenden“ (josh 2026-11-08): gehende Siedler ohne Last sind unsichtbar (settings.cfg)
+var hide_moves := false
 var _slot_base := LIVE_SAVE_PATH
 ## Nach dem Neuladen der Seite (Spielstand wechseln): "continue" oder "new" statt Titelbild
 var autostart := ""
@@ -102,6 +104,9 @@ var _rng := RandomNumberGenerator.new()
 func _ready() -> void:
 	_rng.randomize()
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	var vcf := ConfigFile.new()
+	vcf.load("user://settings.cfg")
+	hide_moves = bool(vcf.get_value("view", "hide_moves", false))
 	_detect_test_build()
 	_load_slot()
 	_load_notify_settings()
@@ -211,6 +216,14 @@ func new_id() -> int:
 
 
 # ---------------------------------------------------------------- Zeit
+func set_hide_moves(on: bool) -> void:
+	hide_moves = on
+	var cf := ConfigFile.new()
+	cf.load("user://settings.cfg")
+	cf.set_value("view", "hide_moves", on)
+	cf.save("user://settings.cfg")
+
+
 func day() -> int:
 	return int(floor(time_days)) + 1
 

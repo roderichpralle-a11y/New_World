@@ -2048,6 +2048,8 @@ func _animate(delta: float) -> void:
 		_body.position.y = 2 if sitting and _sied_kind == "" else 0
 	_hurt -= delta
 	_body.modulate = Color(1, 0.5, 0.5) if _hurt > 0.0 else Color.WHITE
+	# Bewegungen ausblenden (josh 2026-11-08): wer nur geht und nichts trägt, ist unsichtbar (der Weg zählt weiter)
+	modulate.a = 0.0 if Game.hide_moves and _moving and carry_n <= 0 and Game.selected != self else 1.0
 	_carry_icon.visible = carry_n > 0 and not sleeping
 	var pushing := _animate_cart(frame)
 	if _carry_icon.visible:

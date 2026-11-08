@@ -802,6 +802,20 @@ func _maybe_autotest() -> void:
 					b.refresh()
 		if args.has("zoom"):  # Testhilfe 2.0.0: Bildschirmfoto mit festem Zoom (Details der neuen Bilder)
 			camera.zoom = Vector2.ONE * float(args.zoom)
+		if args.has("hidemovesprobe"):  # Testhilfe (josh 2026-11-08): Bewegungen ausblenden
+			Game.hide_moves = true
+			await get_tree().create_timer(2.0).timeout
+			var walk := 0
+			var hid := 0
+			var shown_busy := 0
+			for s in world.settlers:
+				if s._moving and s.carry_n <= 0:
+					walk += 1
+					hid += 1 if s.modulate.a == 0.0 else 0
+				elif s.modulate.a > 0.0:
+					shown_busy += 1
+			print("HIDEPROBE gehen ohne Last %d, davon unsichtbar %d; sichtbar (stehen, arbeiten, tragen) %d von %d" % [walk, hid, shown_busy, world.settlers.size() - walk])
+			Game.hide_moves = false
 		if args.has("settlershot"):  # Testhilfe (josh 2026-11-07): Siedlerliste mit festen Spalten
 			hud._toggle(hud._settler_panel)
 			await get_tree().process_frame
