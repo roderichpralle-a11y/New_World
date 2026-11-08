@@ -263,6 +263,36 @@ static func run(main, mode: String) -> void:
 			_finish(gl)
 			_ok(gl.complete and Game.storage_volume(w) == vol0 - Game.building_volume(Data.buildings.lager) + Game.building_volume(Data.buildings.grosslager),
 				"fertig: Stauraum %d" % Game.storage_volume(w))
+	# Abriss einer Baustelle: alles eingeplante Material zurück (josh 2026-11-08)
+	var site = null
+	for dy in range(-14, 15):
+		for dx in range(-14, 15):
+			if site == null and w.can_place("lager", w.center + Vector2i(dx, dy)):
+				site = w.place_building("lager", w.center + Vector2i(dx, dy), false)
+	_ok(site != null and not site.complete, "Baustelle Lagerhaus steht")
+	if site != null:
+		var cres: Array = site.def.cost.keys()
+		var r0: String = str(cres[0])
+		Game.add_stock_over(r0, 10, w)
+		var before := {}
+		for r in cres:
+			before[r] = Game.amount(r, w)
+		site.deliver(r0, 2)  # schon geliefert
+		var carrier = _mk(w, "Träger", "baumeister")
+		carrier.carry_res = r0
+		carrier.carry_n = 3  # unterwegs zur Baustelle
+		carrier._incoming.append([site, r0, 3])
+		site.incoming[r0] = 3
+		var spent := {r0: 5}
+		Game._stock_of(w)[r0] = Game.amount(r0, w) - 5  # die 5 kamen aus dem Lager
+		w.demolish(site)
+		var back_ok := true
+		for r in cres:
+			if Game.amount(r, w) != int(before[r]):
+				back_ok = false
+				print("Abriss Baustelle: ", r, " ", before[r], " -> ", Game.amount(r, w))
+		_ok(back_ok and carrier.carry_n == 0, "Abriss einer Baustelle: geliefertes und getragenes Material kommt voll zurück (%s)" % str(spent))
+		w.kill_settler(carrier, "test", "old")
 	# Schalter „nur Spieler“ (josh 2026-11-07 18:43)
 	_ok(Steward.IDLE_ORDER.find("steinmetz") == Steward.IDLE_ORDER.find("handwerker") + 1, "Steinmetz steht direkt nach Handwerker in der Reihe")
 	var pc = _mk(w, "Spielerfigur", "holzfaeller")
