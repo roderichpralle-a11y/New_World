@@ -328,6 +328,13 @@ func _maybe_autotest() -> void:
 		WorkDay.off = str(args.workday) == "0"
 	if args.has("agetest"):  # Zeitalter-Test nach dem Useraktionsplan (scripts/world/age_test.gd)
 		AgeTest.build(self, int(args.agetest))
+		if args.has("kisave"):  # Startstand für das KI-Training speichern und beenden (josh 2026-11-08)
+			Game.save_locked = false
+			Game.SAVE_PATH = str(args.kisave)
+			Game.save_game()
+			print("KISAVE gespeichert: ", Game.SAVE_PATH)
+			get_tree().quit()
+			return
 		if args.has("savetest"):  # Messhilfe (josh 2026-11-05): mit Autospeichern alle N Sekunden, wie im echten Spiel
 			Game.save_locked = false
 			Game.SAVE_PATH = "user://savetest.json"
