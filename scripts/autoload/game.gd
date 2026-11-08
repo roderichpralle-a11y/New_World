@@ -134,10 +134,19 @@ func _detect_test_build() -> void:
 		path = "/v21test/"
 	if "--probelauf" in OS.get_cmdline_user_args():
 		path = "/v21test/"
+	if "--v3build" in OS.get_cmdline_user_args():
+		path = "/v3/"
 	# Probelauf (Bot spielt) nur noch als Testhilfe ohne Browser: josh 2026-11-01 will ihn nicht mehr in der Testversion
 	if "/v21test" in path and "--probelauf" in OS.get_cmdline_user_args():
 		build_tag = "v2probe"
 		probelauf = true
+	elif "/v3/" in path:  # Version 3 mit der lernenden KI (josh 2026-11-08): eigener Spielstand, anfangs eine Kopie von /v21test2/
+		build_tag = "v3"
+		for n in range(1, SLOTS + 1):
+			var src := "user://savegame_v2t.json" if n <= 1 else "user://savegame_v2t_%d.json" % n
+			var dst := src.replace("_v2t", "_v3")
+			if FileAccess.file_exists(src) and not FileAccess.file_exists(dst):
+				DirAccess.copy_absolute(src, dst)
 	elif "/v21test" in path:  # Testversion von V2 (josh 2026-10-31), auch /v21test2/ (2026-11-06): eigener Spielstand, anfangs eine Kopie von V2
 		build_tag = "v2t"
 		for n in range(1, SLOTS + 1):

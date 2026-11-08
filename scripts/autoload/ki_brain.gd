@@ -25,6 +25,7 @@ var on := false             # Schalter im Fenster Verwalter (Spielstand)
 ## Im Browser nur mit ?ki in der Adresse (josh 2026-11-07: /v21test2/ ohne „Berufe vergeben“, die KI unter
 ## /v21test2/?ki); außerhalb des Browsers (Tests, Training) immer.
 var available := true
+var v3 := false        # Version 3 (josh 2026-11-08): die KI-Fassung unter /v3/, KI immer verfügbar und anfangs an
 var _kept_on := false  # Schalter aus dem Spielstand, solange die KI hier nicht verfügbar ist (bleibt beim Speichern erhalten)
 var weights: Array = []     # JOBS.size() Zeilen mit FEATURES Zahlen
 var brain_score := 0        # aus der Datei: Punkte im Prüflauf (12 Tage ab Tag 163)
@@ -53,7 +54,11 @@ func _ready() -> void:
 		available = false  # itch.io-Fassung 2.1.0 ohne KI (josh 2026-11-07)
 	elif OS.has_feature("web"):
 		var q := str(JavaScriptBridge.eval("window.location.search", true))
-		available = RegEx.create_from_string("[?&]ki(=|&|$)").search(q) != null
+		var path := str(JavaScriptBridge.eval("window.location.pathname", true))
+		v3 = "/v3/" in path
+		available = v3 or RegEx.create_from_string("[?&]ki(=|&|$)").search(q) != null
+	if "--v3build" in OS.get_cmdline_user_args():
+		v3 = true
 	_load_weights(BRAIN_PATH)
 
 
@@ -551,18 +556,24 @@ func score_day() -> Dictionary:
 
 # ---------------------------------------------------------------- Spielstand
 func _on_reset() -> void:
-	on = false
+	on = v3 and available
 	_kept_on = false
 	_next = 0.0
 
 
 func _on_save(d: Dictionary) -> void:
-	d["ki_brain"] = {"on": on or (_kept_on and not available)}
+	d["ki_brain"] = {"on": on or (_kept_on and not available), "v3": v3 or bool(_v3_seen)}
+
+
+var _v3_seen := false
 
 
 func _on_load(data: Dictionary, _old_rules: int) -> void:
 	_on_reset()
 	var k = data.get("ki_brain", null)
+	_v3_seen = k is Dictionary and bool(k.get("v3", false))
 	if k is Dictionary:
 		_kept_on = bool(k.get("on", false))
 		on = _kept_on and available
+	if v3 and not _v3_seen:
+		on = available  # Spielstand zum ersten Mal in Version 3: die KI übernimmt (josh 2026-11-08)

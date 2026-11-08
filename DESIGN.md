@@ -235,6 +235,14 @@ ein Jahr, Bericht je Tag; Ergebnisse unter /mnt/project-files/konzept/essen_matr
   Filter „Nur ausgeschaltete“). Oben neben der Geschwindigkeit drei kleine Knöpfe Ziele (Zielkarte zeigen/ausblenden),
   Aufträge, Nachrichten (`Hud._head_btns`); ist die Leiste zu eng, steht die Jahreszeit nur als Symbol.
 
+## Version 3: die KI-Fassung (josh 2026-11-08, Zweig `claude/v3`, https://roderichpralle-a11y.github.io/New_World/v3/)
+
+Abgezweigt von 2.1.0 (09c6826). Nummer 3.0.N (web.yml zählt die Stände seit 09c6826). Eigener Spielstand
+`user://savegame_v3*.json` (`Game.build_tag` "v3"), beim ersten Start eine Kopie der Stände von /v21test2/ (v2t).
+Die lernende KI ist unter /v3/ immer verfügbar (kein `?ki` nötig) und an: neues Spiel und jeder Spielstand, der zum
+ersten Mal in V3 geladen wird (`ki_brain.v3` im Spielstand); danach gilt der Schalter. Handy-Fassung unter /v3/handy/.
+Testhilfe `--v3build`.
+
 ## Lernende KI für die Berufe (josh 2026-11-07, nur Testversion /v21test2/, `scripts/autoload/ki_brain.gd`)
 
 - **Schalter**: Fenster Verwalter, Reiter Befugnisse, Zeile „Berufe vergeben“: Verwalter / Lernende KI (`KiBrain.on`,
