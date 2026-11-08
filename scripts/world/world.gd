@@ -1106,9 +1106,11 @@ func demolish(b: Building) -> void:
 			if s.sleeping:
 				s._wake_up()
 		if s._reserved == b or s._incoming.any(func(i): return i[0] == b):
+			_take_back_carried(s, b, refund)
 			s.abort_plan()
 	for d in droids:
 		if d._reserved == b or d._incoming.any(func(i): return i[0] == b):
+			_take_back_carried(d, b, refund)
 			d.abort_plan()
 	_release_roof(b)
 	untrack_building(b)
@@ -1133,6 +1135,19 @@ func demolish(b: Building) -> void:
 	if b.def.has("effects"):
 		Game.refresh_effects()
 	Game.population_changed.emit()
+
+
+## Abriss einer Baustelle (josh 2026-11-08): Material, das ein Baumeister schon aus dem Lager geholt hat
+## und gerade zur Baustelle trägt, kommt voll zurück ins Lager (auch über den Stauraum hinaus), statt
+## beim Abliefern an einem vollen Lager verloren zu gehen.
+func _take_back_carried(c, b: Building, refund: Dictionary) -> void:
+	if c.carry_n <= 0 or c.carry_res == "":
+		return
+	if not c._incoming.any(func(i): return i[0] == b and i[1] == c.carry_res):
+		return
+	refund[c.carry_res] = int(refund.get(c.carry_res, 0)) + int(c.carry_n)
+	c.carry_n = 0
+	c.carry_res = ""
 
 
 func building_by_id(bid: int):

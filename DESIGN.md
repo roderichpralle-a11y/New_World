@@ -2026,6 +2026,8 @@ nicht mehr halb durchsichtig.
 ## Version 2: Wünsche vom 2026-10-28 (Test `--v2test=1`)
 - Abriss: fertige Gebäude geben 70 % der gelieferten Materialien zurück, Baustellen alles. Die Rückgabe kommt auch
   über den Stauraum hinaus ins Lager (`Game.add_stock_over`); ein übervolles Lager hält nur das Sammeln an.
+  Bei einer Baustelle kommt auch das zurück, was ein Baumeister schon aus dem Lager geholt hat und gerade
+  hinträgt (`World._take_back_carried`, josh 2026-11-08); früher ging das an einem vollen Lager verloren.
 - Straße kostet 5 Steine.
 - Nacht heller: Nachtfarbe in `World._process` (0.42, 0.46, 0.66).
 - Beruf mit Vergeber: `Settler.job_by` (verwalter, automat, ki, zentrum; "" = Spieler, im Spielstand) setzt
