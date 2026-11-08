@@ -20,6 +20,7 @@ var adm: bool = false  # Verwaltung: Vertretung erlaubt (Admin)
 var repair: bool = false  # nach einer Katastrophe zerstört: alle Erwachsenen bauen es zuerst wieder auf (josh 2026-11-01)
 var ship_choice: String = "boot"  # Werft (alte Spielstände): Schiff, das früher immer wieder gebaut wurde
 var ship_queue: Array = []  # Werft: Bauaufträge der Reihe nach (josh 2026-10-17); leer = baut nichts
+var keep_storage := 0  # Lager im Ausbau (josh 2026-11-08): Stauraum des alten Lagers zählt weiter, bis der Ausbau fertig ist
 var ship_wip: String = ""  # Werft: Schiff, fuer das die Rohstoffe schon genommen sind
 var active_until: float = 0.0  # Echtzeit, bis zu der die Werkstatt als tr("in Betrieb") gilt
 var deliveries: int = 0  # Ablieferungen an dieses Lager (nur zur Verteilung, nicht gespeichert)
@@ -600,5 +601,5 @@ func serialize() -> Dictionary:
 		"id": id, "type": type, "x": cell.x, "y": cell.y, "complete": complete,
 		"progress": progress, "delivered": delivered,
 		"farm_state": farm_state, "farm_time": farm_time, "paused": paused, "ship": ship_choice, "adm": adm, "repair": repair,
-		"ship_queue": ship_queue, "ship_wip": ship_wip,
+		"ship_queue": ship_queue, "ship_wip": ship_wip, "keep_storage": keep_storage,
 	}

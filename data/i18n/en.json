@@ -2623,5 +2623,6 @@
  "V": "A",
  "Auf dieser Insel teilt nur du ein. Den Verwalter gibt es hier erst, wenn auf dieser Insel und auf der Insel der Verwaltung eine Rundfunkanstalt steht.": "On this island only you assign jobs. The steward works here only once there is a radio station on this island and on the island with the administration.",
  "Auf %s arbeitet der Verwalter nicht. Hier teilst nur du ein, bis auf dieser Insel und auf der Insel der Verwaltung eine Rundfunkanstalt steht.": "The steward does not work on %s. Here only you assign jobs until there is a radio station on this island and on the island with the administration.",
- "Nur mit einer Rundfunkanstalt auf dieser Insel und auf der Insel der Verwaltung.": "Only with a radio station on this island and on the island with the administration."
+ "Nur mit einer Rundfunkanstalt auf dieser Insel und auf der Insel der Verwaltung.": "Only with a radio station on this island and on the island with the administration.",
+ "Stauraum %d statt %d. Die Vorräte bleiben, der alte Stauraum zählt weiter, bis der Ausbau fertig ist.": "Storage %d instead of %d. Your goods stay, and the old storage keeps counting until the upgrade is finished."
 }

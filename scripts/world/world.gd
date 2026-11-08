@@ -188,6 +188,7 @@ func build_from_save(w: Dictionary, m: Dictionary) -> void:
 			bld.ship_wip = str(b.get("ship_wip", "")) if Data.ships.has(str(b.get("ship_wip", ""))) else ""
 		elif bld.def.get("ships", false) and bld.complete:
 			bld.ship_queue = [bld.ship_choice]  # alter Spielstand: die Werft baut noch ein Schiff der alten Wahl
+		bld.keep_storage = int(b.get("keep_storage", 0))
 		bld.refresh()
 	for s in w.settlers:
 		spawn_settler(s)
@@ -1341,6 +1342,7 @@ func upgrade_building(b: Building) -> Building:
 		nb.ship_queue = b.ship_queue.duplicate()
 		nb.ship_wip = b.ship_wip
 		nb.ship_choice = b.ship_choice
+	nb.keep_storage = int(b.def.get("storage", 0))  # Lager: alter Stauraum bleibt, bis der Ausbau fertig ist
 	spawn_effect("dust", nb.position)
 	assign_homes()
 	if was_selected:

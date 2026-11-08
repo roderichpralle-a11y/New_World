@@ -776,6 +776,15 @@ func _maybe_autotest() -> void:
 					b.refresh()
 		if args.has("zoom"):  # Testhilfe 2.0.0: Bildschirmfoto mit festem Zoom (Details der neuen Bilder)
 			camera.zoom = Vector2.ONE * float(args.zoom)
+		if args.has("exportprobe"):  # Testhilfe (josh 2026-11-08): Export und Import eines Spielstands
+			Game.save_locked = false
+			var txt := Game.slot_text(Game.slot)
+			var d = JSON.parse_string(txt)
+			print("EXPORTPROBE Spiel Tag ", Game.day(), " Datei Tag ", int(floor(float(d.time_days))) + 1, " Name ", Game.slot_file_name(Game.slot))
+			print("EXPORTPROBE Import: ", Game.import_slot(3, txt))
+			var cf := ConfigFile.new()
+			cf.load("user://settings.cfg")
+			print("EXPORTPROBE Liste Platz 3: ", cf.get_value("slots", Game.slot_path(3).get_file(), []))
 		if args.has("settlershot"):  # Testhilfe (josh 2026-11-07): Siedlerliste mit festen Spalten
 			hud._toggle(hud._settler_panel)
 			await get_tree().process_frame
@@ -787,6 +796,26 @@ func _maybe_autotest() -> void:
 					if c.visible:
 						xs.append("%d-%d" % [c.global_position.x, c.global_position.x + c.size.x])
 				print("SPALTEN ", " ".join(xs))
+			if args.has("kidprobe"):
+				var karl = null
+				for s in world.settlers:
+					if s.display_name == "Karl":
+						karl = s
+				print("KIDPROBE vor: ", karl.age, " adult=", karl.is_adult())
+				karl.age = 3.2
+				print("KIDPROBE sig gleich? ", hud._settler_signature() == hud._settler_sig, " adult=", karl.is_adult(), " age=", karl.age)
+				hud._last_tap_ms = Time.get_ticks_msec()
+				await get_tree().create_timer(2.5).timeout
+				print("KIDPROBE danach sig gleich? ", hud._settler_signature() == hud._settler_sig, " adult=", karl.is_adult(), " job=", karl.job)
+				for lst in [hud._settler_list, hud._settler_list_free]:
+					for rb in lst.get_children():
+						var h = rb.get_child(0)
+						var txt := []
+						for c in h.get_children():
+							if c is Button or c is Label:
+								txt.append(c.text)
+						if "Karl" in str(txt):
+							print("KIDPROBE Zeile: ", txt, " in ", lst.name)
 		if args.has("rulesdialog"):
 			# Bildschirmfoto des Fensters "Neue Regeln" (ohne alten Spielstand mit Beispielzeilen)
 			hud.show_rules_dialog(Game.rules_lines if not Game.rules_lines.is_empty() else _sample_rules_lines(), Callable(), false)
