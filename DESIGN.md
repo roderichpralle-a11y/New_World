@@ -284,6 +284,17 @@ Testhilfe `--v3build`.
   Training 25 Runden zu 12 Tagen ab Stand Tag 163. Prüfung mit 8 neuen Würfeln: untrainiert 2008 ± 309 (Schmiedekunst
   in 3 von 8 Läufen fertig), vorige KI 2690 ± 117 (2 von 8), neue KI 2945 ± 65 (8 von 8, Tag 171–174). Danach geht es in
   diesem Stand nicht weiter: alle weiteren Forschungen brauchen die Prüfung zur Antike.
+- **Vier Spielstände, zwei Spieljahre (josh 2026-11-08, Version 3)**: `--kisave=<datei>` mit `--agetest=N` speichert
+  eine Testinsel (scripts/world/age_test.gd) als Startstand und beendet das Spiel. Drei Stände: Mittelalter Tag 60
+  (AgeTest 2, 16 Siedler, 25 Forschungen; ins Lager +400 Holz, +150 Brot, +100 Räucherfisch, sonst erfroren im
+  bitteren Winter auch beim Verwalter fast alle), Zeitalter 4 Tag 168 (AgeTest 4, 3 Inseln, +500/+250/+150),
+  Zeitalter 6 Tag 288 (AgeTest 6, 48 Siedler, +600/+350/+200), dazu josh's Tag 163. Liegen unter
+  /mnt/project-files/ki_berufe/spielstaende_v3/. Training 10 Runden zu 24 Tagen mit Ereignissen, Punkte je Stand an
+  dessen Startwert gemessen (`train.py --save a,b,c --events`). Prüfung je Stand 4 neue Würfel, 24 Tage:
+  Tag 163 alte KI 5455, neue 5008, Verwalter 3851; Mittelalter 4602 / 4657 / 2276; Zeitalter 4 5652 / 6100 / 4615;
+  Zeitalter 6 8199 / 13948 / 6308 (die neue KI forscht dort weiter, Forschungspunkte 931 -> 6800). Im Mittel 72 %
+  mehr als der Verwalter (`vs_verwalter` in data/ki_brain.json, Zeile im Fenster). Auf Tag 163 ist die neue KI 8 %
+  schwächer als die alte. Der Verwalter startet keine Forschung von selbst, daher dort 0 Forschungspunkte.
 
 ## Spielregeln (Etappe 1)
 

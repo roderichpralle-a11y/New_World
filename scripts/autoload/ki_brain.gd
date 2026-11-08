@@ -30,6 +30,7 @@ var _kept_on := false  # Schalter aus dem Spielstand, solange die KI hier nicht 
 var weights: Array = []     # JOBS.size() Zeilen mit FEATURES Zahlen
 var brain_score := 0        # aus der Datei: Punkte im Prüflauf (12 Tage ab Tag 163)
 var brain_base := 0         # ... und untrainiert
+var brain_vs := 0           # aus der Datei: Prozent mehr Punkte als der Verwalter (4 Spielstände, 24 Tage)
 var _next := 0.0
 
 # Punkte (Training und Anzeige)
@@ -82,6 +83,7 @@ func _load_weights(path: String) -> bool:
 	weights = out
 	brain_score = int(d.get("score", 0))
 	brain_base = int(d.get("base", 0))
+	brain_vs = int(d.get("vs_verwalter", 0))
 	return true
 
 
