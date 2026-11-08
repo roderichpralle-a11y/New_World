@@ -315,6 +315,8 @@ func storage_volume(w = null) -> int:
 			for b in i.buildings:
 				if b.complete:
 					sum += int(b.def.get("storage", 0))
+				else:
+					sum += int(b.keep_storage)  # Lager im Ausbau behält den alten Stauraum (josh 2026-11-08)
 			i.cap_sum = sum
 			i.cap_rev = i.build_rev
 		cap += i.cap_sum
@@ -1359,6 +1361,10 @@ func switch_slot(n: int, mode: String) -> void:
 	if mode == "new":
 		_remove_save_files(slot_path(n))
 	if OS.has_feature("web"):
+		# Der Browser schreibt Dateien erst im nächsten Bild in seinen festen Speicher (IndexedDB). Sofort neu
+		# laden verlor einen eben importierten Spielstand, dann lud der alte (josh 2026-11-08: Tag 537 -> 492).
+		await get_tree().process_frame
+		await get_tree().create_timer(1.5, true, false, true).timeout
 		JavaScriptBridge.eval("window.location.reload()")
 	else:
 		OS.set_restart_on_exit(true)

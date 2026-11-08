@@ -29,6 +29,7 @@ var repair: bool = false:  # nach einer Katastrophe zerstört: alle Erwachsenen 
 			_bump()
 var ship_choice: String = "boot"  # Werft (alte Spielstände): Schiff, das früher immer wieder gebaut wurde
 var ship_queue: Array = []  # Werft: Bauaufträge der Reihe nach (josh 2026-10-17); leer = baut nichts
+var keep_storage := 0  # Lager im Ausbau (josh 2026-11-08): Stauraum des alten Lagers zählt weiter, bis der Ausbau fertig ist
 var ship_wip: String = ""  # Werft: Schiff, fuer das die Rohstoffe schon genommen sind
 var active_until: float = 0.0  # Echtzeit, bis zu der die Werkstatt als tr("in Betrieb") gilt
 var deliveries: int = 0  # Ablieferungen an dieses Lager (nur zur Verteilung, nicht gespeichert)
@@ -673,6 +674,8 @@ func serialize() -> Dictionary:
 		d["adm"] = true
 	if repair:
 		d["repair"] = true
+	if keep_storage > 0:
+		d["keep_storage"] = keep_storage  # Lager im Ausbau (josh 2026-11-08)
 	if def.get("ships", false) or not ship_queue.is_empty() or ship_wip != "" or ship_choice != "boot":
 		# Werft: die Liste immer schreiben (ohne sie gilt der Stand als alt und die Werft baut ein Schiff)
 		d["ship"] = ship_choice

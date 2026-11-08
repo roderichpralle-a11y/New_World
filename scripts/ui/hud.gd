@@ -1863,7 +1863,7 @@ func _refresh_settler_list() -> void:
 	var jsig := str(Data.jobs.keys().filter(func(j): return Data.job_unlocked(j)).size())
 	var used := {}
 	for s in list:
-		var rk := "%s|%s|%s|%s|%s|%s|%s|%s" % [s.is_adult(), s.job, s.job_by if s.by_admin else "", s.world == world, narrow, jsig,
+		var rk := "%s|%s|%s|%s|%s|%s|%s|%s|%s" % [s.is_adult(), s.job, s.job_by if s.by_admin else "", s.world == world, narrow, jsig,
 			JobDesk.player_controlled(s), KiBrain.controls(s.world), Powers.covers(s.world)]
 		var sid: int = s.get_instance_id()
 		var target: VBoxContainer = _settler_list if (s.is_adult() and s.job != "frei") else _settler_list_free
@@ -2216,6 +2216,8 @@ func _language_row() -> HBoxContainer:
 		if Game.world != null and not Game.is_over and not Sound.in_title:
 			Game.save_game()
 		if OS.has_feature("web"):
+			await get_tree().process_frame  # erst in den festen Speicher des Browsers schreiben lassen (josh 2026-11-08)
+			await get_tree().create_timer(1.5, true, false, true).timeout
 			JavaScriptBridge.eval("window.location.reload()")
 		else:
 			OS.set_restart_on_exit(true)
@@ -3726,6 +3728,11 @@ func _info_upgrade(b: Building) -> void:
 		h.add_child(UiTheme.icon_rect(Data.res_icon(res), 14))
 		h.add_child(UiTheme.label(str(int(td.cost[res])), 13, UiTheme.TEXT if Game.amount(res) >= int(td.cost[res]) else UiTheme.BAD))
 	_info_box.add_child(h)
+	if td.has("storage") and b.def.has("storage"):  # Lager ausbauen (josh 2026-11-08)
+		var sl := UiTheme.label(tr("Stauraum %d statt %d. Die Vorräte bleiben, der alte Stauraum zählt weiter, bis der Ausbau fertig ist.") % [
+			Game.building_volume(td), Game.building_volume(b.def)], 12)
+		sl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_info_box.add_child(sl)
 	if td.has("housing"):
 		_info_box.add_child(UiTheme.label(tr("Platz für %d statt %d Siedler.") % [int(td.get("housing", 0)), int(b.def.get("housing", 0))], 12))
 	if td.has("research"):

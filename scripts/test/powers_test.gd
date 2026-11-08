@@ -256,6 +256,24 @@ static func run(main, mode: String) -> void:
 		Sea.ships.erase(shp)
 	else:
 		_ok(false, "Schiff anlegen für den Umbenennen-Test")
+	# Lager ausbauen wie Wohnhäuser (josh 2026-11-08)
+	if not "maurerei" in Game.research.done:
+		Game.research.done.append("maurerei")
+	var lg = null
+	for dy in range(-12, 13):
+		for dx in range(-12, 13):
+			if lg == null and w.can_place("grosslager", w.center + Vector2i(dx, dy)) and w.can_place("lager", w.center + Vector2i(dx, dy)):
+				lg = w.place_building("lager", w.center + Vector2i(dx, dy), true)
+	_ok(lg != null and lg.def.get("upgrade", "") == "grosslager", "Lagerhaus lässt sich zum Großen Lager ausbauen")
+	if lg != null:
+		var vol0 := Game.storage_volume(w)
+		var gl = w.upgrade_building(lg)
+		_ok(gl != null and gl.type == "grosslager" and not gl.complete, "Ausbau läuft: Baustelle Großes Lager")
+		_ok(Game.storage_volume(w) == vol0, "während des Ausbaus bleibt der Stauraum (%d -> %d)" % [vol0, Game.storage_volume(w)])
+		if gl != null:
+			_finish(gl)
+			_ok(gl.complete and Game.storage_volume(w) == vol0 - Game.building_volume(Data.buildings.lager) + Game.building_volume(Data.buildings.grosslager),
+				"fertig: Stauraum %d" % Game.storage_volume(w))
 	# Schalter „nur Spieler“ (josh 2026-11-07 18:43)
 	_ok(Steward.IDLE_ORDER.find("steinmetz") == Steward.IDLE_ORDER.find("handwerker") + 1, "Steinmetz steht direkt nach Handwerker in der Reihe")
 	var pc = _mk(w, "Spielerfigur", "holzfaeller")
