@@ -2143,6 +2143,15 @@ func _build_menu_panel() -> void:
 		set_box.add_child(rw.box)
 	set_box.add_child(_language_row())
 	set_box.add_child(_ui_size_row())
+	# Bewegungen ausblenden (josh 2026-11-08)
+	var hm := CheckBox.new()
+	hm.text = tr("Bewegungen ausblenden")
+	hm.focus_mode = Control.FOCUS_NONE
+	hm.add_theme_font_size_override("font_size", 15)
+	hm.button_pressed = Game.hide_moves
+	hm.tooltip_text = tr("Siedler, die nur gehen und nichts tragen, sind unsichtbar. Zu sehen sind sie, wenn sie stehen, arbeiten oder etwas transportieren. Die Wege dauern genauso lang wie sonst.")
+	hm.toggled.connect(func(on: bool): Game.set_hide_moves(on))
+	set_box.add_child(hm)
 	var ft := Win.footer(v)
 	ft.left.text = version_text()
 	Win.set_left2(ft, tr("Das Spiel speichert automatisch."))
