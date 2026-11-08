@@ -634,6 +634,7 @@ const NOTIFY_ICON_CAT := {"": "tag", "sonne": "tag", "herz": "siedler", "person"
 	"wissen": "forschung", "zeitalter": "forschung", "boot": "see", "anker": "see", "kompass": "see",
 	"schild": "tiere", "fleisch": "tiere", "ki": "ki", "ereignis": "ereignis", "haendler": "ereignis",
 	"feuer": "ereignis", "ratte": "ereignis", "ziel": "ziel"}
+var _last_note: Array = [-1, false]  # [Bild, stumm] der letzten Meldung (note_sound)
 var notify_off: Dictionary = {}  # Art -> true, wenn abgeschaltet (user://settings.cfg [notify])
 var goal_card_on: bool = true
 var quest_row_on: bool = true  # Aufträge auf der Zielkarte (josh 2026-10-30: „dauerhaft ausblenden“)
@@ -658,12 +659,21 @@ func notify(text: String, icon: String = "", cat: String = "") -> void:
 	if history.size() > HISTORY_MAX:
 		history = history.slice(history.size() - HISTORY_MAX)
 	history_added.emit()
+	_last_note = [Engine.get_process_frames(), muted]
 	if muted or again:
 		return
 	_last_shown[text] = time_days
 	if _last_shown.size() > 200:
 		_last_shown = {}
 	notified.emit(text, icon, cat)
+
+
+## Ton zu einer Meldung, die gerade (im selben Bild) mit notify kam: ist ihre Art unter Meldungen ausgeschaltet,
+## bleibt auch der Ton aus (josh 2026-11-08).
+func note_sound(name: String) -> void:
+	if int(_last_note[0]) == Engine.get_process_frames() and bool(_last_note[1]):
+		return
+	Sound.play(name)
 
 
 ## Meldung von einer Insel: bei mehreren Inseln steht der Inselname davor.
@@ -1243,7 +1253,7 @@ func _finish_research(t: String) -> void:
 	if not unlocks.is_empty():
 		text += tr(" Neu zu bauen: ") + ", ".join(unlocks) + "."
 	notify(text, "wissen")
-	Sound.play("forschung")
+	note_sound("forschung")
 	var nx := str(research.get("next", ""))
 	research.next = ""
 	if nx != "" and tech_state(nx) == "available":

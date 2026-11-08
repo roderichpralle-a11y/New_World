@@ -204,7 +204,7 @@ func _complete() -> void:
 	if got != "":
 		msg += " " + tr("Belohnung: %s.") % got
 	Game.notify(msg, "ziel", "ziel")
-	Sound.play("ziel")
+	Game.note_sound("ziel")
 	changed.emit()
 
 

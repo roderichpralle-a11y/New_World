@@ -190,7 +190,7 @@ func island_lost(w) -> void:
 	worlds.erase(w.island_id)
 	_ships_lost(int(w.island_id))
 	Game.notify(tr("%s ist verloren! Dort lebt niemand mehr.") % m.name, "abriss")
-	Sound.play("verloren")
+	Game.note_sound("verloren")
 	var others := all_worlds()
 	if Game.world == w and not others.is_empty():
 		var best = others[0]
@@ -747,7 +747,7 @@ func start_explore(from_world) -> String:
 	days = days / float(ship_def(sh).get("speed", 1.0)) * Seasons.sail_mult()
 	_depart(sh, next, "explore", [], days)
 	Game.notify(tr("Die %s sticht in See und sucht nach neuen Inseln.") % ship_label(sh), "boot")
-	Sound.play("glocke")
+	Game.note_sound("glocke")
 	return ""
 
 
@@ -800,7 +800,7 @@ func send_ship(from_world, to_id: int, people: Array, sh: Dictionary, goods: Dic
 		what.append(goods_text(got))
 	Game.notify(tr("Die %s sticht in See nach %s%s.") % [sh.name, meta(to_id).name,
 		(tr(" mit ") + tr(" und ").join(what)) if not what.is_empty() else ""], "boot")
-	Sound.play("glocke")
+	Game.note_sound("glocke")
 	return ""
 
 
@@ -850,7 +850,7 @@ func _arrive(v: Dictionary) -> void:
 		var text := tr("Entdeckt: %s, eine %s!") % [m.name, biome_name(m)]
 		text += tr(" Gefahr: %s.") % ", ".join(danger) if not danger.is_empty() else tr(" Keine wilden Tiere gesichtet.")
 		Game.notify(text, "kompass")
-		Sound.play("entdeckt")
+		Game.note_sound("entdeckt")
 		var back := int(v.from)
 		if meta(back).get("state", "") != "settled" and not settled_islands().is_empty():
 			back = int(settled_islands()[0].id)
@@ -894,7 +894,7 @@ func _arrive(v: Dictionary) -> void:
 	var n: int = v.settlers.size()
 	if founded:
 		Game.notify(tr("Land in Sicht! %d Siedler gründen eine Siedlung auf %s.") % [n, m.name], "boot")
-		Sound.play("entdeckt")
+		Game.note_sound("entdeckt")
 	elif n > 0:
 		Game.notify(tr("%d Siedler sind auf %s angekommen.") % [n, m.name], "boot")
 	elif not sh.is_empty() and sh.route.is_empty() and not broke:

@@ -503,7 +503,7 @@ func announce(w, typ: String, strike: float, rng: RandomNumberGenerator = null) 
 	seq += 1
 	Game.notify_at(w, tr("%s in %d Stunden! %s %s") % [type_name(typ), _hours(strike), _what(typ, ev), _counter(w, typ)],
 		str(type_def(typ).get("icon", "ereignis")), "ereignis")
-	Sound.play("warnung")
+	Game.note_sound("warnung")
 	changed.emit()
 	return ev
 
