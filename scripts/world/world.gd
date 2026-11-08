@@ -2616,15 +2616,22 @@ func pen_near(c: Vector2i) -> int:
 
 ## Fertige Jagdhütten dieser Insel.
 func lodges() -> Array:
-	return buildings.filter(func(b): return b.complete and b.def.get("lodge", false))
+	# Angehaltene Hütte (josh 2026-11-08) zählt nicht: der Jäger jagt dann wie ohne Hütte draußen
+	return buildings.filter(func(b): return b.complete and b.def.get("lodge", false) and not b.paused)
 
 
 ## Gehege, an das die Jagdhütte grenzt (0 = keins).
 func lodge_pen(b) -> int:
-	for c in b.cells():
+	# Auch über die eigenen Dachfelder hinweg (V2-Dach der Jagdhütte ragt links über den Zaun,
+	# sonst fand eine Hütte rechts am Gehege es nicht, 2026-11-08)
+	var own: Array = b.cells()
+	for rc in b.roof_cells():
+		if roof_at.get(rc) == b:
+			own.append(rc)
+	for c in own:
 		for d in [Vector2i(0, 1), Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, -1)]:
 			var nb: Vector2i = c + d
-			if building_at.get(nb) != b and pen_of(nb) > 0:
+			if building_at.get(nb) != b and roof_at.get(nb) != b and pen_of(nb) > 0:
 				return pen_of(nb)
 	return 0
 
@@ -2676,8 +2683,17 @@ func lodge_shot(b, a, by) -> void:
 func nearest_animal(from: Vector2, max_px: float, filter: String = ""):
 	var best = null
 	var best_d := max_px
+	var calm := {}  # Gehege an angehaltenen Jagdhütten: dort wird nicht gejagt (josh 2026-11-08)
+	if filter == "hunt":
+		for b in buildings:
+			if b.paused and b.complete and b.def.get("lodge", false):
+				var pn := lodge_pen(b)
+				if pn > 0:
+					calm[pn] = true
 	for a in animals:
 		if filter == "hunt" and not is_huntable(a):
+			continue
+		if not calm.is_empty() and calm.has(pen_of(a.cell)):
 			continue
 		if filter == "hostile" and not a.is_hostile():
 			continue

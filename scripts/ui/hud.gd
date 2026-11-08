@@ -3506,9 +3506,18 @@ func _info_lodge(b) -> void:
 	if not b.world.settlers.any(func(s): return s.job == "jaeger"):
 		txt += "\n" + tr("Es gibt keinen Jäger.")
 		col = UiTheme.BAD
+	if b.paused:
+		txt += "\n" + tr("Angehalten: hier wird nicht gejagt, die Tiere im Gehege bleiben in Ruhe.")
+		col = Color("#8a5a3a")
 	var l := UiTheme.label(txt, 13, col)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_info_box.add_child(l)
+	# Anhalten wie bei Werkstätten (josh 2026-11-08)
+	var pb := UiTheme.button(tr("Weiterarbeiten") if b.paused else tr("Anhalten"), "play" if b.paused else "pause", 34)
+	pb.pressed.connect(func():
+		b.paused = not b.paused
+		_rebuild_info())
+	_info_box.add_child(pb)
 
 
 func _info_shipyard(b: Building) -> void:

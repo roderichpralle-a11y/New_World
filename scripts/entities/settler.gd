@@ -1916,7 +1916,7 @@ func _plan_lodge() -> bool:
 
 func _run_lodge(a: Dictionary, delta: float) -> void:
 	var b = a.b
-	if not is_instance_valid(b) or not b.complete or world.lodge_pen(b) <= 0:
+	if not is_instance_valid(b) or not b.complete or b.paused or world.lodge_pen(b) <= 0:
 		abort_plan()
 		return
 	if not a.get("started", false):

@@ -122,6 +122,19 @@ static func run(main) -> void:
 	_ok(fetched, "Jäger holt das Fleisch (%s)" % hunter.activity)
 	await _wait(main, func(): return boars.call().all(func(a): return a._shy == null), 5.0)
 	_ok(boars.call().all(func(a): return a._shy == null), "danach laufen die Tiere wieder normal herum")
+	# Jagdhütte anhalten (josh 2026-11-08): keine Jagd im Gehege, auch nicht von draußen
+	lodge.paused = true
+	# Gemessen wird das Jagen (Lauern, Zielen, Jagen), nicht jeder Tod: wer im Gehege Beeren pflückt,
+	# kann von einem Eber angegriffen werden und sich wehren.
+	var acts := {}
+	var any_hid := await _wait(main, func():
+		acts[hunter.activity] = true
+		return hunter._hiding == lodge, 60.0)
+	var hunted: bool = acts.keys().any(func(k): return str(k).begins_with("Zielt") or str(k).begins_with("Jagt") or str(k).begins_with("Lauert"))
+	_ok(not any_hid and not hunted, "angehaltene Jagdhütte: der Jäger jagt dort nicht (%s)" % str(acts.keys()))
+	var save_ok: bool = bool(lodge.serialize().get("paused", false))
+	lodge.paused = false
+	_ok(save_ok, "Anhalten steht im Spielstand")
 	# Weiter jagen bis zum Rest
 	await _wait(main, func(): return boars.call().size() <= 2 and w.pen_meat(pen) == null, 150.0)
 	await _wait(main, func(): return false, 15.0)

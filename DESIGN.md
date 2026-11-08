@@ -2040,6 +2040,11 @@ Bilder in `assets/sprites/objects3.png` (`tools/gen_art_land.py`, `Data.OBJECT3_
   die übrigen laufen von der Hütte weg (`Animal.startle`) und bleiben fern, solange das Fleisch liegt
   (`_shy`). Nach dem Schuss, nachts oder nach `lodge_wait_secs` geht er hinaus. Ohne Jagdhütte jagt er wie
   bisher. Infofenster: Tiere im Gehege, Hinweise.
+- **Anhalten (josh 2026-11-08):** Knopf Anhalten/Weiterarbeiten im Infofenster (`Building.paused`, im Spielstand).
+  Angehaltene Hütten zählen in `World.lodges()` nicht; ist keine aktive Hütte da, jagt der Jäger wie ohne Hütte
+  draußen, aber `nearest_animal(..., "hunt")` lässt Tiere im Gehege einer angehaltenen Hütte aus. `lodge_pen`
+  sucht auch neben den eigenen Dachfeldern (das V2-Dach ragt links über den Zaun; vorher fand eine Hütte rechts
+  am Gehege es nicht).
 - **Test** `--pentest=1` (`pen_test.gd`): Gehege, Wege, Jäger in der Hütte, Schuss, Flucht, Fleisch, 2
   bleiben, Junge, Spielstand. Ausgabe `Gehege OK`. Bild: `--pentest=shot`.
 
