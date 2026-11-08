@@ -26,7 +26,7 @@ FEAT = 50
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
-def run_episode(godot, save, weights, days, seed, slot, kioff=False, timeout=1800):
+def run_episode(godot, save, weights, days, seed, slot, kioff=False, timeout=3600, events=False):
     """Ein Spiel ohne Grafik; gibt (Punkte, Ergebnis) zurück."""
     tmp = tempfile.mkdtemp(prefix="ki_")
     wpath = os.path.join(tmp, "w.json")
@@ -36,10 +36,12 @@ def run_episode(godot, save, weights, days, seed, slot, kioff=False, timeout=180
     env = dict(os.environ)
     env["XDG_DATA_HOME"] = os.path.join(tempfile.gettempdir(), "ki_slot_%d" % slot)  # eigener Speicherplatz je Prozess
     cmd = [godot, "--headless", "--fixed-fps", "60", "--path", os.environ.get("KI_ROOT", ROOT), "--", "--autotest=999999", "--scale=10",
-           "--fixture=" + save, "--noevents=1", "--kitrain=1", "--kiw=" + wpath, "--kidays=%d" % days,
+           "--fixture=" + save, "--kitrain=1", "--kiw=" + wpath, "--kidays=%d" % days,
            "--kiseed=%d" % seed, "--kiout=" + out]
     if kioff:
         cmd.append("--kioff=1")
+    if not events:
+        cmd.append("--noevents=1")
     try:
         subprocess.run(cmd, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=timeout)
         with open(out) as f:
@@ -79,7 +81,8 @@ def randn_dir(rng):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--save", required=True)
+    ap.add_argument("--save", required=True, help="ein oder mehrere Spielstände, mit Komma getrennt")
+    ap.add_argument("--events", action="store_true", help="mit Ereignissen (harte Winter, Piraten ...)")
     ap.add_argument("--godot", default=os.path.expanduser("~/gd/godot"))
     ap.add_argument("--days", type=int, default=3)
     ap.add_argument("--iters", type=int, default=40)
@@ -100,16 +103,26 @@ def main():
     if a.init:
         theta = json.load(open(a.init))["w"]
     pool = Pool(a.workers)
-    ep = lambda slot, w, seed, off=False: run_episode(a.godot, a.save, w, a.days, seed, slot, off)
+    saves = [x for x in a.save.split(",") if x]
+    ep = lambda slot, w, seed, si=0, off=False: run_episode(a.godot, saves[si], w, a.days, seed, slot, off, events=a.events)
+    base = [1.0] * len(saves)  # Punkte je Spielstand im Startlauf: Läufe verschiedener Stände werden daran gemessen
     logf = open(os.path.join(a.out, "log.jsonl"), "a")
     evf = open(os.path.join(a.out, "evals.jsonl"), "a")
     best = {"mean": -1e18, "w": theta}
 
     def evaluate(w, tag, it):
         seeds = [100000 + s for s in range(a.eval_seeds)]  # immer dieselben Prüfwürfel
-        rs = pool.map(ep, [(w, s) for s in seeds])
+        jl = [(w, s, si) for si in range(len(saves)) for s in seeds]
+        rs = pool.map(ep, jl)
+        per = {}
+        for (w_, s_, si), r in zip(jl, rs):
+            if r[0] is not None:
+                per.setdefault(si, []).append(r[0])
+        if tag == "start":
+            for si in per:
+                base[si] = max(1.0, sum(per[si]) / len(per[si]))
         sc = [r[0] for r in rs if r[0] is not None]
-        mean = sum(sc) / max(1, len(sc))
+        mean = sum(sum(v) / len(v) / base[si] for si, v in per.items()) / max(1, len(per)) * 1000.0  # 1000 = Startstand
         parts = {}
         for r in rs:
             if r[1]:
@@ -117,7 +130,7 @@ def main():
                     for k in ("food", "wood", "proc", "res", "sat", "mood", "dead"):
                         parts[k] = parts.get(k, 0.0) + float(d.get(k, 0.0)) / len(sc)
         jobs = [r[1]["jobs"] for r in rs if r[1]]
-        rec = {"iter": it, "tag": tag, "mean": mean, "scores": sc, "parts": parts, "jobs": jobs[:1], "t": time.time()}
+        rec = {"iter": it, "tag": tag, "mean": mean, "per_save": {saves[k]: sum(v) / len(v) for k, v in per.items()}, "scores": sc, "parts": parts, "jobs": jobs[:1], "t": time.time()}
         evf.write(json.dumps(rec) + "\n")
         evf.flush()
         print("PRUEFUNG %s Runde %d: %.1f %s %s" % (tag, it, mean, [round(s) for s in sc], {k: round(v) for k, v in parts.items()}), flush=True)
@@ -132,14 +145,16 @@ def main():
         jobs = []
         for k, d in enumerate(dirs):
             sd = it * 1000 + k
-            jobs.append((add(theta, d, a.noise), sd))
-            jobs.append((add(theta, d, -a.noise), sd))
+            si = k % len(saves)
+            jobs.append((add(theta, d, a.noise), sd, si))
+            jobs.append((add(theta, d, -a.noise), sd, si))
         rs = pool.map(ep, jobs)
         pairs = []
         for k in range(a.dirs):
             rp, rm = rs[2 * k][0], rs[2 * k + 1][0]
             if rp is None or rm is None:
                 continue
+            rp, rm = rp / base[k % len(saves)] * 1000.0, rm / base[k % len(saves)] * 1000.0
             pairs.append((max(rp, rm), rp, rm, dirs[k]))
         pairs.sort(key=lambda p: -p[0])
         top = pairs[:a.top]
