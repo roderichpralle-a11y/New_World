@@ -2626,5 +2626,6 @@
  "Nur mit einer Rundfunkanstalt auf dieser Insel und auf der Insel der Verwaltung.": "Only with a radio station on this island and on the island with the administration.",
  "Stauraum %d statt %d. Die Vorräte bleiben, der alte Stauraum zählt weiter, bis der Ausbau fertig ist.": "Storage %d instead of %d. Your goods stay, and the old storage keeps counting until the upgrade is finished.",
  "Bewegungen ausblenden": "Hide movement",
- "Siedler, die nur gehen und nichts tragen, sind unsichtbar. Zu sehen sind sie, wenn sie stehen, arbeiten oder etwas transportieren. Die Wege dauern genauso lang wie sonst.": "Settlers who are just walking and carrying nothing are invisible. You see them when they stand, work or carry something. Walking takes just as long as before."
+ "Siedler, die nur gehen und nichts tragen, sind unsichtbar. Zu sehen sind sie, wenn sie stehen, arbeiten oder etwas transportieren. Die Wege dauern genauso lang wie sonst.": "Settlers who are just walking and carrying nothing are invisible. You see them when they stand, work or carry something. Walking takes just as long as before.",
+ "(Stand %s)": "(build %s)"
 }
