@@ -148,7 +148,8 @@ func _ki_train_finish(args: Dictionary) -> void:
 	for s in world.settlers:
 		jobs[s.job] = int(jobs.get(s.job, 0)) + 1
 	var res := {"score": KiBrain.score_total, "days": KiBrain.score_log, "jobs": jobs, "seed": int(args.get("kiseed", "1")),
-		"research": Game.research.done.slice(maxi(0, Game.research.done.size() - 5)), "current": Game.research.current}
+		"research": Game.research.done.slice(maxi(0, Game.research.done.size() - 5)), "current": Game.research.current,
+		"produced": Admin.produced.duplicate(true), "eaten": Game.eaten.duplicate(true) if Game.eaten is Dictionary else {}, "stock": world.stock.duplicate()}
 	var out := str(args.get("kiout", ""))
 	if out != "":
 		var f := FileAccess.open(out, FileAccess.WRITE)
