@@ -2733,7 +2733,8 @@ func pen_near(c: Vector2i) -> int:
 
 ## Fertige Jagdhütten dieser Insel.
 func lodges() -> Array:
-	return pick("jagd", func(b): return b.complete and b.def.get("lodge", false)).duplicate()
+	# Angehaltene Hütte (josh 2026-11-08) zählt nicht: der Jäger jagt dann wie ohne Hütte draußen
+	return pick("jagd", func(b): return b.complete and b.def.get("lodge", false)).filter(func(b): return not b.paused)
 
 
 ## Gehege, an das die Jagdhütte grenzt (0 = keins). josh 2026-11-12: egal welcher Teil der Hütte;
@@ -2821,8 +2822,17 @@ func lodge_shot(b, a, by) -> void:
 func nearest_animal(from: Vector2, max_px: float, filter: String = ""):
 	var best = null
 	var best_d := max_px
+	var calm := {}  # Gehege an angehaltenen Jagdhütten: dort wird nicht gejagt (josh 2026-11-08)
+	if filter == "hunt":
+		for b in buildings:
+			if b.paused and b.complete and b.def.get("lodge", false):
+				var pn := lodge_pen(b)
+				if pn > 0:
+					calm[pn] = true
 	for a in animals:
 		if filter == "hunt" and not is_huntable(a):
+			continue
+		if not calm.is_empty() and calm.has(pen_of(a.cell)):
 			continue
 		if filter == "hostile" and not a.is_hostile():
 			continue
