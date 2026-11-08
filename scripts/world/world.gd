@@ -183,7 +183,7 @@ func build_from_save(w: Dictionary, m: Dictionary) -> void:
 		bld.farm_state = b.get("farm_state", "fallow")
 		bld.farm_time = float(b.get("farm_time", 0.0))
 		bld.paused = bool(b.get("paused", false))
-		bld.adm = bool(b.get("adm", false))
+		bld.adm = true  # Vertretung immer an (josh 2026-11-08)
 		bld.repair = bool(b.get("repair", false)) and not bld.complete
 		if Data.ships.has(b.get("ship", "")):
 			bld.ship_choice = b.ship

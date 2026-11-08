@@ -21,7 +21,7 @@ var farm_time: float = 0.0  # Spielzeit der Aussaat
 var reserved_by: int = 0
 var occupants: Array = []  # Siedler-IDs, die hier arbeiten (Produktion, Forschung)
 var paused: bool = false
-var adm: bool = false  # Verwaltung: Vertretung erlaubt (Admin)
+var adm := true  # Vertretung: seit josh 2026-11-08 immer an (kein Schalter mehr)
 var repair: bool = false:  # nach einer Katastrophe zerstört: alle Erwachsenen bauen es zuerst wieder auf (josh 2026-11-01)
 	set(v):
 		if v != repair:
@@ -670,8 +670,6 @@ func serialize() -> Dictionary:
 		d["farm_time"] = snappedf(farm_time, 0.0001)
 	if paused:
 		d["paused"] = true
-	if adm:
-		d["adm"] = true
 	if repair:
 		d["repair"] = true
 	if keep_storage > 0:
