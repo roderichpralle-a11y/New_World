@@ -2966,9 +2966,6 @@ func _update_notify_footer() -> void:
 ## Versionsnummer steht nur in project.godot (application/config/version).
 static func version_text() -> String:
 	var ver := str(ProjectSettings.get_setting("application/config/version", "?"))
-	var stamp := str(ProjectSettings.get_setting("application/config/build_stamp", ""))  # Stand der Veröffentlichung (josh 2026-11-08)
-	if stamp != "":
-		ver += " " + Loc.t("(Stand %s)") % stamp
 	return Loc.t("Version %s%s") % [ver, Loc.t(" (Testversion)") if Game.is_test_build and not Game.build_tag in ["v2", "v2t"] else ""]
 
 

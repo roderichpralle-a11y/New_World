@@ -43,9 +43,6 @@ jobs:
           fi
           base=$(sed -n 's/^config\/version="\([0-9]*\.[0-9]*\)\..*"/\1/p' project.godot)
           sed -i "s/^config\/version=\".*\"/config\/version=\"$base.$n\"/" project.godot
-          # Stand: Datum und Uhrzeit der Veröffentlichung (deutsche Zeit), damit gleiche Nummern unterscheidbar sind (josh 2026-11-08)
-          stamp=$(TZ=Europe/Berlin date '+%d.%m. %H:%M')
-          sed -i "/^config\/version=/a config/build_stamp=\"$stamp\"" project.godot
           grep '^config/version' project.godot
           echo "GAME_VERSION=$base.$n" >> $GITHUB_ENV
 
