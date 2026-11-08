@@ -14,21 +14,9 @@ static func attach(hud) -> void:
 	Admin.proposal.connect(func(job, text): show_proposal(hud, job, text))
 
 
-## Werkstatt: Schalter Vertretung (nur, wenn die Verwaltung arbeitet).
-static func workshop_rows(hud, b) -> void:
-	if not Admin.active_on(b.world):  # nur auf der Insel der Verwaltung (josh 2026-10-16)
-		return
-	var on: bool = b.adm
-	var bt := UiTheme.button(Loc.t("Vertretung: an") if on else Loc.t("Vertretung: aus"), "wissen", 34)
-	bt.tooltip_text = Loc.t("Fehlt die Fachkraft gerade (Pause, Schlaf, Essen), springt ein Siedler ein, der sonst nichts zu tun hat.")
-	bt.pressed.connect(func():
-		b.adm = not b.adm
-		hud._rebuild_info())
-	hud._info_box.add_child(bt)
-	var l := UiTheme.label(Loc.t("Verwaltung: Fehlt die Fachkraft, springt ein anderer Siedler ein.") if on
-		else Loc.t("Verwaltung: Vertretung einschalten, damit die Werkstatt auch ohne ihre Fachkraft läuft."), 12, DIM)
-	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	hud._info_box.add_child(l)
+## Werkstatt: früher Schalter Vertretung; seit josh 2026-11-08 ist die Vertretung immer an, ohne Knopf.
+static func workshop_rows(_hud, _b) -> void:
+	pass
 
 
 ## Berufe, für die die Verwaltung Anordnungen zeigt: die Werkstattberufe und jeder Beruf mit Leuten
