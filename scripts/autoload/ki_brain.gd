@@ -11,8 +11,8 @@ extends Node
 
 const JOBS := ["holzfaeller", "steinmetz", "sammler", "fischer", "bauer", "koch", "handwerker", "jaeger", "forscher"]
 const FEATURES := 50
-const RESEARCH_PTS := 1.0        # je Forschungspunkt (josh 2026-11-07, Vorschlag)
-const RESEARCH_DONE_PTS := 100.0 # je fertiger Forschung
+const RESEARCH_WHOLE_PTS := 500.0 # eine ganze Forschung, anteilig nach Fortschritt, gleich in jedem Zeitalter (josh 2026-11-08)
+const RESEARCH_DONE_PTS := 0.0   # kein Extra mehr für fertige Forschung (steckt in den 500)
 const NEEDED_PTS := 3.0          # verarbeitete Ware, die der nächsten Forschung noch fehlt
 const TICK_DAYS := 0.25
 const HOLD_DAYS := 0.5
@@ -36,7 +36,8 @@ var _next := 0.0
 # Punkte (Training und Anzeige)
 var processed_today := 0.0
 var deaths_today := 0
-var research_today := 0.0
+var research_today := 0.0       # Anteil ganzer Forschungen heute x 500
+var research_raw := 0.0         # rohe Forschungspunkte heute (nur zur Anzeige)
 var finished_today := 0
 var target := ""            # Forschung, auf die die KI hinarbeitet (läuft schon oder als Nächstes)
 var score_log: Array = []   # je Tag {day, food, wood, proc, sat, mood, dead, total}
@@ -498,8 +499,10 @@ func note_processed(res: String, n: int) -> void:
 	processed_today += float(n) * (NEEDED_PTS if research_missing().has(res) else PROCESSED_PTS)
 
 
-func note_research(points: float) -> void:
-	research_today += points
+func note_research(points: float, total: float = 0.0) -> void:
+	research_raw += points
+	if total > 0.0:
+		research_today += RESEARCH_WHOLE_PTS * points / total
 
 
 func note_research_done() -> void:
@@ -513,6 +516,7 @@ func score_start() -> void:
 	processed_today = 0.0
 	deaths_today = 0
 	research_today = 0.0
+	research_raw = 0.0
 	finished_today = 0
 	_score_t0 = Game.time_days
 	_score_day = 0
@@ -532,8 +536,8 @@ func score_day() -> Dictionary:
 	r["food"] = food_days(w)
 	r["wood"] = minf(_amt("holz", w), WOOD_CAP) / 100.0
 	r["proc"] = processed_today
-	r["res"] = RESEARCH_PTS * research_today + RESEARCH_DONE_PTS * finished_today
-	r["rpts"] = research_today
+	r["res"] = research_today + RESEARCH_DONE_PTS * finished_today
+	r["rpts"] = research_raw
 	var sat := 0
 	var mood := 0
 	for s in w.settlers:
@@ -552,6 +556,7 @@ func score_day() -> Dictionary:
 	processed_today = 0.0
 	deaths_today = 0
 	research_today = 0.0
+	research_raw = 0.0
 	finished_today = 0
 	return r
 

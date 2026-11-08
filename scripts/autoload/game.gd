@@ -1193,7 +1193,7 @@ func add_research(points: float, apply_bonus: bool = true) -> void:
 	if apply_bonus:
 		points *= eff("research")
 	research.progress[t] = tech_progress(t) + points
-	KiBrain.note_research(points)  # Punkte der lernenden KI (josh 2026-11-07)
+	KiBrain.note_research(points, tech_points(t))  # Punkte der lernenden KI (josh 2026-11-07)
 	if tech_progress(t) >= tech_points(t):
 		_finish_research(t)
 
