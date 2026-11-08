@@ -274,7 +274,7 @@ func _on_new_season(s: int) -> void:
 	Game.notify(tr("%s, Jahr %d. %s") % [season_title(s), year(), effects_text(s)], "")
 	if s == WINTER:
 		_frost()
-	Sound.play("glocke")
+	Game.note_sound("glocke")
 	_forecast(s)
 
 

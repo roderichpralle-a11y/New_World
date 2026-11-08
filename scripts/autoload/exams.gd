@@ -284,7 +284,7 @@ func pass_exam() -> void:
 	Game.notify(tr("Prüfung bestanden! Ein neues Zeitalter beginnt: %s! %s") % [Data.age_name(a), Data.ages[a].get("desc", "")], "zeitalter")
 	if got != "":
 		Game.notify_at(w, tr("Zum Fest kommen Geschenke: %s.") % got, "zeitalter")
-	Sound.play("stufe")
+	Game.note_sound("stufe")
 	_fest_text(99)
 	fest_started.emit(tr("Ein neues Zeitalter: %s") % Data.age_name(a))
 	Game.research_changed.emit()

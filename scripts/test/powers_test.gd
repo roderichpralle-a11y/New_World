@@ -256,6 +256,15 @@ static func run(main, mode: String) -> void:
 		Sea.ships.erase(shp)
 	else:
 		_ok(false, "Schiff anlegen für den Umbenennen-Test")
+	# Ausgeblendete Meldung: kein Ton (josh 2026-11-08)
+	var was_off: bool = Game.notify_off.get("ereignis", false)
+	Game.notify_off["ereignis"] = true
+	Game.notify("Testmeldung stumm", "haendler", "ereignis")
+	var sound_skipped: bool = int(Game._last_note[0]) == Engine.get_process_frames() and bool(Game._last_note[1])
+	Game.notify_off["ereignis"] = false
+	Game.notify("Testmeldung laut", "haendler", "ereignis")
+	_ok(sound_skipped and not bool(Game._last_note[1]), "ausgeblendete Meldung ohne Ton, eingeschaltete mit Ton")
+	Game.notify_off["ereignis"] = was_off
 	# Lager ausbauen wie Wohnhäuser (josh 2026-11-08)
 	if not "maurerei" in Game.research.done:
 		Game.research.done.append("maurerei")

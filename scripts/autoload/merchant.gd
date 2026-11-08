@@ -162,7 +162,7 @@ func tick() -> void:
 			return
 		state.plan = int(w.island_id)
 		Game.notify(tr("In %d Stunden legt ein fremder Händler in %s an. Er handelt gegen Gold aus dem Lager dieser Insel.") % [hours_until(), Sea.island_name(w)], "haendler", "ereignis")
-		Sound.play("glocke")
+		Game.note_sound("glocke")
 		changed.emit()
 		return
 	if t >= float(state.next):
