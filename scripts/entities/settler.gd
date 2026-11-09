@@ -406,6 +406,10 @@ func job_name() -> String:
 func job_label(short := false) -> String:
 	var n: String = tr(job_name())
 	var by := job_by if by_admin else ""
+	# Auf einer Insel, die Verwalter und KI nicht steuern (Nebeninsel ohne Rundfunkanstalt), steht kein
+	# Vergeber dahinter (josh 2026-11-08: mitgebrachte Siedler sahen dort noch „vom Verwalter zugewiesen“)
+	if by in ["verwalter", "ki"] and world != null and is_instance_valid(world) and not Powers.covers(world) and not KiBrain.controls(world):
+		by = ""
 	match by:
 		"":
 			return n
