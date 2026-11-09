@@ -96,6 +96,7 @@ def main():
     ap.add_argument("--init", default="")
     ap.add_argument("--out", required=True)
     ap.add_argument("--seed", type=int, default=7)
+    ap.add_argument("--timeout", type=int, default=3600, help="Sekunden je Lauf")
     a = ap.parse_args()
     os.makedirs(a.out, exist_ok=True)
     rng = random.Random(a.seed)
@@ -104,7 +105,7 @@ def main():
         theta = json.load(open(a.init))["w"]
     pool = Pool(a.workers)
     saves = [x for x in a.save.split(",") if x]
-    ep = lambda slot, w, seed, si=0, off=False: run_episode(a.godot, saves[si], w, a.days, seed, slot, off, events=a.events)
+    ep = lambda slot, w, seed, si=0, off=False: run_episode(a.godot, saves[si], w, a.days, seed, slot, off, timeout=a.timeout, events=a.events)
     base = [1.0] * len(saves)  # Punkte je Spielstand im Startlauf: Läufe verschiedener Stände werden daran gemessen
     logf = open(os.path.join(a.out, "log.jsonl"), "a")
     evf = open(os.path.join(a.out, "evals.jsonl"), "a")
