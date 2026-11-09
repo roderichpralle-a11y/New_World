@@ -234,6 +234,26 @@ static func run(main, mode: String) -> void:
 		Steward._next = 0.0
 		Steward._process(0.0)
 	_ok(side.all(func(o): return o.job == "frei"), "Nebeninsel ohne Rundfunkanstalt: der Verwalter teilt dort niemanden ein")
+	# Siedler kommen per Schiff an (josh 2026-11-08): Beruf bleibt, aber nicht mehr „vom Verwalter zugewiesen“
+	var mover = _mk(w, "Fahrgast", "frei")
+	JobDesk.assign(mover, "holzfaeller", "verwalter", -1.0, true)
+	var lab0: String = mover.job_label()
+	var md: Dictionary = mover.serialize()
+	w.remove_settler(mover)
+	Sea._land(w2, [md], w2.center)
+	var landed = null
+	for o in w2.settlers:
+		if o.display_name == "Fahrgast":
+			landed = o
+	_ok(str(md.get("job_by", "")) == "verwalter" and landed != null and landed.job == "holzfaeller" and not landed.by_admin and not landed.job_label().contains("("),
+		"angekommen auf Insel ohne Verwalter: Beruf bleibt, ohne Verwalter (%s -> %s)" % [lab0, landed.job_label() if landed else "-"])
+	for k in 6:
+		Steward._moved = {}
+		Steward._next = 0.0
+		Steward._process(0.0)
+	_ok(landed != null and landed.job == "holzfaeller", "der Verwalter ändert seinen Beruf dort nicht")
+	if landed != null:
+		side.append(landed)
 	for o in side:
 		w2.kill_settler(o, "test", "old")
 	# Seemann vom Spieler: Verwalter, Automat, KI setzen ihn nicht um (josh 2026-11-12)

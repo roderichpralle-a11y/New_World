@@ -852,7 +852,12 @@ func _land(w, datas: Array, c: Vector2i) -> void:
 		d["x"] = c.x
 		d["y"] = c.y
 		d["home"] = 0
-		w.spawn_settler(d)
+		var s = w.spawn_settler(d)
+		# Neue Insel ohne Verwalter (keine Rundfunkanstalt hier und auf der Insel der Verwaltung): der Beruf
+		# bleibt, aber er gilt nicht mehr als vom Verwalter vergeben (josh 2026-11-08)
+		if s != null and str(d.get("job_by", "")) in ["verwalter", "ki"] and not Powers.covers(w) and not KiBrain.controls(w):
+			s.by_admin = false
+			s.job_by = ""
 
 
 func _arrive(v: Dictionary) -> void:
