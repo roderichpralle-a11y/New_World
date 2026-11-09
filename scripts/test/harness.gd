@@ -583,6 +583,9 @@ func _maybe_autotest() -> void:
 					hud._server_version = "1.0.999"
 					hud._on_update_available()
 				"stock":
+					if args.has("stockcat"):  # Testhilfe: nur eine Warengruppe (z. B. food)
+						hud._stock_cat = str(args.stockcat)
+						Game.set_food_keep("beeren", 10)
 					hud._refresh_stock(true)
 					hud._toggle(hud._stock_panel)
 				"sea":

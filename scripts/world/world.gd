@@ -35,6 +35,7 @@ var _ship_anim: float = 0.0
 var center: Vector2i
 var stock: Dictionary = {}  # Lager dieser Insel (Ware -> Menge), siehe Game.amount
 var store_limits: Dictionary = {}  # Hoechstmengen je Ware auf dieser Insel (fehlt = frei)
+var food_keep: Dictionary = {}  # Nahrung, die nicht gegessen wird (josh 2026-11-09): Ware -> Menge, z. B. für die Weiterverarbeitung
 var had_stock: bool = false  # Spielstand hatte ein eigenes Inselllager (ab Version 3)
 
 var ground: Node2D  # Felder unter allem
@@ -162,6 +163,10 @@ func build_from_save(w: Dictionary, m: Dictionary) -> void:
 	for id in w.get("store_limits", {}):
 		if Data.resources.has(id):
 			store_limits[id] = int(w.store_limits[id])
+	food_keep = {}
+	for id in w.get("food_keep", {}):
+		if Data.resources.has(id) and int(w.food_keep[id]) > 0:
+			food_keep[id] = int(w.food_keep[id])
 	for n in w.nodes:
 		var node := spawn_node(n[0], Vector2i(int(n[1]), int(n[2])), int(n[5]))
 		node.amount = int(n[3])
@@ -2220,7 +2225,7 @@ func pick_at(p: Vector2, radius: float = 12.0):
 func serialize() -> Dictionary:
 	return {
 		"stock": stock,
-		"store_limits": store_limits,
+		"store_limits": store_limits, "food_keep": food_keep,
 		"nodes": nodes.map(func(n): return n.serialize()),
 		"buildings": buildings.map(func(b): return b.serialize()),
 		"settlers": settlers.map(func(s): return s.serialize()),
