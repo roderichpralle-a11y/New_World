@@ -893,7 +893,12 @@ er meldet sich als System bei Game an).
   Kinder und Alte zuerst“ (`Extras.cold_text`, Schätzung für den Schwächsten; über 72 Stunden ohne
   Zahl), sobald die Gesundheit des Ersten sinkt einmal „Die ersten Siedler erfrieren!“ (Art
   `gesundheit`), dann je Toter „… ist erfroren.“ Laune-Grund „Friert (kein Holz, keine Kohle)“.
-- **Haltbares Essen zuerst**: siehe „Nahrung, Vitamine und Gleichgewicht“ (`Game.durable_first`).
+- **Essen ohne Reihenfolge (josh 2026-11-09):** `Game.choose_food` wählt zufällig nach essbarem Vorrat gewichtet
+  (Zuschlag für Vitamine bei Bedarf, Abwechslung, bald Verderbendes; halbes Gewicht, wenn viel zu groß für den Rest
+  Hunger). Haltbares zuerst (`durable_first`) und der Abzug für Werkstatt-Zutaten gelten nicht mehr. Je Insel und
+  Nahrung eine Menge „Nicht essen“ (`World.food_keep`, im Spielstand; `Game.food_keep_of/set_food_keep`, Lagerfenster
+  zweite Zeile je Nahrung, Schritte 10). `Game.edible` = Vorrat minus diese Menge; `total_food` und `food_days`
+  zählen nur Essbares. Test `--foodorder=1` (`Extras._food_test`), Bild `--panel=stock --stockcat=food --shot=…`.
 - **Belohnung für die Einführung** (`Extras.tutorial_reward`, aus `GoalCard._advance`, wenn der letzte
   Schritt erfüllt ist; nicht beim Überspringen und nicht beim stillen Nachholen alter Spielstände):
   `Extras.TUT_FINAL` über `Extras.tutorial_step_reward` (auch für die Belohnung jedes Schritts):

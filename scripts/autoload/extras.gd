@@ -306,7 +306,7 @@ static func free_spot(w, type: String):
 
 # ---------------------------------------------------------------- Selbsttest
 ## --coaltest=1 Kohle vor Holz, --freezetest=1 Erfrieren (mit --season=3),
-## --tutdone=1 Einführung zu Ende spielen (Belohnung), --foodorder=1 haltbares Essen zuerst,
+## --tutdone=1 Einführung zu Ende spielen (Belohnung), --foodorder=1 Essen ohne Reihenfolge, gesperrte Mengen,
 ## --cartshot=1 Schubkarren mit Handkarren (scripts/world/cart_test.gd, Bild mit --shot).
 func autotest_setup(args: Dictionary, main) -> void:
 	_args = args
@@ -407,30 +407,56 @@ func _test_keep_cold() -> void:
 
 
 func _food_test(w) -> void:
+	# Seit josh 2026-11-09: keine feste Reihenfolge mehr; je Ware lässt sich eine Menge sperren (food_keep)
 	var keep: Dictionary = w.stock.duplicate()
+	var keep_fk: Dictionary = w.food_keep.duplicate()
 	var s = w.settlers[0]
 	var set_food := func(d: Dictionary):
 		for id in Data.food_ids():
 			w.stock[id] = int(d.get(id, 0))
-	s.hunger = 40.0
+	var meals := func(n: int) -> Dictionary:
+		var got := {}
+		for i in n:
+			s.hunger = 40.0
+			var id: String = Game.choose_food(s, w)
+			got[id] = int(got.get(id, 0)) + 1
+			s.mind.meals.append(id)
+			if s.mind.meals.size() > 6:
+				s.mind.meals.pop_front()
+		return got
 	s.mind.vit = 90.0
-	set_food.call({"beeren": 30, "aepfel": 30, "brot": 2})
-	print("Essen-Test %s: Brot vor Beeren und Aepfeln (%s)" % [_ok(Game.choose_food(s, w) == "brot"), Game.last_eaten])
-	set_food.call({"beeren": 30, "aepfel": 30, "brot": 0, "raeucherfisch": 3})
-	print("Essen-Test %s: Raeucherfisch vor Obst (%s)" % [_ok(Game.choose_food(s, w) == "raeucherfisch"), Game.last_eaten])
-	set_food.call({"beeren": 30, "aepfel": 30})
-	print("Essen-Test %s: kein Haltbares, dann frisches Essen (%s)" % [_ok(Game.choose_food(s, w) in ["beeren", "aepfel"]), Game.last_eaten])
-	set_food.call({"beeren": 30, "fisch": 5, "weizen": 50, "kokos": 4})
-	print("Essen-Test %s: Kokos vor Beeren, Fisch und Getreide (%s)" % [_ok(Game.choose_food(s, w) == "kokos"), Game.last_eaten])
-	set_food.call({"beeren": 30, "weizen": 50})
-	print("Essen-Test %s: Getreide ist Rohware fuer die Muehle, kein haltbares Essen (%s)" % [_ok(Game.choose_food(s, w) == "beeren"), Game.last_eaten])
+	w.food_keep = {}
+	set_food.call({"beeren": 60, "aepfel": 60, "brot": 60})
+	var g1: Dictionary = meals.call(30)
+	print("Essen-Test %s: ohne Reihenfolge, Brot, Beeren und Äpfel werden alle gegessen (%s)" % [_ok(g1.size() >= 3), g1])
+	set_food.call({"beeren": 60, "weizen": 60})
+	var g2: Dictionary = meals.call(30)
+	print("Essen-Test %s: Getreide wird auch gegessen, wenn nichts gesperrt ist (%s)" % [_ok(int(g2.get("weizen", 0)) > 0), g2])
+	set_food.call({"beeren": 60, "weizen": 60})
+	Game.set_food_keep("weizen", 60, w)
+	var g3: Dictionary = meals.call(30)
+	print("Essen-Test %s: 60 Getreide gesperrt: kein Getreide gegessen (%s, Getreide %d)" % [_ok(not g3.has("weizen") and Game.amount("weizen", w) == 60), g3, Game.amount("weizen", w)])
 	set_food.call({"weizen": 50})
-	print("Essen-Test %s: nur Getreide da, dann Getreide (%s)" % [_ok(Game.choose_food(s, w) == "weizen"), Game.last_eaten])
+	Game.set_food_keep("weizen", 40, w)
+	var g4: Dictionary = meals.call(20)
+	print("Essen-Test %s: 40 von 50 Getreide gesperrt: gegessen bis 40, dann nichts mehr (%s, Getreide %d, essbar %d)" % [_ok(Game.amount("weizen", w) == 40 and Game.total_food(w) == 0 and int(g4.get("weizen", 0)) == 10), g4, Game.amount("weizen", w), Game.total_food(w)])
 	s.mind.vit = 20.0
-	set_food.call({"aepfel": 30, "brot": 30})
-	print("Essen-Test %s: wenig Vitamine (20): Aepfel trotz Brot (%s)" % [_ok(Game.choose_food(s, w) == "aepfel"), Game.last_eaten])
+	Game.set_food_keep("weizen", 0, w)
+	var apples := 0
+	for i in 40:
+		set_food.call({"aepfel": 30, "brot": 30})
+		s.mind.vit = 20.0
+		s.hunger = 40.0
+		if Game.choose_food(s, w) == "aepfel":
+			apples += 1
+	print("Essen-Test %s: wenig Vitamine (20): meist Äpfel statt Brot (%d von 40)" % [_ok(apples >= 24), apples])
 	s.mind.vit = 90.0
+	var data: Dictionary = JSON.parse_string(JSON.stringify(w.serialize()))
+	Game.set_food_keep("brot", 25, w)
+	data = JSON.parse_string(JSON.stringify(w.serialize()))
+	print("Essen-Test %s: gesperrte Menge steht im Spielstand (%s)" % [_ok(int(data.get("food_keep", {}).get("brot", 0)) == 25), data.get("food_keep")])
 	w.stock = keep
+	w.food_keep = keep_fk
 
 
 func _tut_test() -> void:

@@ -432,12 +432,34 @@ func population() -> int:
 	return n
 
 
+## Essbare Nahrung: ohne die Mengen, die nicht gegessen werden sollen (food_keep, josh 2026-11-09).
 func total_food(w = null) -> int:
-	var st := _stock_of(w)
 	var n := 0
 	for id in Data.food_ids():
-		n += int(st.get(id, 0))
+		n += edible(id, w)
 	return n
+
+
+## Wie viel von dieser Nahrung gegessen werden darf: Vorrat minus „nicht essen“.
+func edible(id: String, w = null) -> int:
+	return maxi(0, amount(id, w) - food_keep_of(id, w))
+
+
+## Menge dieser Nahrung, die nicht gegessen wird (z. B. Getreide für die Mühle). 0 = alles essbar.
+func food_keep_of(id: String, w = null) -> int:
+	var i = _isle(w)
+	return int(i.food_keep.get(id, 0)) if i != null else 0
+
+
+func set_food_keep(id: String, n: int, w = null) -> void:
+	var i = _isle(w)
+	if i == null:
+		return
+	if n <= 0:
+		i.food_keep.erase(id)
+	else:
+		i.food_keep[id] = n
+	stock_changed.emit()
 
 
 ## Fuer wie viele Tage die Nahrung einer Insel alle Siedler satt macht: Menge mal Saettigung
@@ -447,10 +469,9 @@ func food_days(w = null) -> float:
 	var ww = w if w != null else world
 	if ww == null or not is_instance_valid(ww) or ww.settlers.is_empty():
 		return -1.0
-	var st := _stock_of(w)
 	var sat := 0.0
 	for id in Data.food_ids():
-		sat += float(st.get(id, 0)) * Data.food_satiety(id)
+		sat += float(edible(id, w)) * Data.food_satiety(id)
 	var need := float(Data.bal("hunger_per_day")) * eff("hunger") * Seasons.hunger_mult(ww)
 	return sat / (ww.settlers.size() * max(need, 0.01))
 
@@ -516,7 +537,7 @@ func eat_food(prefer_vitamins: bool, w = null) -> String:
 	var best := ""
 	var best_v := -INF
 	for id in Data.food_ids():
-		var n := amount(id, w)
+		var n := edible(id, w)
 		if n <= 0:
 			continue
 		var v := Data.food_vitamins(id) if prefer_vitamins else Data.food_satiety(id)
@@ -531,10 +552,9 @@ func eat_food(prefer_vitamins: bool, w = null) -> String:
 	return best
 
 
-## Kluge Speisenwahl: Der Siedler s waehlt aus dem Lager der Insel w die Speise, die seinen
-## Bedarf (Saettigung bis eat_until, Vitamine bis vitamin_target) am besten deckt, ohne
-## Saettigung zu verschwenden. Dazu zaehlen: was bald verdirbt zuerst, Abwechslung gegenueber
-## den letzten Mahlzeiten, Vorrat im Lager und ob die Speise noch als Zutat gebraucht wird.
+## Speisenwahl (josh 2026-11-09): Der Siedler s nimmt aus dem Lager der Insel w eine Speise, zufällig nach
+## dem essbaren Vorrat gewichtet (Game.edible: ohne die gesperrten Mengen), mit Zuschlag für Vitamine bei
+## Bedarf, Abwechslung und bald Verderbendes.
 ## Gibt die Sorte zurueck und nimmt sie aus dem Lager ("" wenn nichts da ist).
 func choose_food(s, w = null) -> String:
 	var deficit := maxf(1.0, float(Data.bal("eat_until")) - s.hunger)
@@ -543,38 +563,43 @@ func choose_food(s, w = null) -> String:
 	var total := 0
 	var ids := []
 	for id in Data.food_ids():
-		var n := amount(id, w)
+		var n := edible(id, w)  # „nicht essen“-Mengen bleiben liegen (josh 2026-11-09)
 		if n > 0:
 			ids.append(id)
 			total += n
 	if ids.is_empty():
 		return ""
-	var needed := _ingredient_goods(w)
-	if vit_need <= 0.0:
-		ids = durable_first(ids)  # josh: erst das haltbare Essen; wer Vitamine braucht, wählt frei
+	# Keine feste Reihenfolge mehr: früher erst Haltbares (durable_first) und Abzug für Werkstatt-Zutaten;
+	# was übrig bleiben soll, stellt der Spieler jetzt im Lager ein (food_keep).
+	# Zufällig nach Vorrat gewichtet (josh 2026-11-09: alle Produkte, keine Reihenfolge): wovon mehr da ist,
+	# das kommt öfter auf den Tisch. Wer Vitamine braucht, greift eher zu Vitaminreichem; Abwechslung,
+	# bald Verderbendes und eine passende Größe für den letzten Bissen geben etwas Gewicht dazu.
 	var meals: Array = s.mind.meals
-	var best := ""
-	var best_score := -INF
+	var weights := []
+	var sum := 0.0
 	for id in ids:
 		var sat := Data.food_satiety(id)
 		var vit := Data.food_vitamins(id)
-		var score := minf(sat, deficit) / deficit  # Bedarf gedeckt
-		score -= float(Data.bal("eat_waste_weight", 0.6)) * maxf(0.0, sat - deficit) / deficit  # verschwendet
+		var wgt := float(edible(id, w))
 		if vit_need > 0.0:
-			score += (0.8 + 0.8 * vit_urgent) * minf(vit, vit_need) / vit_need
+			wgt *= 1.0 + (1.0 + 2.0 * vit_urgent) * minf(vit, vit_need) / vit_need * 2.0
+		if sat > deficit * 1.5:
+			wgt *= 0.5  # viel zu groß für den Rest Hunger
 		var recent := 0
 		for m in meals:
 			if m == id:
 				recent += 1
-		score += 0.3 * (1.0 - float(recent) / maxf(1.0, float(meals.size())))  # Abwechslung
-		score += minf(0.5, Seasons.spoil_rate(id) * 15.0)  # bald verdorben
-		score += 0.25 * float(amount(id, w)) / float(total)  # Vorrat
-		if needed.has(id):
-			score -= 0.2  # wird in einer Werkstatt noch gebraucht
-		score += float(amount(id, w)) * 0.0001  # bei Gleichstand das, wovon mehr da ist
-		if score > best_score:
-			best_score = score
-			best = id
+		wgt *= 1.0 - 0.5 * float(recent) / maxf(1.0, float(meals.size()))  # Abwechslung
+		wgt *= 1.0 + minf(0.5, Seasons.spoil_rate(id) * 15.0)  # bald verdorben
+		weights.append(wgt)
+		sum += wgt
+	var best: String = ids[0]
+	var r := randf() * sum
+	for i in ids.size():
+		r -= float(weights[i])
+		if r <= 0.0:
+			best = ids[i]
+			break
 	take_stock(best, 1, w)
 	eaten[best] = int(eaten.get(best, 0)) + 1
 	last_eaten = best
