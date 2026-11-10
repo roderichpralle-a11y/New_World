@@ -3869,6 +3869,12 @@ func show_title(has_save: bool) -> void:
 		var tb := UiTheme.label(tx, 14, Color("#c03a2a"), true)
 		tb.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		v.add_child(tb)
+	if Game.save_note != "":
+		var sn := UiTheme.label(Game.save_note, 14, Color("#c03a2a"), true)
+		sn.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		sn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		sn.custom_minimum_size.x = 300
+		v.add_child(sn)
 	if has_save:
 		var cont := UiTheme.button(tr("Weiterspielen"), "play", 50)
 		cont.pressed.connect(func():

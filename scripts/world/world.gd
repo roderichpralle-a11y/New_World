@@ -173,9 +173,9 @@ func build_from_save(w: Dictionary, m: Dictionary) -> void:
 	for b in w.buildings:
 		if not Data.buildings.has(b.type):
 			continue
-		var bld := place_building(b.type, Vector2i(int(b.x), int(b.y)), bool(b.complete), int(b.id))
-		bld.progress = float(b.progress)
-		bld.delivered = b.delivered
+		var bld := place_building(b.type, Vector2i(int(b.x), int(b.y)), bool(b.get("complete", false)), int(b.id))
+		bld.progress = float(b.get("progress", 0.0))
+		bld.delivered = b.get("delivered", {}) if b.get("delivered") is Dictionary else {}
 		bld.farm_state = b.get("farm_state", "fallow")
 		bld.farm_time = float(b.get("farm_time", 0.0))
 		bld.paused = bool(b.get("paused", false))

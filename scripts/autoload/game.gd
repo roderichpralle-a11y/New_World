@@ -1312,8 +1312,8 @@ func switch_slot(n: int, mode: String) -> void:
 	SAVE_PATH = slot_path(n)
 	if mode == "":
 		return
-	if mode == "new" and slot_exists(n):
-		DirAccess.remove_absolute(slot_path(n))
+	if mode == "new":
+		_remove_save_files(slot_path(n))
 	if OS.has_feature("web"):
 		JavaScriptBridge.eval("window.location.reload()")
 	else:
@@ -1324,6 +1324,7 @@ func switch_slot(n: int, mode: String) -> void:
 ## Speichert das laufende Spiel in einen anderen Platz und spielt dort weiter.
 func save_to_slot(n: int) -> void:
 	switch_slot(n, "")
+	_remove_save_files(slot_path(n))  # das Spiel, das dort lag, soll nicht als Sicherung wiederkommen
 	save_game()
 
 
@@ -1348,13 +1349,11 @@ func slot_file_name(n: int) -> String:
 ## Prueft einen importierten Text und legt ihn in Platz n ab. Gibt "" oder einen Fehlertext zurueck.
 func import_slot(n: int, text: String) -> String:
 	var d = JSON.parse_string(text)
-	if not (d is Dictionary) or not int(d.get("version", 0)) in [1, 2, SAVE_VERSION] or not d.has("time_days"):
+	if check_save(d) != "":
 		return tr("Das ist kein Spielstand von Insel-Siedler.")
-	var f := FileAccess.open(slot_path(n), FileAccess.WRITE)
-	if f == null:
+	_remove_save_files(slot_path(n))
+	if not write_save_text(slot_path(n), text):
 		return tr("Der Spielstand konnte nicht gespeichert werden.")
-	f.store_string(text)
-	f.close()
 	# Kurzinfo fuer die Liste: Siedler und besiedelte Inseln zaehlen
 	var pop := Array(d.get("settlers", [])).size()
 	var settled := 0
@@ -1420,13 +1419,23 @@ func load_newest_version() -> void:
 
 
 func delete_slot(n: int) -> void:
-	if n != slot and slot_exists(n):
-		DirAccess.remove_absolute(slot_path(n))
+	if n != slot:
+		_remove_save_files(slot_path(n))
 
 
 # ---------------------------------------------------------------- Speichern
 func has_save() -> bool:
 	return FileAccess.file_exists(SAVE_PATH)
+
+
+const TMP_EXT := ".neu"      # wird gerade geschrieben
+const BAK_EXT := ".bak"      # vorheriger Stand (Sicherung)
+const BROKEN_EXT := ".kaputt"  # unlesbare Datei, aufgehoben
+const BACKUP_SECONDS := 600.0
+var _bak_at := 0.0
+var _bak_path := ""
+## Hinweis für das Titelbild, wenn beim Laden die Sicherung einspringen musste (load_save)
+var save_note := ""
 
 
 func save_game() -> void:
@@ -1451,11 +1460,48 @@ func save_game() -> void:
 		data["rules_due"] = rules_lines.duplicate()  # Fenster noch nicht gesehen: beim naechsten Laden zeigen
 	state_save.emit(data)
 	_store_backup(data)
-	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
-	if f:
-		f.store_string(JSON.stringify(data))
-		f.close()
+	if write_save_text(SAVE_PATH, JSON.stringify(data)):
 		_write_slot_info()
+
+
+## Schreibt einen Spielstand so, dass ein Abbruch mitten im Schreiben (Tab vom Browser beendet) den alten
+## Stand nicht zerstört: erst in `<pfad>.neu`, dann umbenennen. Den vorherigen Stand hebt das Spiel höchstens
+## alle BACKUP_SECONDS als `<pfad>.bak` auf (load_save greift darauf zurück, wenn die Hauptdatei unlesbar ist).
+func write_save_text(path: String, text: String) -> bool:
+	var tmp := path + TMP_EXT
+	var f := FileAccess.open(tmp, FileAccess.WRITE)
+	if f == null:
+		return false
+	f.store_string(text)
+	var ok := f.get_error() == OK
+	f.close()
+	if not ok:
+		DirAccess.remove_absolute(tmp)
+		return false
+	var now := Time.get_ticks_msec() / 1000.0
+	if FileAccess.file_exists(path):
+		if _bak_path != path or now - _bak_at >= BACKUP_SECONDS or not FileAccess.file_exists(path + BAK_EXT):
+			if FileAccess.file_exists(path + BAK_EXT):
+				DirAccess.remove_absolute(path + BAK_EXT)
+			if DirAccess.rename_absolute(path, path + BAK_EXT) == OK:
+				_bak_path = path
+				_bak_at = now
+	if DirAccess.rename_absolute(tmp, path) != OK:
+		# Umbenennen über eine vorhandene Datei geht nicht überall: alte Datei erst entfernen
+		if FileAccess.file_exists(path):
+			DirAccess.remove_absolute(path)
+		if DirAccess.rename_absolute(tmp, path) != OK:
+			return false
+	return true
+
+
+## Entfernt einen Spielstand samt Sicherung und halb geschriebener Datei.
+func _remove_save_files(path: String) -> void:
+	for ext in ["", BAK_EXT, TMP_EXT]:
+		if FileAccess.file_exists(path + ext):
+			DirAccess.remove_absolute(path + ext)
+	if _bak_path == path:
+		_bak_path = ""
 
 
 ## Kopie der neuen Spielstand-Teile in islands[0]["v2"] (siehe OLD_SAVE_KEYS).
@@ -1543,17 +1589,79 @@ func _restore_backup_world() -> void:
 	_v2_restore = {}
 
 
-func load_save() -> Dictionary:
-	if not has_save():
-		return {}
-	var f := FileAccess.open(SAVE_PATH, FileAccess.READ)
-	if f == null:
-		return {}
-	var d = JSON.parse_string(f.get_as_text())
-	# Version 1 (eine Insel) wird beim Laden in das neue Format uebernommen
+## Prüft den Aufbau eines Spielstands, bevor irgendetwas ersetzt wird (Laden und Import). "" = in Ordnung.
+func check_save(d) -> String:
 	if not (d is Dictionary) or not int(d.get("version", 0)) in [1, 2, SAVE_VERSION]:
+		return "version"
+	if not _is_num(d.get("time_days")) or not _is_num(d.get("seed", 0)) or not _is_num(d.get("next_id", 1)):
+		return "kopf"
+	var list = d.get("islands", [])
+	if not (list is Array):
+		return "inseln"
+	var worlds: Array = []
+	if list.is_empty():
+		worlds.append(d.get("world"))  # Version 1: nur eine Insel
+	for e in list:
+		if not (e is Dictionary) or not _is_num(e.get("id")) or not _is_num(e.get("seed")) or not _is_num(e.get("size")) \
+				or not e.has("state"):
+			return "insel"
+		if e.has("world"):
+			worlds.append(e.world)
+	for w in worlds:
+		if not (w is Dictionary) or not (w.get("nodes") is Array) or not (w.get("buildings") is Array) \
+				or not (w.get("settlers") is Array):
+			return "welt"
+		for n in w.nodes:
+			if not (n is Array) or n.size() < 6 or not (n[0] is String):
+				return "rohstoff"
+		for bd in w.buildings:
+			if not (bd is Dictionary) or not (bd.get("type") is String) or not _is_num(bd.get("x")) or not _is_num(bd.get("y")) \
+					or not _is_num(bd.get("id")):
+				return "gebaeude"
+		for st in w.settlers:
+			if not (st is Dictionary):
+				return "siedler"
+	return ""
+
+
+func _is_num(v) -> bool:
+	return v is float or v is int
+
+
+func _read_save(path: String) -> Dictionary:
+	if not FileAccess.file_exists(path):
+		return {}
+	var d = JSON.parse_string(FileAccess.get_file_as_string(path))
+	if check_save(d) != "":
 		return {}
 	return d
+
+
+## Liest den aktiven Spielstand. Ist die Datei unlesbar oder fehlt sie nach einem abgebrochenen Speichern,
+## nimmt das Spiel die fertig geschriebene neue Datei (.neu) oder die Sicherung (.bak) und sagt es auf dem
+## Titelbild (save_note). Die unlesbare Datei bleibt als .kaputt liegen und wird nicht überschrieben.
+func load_save() -> Dictionary:
+	save_note = ""
+	var d := _read_save(SAVE_PATH)
+	if not d.is_empty():
+		return d
+	var broken := FileAccess.file_exists(SAVE_PATH)
+	if broken:
+		if FileAccess.file_exists(SAVE_PATH + BROKEN_EXT):
+			DirAccess.remove_absolute(SAVE_PATH + BROKEN_EXT)
+		DirAccess.rename_absolute(SAVE_PATH, SAVE_PATH + BROKEN_EXT)
+	for ext in [TMP_EXT, BAK_EXT]:
+		d = _read_save(SAVE_PATH + ext)
+		if d.is_empty():
+			continue
+		DirAccess.copy_absolute(SAVE_PATH + ext, SAVE_PATH)
+		if broken or ext == BAK_EXT:
+			save_note = tr("Der Spielstand war beschädigt. Die Sicherung von Tag %d wurde geladen.") % (int(floor(float(d.time_days))) + 1)
+		print("Spielstand unlesbar oder fehlt: ", SAVE_PATH + ext, " geladen")
+		return d
+	if broken:
+		save_note = tr("Der Spielstand war beschädigt und konnte nicht geladen werden. Es gibt keine Sicherung.")
+	return {}
 
 
 func apply_save_header(d: Dictionary) -> void:
@@ -1700,8 +1808,7 @@ func rules_seen() -> void:
 
 
 func delete_save() -> void:
-	if has_save():
-		DirAccess.remove_absolute(SAVE_PATH)
+	_remove_save_files(SAVE_PATH)
 
 
 func _notification(what: int) -> void:
