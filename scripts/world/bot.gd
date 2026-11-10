@@ -388,6 +388,8 @@ func _wishlist() -> Array:
 	# Volles Lager: Ernte und Fang gehen verloren, also zuerst Stauraum
 	# (nicht im ersten Jahr: da füllen Beeren das kleine Grundlager, und Hütten sind wichtiger)
 	if _count("lager") > 0 and Game.used_volume(w) > Game.storage_volume(w) * 0.85 and _sites().filter(func(b): return b.def.has("storage")).is_empty():
+		if Game.is_unlocked("hochregallager"):
+			out.append(["hochregallager", "Lager voll"])
 		if Game.is_unlocked("grosslager"):
 			out.append(["grosslager", "Lager voll"])
 		out.append(["lager", "Lager voll"])
@@ -437,6 +439,8 @@ func _wishlist() -> Array:
 	if _count("lager") == 0 and (pop >= 5 or Game.used_volume(w) > Game.storage_volume(w) * 0.6):
 		out.append(["lager", "Stauraum"])
 	elif Game.used_volume(w) > Game.storage_volume(w) * 0.7 and _sites().filter(func(b): return b.def.has("storage")).is_empty():
+		if Game.is_unlocked("hochregallager"):
+			out.append(["hochregallager", "Stauraum"])
 		if Game.is_unlocked("grosslager"):
 			out.append(["grosslager", "Stauraum"])
 		out.append(["lager", "Stauraum"])  # wenn Ziegel für das große fehlen

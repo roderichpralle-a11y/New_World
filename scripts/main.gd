@@ -283,6 +283,8 @@ func _maybe_autotest() -> void:
 		Game.refresh_effects()
 	if args.has("rewardtest"):
 		_autotest_reward()
+	if args.has("talltest"):  # Hochregallager: Stauraum, Dach, Tiefensortierung (scripts/world/tall_test.gd)
+		TallTest.run(self, str(args.talltest) == "shot")
 	if args.has("talenttest"):
 		TalentTest.run(self)  # Talente: Bonus und Anzeige (scripts/world/talent_test.gd)
 	if args.has("readtest"):  # Bücher, Zeitungen, Lesen (scripts/world/read_test.gd)

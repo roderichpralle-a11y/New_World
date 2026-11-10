@@ -511,7 +511,7 @@ func _storage(w) -> Dictionary:
 	if vol <= 0 or float(Game.used_volume(w)) / vol < STORE_FULL:
 		return {}
 	var need: String = tr("Lager zu %d %% voll") % int(100.0 * Game.used_volume(w) / vol)
-	for t in ["grosslager", "lager"]:
+	for t in ["hochregallager", "grosslager", "lager"]:
 		if Game.is_unlocked(t):
 			return _build(w, t, need, "d")
 	return {}
