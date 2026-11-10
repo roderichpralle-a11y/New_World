@@ -2631,5 +2631,8 @@
  "Nicht essen:": "Don't eat:",
  "So viel davon essen die Siedler nicht. Es bleibt für Werkstätten, Handel oder Schiffe.": "Settlers won't eat this much of it. It stays for workshops, trade or ships.",
  "Weniger zurückhalten": "Hold back less",
- "Mehr zurückhalten": "Hold back more"
+ "Mehr zurückhalten": "Hold back more",
+ "Hochregallager": "High-bay warehouse",
+ "Stahlregale bis unters Dach: Stauraum 5000 für alle Waren auf der Fläche eines Lagerhauses. Das hohe Gebäude verdeckt, was dahinter steht. Hält Ratten zur Hälfte ab.": "Steel racks up to the roof: 5000 storage space for all goods on the footprint of a Storehouse. The tall building hides whatever stands behind it. Keeps half of the rats out.",
+ "Schaltet das Stahlwerk frei: aus Eisen und Kohle wird Stahl. Dazu das Hochregallager mit Stauraum 5000.": "Unlocks the Steelworks: Iron and Coal become Steel. Also the High-bay warehouse with 5000 storage space."
 }

@@ -689,7 +689,7 @@ func _rats(w, ev: Dictionary) -> String:
 	var sh: Array = d.get("share", [0.15, 0.08, 0.15, 0.35])
 	var share := clampf(float(sh[0]) + float(sh[1]) * float(ev.power), float(sh[2]), float(sh[3]))
 	var store := str(d.get("store", "grosslager"))
-	var guarded: bool = w.buildings.any(func(b): return b.complete and b.type == store)
+	var guarded: bool = w.buildings.any(func(b): return b.complete and (b.type == store or b.def.get("rat_guard", false)))
 	if guarded:
 		share *= float(d.get("store_mult", 0.5))
 	var lost := []

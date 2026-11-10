@@ -27,6 +27,7 @@ var deliveries: int = 0  # Ablieferungen an dieses Lager (nur zur Verteilung, ni
 var world
 
 var _sprite: Sprite2D
+var _top: Sprite2D  # oberer Teil eines hohen Gebäudes (def.tall), siehe setup()
 var _tiles: Array = []
 var _light: PointLight2D
 var _anim_t: float = 0.0
@@ -63,6 +64,14 @@ func setup(p_world, p_type: String, p_cell: Vector2i, p_complete: bool) -> void:
 		_sprite = Sprite2D.new()
 		_sprite.centered = false
 		add_child(_sprite)
+		if def.get("tall", false):
+			# Hohes Gebäude (Hochregallager, josh 2026-11-10): der Teil über der Grundfläche liegt auf
+			# Ebene der Figuren (z 1) und wird mit ihnen nach y sortiert. So verdeckt er Gebäude, Straßen und
+			# Siedler dahinter; Siedler davor bleiben vorn. Der Teil auf der Grundfläche bleibt unten (z 0).
+			_top = Sprite2D.new()
+			_top.centered = false
+			_top.z_index = 1
+			add_child(_top)
 		# Schmuck: Bäume der Parkanlage stehen als eigene Bilder zwischen den Siedlern (y-sortiert)
 		for p in def.get("props", []):
 			var ps := Sprite2D.new()
@@ -186,7 +195,7 @@ static func roof_offsets(t: String, compute := false) -> Array:
 	var d: Dictionary = Data.buildings[t]
 	var res := []
 	_roof_cache[t] = res
-	if d.get("ground", false) or d.has("tile") or d.has("decor") or d.get("flat", false) or not d.has("sprite"):
+	if d.get("ground", false) or d.has("tile") or d.has("decor") or d.get("flat", false) or d.get("tall", false) or not d.has("sprite"):
 		return res
 	var at := Data.object_tex(String(d.sprite), 0)
 	if at == null or at.atlas == null:
@@ -489,6 +498,8 @@ func refresh() -> void:
 		var sz := tex.region.size
 		_sprite.offset = Vector2(-sz.x / 2.0, -sz.y + 4 if sz.y > 16 else -sz.y + 6)
 		_sprite.modulate = Color.WHITE if complete else Color(1, 1, 1, 0.45)
+		if _top:
+			_split_tall(tex)
 		for p in _props:
 			var ps: Sprite2D = p[0]
 			ps.texture = Data.object_tex(p[2])
@@ -497,6 +508,27 @@ func refresh() -> void:
 			ps.position = Vector2(pc.x * 16, pc.y * 16 + 8)
 			ps.modulate = _sprite.modulate
 	_bar.queue_redraw()
+
+
+## Hohes Gebäude: Bild an der Oberkante der Grundfläche teilen. Unten (Grundfläche + 4 Pixel Sockel) bleibt
+## in _sprite, alles darüber zeigt _top auf der Ebene der Figuren.
+func _split_tall(tex: Texture2D) -> void:
+	if not tex is AtlasTexture:
+		return
+	var at := tex as AtlasTexture
+	var sz := at.region.size
+	var low := minf(sz.y, size.y * 16.0 + 4.0)
+	var lo := AtlasTexture.new()
+	lo.atlas = at.atlas
+	lo.region = Rect2(at.region.position + Vector2(0, sz.y - low), Vector2(sz.x, low))
+	var hi := AtlasTexture.new()
+	hi.atlas = at.atlas
+	hi.region = Rect2(at.region.position, Vector2(sz.x, sz.y - low))
+	_sprite.texture = lo
+	_sprite.offset = Vector2(-sz.x / 2.0, -low + 4)
+	_top.texture = hi
+	_top.offset = Vector2(-sz.x / 2.0, -sz.y + 4)
+	_top.modulate = _sprite.modulate
 
 
 func _draw_bar() -> void:

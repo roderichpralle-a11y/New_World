@@ -191,7 +191,7 @@ func _build() -> void:
 	if _count(w, "elektronikwerk") == 0:
 		wish.append(["elektronikwerk", tr("Elektronik für Droiden")])
 	if Game.storage_volume(w) - Game.used_volume(w) < 100:
-		wish.append(["grosslager", tr("mehr Platz im Lager")])
+		wish.append(["hochregallager" if Game.is_unlocked("hochregallager") else "grosslager", tr("mehr Platz im Lager")])
 	for it in wish:
 		var type: String = it[0]
 		if not Data.buildings.has(type) or not Game.is_unlocked(type) or not _affordable(w, type):
