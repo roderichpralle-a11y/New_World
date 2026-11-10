@@ -340,4 +340,4 @@ func _on_load(data: Dictionary, _old_rules: int) -> void:
 
 func autotest_setup(args: Dictionary, main) -> void:
 	if args.has("aitest"):
-		await AiRuleTest.run(main, str(args.aitest))
+		await Game.test("ai_rule_test").run(main, str(args.aitest))

@@ -700,16 +700,16 @@ func _on_load(data: Dictionary, old_rules: int) -> void:
 	changed.emit()
 
 
-## Selbsttest --admintest=1 (scripts/autoload/admin_test.gd).
+## Selbsttest --admintest=1 (scripts/test/admin_test.gd).
 func autotest_setup(args: Dictionary, main) -> void:
 	if args.has("admintest"):
-		await AdminTest.run(main)
+		await Game.test("admin_test").run(main)
 	if args.has("adminmeasure"):  # Ertrag: normal | ot | shift[,Tage]
-		await AdminTest.measure(main, str(args.adminmeasure))
+		await Game.test("admin_test").measure(main, str(args.adminmeasure))
 	if args.has("strolltest"):  # Spaziergang am Ufer (josh 2026-10-20)
-		await AdminTest.stroll(main)
+		await Game.test("admin_test").stroll(main)
 	if args.has("adminshot"):  # Bildschirmfoto: office | shifts | night | stats | workshop | proposal (mit --shot)
-		AdminTest.shot(main, str(args.adminshot))
+		Game.test("admin_test").shot(main, str(args.adminshot))
 
 
 ## Hilfetext (Menü > Hilfe), wie Extras.help_text.

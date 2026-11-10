@@ -1101,15 +1101,15 @@ func _once_end(sh: Dictionary, w) -> void:
 func autotest_setup(args: Dictionary, main) -> void:
 	if args.has("oncetest"):
 		if str(args.oncetest) == "trip":
-			await RouteTest.trip_test(main)
+			await Game.test("route_test").trip_test(main)
 		elif str(args.oncetest) == "room":
-			await RouteTest.room_test(main)
+			await Game.test("route_test").room_test(main)
 		elif str(args.oncetest) == "werft":
-			await RouteTest.yard_test(main)
+			await Game.test("route_test").yard_test(main)
 		elif str(args.oncetest) == "werftshot":
-			await RouteTest.yard_test(main, true)
+			await Game.test("route_test").yard_test(main, true)
 		else:
-			await RouteTest.once_test(main, str(args.oncetest))
+			await Game.test("route_test").once_test(main, str(args.oncetest))
 
 
 # ---------------------------------------------------------------- Fahrten (josh 2026-10-17)

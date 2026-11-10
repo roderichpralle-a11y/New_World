@@ -1598,6 +1598,11 @@ func _read_save(path: String) -> Dictionary:
 ## Liest den aktiven Spielstand. Ist die Datei unlesbar oder fehlt sie nach einem abgebrochenen Speichern,
 ## nimmt das Spiel die fertig geschriebene neue Datei (.neu) oder die Sicherung (.bak) und sagt es auf dem
 ## Titelbild (save_note). Die unlesbare Datei bleibt als .kaputt liegen und wird nicht überschrieben.
+## Testskript aus scripts/test/ (nicht im Web-Export): Game.test("admin_test").run(main)
+func test(script_name: String) -> GDScript:
+	return load("res://scripts/test/%s.gd" % script_name)
+
+
 func load_save() -> Dictionary:
 	save_note = ""
 	var d := _read_save(SAVE_PATH)
