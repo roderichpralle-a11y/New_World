@@ -1054,11 +1054,12 @@ func _unstick() -> void:
 
 func _plan_wander(radius: int, text: String, at = null) -> void:
 	var anchor: Vector2i = cell
-	var st = world.nearest_storage(cell)
 	if at != null:
 		anchor = at
-	elif st:
-		anchor = st.cell
+	else:
+		var st = world.nearest_storage(cell)
+		if st:
+			anchor = st.cell
 	for i in 6:
 		var c := anchor + Vector2i(_rng.randi_range(-radius, radius), _rng.randi_range(-radius, radius))
 		if world.is_walkable(c):
@@ -2069,7 +2070,11 @@ func _animate(delta: float) -> void:
 	_zzz.visible = sleeping and visible and (_body.rotation != 0 or _sied_kind != "")
 	if _zzz.visible:
 		_zzz.position.y = -30 + sin(_anim_t * 2.0) * 2.0
-	queue_redraw()
+	# _draw zeichnet nur den Auswahlpfeil: neu zeichnen, solange er gewählt ist, und einmal danach
+	var sel: bool = Game.selected == self
+	if sel or _was_selected:
+		queue_redraw()
+	_was_selected = sel
 
 
 ## Bewegung aus dem Siedler-Bogen wählen: Schlafen, Kämpfen, Gehen (mit Last oder Schubkarre), Lesen,
@@ -2137,6 +2142,9 @@ func _animate_cart(frame: int) -> bool:
 ## Schiebt gerade eine Schubkarre (Handkarren erforscht, erwachsen, laeuft mit Last).
 func pushes_cart() -> bool:
 	return carry_n > 0 and _moving and not sleeping and is_adult() and Game.is_researched("handkarren")
+
+
+var _was_selected := false
 
 
 func _draw() -> void:

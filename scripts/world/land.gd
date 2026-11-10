@@ -194,8 +194,10 @@ static func update_polders(w, quiet := false) -> int:
 					inner = false
 		if inner:
 			w.land_mod[c.y * n + c.x] = World.GRASS
+	w.terrain_batch_begin()
 	for c in gained:
 		w.set_terrain(c, int(w.land_mod[c.y * n + c.x]))
+	w.terrain_batch_end()
 	for c in gained:
 		w.refresh_tiles_around(c)
 	var back := _restore_sunk(w)
@@ -231,6 +233,7 @@ static func absorb_inner_dikes(w, quiet := false) -> int:
 			inner.append(b)
 	if inner.is_empty():
 		return 0
+	w.terrain_batch_begin()
 	for b in inner:
 		var c: Vector2i = b.cell
 		var t := World.GRASS
@@ -243,6 +246,7 @@ static func absorb_inner_dikes(w, quiet := false) -> int:
 		w.demolish(b)
 		w.set_terrain(c, t)
 		w.refresh_tiles_around(c)
+	w.terrain_batch_end()
 	update_polders(w, true)  # Wasser, das nur am alten Deich hing, wird jetzt auch Land
 	if not quiet:
 		Game.notify_at(w, Loc.t("Der neue Deich schließt %d alte Deichfelder ein. Sie werden abgerissen und sind jetzt Land.") % inner.size(), "wasser")
@@ -314,6 +318,7 @@ static func flood(w, _breached: Array) -> Dictionary:
 		if hit:
 			res.lost.append(str(b.def.name))
 			_sink(w, b)
+	w.terrain_batch_begin()
 	for c in wet:
 		var nd = w.node_at.get(c)
 		if nd != null:
@@ -321,6 +326,7 @@ static func flood(w, _breached: Array) -> Dictionary:
 		w.land_mod.erase(c.y * n + c.x)
 		w.set_terrain(c, World.WATER)
 		w.spawn_effect("chips_fischgrund", w.cell_to_pos(c))
+	w.terrain_batch_end()
 	for c in wet:
 		w.refresh_tiles_around(c)
 	res.cells = wet.size()

@@ -557,8 +557,29 @@ func set_terrain(c: Vector2i, t: int) -> void:
 	for y in range(c.y - 1, c.y + 1):
 		for x in range(c.x - 1, c.x + 1):
 			_paint_tile(x, y, _layers[1], _layers[2])
+	if _terrain_batch > 0:
+		_terrain_dirty = true  # viele Felder auf einmal: Küste und Grasmaske erst am Ende (terrain_batch_end)
+		return
 	_update_shore()
 	_update_grass_mask()
+
+
+## Mehrere set_terrain hintereinander (Neuland, Flut): Küste und Grasmaske nur einmal am Ende neu rechnen
+## statt für jedes einzelne Feld die ganze Karte.
+var _terrain_batch := 0
+var _terrain_dirty := false
+
+
+func terrain_batch_begin() -> void:
+	_terrain_batch += 1
+
+
+func terrain_batch_end() -> void:
+	_terrain_batch = maxi(0, _terrain_batch - 1)
+	if _terrain_batch == 0 and _terrain_dirty:
+		_terrain_dirty = false
+		_update_shore()
+		_update_grass_mask()
 
 
 func _setup_astar() -> void:
@@ -1743,6 +1764,8 @@ const CHIP_SOUNDS := {"baum": "axt", "palme": "axt", "fels": "stein", "erzader":
 
 
 func spawn_effect(kind: String, p: Vector2) -> void:
+	if not visible:
+		return  # Insel wird nicht angezeigt: keine Effekte erzeugen (Töne gibt es dort ohnehin nicht)
 	var colors := {
 		"chips_baum": [Color("#c49a5c"), Color("#7a4e32")],
 		"chips_fels": [Color("#b8bac6"), Color("#6a6c80")],
@@ -1786,6 +1809,8 @@ func spawn_effect(kind: String, p: Vector2) -> void:
 
 
 func spawn_smoke(p: Vector2) -> void:
+	if not visible:
+		return
 	var r := ColorRect.new()
 	var sz := _rng.randf_range(2.0, 4.0)
 	r.size = Vector2(sz, sz)
@@ -1802,6 +1827,8 @@ func spawn_smoke(p: Vector2) -> void:
 
 
 func float_text(p: Vector2, text: String, icon_res: String) -> void:
+	if not visible:
+		return
 	var box := HBoxContainer.new()
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_theme_constant_override("separation", 1)

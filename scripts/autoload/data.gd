@@ -460,18 +460,31 @@ func resource_name(id: String) -> String:
 	return resources.get(id, {}).get("name", id)
 
 
+## Die sortierten Listen ändern sich nach dem Laden der Daten nicht mehr: einmal berechnen. Die Aufrufer
+## bekommen dieselbe Liste und dürfen sie nicht verändern (nur lesen, filtern, slice).
+var _food_ids: Array = []
+var _res_ids: Array = []
+var _tech_ids: Array = []
+
+
 func food_ids() -> Array:
+	if not _food_ids.is_empty():
+		return _food_ids
 	var out := []
 	for id in resources:
 		if resources[id].get("category", "") == "food":
 			out.append(id)
 	out.sort_custom(func(a, b): return resources[a].get("nutrition", 0) > resources[b].get("nutrition", 0))
+	_food_ids = out
 	return out
 
 
 func sorted_resource_ids() -> Array:
+	if not _res_ids.is_empty():
+		return _res_ids
 	var ids := resources.keys()
 	ids.sort_custom(func(a, b): return resources[a].get("order", 0) < resources[b].get("order", 0))
+	_res_ids = ids
 	return ids
 
 
@@ -532,11 +545,14 @@ func tech_tex(tech: String) -> Texture2D:
 
 
 func sorted_tech_ids() -> Array:
+	if not _tech_ids.is_empty():
+		return _tech_ids
 	var ids := techs.keys()
 	ids.sort_custom(func(a, b):
 		if int(techs[a].tier) != int(techs[b].tier):
 			return int(techs[a].tier) < int(techs[b].tier)
 		return int(techs[a].points) < int(techs[b].points))
+	_tech_ids = ids
 	return ids
 
 
