@@ -55,7 +55,6 @@ var _stex_layer: TileMapLayer  # feiner Sand über vollen Sandfeldern (josh 2026
 var _mat_stex: ShaderMaterial
 var _fine_ground := false  # joshs feine Bodenbilder vorhanden (assets/sprites_hd/fine)
 static var _fine_tex: Dictionary = {}  # Name -> Textur der feinen Bodenbilder
-var _deco_layer: TileMapLayer  # feine Grasbüschel und Blumen (terrain_deco.png, josh 2026-10-28)
 var _mat_water: ShaderMaterial
 var _leaf_layer: TileMapLayer
 var _unreachable: Dictionary = {}
@@ -271,11 +270,6 @@ func _build_terrain(island: Dictionary) -> void:
 		_mat_gtex.set_shader_parameter("tint", _layers[2].modulate)  # Grünton der Inselart
 	_gtex_layer.material = _mat_gtex
 	add_child(_gtex_layer)
-	_deco_layer = TileMapLayer.new()
-	_deco_layer.tile_set = _make_deco_tileset()
-	_deco_layer.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS  # fein, ohne Flimmern
-	_deco_layer.material = _mat_ground  # Schnee hellt auch die Büschel auf
-	add_child(_deco_layer)
 	var sts := _make_season_tileset()
 	_snow_layer = TileMapLayer.new()
 	_leaf_layer = TileMapLayer.new()
@@ -333,19 +327,6 @@ func _make_tileset() -> TileSet:
 	return ts
 
 
-func _make_deco_tileset() -> TileSet:
-	var ts := TileSet.new()
-	ts.tile_size = Vector2i(T, T)
-	var src := TileSetAtlasSource.new()
-	src.texture = Data.hd("terrain_deco")
-	src.use_texture_padding = false
-	src.texture_region_size = Vector2i(T, T)
-	for v in 16:
-		src.create_tile(Vector2i(v, 0))
-	ts.add_source(src, 0)
-	return ts
-
-
 static func _fine(name: String) -> Texture2D:
 	if not _fine_tex.has(name):
 		_fine_tex[name] = Data.fine(name)
@@ -373,7 +354,7 @@ func _make_grid_tileset(tex: String, n: int) -> TileSet:
 	var ts := TileSet.new()
 	ts.tile_size = Vector2i(T, T)
 	var src := TileSetAtlasSource.new()
-	src.texture = Data.hd(tex)
+	src.texture = Data.hd_shared(tex)  # ein Bild für alle Inseln
 	src.use_texture_padding = false
 	src.texture_region_size = Vector2i(T, T)
 	for r in n:
@@ -387,7 +368,7 @@ func _make_season_tileset() -> TileSet:
 	var ts := TileSet.new()
 	ts.tile_size = Vector2i(T, T)
 	var src := TileSetAtlasSource.new()
-	src.texture = Data.hd("terrain_season")
+	src.texture = Data.hd_shared("terrain_season")
 	src.use_texture_padding = false
 	src.texture_region_size = Vector2i(T, T)
 	for r in 9:  # Zeilen 0..7 Schnee (ein nahtloses 8x8-Feld), Zeile 8 Laub
@@ -525,11 +506,6 @@ func _paint_tile(x: int, y: int, sand: TileMapLayer, grass: TileMapLayer) -> voi
 			_gtex_layer.set_cell(Vector2i(x, y), 0, Vector2i(posmod(x, 8), posmod(y, 8)))
 		else:
 			_gtex_layer.erase_cell(Vector2i(x, y))
-	if _deco_layer != null:
-		if false and mg == 15 and h >= 40:  # 2.0.15: Büschel und Blumen stecken im feinen Grasmuster (josh 2026-10-28)
-			_deco_layer.set_cell(Vector2i(x, y), 0, Vector2i(h % 16, 0))
-		else:
-			_deco_layer.erase_cell(Vector2i(x, y))
 	if _snow_layer == null:
 		return
 	var h2 := (hash(Vector2i(y, x) * 7) & 0xffff) % 100

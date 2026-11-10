@@ -45,6 +45,17 @@ const HD := 4
 const MAX_TEX := 8192  # größte Bildseite, die WebGL sicher zeigt
 
 
+## Wie hd(), aber jedes Bild nur einmal: für Bilder, die jede Insel braucht (Schnee, Laub, Grasmuster).
+## Vorher lud jede besiedelte Insel ihre eigene Kopie in den Grafikspeicher.
+static var _hd_shared: Dictionary = {}
+
+
+static func hd_shared(name: String) -> Texture2D:
+	if not _hd_shared.has(name):
+		_hd_shared[name] = hd(name)
+	return _hd_shared[name]
+
+
 static func hd(name: String) -> Texture2D:
 	tex_tag = name
 	var fp := "res://assets/sprites_hd/fine/%s.png" % name

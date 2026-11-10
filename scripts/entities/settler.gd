@@ -2161,11 +2161,18 @@ func _draw() -> void:
 
 
 # ------------------------------------------------------------------ Speichern
+static func _rounded(d: Dictionary) -> Dictionary:
+	var out := {}
+	for k in d:
+		out[k] = snappedf(float(d[k]), 0.01)
+	return out
+
+
 func serialize() -> Dictionary:
 	return {
-		"id": id, "name": display_name, "sex": sex, "age": snappedf(age, 0.001), "max_age": max_age,
+		"id": id, "name": display_name, "sex": sex, "age": snappedf(age, 0.001), "max_age": snappedf(max_age, 0.001),
 		"hunger": snappedf(hunger, 0.01), "health": snappedf(health, 0.01), "skills": skills,
-		"skill_xp": skill_xp, "job": job, "by_admin": by_admin, "job_by": job_by, "home": home_id, "look": look,
+		"skill_xp": _rounded(skill_xp), "job": job, "by_admin": by_admin, "job_by": job_by, "home": home_id, "look": look,
 		"carry_res": carry_res, "carry_n": carry_n, "birth_cd": birth_cooldown_until,
 		"parents": parents, "x": cell.x, "y": cell.y, "mind": mind.serialize(),
 		"busy": {"job": snappedf(float(busy.get("job", 0.0)), 0.001), "other": snappedf(float(busy.get("other", 0.0)), 0.001),

@@ -61,14 +61,10 @@ var rules_due := false  # Fenster Neue Regeln noch nicht gezeigt
 ## Autoload-Systeme melden sich in _ready an (register_system). main.gd ruft im Selbsttest
 ## autotest_setup(args, main) und autotest_report() auf, wenn es sie gibt.
 var systems: Array = []
-## Sicherung fuer aeltere Versionen (z. B. eine im Browser zwischengespeicherte alte Web-App):
-## Die behalten beim Speichern nur ihre eigenen Schluessel (OLD_SAVE_KEYS), die Inseldaten in
-## islands[0] aber unveraendert. Dort liegt deshalb unter "v2" eine Kopie der neuen Schluessel,
-## der Forschung und der Gebaeude und Waren, die alte Versionen nicht kennen (siehe _store_backup).
-const OLD_SAVE_KEYS := ["version", "seed", "time_days", "next_id", "stats", "lineage", "research", "goals",
-	"islands", "active", "voyages", "ships", "next_ship", "stock", "store_limits", "world"]
-const V2_BUILDINGS := ["tafelmacherei"]
-const V2_GOODS := ["tontafel", "gewuerze"]
+## Frühere Versionen legten in islands[0]["v2"] eine Sicherung der neuen Spielstand-Teile ab, falls eine
+## noch ältere, im Browser zwischengespeicherte Version den Stand speichert. Version 3 hat einen eigenen
+## Spielstand, den nur Version 3 schreibt: die Sicherung wird nicht mehr geschrieben (rund 85 KB je Stand),
+## beim Laden aber weiter gelesen (_merge_backup).
 var _v2_restore: Dictionary = {}  # Insel-ID (Text) -> {"b": Gebaeude, "s": Waren} zum Zurueckholen
 var _notes: Array = []  # Meldungen, bevor das Spiel sichtbar laeuft (queue_note)
 var notes_live := false
@@ -260,6 +256,7 @@ func _process(delta: float) -> void:
 		if day() != _last_day:
 			_last_day = day()
 			day_started.emit(_last_day)
+			prune_lineage()
 			notify(tr("Tag %d beginnt.") % _last_day, "sonne")
 		# KI-Steuerung (KI-Zentrum): freie Siedler auf fehlende Berufe verteilen
 		if time_days >= _ai_next:
@@ -1010,6 +1007,35 @@ func register_lineage(sid: int, parents: Array) -> void:
 	lineage[sid] = parents.map(func(x): return int(x))
 
 
+## Stammbaum kürzen (einmal je Spieltag): Verstorbene bleiben nur, solange sie für Lebende zählen, also als
+## Eltern oder Großeltern (related) oder als Kind eines Lebenden (gemeinsames Kind, SettlerMind.is_close).
+## Vorher wuchs die Liste mit jedem Siedler, der je gelebt hat.
+func prune_lineage() -> void:
+	var alive := {}
+	for w in Sea.all_worlds():
+		for s in w.settlers:
+			alive[int(s.id)] = true
+	for v in Sea.voyages:
+		for d in Array(v.get("settlers", [])) + Array(v.get("crew", [])):
+			if d is Dictionary:
+				alive[int(d.get("id", 0))] = true
+	var keep := alive.duplicate()
+	for sid in alive:
+		for p in lineage.get(sid, []):
+			keep[int(p)] = true
+			for gp in lineage.get(int(p), []):
+				keep[int(gp)] = true
+	for kid in lineage.keys():
+		if keep.has(kid):
+			continue
+		var of_living := false
+		for p in lineage[kid]:
+			if alive.has(int(p)):
+				of_living = true
+		if not of_living:
+			lineage.erase(kid)
+
+
 ## cause: Schluessel der Todesart ("starve", "sick", "old", "killed"), reason: Anzeigetext.
 func on_settler_died(s, reason: String, cause: String = "") -> void:
 	stats.deaths += 1
@@ -1465,7 +1491,6 @@ func save_game() -> void:
 	if rules_due and not rules_lines.is_empty():
 		data["rules_due"] = rules_lines.duplicate()  # Fenster noch nicht gesehen: beim naechsten Laden zeigen
 	state_save.emit(data)
-	_store_backup(data)
 	if write_save_text(SAVE_PATH, JSON.stringify(data)):
 		_write_slot_info()
 
@@ -1508,32 +1533,6 @@ func _remove_save_files(path: String) -> void:
 			DirAccess.remove_absolute(path + ext)
 	if _bak_path == path:
 		_bak_path = ""
-
-
-## Kopie der neuen Spielstand-Teile in islands[0]["v2"] (siehe OLD_SAVE_KEYS).
-func _store_backup(data: Dictionary) -> void:
-	var list = data.get("islands", [])
-	if not (list is Array) or list.is_empty() or not (list[0] is Dictionary):
-		return
-	var v2 := {}
-	for k in data:
-		if not str(k) in OLD_SAVE_KEYS:
-			v2[k] = data[k]
-	v2["research"] = research.duplicate(true)
-	var isl := {}
-	for e in list:
-		var wd = e.get("world")
-		if not (wd is Dictionary):
-			continue
-		var bl: Array = Array(wd.get("buildings", [])).filter(func(b): return str(b.get("type", "")) in V2_BUILDINGS)
-		var st := {}
-		for id in V2_GOODS:
-			if int(wd.get("stock", {}).get(id, 0)) > 0:
-				st[id] = int(wd.stock[id])
-		if not bl.is_empty() or not st.is_empty():
-			isl[str(e.get("id", 0))] = {"b": bl, "s": st}
-	v2["isl"] = isl
-	list[0]["v2"] = v2
 
 
 ## Beim Laden: Hat eine aeltere Version den Spielstand zuletzt gespeichert (kein "rules", aber

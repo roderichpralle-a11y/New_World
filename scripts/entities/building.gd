@@ -657,9 +657,23 @@ func _defend(delta: float) -> void:
 
 
 func serialize() -> Dictionary:
-	return {
-		"id": id, "type": type, "x": cell.x, "y": cell.y, "complete": complete,
-		"progress": progress, "delivered": delivered,
-		"farm_state": farm_state, "farm_time": farm_time, "paused": paused, "ship": ship_choice, "adm": adm, "repair": repair,
-		"ship_queue": ship_queue, "ship_wip": ship_wip,
-	}
+	# Nur was vom Standard abweicht (World.build_from_save liest alles andere mit Vorgabewert): ein Wegstück
+	# braucht so etwa 100 statt 230 Zeichen, bei 900 Gebäuden ist der Spielstand rund 100 KB kleiner.
+	var d := {"id": id, "type": type, "x": cell.x, "y": cell.y, "complete": complete,
+		"progress": snappedf(progress, 0.001), "delivered": delivered}
+	if farm_state != "fallow":
+		d["farm_state"] = farm_state
+	if farm_time != 0.0:
+		d["farm_time"] = snappedf(farm_time, 0.0001)
+	if paused:
+		d["paused"] = true
+	if adm:
+		d["adm"] = true
+	if repair:
+		d["repair"] = true
+	if def.get("ships", false) or not ship_queue.is_empty() or ship_wip != "" or ship_choice != "boot":
+		# Werft: die Liste immer schreiben (ohne sie gilt der Stand als alt und die Werft baut ein Schiff)
+		d["ship"] = ship_choice
+		d["ship_queue"] = ship_queue
+		d["ship_wip"] = ship_wip
+	return d
