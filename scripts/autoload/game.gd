@@ -500,34 +500,6 @@ func can_afford(cost: Dictionary, w = null) -> bool:
 var last_eaten: String = ""  # Sorte der letzten Mahlzeit (fuer Vitamine und Speiseplan)
 
 
-## Nimmt eine Mahlzeit: liefert Naehrwert (0 wenn nichts da).
-func eat_one(w = null) -> float:
-	var id := eat_food(false, w)
-	return Data.food_satiety(id) if id != "" else 0.0
-
-
-## Nimmt eine Speise aus dem Lager der Insel w und liefert ihre ID ("" wenn nichts da ist).
-## Mit prefer_vitamins wird die vitaminreichste Speise gewaehlt, sonst die saettigendste.
-## Bei Gleichstand nimmt der Siedler die Sorte, von der am meisten da ist.
-func eat_food(prefer_vitamins: bool, w = null) -> String:
-	var best := ""
-	var best_v := -INF
-	for id in Data.food_ids():
-		var n := amount(id, w)
-		if n <= 0:
-			continue
-		var v := Data.food_vitamins(id) if prefer_vitamins else Data.food_satiety(id)
-		v += n * 0.001
-		if v > best_v:
-			best_v = v
-			best = id
-	if best != "":
-		take_stock(best, 1, w)
-		eaten[best] = int(eaten.get(best, 0)) + 1
-		last_eaten = best
-	return best
-
-
 ## Kluge Speisenwahl: Der Siedler s waehlt aus dem Lager der Insel w die Speise, die seinen
 ## Bedarf (Saettigung bis eat_until, Vitamine bis vitamin_target) am besten deckt, ohne
 ## Saettigung zu verschwenden. Dazu zaehlen: was bald verdirbt zuerst, Abwechslung gegenueber
@@ -1007,10 +979,8 @@ func register_lineage(sid: int, parents: Array) -> void:
 	lineage[sid] = parents.map(func(x): return int(x))
 
 
-## Stammbaum kürzen (einmal je Spieltag): Verstorbene bleiben nur, solange sie für Lebende zählen, also als
-## Eltern oder Großeltern (related) oder als Kind eines Lebenden (gemeinsames Kind, SettlerMind.is_close).
-## Vorher wuchs die Liste mit jedem Siedler, der je gelebt hat.
-func prune_lineage() -> void:
+## IDs aller lebenden Siedler: auf den Inseln und auf See (als Menge: ID -> true).
+func living_ids() -> Dictionary:
 	var alive := {}
 	for w in Sea.all_worlds():
 		for s in w.settlers:
@@ -1019,6 +989,14 @@ func prune_lineage() -> void:
 		for d in Array(v.get("settlers", [])) + Array(v.get("crew", [])):
 			if d is Dictionary:
 				alive[int(d.get("id", 0))] = true
+	return alive
+
+
+## Stammbaum kürzen (einmal je Spieltag): Verstorbene bleiben nur, solange sie für Lebende zählen, also als
+## Eltern oder Großeltern (related) oder als Kind eines Lebenden (gemeinsames Kind, SettlerMind.is_close).
+## Vorher wuchs die Liste mit jedem Siedler, der je gelebt hat.
+func prune_lineage() -> void:
+	var alive := living_ids()
 	var keep := alive.duplicate()
 	for sid in alive:
 		for p in lineage.get(sid, []):
@@ -1400,31 +1378,6 @@ func import_slot(n: int, text: String) -> String:
 		int(Time.get_unix_time_from_system())])
 	cf.save("user://settings.cfg")
 	return ""
-
-
-## Probelauf an/aus (nur /v21test/, josh 2026-10-31): merkt es in den Einstellungen und lädt neu.
-func set_probelauf(on: bool) -> void:
-	if not probelauf:
-		save_game()
-	var cf := ConfigFile.new()
-	cf.load("user://settings.cfg")
-	cf.set_value("game", "probelauf", on)
-	cf.save("user://settings.cfg")
-	if on:  # jeder Probelauf beginnt mit einem neuen Spiel
-		for n in range(1, SLOTS + 1):
-			var p := "user://savegame_v2probe.json" if n <= 1 else "user://savegame_v2probe_%d.json" % n
-			if FileAccess.file_exists(p):
-				DirAccess.remove_absolute(p)
-	save_locked = true
-	if OS.has_feature("web"):
-		JavaScriptBridge.eval("""(function () {
-			const u = new URL(window.location.href);
-			u.search = '';
-			window.location.replace(u.toString());
-		})();""", true)
-	else:
-		OS.set_restart_on_exit(true)
-		get_tree().quit()
 
 
 ## Laedt die neueste Version der Seite. Die Web-Version ist eine installierbare App, deren

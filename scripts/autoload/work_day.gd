@@ -110,10 +110,6 @@ static func home_hours(s) -> float:
 	return h
 
 
-static func bed_hour(s) -> float:
-	return fposmod(wake_hour(s) + _cfg("awake", 18.0), 24.0)
-
-
 ## Abschnitt des Tages für diesen Siedler. Die Wege sind eingeplant (josh 2026-10-31):
 ## - morgens steht er so früh auf, dass er um 6 Uhr am Arbeitsplatz ist ("commute"),
 ## - aus der Pause bricht er so früh auf, dass er um 11 Uhr wieder dort ist,

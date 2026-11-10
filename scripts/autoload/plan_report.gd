@@ -261,39 +261,3 @@ static func _maker(_w, id: String) -> String:
 			return t
 	return ""
 
-
-# ---------------------------------------------------------------- Karte
-## Karte einer Insel (ein Pixel-Quadrat je Feld): Wasser, Sand, Gras, Gebäude, Straßen, vorgeschlagene
-## Straßen (orange), alter Platz (rot umrandet) und neuer Platz (grün) der Gebäude zum Verschieben.
-static func map_image(w, rep: Dictionary, px: int = 4) -> ImageTexture:
-	var n: int = w.size
-	var img := Image.create(n * px, n * px, false, Image.FORMAT_RGBA8)
-	var col_water := Color("#4a7fb5")
-	var col_sand := Color("#e6d49a")
-	var col_grass := Color("#7fae5a")
-	var col_bld := Color("#8a5a3a")
-	var col_road := Color("#9a9a9a")
-	for y in n:
-		for x in n:
-			var c := Vector2i(x, y)
-			var t: int = w.terrain_at(c)
-			var col := col_water if t == 0 else (col_sand if t == 1 else col_grass)
-			if w.building_at.has(c):
-				var b = w.building_at[c]
-				col = col_road if b.def.get("tile", "") == "road" else (col_bld if not b.is_ground() else col.darkened(0.15))
-			img.fill_rect(Rect2i(x * px, y * px, px, px), col)
-	for r in rep.get("roads", []):
-		img.fill_rect(Rect2i(int(r[0]) * px, int(r[1]) * px, px, px), Color("#ff9a1f"))
-	for m in rep.get("moves", []):
-		var sz: Array = m.size
-		var fr := Rect2i(int(m.from[0]) * px, int(m.from[1]) * px, int(sz[0]) * px, int(sz[1]) * px)
-		_frame(img, fr, Color("#d03030"))
-		img.fill_rect(Rect2i(int(m.to[0]) * px, int(m.to[1]) * px, int(sz[0]) * px, int(sz[1]) * px), Color("#2fbf4a"))
-	return Data.mk_tex(img)
-
-
-static func _frame(img: Image, r: Rect2i, col: Color) -> void:
-	img.fill_rect(Rect2i(r.position.x, r.position.y, r.size.x, 2), col)
-	img.fill_rect(Rect2i(r.position.x, r.end.y - 2, r.size.x, 2), col)
-	img.fill_rect(Rect2i(r.position.x, r.position.y, 2, r.size.y), col)
-	img.fill_rect(Rect2i(r.end.x - 2, r.position.y, 2, r.size.y), col)

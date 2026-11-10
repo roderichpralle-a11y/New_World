@@ -939,7 +939,6 @@ func _autotest_sea() -> void:
 	print("Erkunden: ", Sea.start_explore(world))
 
 
-var _sea_step := 0
 var _route_set := false
 
 

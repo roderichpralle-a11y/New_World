@@ -835,6 +835,10 @@ func find_approach(from: Vector2i, target_cells: Array, adjacent: bool, for_anim
 
 
 func mark_unreachable(obj) -> void:
+	if _unreachable.size() > 200:  # Abgelaufenes und Verschwundenes entfernen, sonst wächst die Liste endlos
+		for k in _unreachable.keys():
+			if not is_instance_valid(k) or float(_unreachable[k]) <= Game.time_days:
+				_unreachable.erase(k)
 	_unreachable[obj] = Game.time_days + 0.5
 
 
@@ -2635,10 +2639,6 @@ func _update_danger(delta: float) -> void:
 	for c in now:
 		if not old.has(c):
 			_update_weight(c)
-
-
-func is_dangerous(c: Vector2i) -> bool:
-	return _danger_cells.has(c)
 
 
 func _check_extinct(type: String) -> void:

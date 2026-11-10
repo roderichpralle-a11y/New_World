@@ -308,20 +308,6 @@ func gain_xp(sk: String, amount: float = 1.0, quiet: bool = false) -> void:
 		Sound.play_on("stufe", world)
 
 
-func best_job() -> String:
-	var best := "frei"
-	var best_v := 1.5
-	var map := {"holz": "holzfaeller", "stein": "steinmetz", "nahrung": "sammler", "bauen": "baumeister",
-		"handwerk": "handwerker", "wissen": "forscher", "jagd": "jaeger"}
-	for sk in map:
-		if not Data.job_unlocked(map[sk]):
-			continue
-		if skill_level(sk) > best_v:
-			best_v = skill_level(sk)
-			best = map[sk]
-	return best
-
-
 var _outfit_job := "?"
 var by_admin := false  # Beruf vom Verwalter zugewiesen (josh 2026-10-21)
 var job_by := ""  # wer den Beruf vergeben hat (Rang der JobDesk: verwalter, automat, ki, zentrum); "" = Spieler

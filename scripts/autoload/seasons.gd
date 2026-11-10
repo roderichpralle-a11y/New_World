@@ -10,7 +10,6 @@ signal season_changed(season: int)
 signal climate_announced(kind: String, type: String)
 
 enum {SPRING, SUMMER, AUTUMN, WINTER}
-const KEYS := ["fruehling", "sommer", "herbst", "winter"]
 var TEX: Texture2D = Data.hd("seasons")
 
 var cfg: Dictionary = {}

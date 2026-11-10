@@ -32,7 +32,6 @@ signal proposal(job: String, text: String)
 ## Die Leute eines Berufs hören unter Protest mit den Überstunden auf (text: übersetzter Grund, ProtestVideo).
 signal protest_started(job: String, text: String)
 
-const OFFICE := "verwaltung"
 const JOB := "verwalter"
 ## Werkstattart (production.job) -> Beruf
 const KIND_JOB := {"kueche": "koch", "handwerk": "handwerker", "stein": "steinmetz", "stall": "bauer"}
@@ -600,10 +599,6 @@ func add_log(text: String) -> void:
 	log_entries.append([Game.time_days, "", text])
 	if log_entries.size() > LOG_MAX:
 		log_entries = log_entries.slice(log_entries.size() - LOG_MAX)
-
-
-func produced_in(y: int, w = null) -> Dictionary:
-	return produced.get(str(y), {}).get(_isl(w), {})
 
 
 ## Auslastung je Beruf auf der Insel w (null: alle Inseln): {job: [Leute, im Beruf %, hilft aus %, nichts zu tun %]},

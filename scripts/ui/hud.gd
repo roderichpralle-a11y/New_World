@@ -1172,12 +1172,6 @@ func _age_header(a: int, cur_age: int) -> Control:
 	return box
 
 
-## Hoehe einer Listenzeile, damit der umbrechende Text hineinpasst.
-func _row_height(text: String, chars_per_line: int) -> float:
-	var lines := ceili(float(text.length()) / chars_per_line)
-	return max(62.0, 34.0 + 15.0 * lines)
-
-
 func _tech_row(t: String) -> Control:
 	# Zeile wie im Baumenü (josh 2026-10-19): Bild und Name links, Kosten und Punkte in der Mitte,
 	# Knopf als Bild, rechts „i“ mit der Beschreibung
