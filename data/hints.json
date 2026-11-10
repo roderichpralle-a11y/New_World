@@ -6,11 +6,11 @@
  },
  "age_1": {
   "name": "Du hast die Antike erreicht",
-  "text": "Ziegel, Brot, Straßen und Schule sind jetzt möglich. Forscher brauchen ab jetzt Tontafeln, ohne sie geht es nur langsam."
+  "text": "Steinhäuser, Brot, Straßen und Schule sind jetzt möglich. Forscher brauchen ab jetzt Tontafeln, ohne sie geht es nur langsam."
  },
  "age_2": {
   "name": "Du hast das Mittelalter erreicht",
-  "text": "Eisen, Waffen und Schiffe sind jetzt möglich. Mit Schiffen entdeckt ihr neue Inseln."
+  "text": "Schiffe, Wachtürme und Jäger sind jetzt möglich. Mit Schiffen entdeckt ihr neue Inseln."
  },
  "age_3": {
   "name": "Du hast die Renaissance erreicht",
@@ -30,7 +30,7 @@
  },
  "age_7": {
   "name": "Du hast die Zukunft erreicht",
-  "text": "Das letzte Ziel ist die Zukunftsstadt. Sie braucht alle Forschungen dieses Zeitalters."
+  "text": "Das letzte Ziel ist die Zukunftsstadt. Sie braucht die Forschungen KI, Fusionsenergie, Robotik und Goldenes Zeitalter."
  },
  "tier_2": {
   "name": "Neue Stufe: Handwerk",
@@ -178,7 +178,7 @@
  },
  "tech_dampfmaschine": {
   "name": "Neu: Planungsautomat",
-  "text": "Direkt vor die Verwaltung gestellt, plant der Verwalter selbst. Bauen müssen weiter die Siedler."
+  "text": "Holz, Stein und Erz gehen 30 % schneller."
  },
  "tech_stahl": {
   "name": "Neu: Stahlwerk",

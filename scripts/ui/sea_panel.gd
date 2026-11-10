@@ -935,7 +935,7 @@ func _fill_goods() -> void:
 			l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 			cell.add_child(l)
-			if Steward.routes_unlocked() and id != "essen":
+			if Steward.routes_unlocked() and Powers.on("waren") and id != "essen":  # Warenausgleich gibt es seit 2.0.81 nicht mehr
 				var cid := int(m.id)
 				var gid: String = id
 				cell.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -1018,7 +1018,7 @@ func _fill_goods() -> void:
 
 ## Mindest- und Höchststand einer Ware auf einer Insel (Steward.set_limits): der Verwalter fährt Waren nach.
 func _minmax_editor() -> void:
-	if not Steward.routes_unlocked():
+	if not Steward.routes_unlocked() or not Powers.on("waren"):
 		return
 	if _mm_island < 0 or _mm_good == "" or Sea.worlds.get(_mm_island) == null:
 		_details.add_child(_hint(tr("Tippe auf eine Zahl, um für die Ware auf dieser Insel einen Mindest- und Höchststand einzustellen. Der Verwalter fährt dann mit freien Schiffen Waren hin und her.")))

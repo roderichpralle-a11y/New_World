@@ -81,7 +81,7 @@ static func fill_window(hud, b, box: Container, rebuild: Callable, ft: Dictionar
 	ft.left.text = Loc.t("Verwalter: %s") % m.display_name if m else Loc.t("Kein Verwalter")
 	Win.set_left2(ft, Sea.island_name(b.world) if b != null and Sea.settled_islands().size() > 1 else "")
 	if b == null and _tab != TAB_LOG:
-		var l := UiTheme.label(Loc.t("Baue zuerst die Verwaltung (Bauen, Reiter Wissen) und gib einem Siedler den Beruf Verwalter. Mit jedem Ausbau der Verwaltung übernimmt er mehr Aufgaben."), 14, UiTheme.BAD)
+		var l := UiTheme.label(Loc.t("Baue zuerst die Verwaltung (Bauen, Reiter Wissen) und gib einem Siedler den Beruf Verwalter."), 14, UiTheme.BAD)
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		box.add_child(l)
 		return

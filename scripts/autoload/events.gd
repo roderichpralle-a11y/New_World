@@ -1,6 +1,6 @@
 extends Node
 ## Angekündigte Ereignisse (Regeln ab Version 2, "Herausforderung"): Dürre, Ratten, Brand, Seuche,
-## Sturmflut und ab dem Mittelalter Piraten. Alle Zahlen und Texte stehen in data/events.json.
+## Sturmflut und ab Forschungsstufe 4 Piraten. Alle Zahlen und Texte stehen in data/events.json.
 ##
 ## Ablauf je besiedelter Insel: frühestens ab Spieltag `start_day` (13 = Jahr 2), nicht während der
 ## Einführung, mit mindestens `min_settlers` Siedlern. Eine neue oder gerade geladene Insel hat
@@ -1233,7 +1233,7 @@ func _on_load(data: Dictionary, old_rules: int) -> void:
 				if s.get("fear") is Array and s.fear.size() >= 3:
 					islands[str(int(k))]["fear"] = [float(s.fear[0]), float(s.fear[1]), bool(s.fear[2])]
 	if old_rules < 1:
-		Game.rules_lines.append(tr("Ab dem zweiten Jahr kündigen sich Ereignisse an: Dürre, Ratten, Brand, Seuche, Sturmflut und ab dem Mittelalter Piraten. Wer sie gut übersteht, bekommt Einwanderer."))
+		Game.rules_lines.append(tr("Ab dem zweiten Jahr kündigen sich Ereignisse an: Dürre, Ratten, Brand, Seuche, Sturmflut und ab Forschungsstufe 4 Piraten. Wer sie gut übersteht, bekommt Einwanderer."))
 	if old_rules < 2:
 		Game.rules_lines.append(tr("Ab Forschungsstufe 4 überfallen Piraten die Inseln. Die Erwachsenen kämpfen, mit Waffen aus der Waffenschmiede doppelt so gut wie mit Mistgabel und Werkzeug. Kinder und Alte verstecken sich."))
 		Game.rules_lines.append(tr("Straßen gibt es erst nach der Forschung Wegebau. Siedler nehmen immer den schnellsten Weg und bringen Waren ins nächste Lager."))

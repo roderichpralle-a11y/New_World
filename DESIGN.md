@@ -244,6 +244,13 @@ Die lernende KI ist unter /v3/ immer verfügbar (kein `?ki` nötig) und an: neue
 ersten Mal in V3 geladen wird (`ki_brain.v3` im Spielstand); danach gilt der Schalter. Handy-Fassung unter /v3/handy/.
 Testhilfe `--v3build`.
 
+- **Texte an die gestrichenen Befugnisse angepasst (josh 2026-11-10, V3)**: Ausbaustufen der Verwaltung 2–7 versprechen
+  keine eigenen Aufgaben mehr (sie wirken seit 2.0.81 nicht), Rundfunkanstalt erklärt die Steuerung anderer Inseln statt
+  des Inselverbunds, Hilfe zum Fenster Verwalter nennt die echten Reiter, Beruf Verwalter schlägt keine Überstunden mehr
+  vor, Piraten ab Forschungsstufe 4 (nicht Mittelalter), Kuhstall ohne Heu, Zukunftsstadt braucht KI, Fusionsenergie,
+  Robotik und Goldenes Zeitalter. Mindest-/Höchststände im Inselfenster sind ohne die Befugnis „waren“ nicht mehr
+  antippbar (`SeaPanel._minmax_editor`).
+
 ## Lernende KI für die Berufe (josh 2026-11-07, nur Testversion /v21test2/, `scripts/autoload/ki_brain.gd`)
 
 - **Schalter**: Fenster Verwalter, Reiter Befugnisse, Zeile „Berufe vergeben“: Verwalter / Lernende KI (`KiBrain.on`,
