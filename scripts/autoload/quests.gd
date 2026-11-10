@@ -236,11 +236,26 @@ func make_offers() -> bool:
 		if templates()[id].get("pick", true):
 			ids.append(id)
 	_shuffle(ids)
+	# Dringendes und der Entwicklungspfad zuerst (josh 2026-11-10): knapper Wintervorrat, Heizholz, das
+	# nächste erforschte, aber noch nicht gebaute Gebäude
+	var first := []
+	if winter_food_short() > 0.0:
+		first.append("winter_essen")
+	if winter_wood_short() > 0:
+		first.append("winterholz")
+	if _rng.randf() < 0.75:
+		first.append("bauen")
+	for id in first:
+		if ids.has(id):
+			ids.erase(id)
+	ids = first + ids
 	var list := []
 	var count := int(cfg().get("offer_count", 3))
 	for id in ids:
 		if list.size() >= count:
 			break
+		if id == str(last.get("tpl", "")) and id != "bauen":
+			continue  # nicht gleich wieder dasselbe (josh: Abwechslung)
 		var q := make_quest(id, ctx)
 		if q.is_empty() or is_met(q):
 			continue
@@ -304,23 +319,18 @@ func make_quest(id: String, ctx: Dictionary) -> Dictionary:
 	var p := int(ctx.P)
 	var now := Game.time_days
 	match id:
-		"vorrat_essen":
-			var food := ""
-			for f in ["brot", "raeucherfisch", "konserven", "eier"]:
-				if Data.resources.has(f) and obtainable(f):
-					food = f
-					break
-			if food == "":
-				for f in Data.food_ids():  # nach Saettigung sortiert
-					if obtainable(f):
-						food = f
-						break
+		"vorrat_essen", "winter_essen":
+			# Produktion statt Lager (josh 2026-11-10): im Lager wird manchmal schneller gegessen als erzeugt
+			var short := winter_food_short()
+			if id == "winter_essen" and short <= 0.0:
+				return {}
+			var food := _food_to_make(id == "winter_essen")
 			if food == "":
 				return {}
-			var delta := _cap_space(food, _round5(maxf(15.0, 1.5 * p)))
-			if delta < 8:
-				return {}
-			return _quest(id, {"type": "stock", "what": food, "n": Game.amount_all(food) + delta})
+			var hunger := float(Data.bal("hunger_per_day", 75.0)) * Game.eff("hunger")
+			var cover := 0.6 if id == "vorrat_essen" else clampf(short, 0.6, 1.2)
+			var n := _doable(food, p * hunger * cover / maxf(1.0, Data.food_satiety(food)), 4.0)
+			return _quest(id, {"type": "made", "what": food, "n": n, "base": made(food)})
 		"vorrat_ware":
 			var list := []
 			for r in Data.resources:
@@ -330,33 +340,38 @@ func make_quest(id: String, ctx: Dictionary) -> Dictionary:
 			if list.is_empty():
 				return {}
 			var r: String = _pick(list)
-			var delta := _cap_space(r, _round5(clampf(4.0 * p / float(Data.resources[r].price), 8.0, 100.0)))
-			if delta < 8:
-				return {}
-			return _quest(id, {"type": "stock", "what": r, "n": Game.amount_all(r) + delta})
+			var n := _doable(r, clampf(4.0 * p / float(Data.resources[r].price), 8.0, 100.0), 4.0)
+			return _quest(id, {"type": "made", "what": r, "n": n, "base": made(r)})
 		"winterholz":
 			if Seasons.season() > 1:
 				return {}
 			var start := float(Seasons.year() - 1) * Seasons.year_days() + 3.0 * Seasons.season_days()
 			if start - now < 3.0:
 				return {}
-			# Kohle im Lager heizt zuerst (Extras.burn_fuel) und spart so viel Holz
-			var coal := int(float(Game.amount_all("kohle")) * Extras.coal_ratio())
-			var delta := _cap_space("holz", winter_wood(p, winter_mult()) - coal)
-			if delta < 8:
+			# Holz schlagen, was zum Winter noch fehlt (Kohle und Holz im Lager zählen mit), mindestens das Übliche
+			var n := _round5(maxf(float(winter_wood_short()), float(winter_wood(p, winter_mult()))))
+			if n < 8 or not obtainable("holz"):
 				return {}
-			return _quest(id, {"type": "stock", "what": "holz", "n": Game.amount_all("holz") + delta}, {"until": start})
+			return _quest(id, {"type": "made", "what": "holz", "n": n, "base": made("holz")}, {"until": start})
 		"bauen":
 			var cands := []
 			for type in Data.buildings:
 				var d: Dictionary = Data.buildings[type]
 				if not d.get("buildable", false) or not Game.is_unlocked(type) or d.has("effects"):
 					continue
+				# Keine Pflanzstellen, Straßen, Felder und Schmuck: die haben eigene Aufträge oder sind kein Schritt
+				if d.has("tile") or d.get("ground", false) or d.has("decor") or d.get("repeat", false):
+					continue
 				if _building_count(type, true) > 0 or not _goods_ok(d.get("cost", {})):
 					continue
 				cands.append(type)
 			if cands.is_empty():
 				return make_quest("bauen_mehr", ctx)
+			# Entwicklungspfad (josh 2026-11-10): das Gebäude der jüngsten Forschung zuerst
+			var top := -1
+			for t in cands:
+				top = maxi(top, _tier_of(t))
+			cands = cands.filter(func(t): return _tier_of(t) == top)
 			var type: String = _pick(cands)
 			var sum := 0
 			for r in Data.buildings[type].get("cost", {}):
@@ -426,8 +441,45 @@ func make_quest(id: String, ctx: Dictionary) -> Dictionary:
 			if delta < 8:
 				return {}
 			return _quest(id, {"type": "stock_at", "what": r, "island": int(pr[1].island_id), "n": Game.amount(r, pr[1]) + delta})
-		"geburten":
-			return _quest(id, {"type": "births", "n": 2 + p / 8, "base": int(Game.stats.get("births", 0))})
+		"geburten":  # schwer planbar, darum hohe Belohnung (josh 2026-11-10)
+			return _quest(id, {"type": "births", "n": 2 + p / 12, "base": int(Game.stats.get("births", 0))})
+		"pflanzen":  # erledigt, sobald der Setzling steht (nicht erst, wenn der Baum gewachsen ist)
+			if not Game.is_unlocked("setzling") or not Data.job_unlocked("foerster"):
+				return {}
+			return _quest(id, {"type": "built", "what": "setzling", "n": 3, "base": built("setzling")})
+		"schmuck":
+			var dec := []
+			for type in Data.buildings:
+				var d: Dictionary = Data.buildings[type]
+				if d.has("decor") and d.get("buildable", false) and Game.is_unlocked(type) and _goods_ok(d.get("cost", {})):
+					dec.append(type)
+			if dec.is_empty():
+				return {}
+			var type: String = _pick(dec)
+			return _quest(id, {"type": "built", "what": type, "n": 1, "base": built(type)})
+		"laune":
+			var m := GoalChecks.mean_mood()
+			if m <= 0.0 or m >= 78.0:
+				return {}
+			return _quest(id, {"type": "mood", "n": mini(85, roundi(m) + 8)})
+		"hafen":
+			for type in _sea_buildings():
+				if _building_count(type, true) == 0 and _goods_ok(Data.buildings[type].get("cost", {})):
+					return _quest(id, {"type": "building", "what": type, "n": 1})
+			return {}
+		"schiff":
+			var yard := false
+			for w in Sea.all_worlds():
+				if w.buildings.any(func(b): return b.complete and b.def.get("ships", false)):
+					yard = true
+			if not yard:
+				return {}
+			return _quest(id, {"type": "made", "what": "_schiff", "n": 1, "base": made("_schiff")})
+		"besiedeln":
+			var settled: int = Sea.settled_islands().size()
+			if Sea.ships.is_empty() or Sea.islands.size() <= settled:
+				return {}
+			return _quest(id, {"type": "islands_settled", "n": settled + 1})
 		"entdecken":
 			if Sea.ships.is_empty():
 				return {}
@@ -442,6 +494,66 @@ func make_quest(id: String, ctx: Dictionary) -> Dictionary:
 				return {}
 			return _quest(id, {"type": "variety", "max": true, "n": best + 1})
 	return {}
+
+
+## Zähler für Aufträge „Erzeuge“ (Admin.note_produced) und „Baue/Pflanze“ (World.on_building_completed).
+func made(id: String) -> int:
+	return int(Game.stats.get("made", {}).get(id, 0))
+
+
+func built(type: String) -> int:
+	return int(Game.stats.get("built", {}).get(type, 0))
+
+
+## Forschungsstufe, die ein Gebäude freischaltet (0 ohne Forschung).
+func _tier_of(type: String) -> int:
+	var t := str(Data.buildings[type].get("requires", ""))
+	return int(Data.techs[t].get("tier", 0)) if Data.techs.has(t) else 0
+
+
+## Werft und Häfen in der Reihenfolge, in der man sie braucht (freigeschaltet).
+func _sea_buildings() -> Array:
+	var out := []
+	for type in ["werft", "anlegesteg", "hafen", "grosser_hafen"]:
+		if Data.buildings.has(type) and Game.is_unlocked(type):
+			out.append(type)
+	return out
+
+
+## Wie viele Tage Essen fehlen bis zum Ende des Winters (nur Sommer und Herbst; 0 = genug).
+func winter_food_short() -> float:
+	var season := Seasons.season()
+	if season != 1 and season != 2:
+		return 0.0
+	var to_end := maxf(0.0, QuestRewards._days_to_winter()) + Seasons.season_days()
+	var target := minf(to_end, Seasons.season_days() * float(QuestRewards._c("winter_food_days", 1.3)))
+	return maxf(0.0, target - QuestRewards._food_days_all())
+
+
+## Holz, das für den Winter noch fehlt (Kohle zählt mit); 0 im Winter oder wenn genug da ist.
+func winter_wood_short() -> int:
+	if Seasons.season() > 1:
+		return 0
+	var need := float(Seasons.winter_wood_need()) * winter_mult()
+	var have := 0.0
+	for w in Sea.all_worlds():
+		have += Extras.fuel(w)
+	return maxi(0, ceili(need - have))
+
+
+## Speise für einen Erzeuge-Auftrag: eine, die sich gerade herstellen lässt; für den Winter haltbare zuerst.
+func _food_to_make(winter: bool) -> String:
+	var list := []
+	# Nur, was laufend entsteht: Weizen und Äpfel gibt es nur zur Ernte, das wäre in der Frist Glückssache
+	for f in ["beeren", "fisch", "brot", "raeucherfisch", "pilze", "eier", "fleisch", "milch", "kokos", "konserven"]:
+		if Data.resources.has(f) and obtainable(f):
+			list.append(f)
+	if winter:
+		var perish: Array = Seasons.cfg.get("perishable", [])
+		var keep := list.filter(func(f): return not f in perish)
+		if not keep.is_empty() and _rng.randf() < 0.6:
+			list = keep
+	return str(_pick(list)) if not list.is_empty() else ""
 
 
 ## Gebaeude dieses Typs (auch Ausbaustufen mit gleichem `base`), mit Baustellen oder nur fertige.
@@ -758,8 +870,34 @@ func research_total() -> float:
 
 func _mark_research() -> void:
 	rp_marks.append([Game.time_days, research_total()])
+	# Herstellung je Tag merken (Aufträge „Erzeuge“: Menge, die in der Frist machbar ist)
+	var mm: Array = Game.stats.get("made_marks", [])
+	mm.append([Game.time_days, Game.stats.get("made", {}).duplicate()])
+	while mm.size() > 1 and Game.time_days - float(mm[1][0]) >= 2.0:
+		mm.pop_front()
+	Game.stats["made_marks"] = mm
 	while rp_marks.size() > 1 and Game.time_days - float(rp_marks[1][0]) >= 1.0:
 		rp_marks.pop_front()
+
+
+## Wie viel von id zuletzt je Tag hergestellt wurde (über bis zu 2 Tage); -1 = noch keine Messung.
+func made_rate(id: String) -> float:
+	var mm: Array = Game.stats.get("made_marks", [])
+	if mm.is_empty():
+		return -1.0
+	var dt := Game.time_days - float(mm[0][0])
+	if dt < 0.5:
+		return -1.0
+	return maxf(0.0, float(made(id) - int(mm[0][1].get(id, 0))) / dt)
+
+
+## Menge für einen Erzeuge-Auftrag: gewünscht want, aber höchstens das 1,4-fache dessen, was bei jetzigem
+## Tempo in der Frist entsteht (mehr Leute einteilen reicht dann), mindestens 8.
+func _doable(id: String, want: float, days: float) -> int:
+	var r := made_rate(id)
+	if r > 0.0:
+		want = minf(want, r * days * 1.4)
+	return maxi(8, _round5(want))
 
 
 ## Forschungspunkte je Tag, gemessen ueber den letzten Tag (mindestens research_min_rate).
@@ -775,6 +913,12 @@ func research_rate() -> float:
 
 # ---------------------------------------------------------------- Texte
 ## Text eines Auftrags aus der Vorlage (beim Anzeigen gebaut, damit die Sprache stimmt).
+const FOOD_VERBS := {"beeren": "Sammle %d Beeren.", "pilze": "Sammle %d Pilze.", "aepfel": "Ernte %d Äpfel.",
+	"fisch": "Fange %d Fische.", "raeucherfisch": "Räuchere %d Fische.", "brot": "Backe %d Brote.", "weizen": "Ernte %d Weizen.",
+	"eier": "Sammle %d Eier.", "fleisch": "Erjage %d Fleisch.", "milch": "Melke %d Milch.", "kokos": "Sammle %d Kokosnüsse.",
+	"konserven": "Stelle %d Konserven her."}
+
+
 func text_of(q: Dictionary) -> String:
 	var tpl := str(q.get("tpl", ""))
 	var text := str(templates().get(tpl, {}).get("text", tpl))
@@ -783,11 +927,16 @@ func text_of(q: Dictionary) -> String:
 	var n := int(c.get("n", 0))
 	var args := []
 	match tpl:
-		"vorrat_essen", "vorrat_ware":
+		"vorrat_essen", "winter_essen":
+			if FOOD_VERBS.has(what):  # „Sammle 30 Beeren.“, „Backe 8 Brote.“
+				var t := tr(FOOD_VERBS[what]) % n
+				return (tr("Für den Winter:") + " " + t) if tpl == "winter_essen" else t
 			args = [n, Data.resource_name(what)]
-		"winterholz", "wohnen", "wachsen", "abwechslung", "jagd", "geburten":
+		"vorrat_ware":
+			args = [n, Data.resource_name(what)]
+		"winterholz", "wohnen", "wachsen", "abwechslung", "jagd", "geburten", "pflanzen", "laune":
 			args = [n]
-		"bauen", "bauen_mehr":
+		"bauen", "bauen_mehr", "schmuck", "hafen":
 			args = [GoalChecks.building_name(what)]
 		"forschen":
 			args = [str(Data.techs.get(what, {}).get("name", what.capitalize()))]
@@ -1003,7 +1152,13 @@ func sanitize_quest(q) -> Dictionary:
 		"tech":
 			if not Data.techs.has(what):
 				return {}
-		"housing", "pop", "kills", "births", "islands_found", "variety", "starved":
+		"made":
+			if not Data.resources.has(what) and what != "_schiff":
+				return {}
+		"built":
+			if not Data.buildings.has(what):
+				return {}
+		"housing", "pop", "kills", "births", "islands_found", "islands_settled", "variety", "starved", "mood":
 			pass
 		_:
 			return {}

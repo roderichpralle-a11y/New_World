@@ -1071,6 +1071,9 @@ func can_place(type: String, c: Vector2i, ignore = null) -> bool:
 
 
 func on_building_completed(b: Building) -> void:
+	var built: Dictionary = Game.stats.get("built", {})  # Zähler für Aufträge (Baum pflanzen, Schmuck)
+	built[b.type] = int(built.get(b.type, 0)) + 1
+	Game.stats["built"] = built
 	if b.is_decor():
 		decor_dirty()
 	if b.def.has("tile"):
