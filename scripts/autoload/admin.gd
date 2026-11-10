@@ -72,12 +72,25 @@ func _c(key: String, default) -> float:
 
 # ---------------------------------------------------------------- Abfragen
 ## Die fertige Verwaltung (auf irgendeiner Insel) oder null.
+## Gemerkt, bis sich auf irgendeiner Insel die Gebäude ändern (World.global_rev): die Abfrage läuft für jeden
+## Siedler mehrmals je Bild (Schicht, Überstunden, fester Arbeitstag) und ging jedes Mal alle Gebäude durch.
 func office():
+	if _office_rev == World.global_rev and (_office == null or is_instance_valid(_office)):
+		return _office
+	_office_rev = World.global_rev
+	_office = null
 	for w in Sea.all_worlds():
 		for b in w.buildings:
 			if b.def.get("office", false) and (b.complete or int(b.def.get("office_level", 1)) > 1):
-				return b  # eine Ausbau-Baustelle arbeitet mit der Stufe davor weiter
+				_office = b  # eine Ausbau-Baustelle arbeitet mit der Stufe davor weiter
+				return b
 	return null
+
+
+var _office = null
+var _office_rev := -1
+var _mgr = null
+var _mgr_key := Vector2i(-1, -1)
 
 
 ## Ausbaustufe der Verwaltung (josh 2026-10-29): 0 ohne fertige Verwaltung oder ohne Verwalter auf ihrer
@@ -120,8 +133,17 @@ func local_manager():
 	var w = admin_world()
 	if w == null:
 		return null
+	var key := Vector2i(World.global_rev, World.people_rev)
+	if _mgr_key == key:
+		if _mgr == null:
+			return null
+		if is_instance_valid(_mgr) and not _mgr.is_queued_for_deletion() and _mgr.job == JOB and _mgr.is_adult() and _mgr.world == w:
+			return _mgr
+	_mgr_key = key
+	_mgr = null
 	for s in w.settlers:
 		if s.job == JOB and s.is_adult():
+			_mgr = s
 			return s
 	return null
 

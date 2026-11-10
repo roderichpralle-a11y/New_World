@@ -7,7 +7,12 @@ var type: String
 var def: Dictionary
 var cell: Vector2i  # obere linke Zelle der Grundflaeche
 var size: Vector2i
-var complete: bool = false
+## Setter: fertig/Baustelle und Wiederaufbau ändern die gemerkten Auswahlen der Insel (World.build_rev)
+var complete: bool = false:
+	set(v):
+		if v != complete:
+			complete = v
+			_bump()
 var progress: float = 0.0
 var delivered: Dictionary = {}
 var incoming: Dictionary = {}  # von Baumeistern unterwegs
@@ -17,7 +22,11 @@ var reserved_by: int = 0
 var occupants: Array = []  # Siedler-IDs, die hier arbeiten (Produktion, Forschung)
 var paused: bool = false
 var adm: bool = false  # Verwaltung: Vertretung erlaubt (Admin)
-var repair: bool = false  # nach einer Katastrophe zerstört: alle Erwachsenen bauen es zuerst wieder auf (josh 2026-11-01)
+var repair: bool = false:  # nach einer Katastrophe zerstört: alle Erwachsenen bauen es zuerst wieder auf (josh 2026-11-01)
+	set(v):
+		if v != repair:
+			repair = v
+			_bump()
 var ship_choice: String = "boot"  # Werft (alte Spielstände): Schiff, das früher immer wieder gebaut wurde
 var ship_queue: Array = []  # Werft: Bauaufträge der Reihe nach (josh 2026-10-17); leer = baut nichts
 var ship_wip: String = ""  # Werft: Schiff, fuer das die Rohstoffe schon genommen sind
@@ -540,6 +549,26 @@ func _draw_bar() -> void:
 
 
 var _smoke_t: float = 0.0
+
+
+func _ready() -> void:
+	set_process(_wants_process())  # erst hier: beim Einhängen schaltet Godot _process von selbst ein
+
+
+func _bump() -> void:
+	if world != null and is_instance_valid(world):
+		world.bump_rev()
+
+
+## Wege, Deiche, Zäune, Hecken und anderer Schmuck ohne Bewegung haben in _process nichts zu tun. Sie
+## bekommen keinen Aufruf je Bild mehr (auf großen Inseln sind das zwei Drittel aller Gebäude).
+func _wants_process() -> bool:
+	if not (def.has("tile") or def.has("decor")):
+		return true
+	if type == "lagerfeuer" or _light != null or def.has("anim") or def.has("defense") or def.has("farm") \
+			or def.has("production") or def.get("ships", false):
+		return true
+	return _sprite != null and Data.object_frames(str(def.get("sprite", ""))) > 1
 
 
 func _process(delta: float) -> void:

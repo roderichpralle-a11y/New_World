@@ -300,12 +300,20 @@ func _process(delta: float) -> void:
 		_set_bubble(false)
 		return
 	_tick -= real
+	var tut := in_tutorial()
 	if _tick <= 0.0:
 		_tick = 0.4
 		_check()
-	_set_visible(shown())
+		_shown_now = shown()
+	elif tut:
+		_shown_now = shown()  # Einführung: jede Änderung sofort (Pfeil und Sprechblase)
+	# Nach der Einführung reicht der Takt von 0,4 s: shown() fragt Prüfungen und Aufträge ab
+	_set_visible(_shown_now)
 	if visible:
 		_update_pointer()
+
+
+var _shown_now := false
 
 
 func _set_visible(on: bool) -> void:

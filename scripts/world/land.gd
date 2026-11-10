@@ -91,7 +91,7 @@ static func on_completed(w, b) -> void:
 ## Setzling fertig: die Pflanzstelle verschwindet, ein junger Baum wächst (halbe Nachwachszeit).
 static func plant_tree(w, b) -> void:
 	var c: Vector2i = b.cell
-	w.buildings.erase(b)
+	w.untrack_building(b)
 	w.building_at.erase(c)
 	if Game.selected == b:
 		Game.select(null)
@@ -349,7 +349,7 @@ static func _sink(w, b) -> void:
 			s.abort_plan()
 		if b.occupants.has(s.id):
 			s.abort_plan()
-	w.buildings.erase(b)
+	w.untrack_building(b)
 	for cc in b.cells():
 		w.building_at.erase(cc)
 		w._set_solid(cc, w.node_at.has(cc) and w.node_at[cc].blocks_path())

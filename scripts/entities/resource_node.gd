@@ -7,7 +7,13 @@ var type: String
 var def: Dictionary
 var cell: Vector2i
 var amount: int = 0
-var regrow_at: float = -1.0  # Spielzeit (Tage), wann wieder voll
+var regrow_at: float = -1.0:  # Spielzeit (Tage), wann wieder voll
+	set(v):
+		if v < 0.0 or regrow_at < 0.0:
+			_regrow_seen = Game.time_days  # neu begonnen: die Zeit zählt ab jetzt (siehe _regrow_step)
+		regrow_at = v
+		if v >= 0.0:
+			set_process(true)  # wächst nach oder verdirbt: wieder jeden Takt rechnen (sonst ruht die Quelle)
 var variant: int = 0
 var reserved_by: int = 0
 var clear_mark := false  # Förster soll hier roden (Land)
@@ -112,6 +118,7 @@ func harvest_one() -> int:
 	var got := maxi(1, int(_yield_acc))
 	_yield_acc -= float(got)
 	_shake = 0.25
+	set_process(true)
 	if amount <= 0:
 		match def.get("on_empty", "regrow"):
 			"remove":
@@ -125,23 +132,47 @@ func harvest_one() -> int:
 	return got
 
 
-func _process(delta: float) -> void:
+const REGROW_EVERY := 10
+var _regrow_tick := randi_range(1, REGROW_EVERY)  # verteilt die Quellen auf verschiedene Bilder
+var _regrow_seen := -1.0  # Spielzeit der letzten Rechnung
+
+
+func _regrow_step() -> void:
+	var now: float = Game.time_days
+	var dt := now - _regrow_seen if _regrow_seen >= 0.0 else 0.0
+	_regrow_seen = now
 	# Jahreszeit: im Winter wächst nichts nach, im Frühling schneller; Erlegtes hält im Winter länger
-	if regrow_at >= 0.0 and Seasons.dt_days > 0.0:
+	if dt > 0.0 and dt < 1.0:
 		var f := Seasons.decay() if def.has("decay_days") else Seasons.growth(type, world)
-		regrow_at += Seasons.dt_days * (1.0 - f)
+		regrow_at += dt * (1.0 - f)
 	# Erlegte Tiere verderben nach ein paar Tagen
-	if def.has("decay_days") and regrow_at >= 0.0 and Game.time_days >= regrow_at:
+	if def.has("decay_days") and Game.time_days >= regrow_at:
 		world.remove_node(self)
 		return
-	if amount <= 0 and regrow_at >= 0.0:
+	if amount <= 0:
 		if Game.time_days >= regrow_at:
 			amount = int(def.capacity)
 			regrow_at = -1.0
 			refresh()
 		elif def.sprites.has("growing") and _sprite.texture != Data.object_tex(sprite_name()):
 			refresh()
+
+
+func _process(delta: float) -> void:
+	if regrow_at >= 0.0:
+		# Nachwachsen und Verderben nur jedes REGROW_EVERY-te Bild rechnen, mit der Spielzeit seit dem letzten Mal
+		_regrow_tick -= 1
+		if _regrow_tick <= 0:
+			_regrow_tick = REGROW_EVERY
+			_regrow_step()
+			if is_queued_for_deletion():
+				return
+	if regrow_at < 0.0 and _shake <= 0.0 and type != "fischgrund":
+		_sprite.position.x = 0.0
+		set_process(false)  # volle Quelle ohne Bewegung: ruht, bis geerntet wird (harvest_one, regrow_at)
+		return
 	if world != null and not world.visible:
+		_shake = 0.0
 		return  # unsichtbare Insel: keine Bildwechsel
 	if type == "fischgrund" and amount > 0:
 		_anim_t += delta

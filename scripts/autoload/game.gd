@@ -312,9 +312,15 @@ func storage_volume(w = null) -> int:
 	var i = _isle(w)
 	var cap := int(Data.bal("base_storage"))
 	if i:
-		for b in i.buildings:
-			if b.complete:
-				cap += int(b.def.get("storage", 0))
+		# Summe je Insel gemerkt, bis sich die Gebäudeliste ändert (World.build_rev)
+		if i.cap_rev != i.build_rev:
+			var sum := 0
+			for b in i.buildings:
+				if b.complete:
+					sum += int(b.def.get("storage", 0))
+			i.cap_sum = sum
+			i.cap_rev = i.build_rev
+		cap += i.cap_sum
 	return int(cap * eff("storage"))
 
 

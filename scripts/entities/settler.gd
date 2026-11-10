@@ -25,7 +25,11 @@ var hunger: float = 90.0
 var health: float = 100.0
 var skills: Dictionary = {}
 var skill_xp: Dictionary = {}
-var job: String = "frei"
+var job: String = "frei":
+	set(v):
+		if v != job:
+			job = v
+			World.people_rev += 1  # Merker über die Bewohner (z. B. wer Verwalter ist) gelten nicht mehr
 var home_id: int = 0
 var look: Dictionary = {}
 var carry_res: String = ""

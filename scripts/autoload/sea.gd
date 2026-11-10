@@ -36,6 +36,7 @@ func clear_worlds() -> void:
 				w.get_parent().remove_child(w)
 			w.queue_free()
 	worlds = {}
+	World.global_rev += 1
 
 
 func meta(id: int) -> Dictionary:
@@ -162,6 +163,7 @@ func create_world_node(id: int) -> World:
 	world_root.add_child(w)
 	world_root.move_child(w, 0)
 	worlds[id] = w
+	World.global_rev += 1
 	return w
 
 
@@ -188,6 +190,7 @@ func island_lost(w) -> void:
 		return
 	m.state = "lost"
 	worlds.erase(w.island_id)
+	World.global_rev += 1
 	_ships_lost(int(w.island_id))
 	Game.notify(tr("%s ist verloren! Dort lebt niemand mehr.") % m.name, "abriss")
 	Sound.play("verloren")
