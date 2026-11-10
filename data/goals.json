@@ -106,19 +106,26 @@
       {"key": "hunger", "v": -0.05, "cap": -0.15, "name": "Hunger"}
     ],
     "templates": {
-      "vorrat_essen": {"w": 1, "days": 4, "text": "Lege einen Vorrat an: %d %s im Lager."},
-      "vorrat_ware": {"w": 1, "days": 4, "text": "Lege einen Vorrat an: %d %s im Lager."},
-      "winterholz": {"w": 1, "days": 0, "text": "Holz für den Winter: %d Holz im Lager, bevor der Winter beginnt."},
+      "vorrat_essen": {"w": 1, "days": 4, "text": "Erzeuge %d %s."},
+      "winter_essen": {"w": 2, "days": 4, "text": "Für den Winter: erzeuge %d %s."},
+      "vorrat_ware": {"w": 1, "days": 4, "text": "Stelle %d %s her."},
+      "winterholz": {"w": 1, "days": 0, "text": "Holz für den Winter: schlage %d Holz, bevor der Winter beginnt."},
       "bauen": {"w": 1, "days": 4, "text": "Baue: %s."},
       "bauen_mehr": {"w": 1, "days": 4, "text": "Baue noch einmal: %s.", "pick": false},
+      "pflanzen": {"w": 1, "days": 3, "text": "Pflanze %d Bäume."},
+      "schmuck": {"w": 1, "days": 3, "text": "Verschönere die Siedlung: baue %s."},
+      "laune": {"w": 2, "days": 4, "text": "Hebe die Laune deiner Siedler auf %d im Mittel."},
       "wohnen": {"w": 1, "days": 5, "text": "Schaffe Platz zum Wohnen: %d Wohnplätze."},
       "wachsen": {"w": 2, "days": 6, "text": "Wachse auf %d Siedler."},
       "forschen": {"w": 2, "days": 6, "text": "Erforsche: %s."},
       "jagd": {"w": 1, "days": 4, "text": "Erlege %d wilde Tiere."},
       "winter": {"w": 2, "days": 0, "text": "Bring alle ohne Hungertod durch den Winter."},
       "liefern": {"w": 2, "days": 5, "text": "Liefere nach %s: %d %s dort im Lager."},
-      "geburten": {"w": 1, "days": 5, "text": "Feiere %d Geburten."},
+      "geburten": {"w": 3, "days": 6, "text": "Feiere %d Geburten."},
+      "hafen": {"w": 2, "days": 5, "text": "Bereite die Seefahrt vor: baue %s."},
+      "schiff": {"w": 2, "days": 6, "text": "Baue ein Schiff."},
       "entdecken": {"w": 2, "days": 4, "text": "Entdecke eine neue Insel."},
+      "besiedeln": {"w": 3, "days": 8, "text": "Besiedle eine neue Insel."},
       "abwechslung": {"w": 1, "days": 3, "text": "Lagere %d Sorten Nahrung auf einer Insel."}
     }
   }

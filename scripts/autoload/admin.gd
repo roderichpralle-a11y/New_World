@@ -541,6 +541,12 @@ var produced: Dictionary = {}
 func note_produced(res: String, n: int, w = null) -> void:
 	if n <= 0 or res == "":
 		return
+	# Zähler für Aufträge „Erzeuge ...“ (josh 2026-11-10: Produktion zählt, nicht das Lager)
+	var made: Dictionary = Game.stats.get("made", {})
+	made[res] = int(made.get(res, 0)) + n
+	if Data.ships.has(res):
+		made["_schiff"] = int(made.get("_schiff", 0)) + n
+	Game.stats["made"] = made
 	var key := str(Seasons.year())
 	if not produced.has(key):
 		produced[key] = {}

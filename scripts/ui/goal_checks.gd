@@ -95,6 +95,12 @@ static func progress(c: Dictionary) -> Array:
 			return [int(Game.stats.get("kills", 0)), n]
 		"births":
 			return [int(Game.stats.get("births", 0)), n]
+		"made":  # hergestellt, gesammelt, geerntet, gefangen (Game.stats.made über Admin.note_produced); "_schiff" = Schiffe
+			return [int(Game.stats.get("made", {}).get(what, 0)), n]
+		"built":  # fertig gebaut (Game.stats.built, World.on_building_completed), auch Setzlinge und Schmuck
+			return [int(Game.stats.get("built", {}).get(what, 0)), n]
+		"mood":  # mittlere Laune der Erwachsenen auf allen Inseln
+			return [roundi(mean_mood()), n]
 		"stock":
 			return [Game.amount_all(what) if Data.resources.has(what) else 0, n]
 		"stock_at":
@@ -196,6 +202,14 @@ static func label(c: Dictionary) -> String:
 			return Loc.t("Erlegte Tiere")
 		"births":
 			return Loc.t("Geburten")
+		"made":
+			if what == "_schiff":
+				return Loc.t("Gebaute Schiffe")
+			return Loc.t("%s hergestellt") % (Data.resource_name(what) if Data.resources.has(what) else what.capitalize())
+		"built":
+			return Loc.t("%s fertig") % building_name(what)
+		"mood":
+			return Loc.t("Laune im Mittel")
 		"stock":
 			return Loc.t("%s im Lager") % (Data.resource_name(what) if Data.resources.has(what) else what.capitalize())
 		"stock_at":
@@ -215,6 +229,18 @@ static func label(c: Dictionary) -> String:
 		"exam":
 			return Loc.t("Prüfung für das Zeitalter %s") % Data.age_name(int(c.get("age", Exams.passed)) + 1)
 	return str(c.get("type", ""))
+
+
+## Mittlere Laune der Erwachsenen auf allen Inseln (0..100); ohne Erwachsene 0.
+static func mean_mood() -> float:
+	var sum := 0.0
+	var cnt := 0
+	for w in Sea.all_worlds():
+		for st in w.settlers:
+			if is_instance_valid(st) and st.is_adult() and st.mind != null:
+				sum += float(st.mind.mood)
+				cnt += 1
+	return sum / cnt if cnt > 0 else 0.0
 
 
 ## "Holzhaus oder besser 0/1"
@@ -243,6 +269,18 @@ static func icon(c: Dictionary) -> Texture2D:
 			return Data.icon("kompass")
 		"kills":
 			return Data.icon("schild")
+		"built":
+			if Data.buildings.has(what):
+				return Data.building_tex(what)
+			return Data.icon("haus")
+		"mood":
+			return Data.icon("person")
+		"made":
+			if what == "_schiff":
+				return Data.icon("kompass")
+			if Data.resources.has(what):
+				return Data.res_icon(what)
+			return Data.icon("kiste")
 		"stock", "stock_at":
 			if Data.resources.has(what):
 				return Data.res_icon(what)

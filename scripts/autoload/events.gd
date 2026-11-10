@@ -709,11 +709,26 @@ func _rats(w, ev: Dictionary) -> String:
 	var st = w.nearest_storage(w.center)
 	if st != null and total > 0:
 		w.float_text(st.position + Vector2(0, -30), "-%d" % total, "ratte")
-	if lost.is_empty():
+	# Ratten bringen Krankheit (josh 2026-11-10: schlimmer): 1 + 0,6 x Stärke Siedler bekommen die Ruhr,
+	# mit Großem Lager oder Hochregallager halb so viele
+	var sk: Array = d.get("sick", [0, 0])
+	var n_sick := int(floor((float(sk[0]) + float(sk[1]) * float(ev.power)) * (float(d.get("store_mult", 0.5)) if guarded else 1.0)))
+	var ill := str(d.get("sick_illness", "ruhr"))
+	var got_sick := []
+	if n_sick > 0 and Data.ppl("illnesses").has(ill):
+		var healthy: Array = w.settlers.filter(func(x): return is_instance_valid(x) and x.mind != null and x.mind.sick == "")
+		healthy.shuffle()
+		for sp in healthy.slice(0, n_sick):
+			sp.mind._fall_ill(ill)
+			got_sick.append(sp.display_name)
+	ev["sick"] = got_sick.size()
+	if lost.is_empty() and got_sick.is_empty():
 		return tr("Sie haben kaum etwas gefunden.")
-	var txt := tr("Sie haben gefressen: %s.") % ", ".join(lost)
+	var txt := tr("Sie haben gefressen: %s.") % ", ".join(lost) if not lost.is_empty() else tr("Sie haben kaum etwas gefunden.")
+	if not got_sick.is_empty():
+		txt += " " + tr("Krank geworden: %s.") % ", ".join(got_sick)
 	if guarded:
-		txt += " " + tr("Das Große Lager hat die Hälfte gerettet.")
+		txt += " " + tr("Das Lager aus Stein hat die Hälfte abgehalten.")
 	return txt
 
 
