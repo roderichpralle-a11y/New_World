@@ -295,6 +295,14 @@ Testhilfe `--v3build`.
   Zeitalter 6 8199 / 13948 / 6308 (die neue KI forscht dort weiter, Forschungspunkte 931 -> 6800). Im Mittel 72 %
   mehr als der Verwalter (`vs_verwalter` in data/ki_brain.json, Zeile im Fenster). Auf Tag 163 ist die neue KI 8 %
   schwächer als die alte. Der Verwalter startet keine Forschung von selbst, daher dort 0 Forschungspunkte.
+- **Zehn Spieljahre auf joshs Ständen (josh 2026-11-09, Version 3)**: Forschung zählt 500 Punkte je ganze Forschung,
+  anteilig (`RESEARCH_WHOLE_PTS`, statt 1 je Forschungspunkt; sonst zählte Computer mit 17 500 Punkten 30-mal so viel wie
+  Schmiedekunst). Keine feste Brennholz-Regel (josh: „Keine Regel“). Training nur auf joshs Ständen Tag 61, 149, 163,
+  222, 229, 257, 312 (Tag 535 zu langsam), 10 Runden zu 120 Tagen mit Ereignissen (`train.py --days 120 --timeout`),
+  etwa 50 Min je Runde. Prüfung je Stand 2 neue Würfel, 120 Tage: neue KI im Mittel 7 % über KI 3.0.4 (5 von 7 Ständen),
+  zusammen 61 % mehr Punkte als der Verwalter (`vs_verwalter`); nur auf Tag 312 gewinnt der Verwalter (61 540 zu 54 985,
+  er hält am Ende 34–53 Siedler, die KIs 2–22). Protokolle /mnt/project-files/ki_berufe/training/p6 und
+  vergleich_10jahre_2026-11-09.jsonl. josh-Karte „Ja, veröffentlichen“ (2026-11-10).
 
 ## Spielregeln (Etappe 1)
 

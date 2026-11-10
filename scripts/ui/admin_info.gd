@@ -125,11 +125,11 @@ static func _powers_tab(_hud, _b) -> void:
 
 ## Umschalter Verwalter / lernende KI für die Berufe (josh 2026-11-07, Testversion).
 static func _ki_row() -> void:
-	var sub := Loc.t("Wer teilt die Berufe ein? Die lernende KI wurde auf deinem Spielstand Tag 163 und drei weiteren Spielständen trainiert: Punkte für Nahrungstage im Lager, Holz (bis 1000), verarbeitete Waren (mehr für Waren, die der Forschung fehlen), Forschungspunkte, fertige Forschungen, satte und zufriedene Siedler, Abzug für jeden Toten. Sie vergibt Holzfäller, Steinmetze, Sammler, Fischer, Bauern, Köche, Handwerker, Jäger und Forscher, Baumeister nach den Baustellen. Hast du keine Forschung gewählt, startet sie die nächste der Liste und baut die Werkstatt, die dafür fehlt. Verwalter, Seeleute und Siedler, die nur du einteilst, lässt sie, wie sie sind.")
+	var sub := Loc.t("Wer teilt die Berufe ein? Die lernende KI wurde auf sieben Spielständen über zehn Spieljahre trainiert: Punkte für Nahrungstage im Lager, Holz (bis 1000), verarbeitete Waren (mehr für Waren, die der Forschung fehlen), Forschungsfortschritt, satte und zufriedene Siedler, Abzug für jeden Toten. Sie vergibt Holzfäller, Steinmetze, Sammler, Fischer, Bauern, Köche, Handwerker, Jäger und Forscher, Baumeister nach den Baustellen. Hast du keine Forschung gewählt, startet sie die nächste der Liste und baut die Werkstatt, die dafür fehlt. Verwalter, Seeleute und Siedler, die nur du einteilst, lässt sie, wie sie sind.")
 	if KiBrain.weights.is_empty():
 		sub = Loc.t("Noch keine trainierte KI in dieser Version.")
 	elif KiBrain.brain_vs > 0:
-		sub += "\n" + Loc.t("Geprüft auf vier Spielständen über zwei Spieljahre: %d %% mehr Punkte als der Verwalter.") % KiBrain.brain_vs
+		sub += "\n" + Loc.t("Geprüft auf sieben Spielständen über zehn Spieljahre: im Mittel %d %% mehr Punkte als der Verwalter.") % KiBrain.brain_vs
 	elif KiBrain.brain_score > 0:
 		sub += "\n" + Loc.t("Prüfung über ein Spieljahr (12 Tage) ab Tag 163: %d Punkte, untrainiert %d.") % [KiBrain.brain_score, KiBrain.brain_base]
 	var r := Win.row(Data.icon("ki"), Loc.t("Berufe vergeben"), sub, {"icon_px": 28, "hi": KiBrain.on})
