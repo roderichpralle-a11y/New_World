@@ -100,6 +100,32 @@ func _ki_train_setup(args: Dictionary) -> void:
 		for t in str(args.kibuild).split(","):
 			_ki_place(t)
 	KiBrain.set_on(not args.has("kioff"))
+	KiBrain.built_log = {}
+	if args.has("kibuildtest"):  # Selbsttest der Bau-Handlungen (josh 2026-11-11): jede einmal versuchen
+		KiBrain.max_sites = 99
+		for t in ["lager", "feld", "obstgarten", "strasse", "werft"]:
+			print("KIBUILDTEST fehlt für %s: %s (frei: %s)" % [t, Planner.missing_cost(world, t), Game.is_unlocked(t)])
+		for act in KiBrain.BUILD_ACTS:
+			var ok: bool = KiBrain.can_act(world, act)
+			var got := KiBrain.act_build(world, act) if ok else ""
+			print("KIBUILDTEST %s erlaubt=%s ergebnis=%s" % [act, ok, got])
+		KiBrain.max_sites = 2
+		if args.get("kibuildtest") == "see":  # Schiff und Besiedeln erzwingen: Werft leeren, 3 Siedler frei
+			var yy = KiBrain._yard(world)
+			if yy:
+				yy.ship_queue.clear()
+			var k := 0
+			for s in world.settlers:
+				if s.is_adult() and s.job in ["holzfaeller", "sammler", "bauer"] and k < 3:
+					JobDesk.assign(s, "frei", "spieler", 0.0, true)
+					k += 1
+			for act in ["schiff", "besiedeln"]:
+				var ok2: bool = KiBrain.can_act(world, act)
+				print("KIBUILDTEST %s erlaubt=%s ergebnis=%s" % [act, ok2, KiBrain.act_build(world, act) if ok2 else ""])
+		var rc := KiBrain.road_cells(world)
+		print("KIBUILDTEST Straßenfelder: %d, erstes %s" % [rc.size(), rc[0] if not rc.is_empty() else "-"])
+		var y = KiBrain._yard(world)
+		print("KIBUILDTEST Werft %s, Auftraege %s, wip '%s', Schiffe %d, frei %d, unbesiedelt %d" % [y != null, y.ship_queue if y else [], y.ship_wip if y else "", Sea.ships_of(int(world.island_id)).size(), Sea.idle_ships(int(world.island_id)).size(), KiBrain._unsettled().size()])
 	KiBrain.score_start()
 	print("KITRAIN Start Tag %.2f, Siedler %d, KI %s" % [Game.time_days, Game.population(), "an" if KiBrain.on else "aus"])
 
@@ -135,7 +161,8 @@ func _ki_train_finish(args: Dictionary) -> void:
 		jobs[s.job] = int(jobs.get(s.job, 0)) + 1
 	var res := {"score": KiBrain.score_total, "days": KiBrain.score_log, "jobs": jobs, "seed": int(args.get("kiseed", "1")),
 		"research": Game.research.done.slice(maxi(0, Game.research.done.size() - 5)), "current": Game.research.current,
-		"produced": Admin.produced.duplicate(true), "eaten": Game.eaten.duplicate(true) if Game.eaten is Dictionary else {}, "stock": world.stock.duplicate()}
+		"produced": Admin.produced.duplicate(true), "eaten": Game.eaten.duplicate(true) if Game.eaten is Dictionary else {}, "stock": world.stock.duplicate(),
+		"built": KiBrain.built_log.duplicate(), "buildings": world.buildings.size(), "pop": Game.population()}
 	var out := str(args.get("kiout", ""))
 	if out != "":
 		var f := FileAccess.open(out, FileAccess.WRITE)

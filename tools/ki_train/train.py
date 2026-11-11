@@ -21,8 +21,9 @@ import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor
 
-JOBS = 9
-FEAT = 50
+JOBS = 9    # Zeilen für Berufe; danach folgen BUILD Zeilen für Bau-Handlungen (josh 2026-11-11)
+BUILD = 10
+FEAT = 64
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
@@ -32,7 +33,7 @@ def run_episode(godot, save, weights, days, seed, slot, kioff=False, timeout=360
     wpath = os.path.join(tmp, "w.json")
     out = os.path.join(tmp, "r.json")
     with open(wpath, "w") as f:
-        json.dump({"w": weights, "info": "train"}, f)
+        json.dump({"w": weights[:JOBS], "b": weights[JOBS:], "info": "train"}, f)
     env = dict(os.environ)
     env["XDG_DATA_HOME"] = os.path.join(tempfile.gettempdir(), "ki_slot_%d" % slot)  # eigener Speicherplatz je Prozess
     cmd = [godot, "--headless", "--fixed-fps", "60", "--path", os.environ.get("KI_ROOT", ROOT), "--", "--autotest=999999", "--scale=10",
@@ -72,11 +73,26 @@ class Pool:
 
 
 def add(a, b, s=1.0):
-    return [[a[i][k] + s * b[i][k] for k in range(FEAT)] for i in range(JOBS)]
+    return [[a[i][k] + s * b[i][k] for k in range(FEAT)] for i in range(len(a))]
 
 
-def randn_dir(rng):
-    return [[rng.gauss(0.0, 1.0) for _ in range(FEAT)] for _ in range(JOBS)]
+def randn_dir(rng, rows, only_build=False):
+    return [[0.0 if (only_build and i < JOBS) else rng.gauss(0.0, 1.0) for _ in range(FEAT)] for i in range(rows)]
+
+
+def load_theta(path, build):
+    d = json.load(open(path))
+    rows = [list(r) + [0.0] * (FEAT - len(r)) for r in d["w"]][:JOBS]
+    b = [list(r) + [0.0] * (FEAT - len(r)) for r in d.get("b", [])]
+    if build:
+        b = (b + [[0.0] * FEAT for _ in range(BUILD)])[:BUILD]
+    return rows + b
+
+
+def save_theta(path, theta, extra):
+    d = {"w": theta[:JOBS], "b": theta[JOBS:]}
+    d.update(extra)
+    json.dump(d, open(path, "w"))
 
 
 def main():
@@ -97,12 +113,14 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--timeout", type=int, default=3600, help="Sekunden je Lauf")
+    ap.add_argument("--build", action="store_true", help="auch die Bau-Handlungen lernen (Zeilen b)")
+    ap.add_argument("--only_build", action="store_true", help="Berufe-Gewichte fest, nur Bau-Handlungen stören")
     a = ap.parse_args()
     os.makedirs(a.out, exist_ok=True)
     rng = random.Random(a.seed)
-    theta = [[0.0] * FEAT for _ in range(JOBS)]
+    theta = [[0.0] * FEAT for _ in range(JOBS + (BUILD if a.build else 0))]
     if a.init:
-        theta = json.load(open(a.init))["w"]
+        theta = load_theta(a.init, a.build)
     pool = Pool(a.workers)
     saves = [x for x in a.save.split(",") if x]
     ep = lambda slot, w, seed, si=0, off=False: run_episode(a.godot, saves[si], w, a.days, seed, slot, off, timeout=a.timeout, events=a.events)
@@ -131,18 +149,23 @@ def main():
                     for k in ("food", "wood", "proc", "res", "sat", "mood", "dead"):
                         parts[k] = parts.get(k, 0.0) + float(d.get(k, 0.0)) / len(sc)
         jobs = [r[1]["jobs"] for r in rs if r[1]]
-        rec = {"iter": it, "tag": tag, "mean": mean, "per_save": {saves[k]: sum(v) / len(v) for k, v in per.items()}, "scores": sc, "parts": parts, "jobs": jobs[:1], "t": time.time()}
+        built = {}
+        for r in rs:
+            if r[1]:
+                for k, v in r[1].get("built", {}).items():
+                    built[k] = built.get(k, 0) + v
+        rec = {"iter": it, "tag": tag, "mean": mean, "per_save": {saves[k]: sum(v) / len(v) for k, v in per.items()}, "scores": sc, "parts": parts, "jobs": jobs[:1], "built": built, "t": time.time()}
         evf.write(json.dumps(rec) + "\n")
         evf.flush()
-        print("PRUEFUNG %s Runde %d: %.1f %s %s" % (tag, it, mean, [round(s) for s in sc], {k: round(v) for k, v in parts.items()}), flush=True)
+        print("PRUEFUNG %s Runde %d: %.1f %s %s gebaut %s" % (tag, it, mean, [round(s) for s in sc], {k: round(v) for k, v in parts.items()}, built), flush=True)
         return mean
 
     m = evaluate(theta, "start", 0)
     best = {"mean": m, "w": theta, "iter": 0}
-    json.dump({"w": theta, "iter": 0, "eval": m, "days": a.days}, open(os.path.join(a.out, "best.json"), "w"))
+    save_theta(os.path.join(a.out, "best.json"), theta, {"iter": 0, "eval": m, "days": a.days})
     for it in range(1, a.iters + 1):
         t0 = time.time()
-        dirs = [randn_dir(rng) for _ in range(a.dirs)]
+        dirs = [randn_dir(rng, len(theta), a.only_build) for _ in range(a.dirs)]
         jobs = []
         for k, d in enumerate(dirs):
             sd = it * 1000 + k
@@ -162,7 +185,7 @@ def main():
         allr = [p[1] for p in top] + [p[2] for p in top]
         mu = sum(allr) / len(allr)
         sd_r = (sum((x - mu) ** 2 for x in allr) / len(allr)) ** 0.5 or 1.0
-        step = [[0.0] * FEAT for _ in range(JOBS)]
+        step = [[0.0] * FEAT for _ in range(len(theta))]
         for _, rp, rm, d in top:
             step = add(step, d, (rp - rm))
         theta = add(theta, step, a.lr / (len(top) * sd_r))
@@ -171,12 +194,12 @@ def main():
         logf.write(json.dumps(rec) + "\n")
         logf.flush()
         print("Runde %d: Mittel %.1f, bestes %.1f, %.0f s" % (it, rec["mean_r"], rec["best_r"] or 0, rec["secs"]), flush=True)
-        json.dump({"w": theta, "iter": it}, open(os.path.join(a.out, "last.json"), "w"))
+        save_theta(os.path.join(a.out, "last.json"), theta, {"iter": it})
         if it % a.eval_every == 0 or it == a.iters:
             m = evaluate(theta, "theta", it)
             if m > best["mean"]:
                 best = {"mean": m, "w": theta, "iter": it}
-                json.dump({"w": theta, "iter": it, "eval": m, "days": a.days}, open(os.path.join(a.out, "best.json"), "w"))
+                save_theta(os.path.join(a.out, "best.json"), theta, {"iter": it, "eval": m, "days": a.days})
     print("FERTIG bestes Runde %d mit %.1f" % (best["iter"], best["mean"]), flush=True)
 
 
