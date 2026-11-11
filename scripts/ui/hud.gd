@@ -132,14 +132,14 @@ func setup(p_world: World, p_camera: GameCamera) -> void:
 	_toasts_top.add_theme_constant_override("separation", 3)
 	root.add_child(_toasts_top)
 	get_viewport().size_changed.connect(_refresh_top)
-	Game.stock_changed.connect(_refresh_top)
+	Game.stock_changed.connect(_top_changed)  # nicht bei jeder einzelnen Lieferung neu rechnen, siehe _process
 	Game.stock_changed.connect(_on_stock_for_build)
 	Game.stock_changed.connect(_update_costs)
 	Game.stock_changed.connect(func():
 		if user_just_acted():
 			_refresh_stock())
 	Game.research_changed.connect(_on_research_changed)
-	Game.population_changed.connect(_refresh_top)
+	Game.population_changed.connect(_top_changed)
 	Game.population_changed.connect(func():
 		if user_just_acted():
 			_refresh_settler_list())
@@ -309,7 +309,20 @@ func _fix_top_widths(season_title: bool) -> void:
 	fit.call(_season_label, seasons)
 
 
+## Vorräte oder Bewohner haben sich geändert: die Leiste beim nächsten Takt auffrischen (höchstens alle
+## TOP_REFRESH_MS, echte Zeit). Vorher lief _refresh_top bei jeder einzelnen Lieferung und Mahlzeit.
+const TOP_REFRESH_MS := 300
+var _top_dirty := false
+var _top_next_ms := 0
+
+
+func _top_changed() -> void:
+	_top_dirty = true
+
+
 func _refresh_top() -> void:
+	_top_dirty = false
+	_top_next_ms = Time.get_ticks_msec() + TOP_REFRESH_MS
 	for id in _res_labels:
 		var room := Game.space_for(id)
 		_res_labels[id].text = "%d" % Game.amount(id)
@@ -1157,12 +1170,6 @@ func _age_header(a: int, cur_age: int) -> Control:
 	d.custom_minimum_size.x = 200
 	v.add_child(d)
 	return box
-
-
-## Hoehe einer Listenzeile, damit der umbrechende Text hineinpasst.
-func _row_height(text: String, chars_per_line: int) -> float:
-	var lines := ceili(float(text.length()) / chars_per_line)
-	return max(62.0, 34.0 + 15.0 * lines)
 
 
 func _tech_row(t: String) -> Control:
@@ -3869,6 +3876,12 @@ func show_title(has_save: bool) -> void:
 		var tb := UiTheme.label(tx, 14, Color("#c03a2a"), true)
 		tb.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		v.add_child(tb)
+	if Game.save_note != "":
+		var sn := UiTheme.label(Game.save_note, 14, Color("#c03a2a"), true)
+		sn.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		sn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		sn.custom_minimum_size.x = 300
+		v.add_child(sn)
 	if has_save:
 		var cont := UiTheme.button(tr("Weiterspielen"), "play", 50)
 		cont.pressed.connect(func():
@@ -4237,6 +4250,8 @@ func _process(delta: float) -> void:
 			_update_research_head()
 	# echte Zeit: in der Pause ist delta 0 und das Fenster blieb sonst stehen (josh 2026-10-31)
 	var now_ms := Time.get_ticks_msec()
+	if _top_dirty and now_ms >= _top_next_ms:
+		_refresh_top()
 	if _info_panel.visible and now_ms >= _info_next_ms:
 		_info_next_ms = now_ms + 500
 		if _info_obj == null or not is_instance_valid(_info_obj):

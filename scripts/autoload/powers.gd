@@ -152,9 +152,9 @@ func new_level() -> bool:
 
 func autotest_setup(args: Dictionary, main) -> void:
 	if args.has("powerstest"):
-		await PowersTest.run(main, str(args.powerstest))
+		await Game.test("powers_test").run(main, str(args.powerstest))
 	if args.has("vlab"):
-		await StewardLab.run(main, str(args.vlab))
+		await Game.test("steward_lab").run(main, str(args.vlab))
 
 
 # ---------------------------------------------------------------- Spielstand

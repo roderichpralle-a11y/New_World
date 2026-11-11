@@ -549,13 +549,13 @@ func autotest_setup(args: Dictionary, main) -> void:
 		for type in str(args.get("goplace", "")).split(",", false):  # fertige Gebäude auf dieser Insel
 			print("Gebäude auf Insel %d: %s %s" % [int(args.goisland), type, main._place_on(Game.world, type)])
 	if args.has("biometest"):
-		MerchantTest.biome_test(main)
+		Game.test("merchant_test").biome_test(main)
 	if args.has("spicetest"):
-		await MerchantTest.spice_test(main)
+		await Game.test("merchant_test").spice_test(main)
 	if args.has("tradetest2"):
-		await MerchantTest.trade_test(main, str(args.tradetest2))
+		await Game.test("merchant_test").trade_test(main, str(args.tradetest2))
 	if args.has("basictrade"):
-		await MerchantTest.basic_test(main)
+		await Game.test("merchant_test").basic_test(main)
 	if str(args.get("panel", "")) == "trade":
 		main.hud._trade_panel.open()
 

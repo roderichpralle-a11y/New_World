@@ -2658,5 +2658,8 @@
  "Ratten werden einen Teil von Getreide, Mehl, Obst, Beeren, Pilzen, Fisch, Fleisch, Milch, Eiern und Brot fressen und die Ruhr bringen. Konserven sind sicher.": "Rats will eat part of the grain, flour, fruit, berries, mushrooms, fish, meat, milk, eggs and bread and bring dysentery. Canned food is safe.",
  "Ein Großes Lager oder Hochregallager hält sie zur Hälfte ab.": "A Large store or High-bay warehouse keeps half of them out.",
  "Krank geworden: %s.": "Fallen ill: %s.",
- "Das Lager aus Stein hat die Hälfte abgehalten.": "The solid store kept half of them out."
+ "Das Lager aus Stein hat die Hälfte abgehalten.": "The solid store kept half of them out.",
+ "Der Spielstand war beschädigt. Die Sicherung von Tag %d wurde geladen.": "The save file was damaged. The backup from day %d was loaded.",
+ "Der Spielstand war beschädigt und konnte nicht geladen werden. Es gibt keine Sicherung.": "The save file was damaged and could not be loaded. There is no backup.",
+ "Ab dem zweiten Jahr kündigen sich Ereignisse an: Dürre, Ratten, Brand, Seuche, Sturmflut und ab dem Mittelalter Piraten. Wer sie gut übersteht, bekommt Einwanderer.": "From the second year on, events are announced: drought, rats, fire, plague, storm surge and, from the Middle Ages, pirates. Those who weather them well gain immigrants."
 }

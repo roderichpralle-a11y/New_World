@@ -159,6 +159,18 @@ func status(i: int) -> Array:
 	return out
 
 
+## Wie status(), aber höchstens einmal je Bild gerechnet: für Anzeigen (Zielkarte, Fehlt-noch-Text), die
+## dieselbe Liste mehrmals hintereinander abfragen. Entscheidungen (all_met, check) rechnen immer frisch.
+var _status_memo := [-1, -1, []]
+
+
+func status_shown(i: int) -> Array:
+	var fr := Engine.get_process_frames()
+	if int(_status_memo[0]) != fr or int(_status_memo[1]) != i:
+		_status_memo = [fr, i, status(i)]
+	return _status_memo[2]
+
+
 func all_met(i: int) -> bool:
 	var st := status(i)
 	return not st.is_empty() and st.all(func(x): return x[3])
@@ -204,7 +216,7 @@ func blocking() -> bool:
 	if not exam_def(passed).is_empty() and gated():
 		v = only_exam_left()
 		if not v:
-			for x in status(passed):
+			for x in status_shown(passed):
 				if str(x[0].get("type", "")) == "age_techs" and x[3]:
 					v = true
 	_block_cache = [now, v]
@@ -225,7 +237,7 @@ func goal() -> Dictionary:
 ## "Es fehlt noch: Siedler 4/6, Holzhaus oder besser 0/1." (with_head: mit "Erst die Pruefung ...")
 func missing_text(with_head: bool = true) -> String:
 	var miss := []
-	for x in status(passed):
+	for x in status_shown(passed):
 		if not x[3]:
 			miss.append("%s %d/%d" % [GoalChecks.label(x[0]), x[1], x[2]])
 	var t := tr("Es fehlt noch: %s.") % ", ".join(miss) if not miss.is_empty() else tr("Alles erfüllt, die Prüfung ist gleich bestanden.")

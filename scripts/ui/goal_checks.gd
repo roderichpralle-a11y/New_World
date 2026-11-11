@@ -125,7 +125,7 @@ static func progress(c: Dictionary) -> Array:
 		"exams":
 			return [int(Exams.passed), n]
 		"exam":
-			var st: Array = Exams.status(int(c.get("age", Exams.passed)))
+			var st: Array = Exams.status_shown(int(c.get("age", Exams.passed)))
 			return [st.filter(func(x): return x[3]).size(), st.size()]
 	return [0, 1]
 

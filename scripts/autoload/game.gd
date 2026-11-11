@@ -61,14 +61,10 @@ var rules_due := false  # Fenster Neue Regeln noch nicht gezeigt
 ## Autoload-Systeme melden sich in _ready an (register_system). main.gd ruft im Selbsttest
 ## autotest_setup(args, main) und autotest_report() auf, wenn es sie gibt.
 var systems: Array = []
-## Sicherung fuer aeltere Versionen (z. B. eine im Browser zwischengespeicherte alte Web-App):
-## Die behalten beim Speichern nur ihre eigenen Schluessel (OLD_SAVE_KEYS), die Inseldaten in
-## islands[0] aber unveraendert. Dort liegt deshalb unter "v2" eine Kopie der neuen Schluessel,
-## der Forschung und der Gebaeude und Waren, die alte Versionen nicht kennen (siehe _store_backup).
-const OLD_SAVE_KEYS := ["version", "seed", "time_days", "next_id", "stats", "lineage", "research", "goals",
-	"islands", "active", "voyages", "ships", "next_ship", "stock", "store_limits", "world"]
-const V2_BUILDINGS := ["tafelmacherei"]
-const V2_GOODS := ["tontafel", "gewuerze"]
+## Frühere Versionen legten in islands[0]["v2"] eine Sicherung der neuen Spielstand-Teile ab, falls eine
+## noch ältere, im Browser zwischengespeicherte Version den Stand speichert. Version 3 hat einen eigenen
+## Spielstand, den nur Version 3 schreibt: die Sicherung wird nicht mehr geschrieben (rund 85 KB je Stand),
+## beim Laden aber weiter gelesen (_merge_backup).
 var _v2_restore: Dictionary = {}  # Insel-ID (Text) -> {"b": Gebaeude, "s": Waren} zum Zurueckholen
 var _notes: Array = []  # Meldungen, bevor das Spiel sichtbar laeuft (queue_note)
 var notes_live := false
@@ -260,6 +256,7 @@ func _process(delta: float) -> void:
 		if day() != _last_day:
 			_last_day = day()
 			day_started.emit(_last_day)
+			prune_lineage()
 			notify(tr("Tag %d beginnt.") % _last_day, "sonne")
 		# KI-Steuerung (KI-Zentrum): freie Siedler auf fehlende Berufe verteilen
 		if time_days >= _ai_next:
@@ -312,9 +309,15 @@ func storage_volume(w = null) -> int:
 	var i = _isle(w)
 	var cap := int(Data.bal("base_storage"))
 	if i:
-		for b in i.buildings:
-			if b.complete:
-				cap += int(b.def.get("storage", 0))
+		# Summe je Insel gemerkt, bis sich die Gebäudeliste ändert (World.build_rev)
+		if i.cap_rev != i.build_rev:
+			var sum := 0
+			for b in i.buildings:
+				if b.complete:
+					sum += int(b.def.get("storage", 0))
+			i.cap_sum = sum
+			i.cap_rev = i.build_rev
+		cap += i.cap_sum
 	return int(cap * eff("storage"))
 
 
@@ -495,34 +498,6 @@ func can_afford(cost: Dictionary, w = null) -> bool:
 
 
 var last_eaten: String = ""  # Sorte der letzten Mahlzeit (fuer Vitamine und Speiseplan)
-
-
-## Nimmt eine Mahlzeit: liefert Naehrwert (0 wenn nichts da).
-func eat_one(w = null) -> float:
-	var id := eat_food(false, w)
-	return Data.food_satiety(id) if id != "" else 0.0
-
-
-## Nimmt eine Speise aus dem Lager der Insel w und liefert ihre ID ("" wenn nichts da ist).
-## Mit prefer_vitamins wird die vitaminreichste Speise gewaehlt, sonst die saettigendste.
-## Bei Gleichstand nimmt der Siedler die Sorte, von der am meisten da ist.
-func eat_food(prefer_vitamins: bool, w = null) -> String:
-	var best := ""
-	var best_v := -INF
-	for id in Data.food_ids():
-		var n := amount(id, w)
-		if n <= 0:
-			continue
-		var v := Data.food_vitamins(id) if prefer_vitamins else Data.food_satiety(id)
-		v += n * 0.001
-		if v > best_v:
-			best_v = v
-			best = id
-	if best != "":
-		take_stock(best, 1, w)
-		eaten[best] = int(eaten.get(best, 0)) + 1
-		last_eaten = best
-	return best
 
 
 ## Kluge Speisenwahl: Der Siedler s waehlt aus dem Lager der Insel w die Speise, die seinen
@@ -1004,6 +979,41 @@ func register_lineage(sid: int, parents: Array) -> void:
 	lineage[sid] = parents.map(func(x): return int(x))
 
 
+## IDs aller lebenden Siedler: auf den Inseln und auf See (als Menge: ID -> true).
+func living_ids() -> Dictionary:
+	var alive := {}
+	for w in Sea.all_worlds():
+		for s in w.settlers:
+			alive[int(s.id)] = true
+	for v in Sea.voyages:
+		for d in Array(v.get("settlers", [])) + Array(v.get("crew", [])):
+			if d is Dictionary:
+				alive[int(d.get("id", 0))] = true
+	return alive
+
+
+## Stammbaum kürzen (einmal je Spieltag): Verstorbene bleiben nur, solange sie für Lebende zählen, also als
+## Eltern oder Großeltern (related) oder als Kind eines Lebenden (gemeinsames Kind, SettlerMind.is_close).
+## Vorher wuchs die Liste mit jedem Siedler, der je gelebt hat.
+func prune_lineage() -> void:
+	var alive := living_ids()
+	var keep := alive.duplicate()
+	for sid in alive:
+		for p in lineage.get(sid, []):
+			keep[int(p)] = true
+			for gp in lineage.get(int(p), []):
+				keep[int(gp)] = true
+	for kid in lineage.keys():
+		if keep.has(kid):
+			continue
+		var of_living := false
+		for p in lineage[kid]:
+			if alive.has(int(p)):
+				of_living = true
+		if not of_living:
+			lineage.erase(kid)
+
+
 ## cause: Schluessel der Todesart ("starve", "sick", "old", "killed"), reason: Anzeigetext.
 func on_settler_died(s, reason: String, cause: String = "") -> void:
 	stats.deaths += 1
@@ -1312,8 +1322,8 @@ func switch_slot(n: int, mode: String) -> void:
 	SAVE_PATH = slot_path(n)
 	if mode == "":
 		return
-	if mode == "new" and slot_exists(n):
-		DirAccess.remove_absolute(slot_path(n))
+	if mode == "new":
+		_remove_save_files(slot_path(n))
 	if OS.has_feature("web"):
 		JavaScriptBridge.eval("window.location.reload()")
 	else:
@@ -1324,6 +1334,7 @@ func switch_slot(n: int, mode: String) -> void:
 ## Speichert das laufende Spiel in einen anderen Platz und spielt dort weiter.
 func save_to_slot(n: int) -> void:
 	switch_slot(n, "")
+	_remove_save_files(slot_path(n))  # das Spiel, das dort lag, soll nicht als Sicherung wiederkommen
 	save_game()
 
 
@@ -1348,13 +1359,11 @@ func slot_file_name(n: int) -> String:
 ## Prueft einen importierten Text und legt ihn in Platz n ab. Gibt "" oder einen Fehlertext zurueck.
 func import_slot(n: int, text: String) -> String:
 	var d = JSON.parse_string(text)
-	if not (d is Dictionary) or not int(d.get("version", 0)) in [1, 2, SAVE_VERSION] or not d.has("time_days"):
+	if check_save(d) != "":
 		return tr("Das ist kein Spielstand von Insel-Siedler.")
-	var f := FileAccess.open(slot_path(n), FileAccess.WRITE)
-	if f == null:
+	_remove_save_files(slot_path(n))
+	if not write_save_text(slot_path(n), text):
 		return tr("Der Spielstand konnte nicht gespeichert werden.")
-	f.store_string(text)
-	f.close()
 	# Kurzinfo fuer die Liste: Siedler und besiedelte Inseln zaehlen
 	var pop := Array(d.get("settlers", [])).size()
 	var settled := 0
@@ -1369,31 +1378,6 @@ func import_slot(n: int, text: String) -> String:
 		int(Time.get_unix_time_from_system())])
 	cf.save("user://settings.cfg")
 	return ""
-
-
-## Probelauf an/aus (nur /v21test/, josh 2026-10-31): merkt es in den Einstellungen und lädt neu.
-func set_probelauf(on: bool) -> void:
-	if not probelauf:
-		save_game()
-	var cf := ConfigFile.new()
-	cf.load("user://settings.cfg")
-	cf.set_value("game", "probelauf", on)
-	cf.save("user://settings.cfg")
-	if on:  # jeder Probelauf beginnt mit einem neuen Spiel
-		for n in range(1, SLOTS + 1):
-			var p := "user://savegame_v2probe.json" if n <= 1 else "user://savegame_v2probe_%d.json" % n
-			if FileAccess.file_exists(p):
-				DirAccess.remove_absolute(p)
-	save_locked = true
-	if OS.has_feature("web"):
-		JavaScriptBridge.eval("""(function () {
-			const u = new URL(window.location.href);
-			u.search = '';
-			window.location.replace(u.toString());
-		})();""", true)
-	else:
-		OS.set_restart_on_exit(true)
-		get_tree().quit()
 
 
 ## Laedt die neueste Version der Seite. Die Web-Version ist eine installierbare App, deren
@@ -1420,13 +1404,23 @@ func load_newest_version() -> void:
 
 
 func delete_slot(n: int) -> void:
-	if n != slot and slot_exists(n):
-		DirAccess.remove_absolute(slot_path(n))
+	if n != slot:
+		_remove_save_files(slot_path(n))
 
 
 # ---------------------------------------------------------------- Speichern
 func has_save() -> bool:
 	return FileAccess.file_exists(SAVE_PATH)
+
+
+const TMP_EXT := ".neu"      # wird gerade geschrieben
+const BAK_EXT := ".bak"      # vorheriger Stand (Sicherung)
+const BROKEN_EXT := ".kaputt"  # unlesbare Datei, aufgehoben
+const BACKUP_SECONDS := 600.0
+var _bak_at := 0.0
+var _bak_path := ""
+## Hinweis für das Titelbild, wenn beim Laden die Sicherung einspringen musste (load_save)
+var save_note := ""
 
 
 func save_game() -> void:
@@ -1450,38 +1444,48 @@ func save_game() -> void:
 	if rules_due and not rules_lines.is_empty():
 		data["rules_due"] = rules_lines.duplicate()  # Fenster noch nicht gesehen: beim naechsten Laden zeigen
 	state_save.emit(data)
-	_store_backup(data)
-	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
-	if f:
-		f.store_string(JSON.stringify(data))
-		f.close()
+	if write_save_text(SAVE_PATH, JSON.stringify(data)):
 		_write_slot_info()
 
 
-## Kopie der neuen Spielstand-Teile in islands[0]["v2"] (siehe OLD_SAVE_KEYS).
-func _store_backup(data: Dictionary) -> void:
-	var list = data.get("islands", [])
-	if not (list is Array) or list.is_empty() or not (list[0] is Dictionary):
-		return
-	var v2 := {}
-	for k in data:
-		if not str(k) in OLD_SAVE_KEYS:
-			v2[k] = data[k]
-	v2["research"] = research.duplicate(true)
-	var isl := {}
-	for e in list:
-		var wd = e.get("world")
-		if not (wd is Dictionary):
-			continue
-		var bl: Array = Array(wd.get("buildings", [])).filter(func(b): return str(b.get("type", "")) in V2_BUILDINGS)
-		var st := {}
-		for id in V2_GOODS:
-			if int(wd.get("stock", {}).get(id, 0)) > 0:
-				st[id] = int(wd.stock[id])
-		if not bl.is_empty() or not st.is_empty():
-			isl[str(e.get("id", 0))] = {"b": bl, "s": st}
-	v2["isl"] = isl
-	list[0]["v2"] = v2
+## Schreibt einen Spielstand so, dass ein Abbruch mitten im Schreiben (Tab vom Browser beendet) den alten
+## Stand nicht zerstört: erst in `<pfad>.neu`, dann umbenennen. Den vorherigen Stand hebt das Spiel höchstens
+## alle BACKUP_SECONDS als `<pfad>.bak` auf (load_save greift darauf zurück, wenn die Hauptdatei unlesbar ist).
+func write_save_text(path: String, text: String) -> bool:
+	var tmp := path + TMP_EXT
+	var f := FileAccess.open(tmp, FileAccess.WRITE)
+	if f == null:
+		return false
+	f.store_string(text)
+	var ok := f.get_error() == OK
+	f.close()
+	if not ok:
+		DirAccess.remove_absolute(tmp)
+		return false
+	var now := Time.get_ticks_msec() / 1000.0
+	if FileAccess.file_exists(path):
+		if _bak_path != path or now - _bak_at >= BACKUP_SECONDS or not FileAccess.file_exists(path + BAK_EXT):
+			if FileAccess.file_exists(path + BAK_EXT):
+				DirAccess.remove_absolute(path + BAK_EXT)
+			if DirAccess.rename_absolute(path, path + BAK_EXT) == OK:
+				_bak_path = path
+				_bak_at = now
+	if DirAccess.rename_absolute(tmp, path) != OK:
+		# Umbenennen über eine vorhandene Datei geht nicht überall: alte Datei erst entfernen
+		if FileAccess.file_exists(path):
+			DirAccess.remove_absolute(path)
+		if DirAccess.rename_absolute(tmp, path) != OK:
+			return false
+	return true
+
+
+## Entfernt einen Spielstand samt Sicherung und halb geschriebener Datei.
+func _remove_save_files(path: String) -> void:
+	for ext in ["", BAK_EXT, TMP_EXT]:
+		if FileAccess.file_exists(path + ext):
+			DirAccess.remove_absolute(path + ext)
+	if _bak_path == path:
+		_bak_path = ""
 
 
 ## Beim Laden: Hat eine aeltere Version den Spielstand zuletzt gespeichert (kein "rules", aber
@@ -1543,17 +1547,84 @@ func _restore_backup_world() -> void:
 	_v2_restore = {}
 
 
-func load_save() -> Dictionary:
-	if not has_save():
-		return {}
-	var f := FileAccess.open(SAVE_PATH, FileAccess.READ)
-	if f == null:
-		return {}
-	var d = JSON.parse_string(f.get_as_text())
-	# Version 1 (eine Insel) wird beim Laden in das neue Format uebernommen
+## Prüft den Aufbau eines Spielstands, bevor irgendetwas ersetzt wird (Laden und Import). "" = in Ordnung.
+func check_save(d) -> String:
 	if not (d is Dictionary) or not int(d.get("version", 0)) in [1, 2, SAVE_VERSION]:
+		return "version"
+	if not _is_num(d.get("time_days")) or not _is_num(d.get("seed", 0)) or not _is_num(d.get("next_id", 1)):
+		return "kopf"
+	var list = d.get("islands", [])
+	if not (list is Array):
+		return "inseln"
+	var worlds: Array = []
+	if list.is_empty():
+		worlds.append(d.get("world"))  # Version 1: nur eine Insel
+	for e in list:
+		if not (e is Dictionary) or not _is_num(e.get("id")) or not _is_num(e.get("seed")) or not _is_num(e.get("size")) \
+				or not e.has("state"):
+			return "insel"
+		if e.has("world"):
+			worlds.append(e.world)
+	for w in worlds:
+		if not (w is Dictionary) or not (w.get("nodes") is Array) or not (w.get("buildings") is Array) \
+				or not (w.get("settlers") is Array):
+			return "welt"
+		for n in w.nodes:
+			if not (n is Array) or n.size() < 6 or not (n[0] is String):
+				return "rohstoff"
+		for bd in w.buildings:
+			if not (bd is Dictionary) or not (bd.get("type") is String) or not _is_num(bd.get("x")) or not _is_num(bd.get("y")) \
+					or not _is_num(bd.get("id")):
+				return "gebaeude"
+		for st in w.settlers:
+			if not (st is Dictionary):
+				return "siedler"
+	return ""
+
+
+func _is_num(v) -> bool:
+	return v is float or v is int
+
+
+func _read_save(path: String) -> Dictionary:
+	if not FileAccess.file_exists(path):
+		return {}
+	var d = JSON.parse_string(FileAccess.get_file_as_string(path))
+	if check_save(d) != "":
 		return {}
 	return d
+
+
+## Liest den aktiven Spielstand. Ist die Datei unlesbar oder fehlt sie nach einem abgebrochenen Speichern,
+## nimmt das Spiel die fertig geschriebene neue Datei (.neu) oder die Sicherung (.bak) und sagt es auf dem
+## Titelbild (save_note). Die unlesbare Datei bleibt als .kaputt liegen und wird nicht überschrieben.
+## Testskript aus scripts/test/ (nicht im Web-Export): Game.test("admin_test").run(main)
+func test(script_name: String) -> GDScript:
+	return load("res://scripts/test/%s.gd" % script_name)
+
+
+func load_save() -> Dictionary:
+	save_note = ""
+	var d := _read_save(SAVE_PATH)
+	if not d.is_empty():
+		return d
+	var broken := FileAccess.file_exists(SAVE_PATH)
+	if broken:
+		if FileAccess.file_exists(SAVE_PATH + BROKEN_EXT):
+			DirAccess.remove_absolute(SAVE_PATH + BROKEN_EXT)
+		DirAccess.rename_absolute(SAVE_PATH, SAVE_PATH + BROKEN_EXT)
+	for ext in [TMP_EXT, BAK_EXT]:
+		d = _read_save(SAVE_PATH + ext)
+		if d.is_empty():
+			continue
+		DirAccess.copy_absolute(SAVE_PATH + ext, SAVE_PATH)
+		if broken or ext == BAK_EXT:
+			save_note = tr("Der Spielstand war beschädigt. Die Sicherung von Tag %d wurde geladen.") % (int(floor(float(d.time_days))) + 1)
+		print("Spielstand unlesbar oder fehlt: ", SAVE_PATH + ext, " geladen")
+		return d
+	if broken:
+		save_note = tr("Der Spielstand war beschädigt und konnte nicht geladen werden. Es gibt keine Sicherung.")
+	return {}
 
 
 func apply_save_header(d: Dictionary) -> void:
@@ -1700,8 +1771,7 @@ func rules_seen() -> void:
 
 
 func delete_save() -> void:
-	if has_save():
-		DirAccess.remove_absolute(SAVE_PATH)
+	_remove_save_files(SAVE_PATH)
 
 
 func _notification(what: int) -> void:

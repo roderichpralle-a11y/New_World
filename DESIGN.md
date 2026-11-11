@@ -132,7 +132,7 @@ Gilt vor dem Abschnitt „Neue Verwaltung in V2“ darunter, wo sie sich widersp
   Siedler, übernimmt ein Freier den Beruf und wird ebenfalls nur vom Spieler gesteuert (`Admin._player_refill`, ohne
   Befugnis, auch mit KI). Setzt der Spieler jemanden auf Frei, ist die Sperre weg (der Verwalter teilt ihn ein).
 - **Nebeninseln** (josh 2026-11-07): ohne Rundfunkanstalt auf der Nebeninsel und auf der Insel der Verwaltung (`Powers.covers`) steuern weder Verwalter noch KI (`KiBrain.controls` prüft das auch); das Fenster Verwalter zeigt dort nur einen Hinweis statt der Schalter, die Siedlerliste zeigt „Spieler“ fest (nicht umschaltbar) und keinen Vergeber in Klammern.
-- **Hochregallager** (josh 2026-11-10, V2 und V3): drittes Lager `hochregallager`, Stauraum 5000, Grundfläche 3x2 (joshs Bild `tools/art_v2/src/einzeln/hochregallager_gefuellt.png` ist für 3 Felder gezeichnet; `tools/art_v2/hochregal.py` bringt es als `big/store_high.png` in den Maßstab des Großen Lagers, `TILES` = 4 rechnet es für 4x2 um). Freigeschaltet mit der Forschung Stahl, Kosten 24 Stahl, 40 Ziegel, 30 Bretter, 10 Glas, Bauarbeit 90; hält Ratten ab wie das Große Lager (`rat_guard`). Hohe Gebäude (`tall` in buildings.json): keine Dachfelder (dahinter darf man gehen und bauen), das Bild wird an der Oberkante der Grundfläche geteilt (`Building._split_tall`): unten `_sprite` (z 0, Figuren davor), oben `_top` mit z 1, also auf der Ebene der Figuren und mit ihnen nach y sortiert; so verdeckt der obere Teil Gebäude, Straßen und Siedler dahinter. Planer, Bot und KI-Regel bauen es, wenn erforscht, vor dem Großen Lager. Test `--talltest=1` (`scripts/world/tall_test.gd`), Bild `--talltest=shot --shot=...`.
+- **Hochregallager** (josh 2026-11-10, V2 und V3): drittes Lager `hochregallager`, Stauraum 5000, Grundfläche 3x2 (joshs Bild `tools/art_v2/src/einzeln/hochregallager_gefuellt.png` ist für 3 Felder gezeichnet; `tools/art_v2/hochregal.py` bringt es als `big/store_high.png` in den Maßstab des Großen Lagers, `TILES` = 4 rechnet es für 4x2 um). Freigeschaltet mit der Forschung Stahl, Kosten 24 Stahl, 40 Ziegel, 30 Bretter, 10 Glas, Bauarbeit 90; hält Ratten ab wie das Große Lager (`rat_guard`). Hohe Gebäude (`tall` in buildings.json): keine Dachfelder (dahinter darf man gehen und bauen), das Bild wird an der Oberkante der Grundfläche geteilt (`Building._split_tall`): unten `_sprite` (z 0, Figuren davor), oben `_top` mit z 1, also auf der Ebene der Figuren und mit ihnen nach y sortiert; so verdeckt der obere Teil Gebäude, Straßen und Siedler dahinter. Planer, Bot und KI-Regel bauen es, wenn erforscht, vor dem Großen Lager. Test `--talltest=1` (`scripts/test/tall_test.gd`), Bild `--talltest=shot --shot=...`.
 - **Aufträge und Ratten (josh 2026-11-10, V2 und V3):** Aufträge verlangen Herstellung statt Lager: Prüfart `made` (Zähler `Game.stats.made` in `Admin.note_produced`, `_schiff` = gebaute Schiffe) und `built` (`Game.stats.built` in `World.on_building_completed`, auch Setzlinge: „Pflanze 3 Bäume“ ist gleich nach dem Pflanzen erledigt), `mood` (`GoalChecks.mean_mood`). Neue Vorlagen: `winter_essen` (nur wenn Essen bis Winterende fehlt, `Quests.winter_food_short`; Text je Speise „Sammle 30 Beeren.“, `Quests.FOOD_VERBS`; keine Erntewaren Weizen/Äpfel), `pflanzen`, `schmuck`, `laune` (Mittel + 8, höchstens 85), `hafen` (Werft, Steg, Hafen), `schiff`, `besiedeln` (w3). `vorrat_essen`/`vorrat_ware`/`winterholz` zählen Erzeugtes; Menge höchstens 1,4-mal das jetzige Tempo über die Frist (`Quests.made_rate`, Marken `stats.made_marks` je Tagesbeginn). Reihenfolge: knappes Winteressen, knappes Holz, dann (75 %) `bauen` mit dem Gebäude der jüngsten Forschung (keine Pflanzstellen, Straßen, Schmuck); dieselbe Vorlage nicht gleich zweimal hintereinander. Gewichte: Geburten w3 (2 + P/12 in 6 Tagen), Besiedeln w3, Bauen w1/w2. Ratten: Anteil 0,25 + 0,1·Stärke (0,25–0,5), häufiger, auch Fleisch und Milch, und 1 + 0,6·Stärke Siedler bekommen die Ruhr; Großes Lager oder Hochregallager halbieren beides.
 - **KI nur mit `?ki`** (josh 2026-11-07): im Browser zeigt das Fenster Verwalter „Berufe vergeben“ und läuft die lernende KI nur, wenn die Adresse `?ki` enthält (`KiBrain.available`, z. B. /v21test2/?ki; die Weiterleitung aufs Handy behält die Adresse). Ohne `?ki` bleibt der Schalter im Spielstand erhalten (`_kept_on`), wirkt aber nicht. Außerhalb des Browsers (Tests, Training) immer verfügbar.
 - **Siedlerliste mit festen Spaltenbreiten** (`SETTLER_COLS`, PC/Handy): nur „Tätigkeit“ füllt den Rest; der Kopf hat
@@ -152,7 +152,7 @@ Gilt vor dem Abschnitt „Neue Verwaltung in V2“ darunter, wo sie sich widersp
 ## Neue Verwaltung in V2 (josh 2026-10-29, Plan https://claude.ai/artifact/TAaaHP2qGTuyYcJKmfY64L)
 
 Ersetzt in V2 die älteren Abschnitte zu Verwalter-Steuerung, Automat und Planungsautomat (unten), wo sie sich
-widersprechen. Selbsttest `--powerstest=1` („Befugnisse OK (0 Fehler)“, `scripts/autoload/powers_test.gd`), Bilder
+widersprechen. Selbsttest `--powerstest=1` („Befugnisse OK (0 Fehler)“, `scripts/test/powers_test.gd`), Bilder
 `--powerstest=shot|shot2|shot3|shot4 --shot=…` (Befugnisse, Vorschläge, Gutachten, Nachrichten), `--powerstest=soak`
 spielt danach mit allem auf Selbst weiter. Die alten Tests `--admintest`, `--stewardtest`, `--plannertest` prüfen
 teils das frühere Verhalten (Angebote, Automat baut, Planer) und schlagen dort fehl.
@@ -164,7 +164,7 @@ Obergrenze (`Game.store_limits`), schlägt der Verwalter höchstens alle 3 Tage 
 Ställe; Essen sein Anteil an 3 Tagen plus einem Winter), Wunsch = doppelt; alles zusammen höchstens 85 % des Lagers,
 sonst Richtung Boden, notfalls darunter, mit Hinweis „Baue ein weiteres Lager“. Der Zielvorrat (`stock_targets`) und das
 Holz-Soll halten die Obergrenzen ein; Sammler und Werkstätten stoppen ohnehin an der Grenze (`Game.space_for`).
-Prüflauf `--foodsim=1 [--fsadmin=1] [--fsdays=12]` (`scripts/world/food_sim.gd`): Stufe 5, 27 Siedler, feste Berufe,
+Prüflauf `--foodsim=1 [--fsadmin=1] [--fsdays=12]` (`scripts/test/food_sim.gd`): Stufe 5, 27 Siedler, feste Berufe,
 ein Jahr, Bericht je Tag; Ergebnisse unter /mnt/project-files/konzept/essen_matrix/.
 
 **Wiederaufbau nach Katastrophen (josh 2026-11-01, nur Testversion):** `Events.damage_building` und `Land._restore_sunk` setzen `Building.repair` (gespeichert). Solange es solche Baustellen gibt, nimmt jeder Erwachsene in `Settler._plan_work` zuerst `_plan_repair`: streng nach `World.repair_rank` (0 Deich, 1 Häuser, 2 andere Gebäude, 3 Felder, 4 Wege), im gleichen Rang die nächste Baustelle; fehlt Material, geht es zur nächsten. Test `--eventtest=wiederaufbau`.
@@ -252,6 +252,45 @@ Testhilfe `--v3build`.
   Robotik und Goldenes Zeitalter. Mindest-/Höchststände im Inselfenster sind ohne die Befugnis „waren“ nicht mehr
   antippbar (`SeaPanel._minmax_editor`).
 
+- **Aufräumen nach der Code-Prüfung (josh 2026-11-10, V3, Liste https://claude.ai/artifact/UqXY5yGSUngVEbdFFAtnn8, ohne die KI-Punkte)**:
+  - **Spielstand sicher schreiben** (`Game.write_save_text`): erst in `<datei>.neu`, dann umbenennen; alle 10 Minuten
+    (`BACKUP_SECONDS`) wandert der alte Stand vorher nach `<datei>.bak`. `Game.load_save` prüft den Stand
+    (`check_save`: Zeit, Hauptinsel, Felder der Karte) und greift bei einem kaputten Stand auf `.neu`, dann `.bak`
+    zurück; der kaputte bleibt als `<datei>.kaputt` liegen, das Titelbild sagt es in Rot (`Game.save_note`).
+    Import (`import_slot`) nimmt nur geprüfte Stände an. Löschen und „Neues Spiel“ räumen alle vier Dateien weg.
+    Die Kopie des alten V2-Stands im Spielstand (`_store_backup`) wird nicht mehr geschrieben, `_merge_backup` liest
+    alte weiter.
+  - **Spielstand kleiner**: `Building.serialize` schreibt nur Felder, die vom Standard abweichen (`World` liest mit
+    `get(..., Standard)`), Zahlen der Siedler gerundet, der Stammbaum (`Game.lineage`) behält nur Lebende und ihre
+    Vorfahren bis zu den Großeltern (`prune_lineage` je Tagesbeginn; `related`/`is_close` bleiben gleich).
+    Tag 535: 615 KB → etwa 380 KB.
+  - **Stand-Zähler statt Suchen**: `World.build_rev` (je Insel; steigt über `bump_rev()`, wenn ein Gebäude dazukommt,
+    verschwindet, fertig wird oder sein Reparaturstand kippt, über die Setter `Building.complete`/`repair`),
+    `World.global_rev` (alle Inseln, auch wenn `Sea.worlds` sich ändert) und `World.people_rev` (Berufswechsel über
+    den Setter `Settler.job`). Darauf merken sich `World.pick(key, pred)`, `storages()`, `fires()`,
+    `construction_sites()`, `repair_sites()`, `leisure_spots()`, `lodges()`, `Admin.office()` und
+    `Admin.local_manager()` ihr Ergebnis. **Wer Gebäude anders als über `World.track_building`/`untrack_building`
+    in `buildings` einträgt oder entfernt, muss `bump_rev()` rufen**, sonst sehen diese Listen den Wechsel nicht.
+    `World.building_by_id` und `door_at` laufen über Wörterbücher (`_by_id`, `_door_n`), `nearest_storage` merkt
+    sich das Ergebnis je Feld für einen Vierteltag.
+  - **Ruhende Knoten**: Wege, Zäune, Schmuck und andere Gebäude ohne eigene Arbeit schalten `_process` ab
+    (`Building._ready` → `_wants_process()`; in `_ready`, weil Godot es beim Einhängen wieder anschaltet).
+    Rohstoffe (`ResNode`) schlafen, solange sie voll sind und nicht wackeln; der Setter `regrow_at` weckt sie.
+  - **Oberfläche**: die Oberleiste baut sich höchstens alle 300 ms neu (`Hud._top_dirty`, `TOP_REFRESH_MS`),
+    Siedler zeichnen nur neu, wenn sie ausgewählt sind, Effekte entstehen nur auf der sichtbaren Insel,
+    `Data.food_ids()`, `sorted_resource_ids()`, `sorted_tech_ids()` sortieren einmal, Inseln teilen sich die
+    Kachelbilder (`Data.hd_shared`), die leere Deko-Ebene der Karte ist entfernt.
+  - Messung Tag 535 (127 Siedler, 1108 Gebäude, ohne Bild): 1800 Schritte bei einfachem Tempo 47 s → 19 s.
+  - **Testhilfen getrennt**: alle Selbsttests, der Spiel-Bot und der Trainingsstart der KI liegen in
+    `scripts/test/` (`harness.gd` ist der frühere Testteil von `main.gd`). `main.gd` lädt `harness.gd` nur, wenn
+    das Spiel mit Argumenten gestartet wird; die Systeme holen ihre Testskripte über `Game.test("admin_test")`.
+    Der Web-Export schließt `scripts/test/*` aus: **Spielcode darf Testklassen nicht direkt beim Namen nennen**
+    (`AdminTest.run(...)`), sonst startet der Export nicht. Der Probelauf im Browser entfällt damit.
+  - **Handy-Ausschlussliste** in `export_presets.cfg` schreibt `tools/handy_filter.py` (jedes große Bild, zu dem
+    es ein halbes gibt); web.yml ruft es vor jedem Export auf.
+  - Entfernt: rund 40 Funktionen ohne Aufrufer (u. a. alte Befugnisse im Verwalter, `Game.eat_one`, `eat_food`,
+    `set_probelauf`, `Settler.best_job`, `World.is_dangerous`). Der Planer (`planner.gd`) bleibt.
+
 ## Lernende KI für die Berufe (josh 2026-11-07, nur Testversion /v21test2/, `scripts/autoload/ki_brain.gd`)
 
 - **Schalter**: Fenster Verwalter, Reiter Befugnisse, Zeile „Berufe vergeben“: Verwalter / Lernende KI (`KiBrain.on`,
@@ -294,7 +333,7 @@ Testhilfe `--v3build`.
   in 3 von 8 Läufen fertig), vorige KI 2690 ± 117 (2 von 8), neue KI 2945 ± 65 (8 von 8, Tag 171–174). Danach geht es in
   diesem Stand nicht weiter: alle weiteren Forschungen brauchen die Prüfung zur Antike.
 - **Vier Spielstände, zwei Spieljahre (josh 2026-11-08, Version 3)**: `--kisave=<datei>` mit `--agetest=N` speichert
-  eine Testinsel (scripts/world/age_test.gd) als Startstand und beendet das Spiel. Drei Stände: Mittelalter Tag 60
+  eine Testinsel (scripts/test/age_test.gd) als Startstand und beendet das Spiel. Drei Stände: Mittelalter Tag 60
   (AgeTest 2, 16 Siedler, 25 Forschungen; ins Lager +400 Holz, +150 Brot, +100 Räucherfisch, sonst erfroren im
   bitteren Winter auch beim Verwalter fast alle), Zeitalter 4 Tag 168 (AgeTest 4, 3 Inseln, +500/+250/+150),
   Zeitalter 6 Tag 288 (AgeTest 6, 48 Siedler, +600/+350/+200), dazu josh's Tag 163. Liegen unter
@@ -405,7 +444,7 @@ Testhilfe `--v3build`.
   44 (vorher 32), Milch 36 mit 12 Vitaminen; beide verderben (seasons.json `perishable`). Bilder `pigsty`
   und `cowshed` (buildings.png Zellen 54 und 55, `tools/gen_art_stalls.py`), Symbol `milch`. Der Schweinestall ist ein Bruchsteinstall mit
   Schindel-Pultdach, Koben und Suhle; er darf nicht wie der Hühnerhof aussehen (Strohdach, Lattenzaun; josh).
-  Test `--stalltest=1` (`scripts/world/stall_test.gd`).
+  Test `--stalltest=1` (`scripts/test/stall_test.gd`).
 - **Schreibstube in Stufen**: Schreibstube (x1.0, 2 Forscher) → Große Schreibstube (x1.4, 3)
   → Gelehrtenstube (x1.9, 3, Forschung Gelehrsamkeit) → Akademie (x2.6, 4, Schmiedekunst),
   jeweils per `upgrade` im Infofenster und mit hohen Kosten. Ausbau-Typen haben
@@ -1641,7 +1680,7 @@ Reihenfolge der Autoloads in `project.godot`: Seasons, Writing, Exams, Quests, H
   `Game._recompute_effects` bzw. `Game.is_unlocked` (Baupläne zählen damit auch für die Schreibwaren).
 - Oberleiste: Klima-Symbol neben der Jahreszeit; Händler- und Ereignisknopf in `hud.top_alerts`
   (`TopAlerts`, rechts neben dem Tempo, auf schmalen Bildschirmen darunter).
-- Selbsttest `--integtest=1` (`scripts/autoload/integration_test.gd`) prüft diese Verbindungen
+- Selbsttest `--integtest=1` (`scripts/test/integration_test.gd`) prüft diese Verbindungen
   („Zusammenspiel OK/FEHLER“).
 
 - **Regelstand**: `Game.RULES` (= 4; 1 = „Mehr Herausforderung“, 2 = josh 2026-10-12: Straßen nach Forschung,
@@ -1766,11 +1805,11 @@ oder „neu“; danach heißen der Spielstand-Platz (`slot_<tag>`) und die Rekor
 | `scripts/autoload/writing.gd` | Forschung braucht Schriften (Schreibwaren je Zeitalter) |
 | `scripts/autoload/exams.gd` | Prüfungen beim Zeitalterwechsel, Fest, Wertung und Rekorde |
 | `scripts/autoload/quests.gd` | Aufträge mit Wahl (Brett, Belohnungen, Segen, Baupläne) |
-| `scripts/autoload/integration_test.gd` | Selbsttest `--integtest=1`: Zusammenspiel der Erweiterungen |
+| `scripts/test/*.gd` | Testhilfen (nicht im Web-Export): `harness.gd` (Start `--autotest`), Selbsttests je System, Spiel-Bot, `steward_lab.gd` |
 | `scripts/autoload/seasons.gd` | Jahreszeiten: Kalender, Wachstum, Heizen, Verderb, Frost, Schnee, Klima (wechselnde Winter und Sommer) |
 | `scripts/autoload/house_needs.gd` | Bedürfnisstufen der Häuser, Fachkräfte-Pool (`data/levels.json`) |
-| `scripts/autoload/merchant.gd`, `merchant_test.gd` | Fremde Händler (`data/merchant.json`) und ihre Selbsttests |
-| `scripts/autoload/events.gd`, `events_test.gd` | Angekündigte Ereignisse (`data/events.json`) und ihre Selbsttests |
+| `scripts/autoload/merchant.gd` | Fremde Händler (`data/merchant.json`) und ihre Selbsttests |
+| `scripts/autoload/events.gd` | Angekündigte Ereignisse (`data/events.json`) und ihre Selbsttests |
 | `scripts/autoload/sea.gd` | Inseln, Welten je Insel, Schiffsreisen, Inselwechsel |
 | `scripts/world/island_gen.gd` | Inselgenerator (Seed → Gelände + Rohstoffe) |
 | `scripts/world/island_traits.gd` | Inselstärken (`biome_bonus`) und Gewürzsträucher |
@@ -1898,7 +1937,7 @@ oder „neu“; danach heißen der Spielstand-Platz (`slot_<tag>`) und die Rekor
   gelaufener Strecke, die Karre wippt mit den Schritten. Grafik: `tools/gen_art_cart.py` →
   `assets/sprites/cart.png` (Zellen 24x24, 4 Rad-Bilder, Zeilen 0–2 Karre unten/oben/seitlich, 3–5
   Vorderwand; `Data.cart_tex`, `CART_POS`, `CART_LOAD`). Test `--autotest=30 --scale=10 --cartshot=1`
-  (`scripts/world/cart_test.gd`, über `Extras.autotest_setup`): Sichtbarkeit („Karren OK/FEHLER“), vier
+  (`scripts/test/cart_test.gd`, über `Extras.autotest_setup`): Sichtbarkeit („Karren OK/FEHLER“), vier
   Siedler schieben nach rechts, links, unten und oben; mit `--shot` zoomt die Kamera auf sie.
 
 ## Vergabestelle für Berufe und Auslastung (josh 2026-10-22, Testversion /neu/)
@@ -2148,7 +2187,7 @@ einen Fahnenmast und noch 10 weitere Sachen, nach und nach freigeschaltet.“
   er wieder auf seinem Feld.
 - **Bilder:** `tools/gen_art_decor.py` (aus gen_art.py): buildings.png Zellen 60..89 (Atlas jetzt 512x768),
   objects3.png Zeilen y=64/80/96 (jetzt 256x112), Symbol `schmuck`.
-- **Test** `--decortest=1` (`scripts/world/decor_test.gd`): Freischalten, Laune mit Obergrenze und Abriss,
+- **Test** `--decortest=1` (`scripts/test/decor_test.gd`): Freischalten, Laune mit Obergrenze und Abriss,
   Tempo und Wegsuche, Hecke, Park und Bank in der Freizeit, Sitzen, wehende Fahne, Tür frei, Spielstand.
   Ausgabe `Schmuck OK`. Bild: `--decorshot=1` (Dorf mit allem Schmuck, `--seed=11`), Bau-Reiter:
   `--panel=build --cat=schmuck`.
@@ -2198,7 +2237,7 @@ xvfb-run godot --rendering-driver opengl3 -- --autotest=20 --shot=/tmp/bild.png
 godot --headless --export-release "Web" build/web/index.html
 ```
 
-**Spiel-Bot v2 (`--bot=1`, `scripts/world/bot.gd`)** misst die Balance: er spielt wie ein aufmerksamer
+**Spiel-Bot v2 (`--bot=1`, `scripts/test/bot.gd`)** misst die Balance: er spielt wie ein aufmerksamer
 Spieler und nur über die öffentliche Spiellogik (Baustellen mit `place_building`, Berufe mit `set_job`,
 Forschung mit `start_research`, `Quests.accept`, Werkstätten an/aus, Hoechstmengen im Lager mit
 `Game.set_limit`). Er bekommt keine Waren geschenkt und erzwingt keine Prüfung. Die alten Bots
@@ -2261,7 +2300,7 @@ anderen Caches), meldet den Service Worker ab, holt index.html/js/pck neu und l�
   `godot --headless -- --autotest=1 --genroofs=1`.
 - Unsichtbare Inseln: World, Gebäude, Siedler, Tiere und Rohstoffe wechseln keine Bilder (`_hidden_process`), die Simulation
   (Bedürfnisse, Arbeit, Felder, Wachturm, Tierbaue) läuft weiter. Testhilfe `--small` tut so, als wäre es ein iPhone.
-- Zeitalter-Test: `--agetest=0..6 [--workday=0]` (scripts/world/age_test.gd, plan_bot.gd) spielt den Useraktionsplan je Zeitalter.
+- Zeitalter-Test: `--agetest=0..6 [--workday=0]` (scripts/test/age_test.gd, plan_bot.gd) spielt den Useraktionsplan je Zeitalter.
 - **Testversion: weniger Zustandsrechnung** (josh 2026-11-05, nur /v21test/): Siedler rechnen Hunger, Gesundheit, Laune, Alter, Gefahr, Tagesabschnitt und Auslastung nur in 30 % der Bilder (balance.json `state_rate` 0.3, Settler._process mit aufgelaufener Zeit). Bewegung und Arbeit laufen jedes Bild. Zweck: prüfen, ob die Abstürze auf dem iPhone seltener werden.
 - **Handy-Fassung** (josh 2026-11-05, nur Testzweig): Export-Vorlage `WebHandy` (Feature `handy`) ohne die PC-Bilder (sied_pack/sied_hd, fine/ und big/ mit halber Fassung), veröffentlicht unter /v21test/handy/ (web.yml). Spieldatei 26 statt 77 MB. Mit `handy` gilt immer small_screen(), Bilder ohne Verkleinerungsstufen (Data.mips). Boden (Data.fine) und Wege nehmen auf Handy/Tablet die halbe Fassung. Gemessen im Browser als iPhone: Browser-Speicher 70 statt 120–200 MB, Bilder 49 statt 69 MB.
 - **Ton im Browser als Stream** (josh 2026-11-05): project.godot `audio/general/default_playback_type.web=0`. Im Standard (Samples) legt Godot Musik und Meeresrauschen als Browser-AudioBuffer an; gemessen wuchs der Browser-Speicher damit um etwa 30 MB pro Minute (1020 auf 1430 MB in 11 Min), mit Stream mischt Godot im Spiel selbst und der Speicher blieb flach (rund 900 MB, wie ganz ohne Ton). Testschalter `?nosound`, `?nomusic`, `?nosfx` (sound.gd); Meeresrauschen wird nur einmal geladen (`_amb_streams`).

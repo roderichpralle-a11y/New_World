@@ -15,8 +15,6 @@ signal changed
 
 const TICK_DAYS := 0.25
 const MOVE_DAYS := 0.25
-const RELEASE_IDLE := 40.0  # nur wer so viel Prozent der Zeit nichts zu tun hat, wird frei (josh: weder arbeiten noch forschen)
-const RELEASE_DAYS := 0.5  # so lange muss ein Beruf über dem Stellenplan liegen, bis Leute frei werden
 const PROTECT := ["verwalter", "seemann"]  # nie umbesetzt oder freigestellt
 const KEEP_DAYS := 2.0
 const PLAN_DAYS := 3.0  # Essen und Wärme für so viele Tage sichern
@@ -30,7 +28,6 @@ const FOOD_JOBS := ["bauer", "fischer", "sammler", "jaeger"]
 const KEEP := ["verwalter", "seemann", "baumeister", "forscher"]
 const FIELDS_PER_FARMER := 4
 const WOOD_RATE := 10.0  # Holz je Holzfäller und Tag, bis gemessen ist
-const NO_TRIM := ["frei", "verwalter", "seemann", "forscher"]
 const MAX_POP := 60  # nur noch für alte Anzeigen (Rechenautomat)
 
 var on := false        # alte Spielstände (früher Schalter); gesteuert wird über die Befugnisse
@@ -38,7 +35,6 @@ var offered := false
 var offered_routes := false
 var _next := 0.0
 var _moved: Dictionary = {}       # Insel-ID -> Tag des letzten Wechsels
-const LIMIT_DAYS := 3.0
 var _free_since: Dictionary = {}  # Siedler-ID -> Tag, seit dem er frei ist
 var _day_stats: Dictionary = {}   # Insel-ID -> {day, start: {holz, kohle, food}, made: {...}, prev: {used_fuel, used_food, made_food, made_holz, food_w, wood_w}}
 var research_info := ""
@@ -93,13 +89,6 @@ func blocked_on(w) -> String:
 func set_on(v: bool) -> void:
 	on = v
 	changed.emit()
-
-
-## Der Spieler hat einem Siedler selbst einen Beruf gegeben: der bleibt, bis der Spieler ihn freigibt.
-func player_set(s) -> void:
-	if s != null:
-		JobDesk.hold(s, "spieler")
-		AiRule.player_changed("job:%d" % int(s.id))
 
 
 func locked(s) -> bool:
@@ -344,15 +333,13 @@ func _idle(s) -> float:
 	return float(sh[2]) if not sh.is_empty() else 0.0
 
 
-func _job_counts(w) -> Dictionary:
-	var out := {}
-	for s in _adults(w):
-		out[s.job] = int(out.get(s.job, 0)) + 1
-	return out
-
-
 ## Wer ist seit wann frei? (für „einen Tag frei, dann teilt der Verwalter ein“)
 func _track_free(w) -> void:
+	if _free_since.size() > 400:  # Einträge Verstorbener entfernen
+		var alive: Dictionary = Game.living_ids()
+		for k in _free_since.keys():
+			if not alive.has(int(k)):
+				_free_since.erase(k)
 	for s in _adults(w):
 		if s.job == "frei":
 			if not _free_since.has(int(s.id)):
@@ -500,7 +487,6 @@ func secure_info(w) -> Dictionary:
 
 # ---------------------------------------------------------------- Was braucht die Insel?
 ## Gefahr (josh 2026-10-30): erwachsene Wölfe, Eber oder Bären bis 8 Felder an Arbeitsplätzen oder Häusern -> ein Jäger.
-const DANGER_DIST := 8
 ## Wer passt am besten (josh 2026-10-30)? Talent und Stufe im neuen Beruf zählen, Erfahrung im alten Beruf
 ## geht ungern verloren, und wer nah an den Arbeitsplätzen des Berufs wohnt, hat kurze Wege.
 func _pick(w, cands: Array, job: String):
@@ -658,17 +644,6 @@ func _food_job(w) -> String:
 	return ""
 
 
-## Warum kein Nahrungsberuf hilft (Text für den Engpass).
-func _food_block(w) -> String:
-	var why := []
-	for j in ["sammler", "fischer", "bauer"]:
-		if Data.job_unlocked(j):
-			var b := _raw_block(w, j)
-			if b != "" and not b in why:
-				why.append(b)
-	return tr("Essen wird knapp, aber mehr Leute bringen gerade nichts: %s Lege Vorräte an (Räuchern, Backen) oder hol Essen per Schiff.") % " ".join(why)
-
-
 ## Wer stellt die Ware her? Rohstoffe aus RAW_JOB, sonst der Beruf einer Werkstatt, die sie herstellt.
 func _producer(w, id: String) -> String:
 	if RAW_JOB.has(id):
@@ -741,71 +716,6 @@ func _raw_block(w, job: String) -> String:
 	return ""
 
 
-## Warum fehlt die Ware? Folgt der Lieferkette rückwärts (Glas -> Glashütte -> Lehm -> Lehmgrube) und gibt
-## den Beruf ganz vorne zurück, der wirklich etwas ändert: {job, why} oder {block: Text} oder {}.
-## Erst die Vorprodukte, dann die Werkstatt selbst; Rohstoffe nur, wenn die Natur etwas hergibt.
-func trace(w, id: String, depth := 0, seen: Dictionary = {}) -> Dictionary:
-	if depth > 6 or seen.has(id):
-		return {}
-	seen[id] = true
-	var name := Data.resource_name(id)
-	var first_block := {}
-	var any_maker := false
-	for b in w.buildings:
-		if not (b.complete and b.def.has("production") and not b.def.get("ships", false) and b.prod_def().get("outputs", {}).has(id)):
-			continue
-		any_maker = true
-		if b.paused:
-			if first_block.is_empty():
-				first_block = {"block": tr("%s steht still (angehalten), darum fehlt %s.") % [b.def.name, name]}
-			continue
-		var p: Dictionary = b.prod_def()
-		# Vorprodukte zuerst: fehlt eines, liegt dort die Ursache
-		for res in p.get("inputs", {}):
-			if Game.amount(res, w) >= int(p.inputs[res]) * 2:
-				continue
-			var r := trace(w, str(res), depth + 1, seen)
-			if r.has("job"):
-				if depth == 0 or not str(r.why).contains("→"):
-					r.why = "%s → %s" % [name, r.why] if r.why != "" else name
-				return r
-			if r.has("block") and first_block.is_empty():
-				first_block = r
-		var blk: String = b.prod_blocker()
-		if blk != "":
-			if first_block.is_empty() and not blk.begins_with(tr("Es fehlt")):
-				first_block = {"block": "%s: %s." % [b.def.name, blk]}
-			continue
-		var kind: String = p.get("job", "")
-		var j: String = KIND_JOB.get(kind, "")
-		if j == "" or not Data.job_unlocked(j):
-			continue
-		if not w.pool_allows(b):
-			if first_block.is_empty():
-				first_block = {"block": tr("%s braucht Fachkräfte ab Hausstufe %d (%s), darum fehlt %s.") % [b.def.name, b.worker_level(), HouseNeeds.level_name(b.worker_level()), name]}
-			continue
-		if b.free_slots() > 0 and _count(w, j) < _workplaces(w, kind):
-			return {"job": j, "why": name}
-		if first_block.is_empty():
-			first_block = {"block": tr("%s arbeitet schon voll. Für mehr %s baue eine weitere.") % [b.def.name, name]}
-	if RAW_JOB.has(id):
-		var j: String = RAW_JOB[id]
-		if not Data.job_unlocked(j):
-			return first_block
-		var rb := _raw_block(w, j)
-		if rb == "":
-			return {"job": j, "why": name}
-		return {"block": tr("%s fehlt: %s") % [name, rb]}
-	if not any_maker:
-		var bt := _maker_type(id)
-		if bt == "":
-			return first_block
-		if Game.is_unlocked(bt):
-			return {"block": tr("%s stellt niemand her: baue %s.") % [name, Data.buildings[bt].name]}
-		return {"block": tr("%s stellt niemand her: %s ist noch nicht erforscht.") % [name, Data.buildings[bt].name]}
-	return first_block
-
-
 ## Gebäudeart, die die Ware herstellt (für den Hinweis „baue …“).
 func _maker_type(id: String) -> String:
 	for t in Data.buildings:
@@ -813,16 +723,6 @@ func _maker_type(id: String) -> String:
 		if d.get("buildable", true) and d.has("production") and d.production.get("outputs", {}).has(id):
 			return t
 	return ""
-
-
-## Engpass merken (für das Fenster Verwalter und das Log; Meldung höchstens einmal am Tag über Game.notify).
-func _note_block(w, key: String, text: String) -> void:
-	var id := int(w.island_id)
-	if not blocks.has(id):
-		blocks[id] = {}
-	if _old_blocks.get(id, {}).get(key, "") != text and blocks[id].get(key, "") != text:
-		Admin.add_log(who() + ": " + text)
-	blocks[id][key] = text
 
 
 ## Ein Beruf ist überzählig, wenn alle seine Waren den Mindestvorrat bzw. das Lagerziel erreicht haben oder
@@ -1071,26 +971,6 @@ func ship_now(from_id: int, to_id: int, goods: Dictionary, _why: String) -> bool
 	return true
 
 
-func _over_max(island_id: int, id: String) -> int:
-	var lim := limits(island_id, id)
-	if lim[1] <= 0:
-		return 0
-	return maxi(0, Game.amount(id, Sea.worlds.get(island_id)) - lim[1])
-
-
-## Wie viel eine Insel noch aufnehmen soll: bis zu ihrem Höchststand, ohne Höchststand so viel ins Lager passt.
-func _room_below_max(island_id: int, id: String) -> int:
-	var w = Sea.worlds.get(island_id)
-	if w == null:
-		return 0
-	var lim := limits(island_id, id)
-	var room: int = Game.space_for(id, w) - incoming(island_id, id)
-	if lim[1] > 0:
-		room = mini(room, lim[1] - Game.amount(id, w) - incoming(island_id, id))
-	return room
-
-
-
 # ---------------------------------------------------------------- Stufe 3: Inselverbund, Rechenautomat, Automat
 ## Ab Papier reden die Verwalter der Inseln miteinander (net_on, abschaltbar), aber nur über eine Rundfunkanstalt
 ## (Gebäude mit "radio", josh 2026-10-21): mitmachen nur Inseln mit fertiger Rundfunkanstalt, und ohne eine auf
@@ -1132,40 +1012,11 @@ func net_member(w) -> bool:
 	return net_active() and has_radio(w)
 
 
-## Inseln ohne Rundfunkanstalt (Namen), für den Hinweis unter Inseln.
-func islands_without_radio() -> Array:
-	var out := []
-	for m in Sea.settled_islands():
-		var w = Sea.worlds.get(int(m.id))
-		if w != null and not has_radio(w):
-			out.append(Sea.island_name(w))
-	return out
-
-
-func set_net(v: bool) -> void:
-	net_on = v
-	AiRule.player_changed("net")
-	Game.notify(tr("Inselverbund an: die Heimatinsel verarbeitet, die anderen Inseln liefern.") if v else tr("Inselverbund aus: jede Insel versorgt sich selbst."), "anker", "verwaltung")
-	changed.emit()
-
-
-## Früher: ab Elektrizität ersetzte ein Automat den Verwalter. Seit 2026-10-29 gibt es nur den Verwalter.
-func automat_mode() -> bool:
-	return false
-
-
 ## Wer steuert gerade? Für Meldungen.
 func who() -> String:
 	if AiRule.ki():
 		return tr("KI")
 	return tr("Verwalter")
-
-
-func has_automaton(w) -> bool:
-	for b in w.buildings:
-		if b.complete and b.def.get("automaton", false):
-			return true
-	return false
 
 
 ## "" = der Rechenautomat darf gebaut werden, sonst was noch fehlt (josh: ab der 2. Insel, mehr als 60 Siedlern und der Renaissance).
@@ -1210,19 +1061,6 @@ func _supplier(hw, what: String) -> int:
 			best_v = v
 			best = i
 	return best
-
-
-## Rohstoffe, die der Heimatinsel für ihre Werkstätten fehlen (unter 20 im Lager).
-func _home_wants(hw) -> Array:
-	var out := []
-	if hw == null:
-		return out
-	for b in hw.buildings:
-		if b.complete and b.def.has("production"):
-			for id in b.prod_def().get("inputs", {}):
-				if RAW_JOB.has(id) and not id in out and Game.amount(id, hw) < 20:
-					out.append(id)
-	return out
 
 
 func _food_load(src) -> Dictionary:
@@ -1308,12 +1146,6 @@ const TASKS := {
 var tasks: Dictionary = {}  # Insel-ID (String) -> Array mit Schlüsseln aus TASKS
 
 
-## Nur für die Übersetzung (tools/i18n.py findet tr-Texte): die Namen aus TASKS.
-func _task_names() -> Array:
-	return [tr("Holz und Bretter"), tr("Stein und Ziegel"), tr("Getreide und Brot"), tr("Fisch"), tr("Beeren"), tr("Pilze"),
-		tr("Kokosnüsse"), tr("Gewürze"), tr("Fleisch und Felle"), tr("Erz und Metall"), tr("Gold"), tr("Forschung")]
-
-
 ## Die Hauptaufgaben einer Insel, in der Reihenfolge von TASKS.
 func tasks_of(w) -> Array:
 	if w == null:
@@ -1324,30 +1156,6 @@ func tasks_of(w) -> Array:
 
 func task_names(w) -> String:
 	return ", ".join(PackedStringArray(tasks_of(w).map(func(k): return tr(TASKS[k].name))))
-
-
-## Eine Aufgabe an- oder abwählen; key "" löscht alle.
-func toggle_task(island_id: int, key: String) -> void:
-	var have: Array = tasks.get(str(island_id), []).duplicate()
-	if key == "" or not TASKS.has(key):
-		have.clear()
-	elif key in have:
-		have.erase(key)
-	else:
-		have.append(key)
-	set_tasks(island_id, have)
-
-
-func set_tasks(island_id: int, keys: Array) -> void:
-	var have := keys.filter(func(k): return TASKS.has(k))
-	if have.is_empty():
-		tasks.erase(str(island_id))
-	else:
-		tasks[str(island_id)] = have
-		var w = Sea.worlds.get(island_id)
-		Game.notify(tr("Hauptaufgabe für %s: %s. Der Verwalter setzt die passenden Berufe ein.") % [Sea.meta(island_id).get("name", "?"), task_names(w) if w != null else ""], "person", "verwaltung")
-	AiRule.player_changed("task")
-	changed.emit()
 
 
 ## Berufe, die für die Hauptaufgaben auf dieser Insel gebraucht werden und dort arbeiten können.

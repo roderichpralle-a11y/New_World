@@ -7,7 +7,12 @@ var type: String
 var def: Dictionary
 var cell: Vector2i  # obere linke Zelle der Grundflaeche
 var size: Vector2i
-var complete: bool = false
+## Setter: fertig/Baustelle und Wiederaufbau ändern die gemerkten Auswahlen der Insel (World.build_rev)
+var complete: bool = false:
+	set(v):
+		if v != complete:
+			complete = v
+			_bump()
 var progress: float = 0.0
 var delivered: Dictionary = {}
 var incoming: Dictionary = {}  # von Baumeistern unterwegs
@@ -17,7 +22,11 @@ var reserved_by: int = 0
 var occupants: Array = []  # Siedler-IDs, die hier arbeiten (Produktion, Forschung)
 var paused: bool = false
 var adm: bool = false  # Verwaltung: Vertretung erlaubt (Admin)
-var repair: bool = false  # nach einer Katastrophe zerstört: alle Erwachsenen bauen es zuerst wieder auf (josh 2026-11-01)
+var repair: bool = false:  # nach einer Katastrophe zerstört: alle Erwachsenen bauen es zuerst wieder auf (josh 2026-11-01)
+	set(v):
+		if v != repair:
+			repair = v
+			_bump()
 var ship_choice: String = "boot"  # Werft (alte Spielstände): Schiff, das früher immer wieder gebaut wurde
 var ship_queue: Array = []  # Werft: Bauaufträge der Reihe nach (josh 2026-10-17); leer = baut nichts
 var ship_wip: String = ""  # Werft: Schiff, fuer das die Rohstoffe schon genommen sind
@@ -542,6 +551,26 @@ func _draw_bar() -> void:
 var _smoke_t: float = 0.0
 
 
+func _ready() -> void:
+	set_process(_wants_process())  # erst hier: beim Einhängen schaltet Godot _process von selbst ein
+
+
+func _bump() -> void:
+	if world != null and is_instance_valid(world):
+		world.bump_rev()
+
+
+## Wege, Deiche, Zäune, Hecken und anderer Schmuck ohne Bewegung haben in _process nichts zu tun. Sie
+## bekommen keinen Aufruf je Bild mehr (auf großen Inseln sind das zwei Drittel aller Gebäude).
+func _wants_process() -> bool:
+	if not (def.has("tile") or def.has("decor")):
+		return true
+	if type == "lagerfeuer" or _light != null or def.has("anim") or def.has("defense") or def.has("farm") \
+			or def.has("production") or def.get("ships", false):
+		return true
+	return _sprite != null and Data.object_frames(str(def.get("sprite", ""))) > 1
+
+
 func _process(delta: float) -> void:
 	if world != null and not world.visible:
 		_hidden_process()  # unsichtbare Insel: nur rechnen, nicht zeichnen (Prüfbericht 2026-10-31)
@@ -628,9 +657,23 @@ func _defend(delta: float) -> void:
 
 
 func serialize() -> Dictionary:
-	return {
-		"id": id, "type": type, "x": cell.x, "y": cell.y, "complete": complete,
-		"progress": progress, "delivered": delivered,
-		"farm_state": farm_state, "farm_time": farm_time, "paused": paused, "ship": ship_choice, "adm": adm, "repair": repair,
-		"ship_queue": ship_queue, "ship_wip": ship_wip,
-	}
+	# Nur was vom Standard abweicht (World.build_from_save liest alles andere mit Vorgabewert): ein Wegstück
+	# braucht so etwa 100 statt 230 Zeichen, bei 900 Gebäuden ist der Spielstand rund 100 KB kleiner.
+	var d := {"id": id, "type": type, "x": cell.x, "y": cell.y, "complete": complete,
+		"progress": snappedf(progress, 0.001), "delivered": delivered}
+	if farm_state != "fallow":
+		d["farm_state"] = farm_state
+	if farm_time != 0.0:
+		d["farm_time"] = snappedf(farm_time, 0.0001)
+	if paused:
+		d["paused"] = true
+	if adm:
+		d["adm"] = true
+	if repair:
+		d["repair"] = true
+	if def.get("ships", false) or not ship_queue.is_empty() or ship_wip != "" or ship_choice != "boot":
+		# Werft: die Liste immer schreiben (ohne sie gilt der Stand als alt und die Werft baut ein Schiff)
+		d["ship"] = ship_choice
+		d["ship_queue"] = ship_queue
+		d["ship_wip"] = ship_wip
+	return d

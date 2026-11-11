@@ -238,15 +238,6 @@ static func _log_tab() -> void:
 		_box.add_child(v)
 
 
-## Rechtsbündige Zahlenspalten fester Breite am Ende einer Zeile (bis zu 6 Jahre).
-static func _cols(h: Container, texts: Array, col: Color) -> void:
-	for t in texts:
-		var l := UiTheme.label(str(t), 13 if col == UiTheme.TEXT else 12, col, col == UiTheme.TEXT)
-		l.custom_minimum_size.x = 48
-		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		h.add_child(l)
-
-
 ## Der Verwalter schlägt Überstunden oder Schichtarbeit vor (Fenster mit drei Knöpfen).
 static func show_proposal(hud, job: String, text: String) -> void:
 	if _dialog and is_instance_valid(_dialog):

@@ -55,7 +55,6 @@ var _stex_layer: TileMapLayer  # feiner Sand über vollen Sandfeldern (josh 2026
 var _mat_stex: ShaderMaterial
 var _fine_ground := false  # joshs feine Bodenbilder vorhanden (assets/sprites_hd/fine)
 static var _fine_tex: Dictionary = {}  # Name -> Textur der feinen Bodenbilder
-var _deco_layer: TileMapLayer  # feine Grasbüschel und Blumen (terrain_deco.png, josh 2026-10-28)
 var _mat_water: ShaderMaterial
 var _leaf_layer: TileMapLayer
 var _unreachable: Dictionary = {}
@@ -173,9 +172,9 @@ func build_from_save(w: Dictionary, m: Dictionary) -> void:
 	for b in w.buildings:
 		if not Data.buildings.has(b.type):
 			continue
-		var bld := place_building(b.type, Vector2i(int(b.x), int(b.y)), bool(b.complete), int(b.id))
-		bld.progress = float(b.progress)
-		bld.delivered = b.delivered
+		var bld := place_building(b.type, Vector2i(int(b.x), int(b.y)), bool(b.get("complete", false)), int(b.id))
+		bld.progress = float(b.get("progress", 0.0))
+		bld.delivered = b.get("delivered", {}) if b.get("delivered") is Dictionary else {}
 		bld.farm_state = b.get("farm_state", "fallow")
 		bld.farm_time = float(b.get("farm_time", 0.0))
 		bld.paused = bool(b.get("paused", false))
@@ -271,11 +270,6 @@ func _build_terrain(island: Dictionary) -> void:
 		_mat_gtex.set_shader_parameter("tint", _layers[2].modulate)  # Grünton der Inselart
 	_gtex_layer.material = _mat_gtex
 	add_child(_gtex_layer)
-	_deco_layer = TileMapLayer.new()
-	_deco_layer.tile_set = _make_deco_tileset()
-	_deco_layer.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS  # fein, ohne Flimmern
-	_deco_layer.material = _mat_ground  # Schnee hellt auch die Büschel auf
-	add_child(_deco_layer)
 	var sts := _make_season_tileset()
 	_snow_layer = TileMapLayer.new()
 	_leaf_layer = TileMapLayer.new()
@@ -333,19 +327,6 @@ func _make_tileset() -> TileSet:
 	return ts
 
 
-func _make_deco_tileset() -> TileSet:
-	var ts := TileSet.new()
-	ts.tile_size = Vector2i(T, T)
-	var src := TileSetAtlasSource.new()
-	src.texture = Data.hd("terrain_deco")
-	src.use_texture_padding = false
-	src.texture_region_size = Vector2i(T, T)
-	for v in 16:
-		src.create_tile(Vector2i(v, 0))
-	ts.add_source(src, 0)
-	return ts
-
-
 static func _fine(name: String) -> Texture2D:
 	if not _fine_tex.has(name):
 		_fine_tex[name] = Data.fine(name)
@@ -373,7 +354,7 @@ func _make_grid_tileset(tex: String, n: int) -> TileSet:
 	var ts := TileSet.new()
 	ts.tile_size = Vector2i(T, T)
 	var src := TileSetAtlasSource.new()
-	src.texture = Data.hd(tex)
+	src.texture = Data.hd_shared(tex)  # ein Bild für alle Inseln
 	src.use_texture_padding = false
 	src.texture_region_size = Vector2i(T, T)
 	for r in n:
@@ -387,7 +368,7 @@ func _make_season_tileset() -> TileSet:
 	var ts := TileSet.new()
 	ts.tile_size = Vector2i(T, T)
 	var src := TileSetAtlasSource.new()
-	src.texture = Data.hd("terrain_season")
+	src.texture = Data.hd_shared("terrain_season")
 	src.use_texture_padding = false
 	src.texture_region_size = Vector2i(T, T)
 	for r in 9:  # Zeilen 0..7 Schnee (ein nahtloses 8x8-Feld), Zeile 8 Laub
@@ -525,11 +506,6 @@ func _paint_tile(x: int, y: int, sand: TileMapLayer, grass: TileMapLayer) -> voi
 			_gtex_layer.set_cell(Vector2i(x, y), 0, Vector2i(posmod(x, 8), posmod(y, 8)))
 		else:
 			_gtex_layer.erase_cell(Vector2i(x, y))
-	if _deco_layer != null:
-		if false and mg == 15 and h >= 40:  # 2.0.15: Büschel und Blumen stecken im feinen Grasmuster (josh 2026-10-28)
-			_deco_layer.set_cell(Vector2i(x, y), 0, Vector2i(h % 16, 0))
-		else:
-			_deco_layer.erase_cell(Vector2i(x, y))
 	if _snow_layer == null:
 		return
 	var h2 := (hash(Vector2i(y, x) * 7) & 0xffff) % 100
@@ -557,8 +533,29 @@ func set_terrain(c: Vector2i, t: int) -> void:
 	for y in range(c.y - 1, c.y + 1):
 		for x in range(c.x - 1, c.x + 1):
 			_paint_tile(x, y, _layers[1], _layers[2])
+	if _terrain_batch > 0:
+		_terrain_dirty = true  # viele Felder auf einmal: Küste und Grasmaske erst am Ende (terrain_batch_end)
+		return
 	_update_shore()
 	_update_grass_mask()
+
+
+## Mehrere set_terrain hintereinander (Neuland, Flut): Küste und Grasmaske nur einmal am Ende neu rechnen
+## statt für jedes einzelne Feld die ganze Karte.
+var _terrain_batch := 0
+var _terrain_dirty := false
+
+
+func terrain_batch_begin() -> void:
+	_terrain_batch += 1
+
+
+func terrain_batch_end() -> void:
+	_terrain_batch = maxi(0, _terrain_batch - 1)
+	if _terrain_batch == 0 and _terrain_dirty:
+		_terrain_dirty = false
+		_update_shore()
+		_update_grass_mask()
 
 
 func _setup_astar() -> void:
@@ -720,7 +717,7 @@ func decor_mood(home) -> float:
 
 ## Fertige Freizeitorte einer Art (buildings.json "leisure": park, bench, pavilion).
 func leisure_spots(kind: String) -> Array:
-	return buildings.filter(func(b): return b.complete and b.def.get("leisure", "") == kind)
+	return pick("freizeit:" + kind, func(b): return b.complete and b.def.get("leisure", "") == kind).duplicate()
 
 
 ## Nachbarmaske für Straßen- und Deichkacheln (N=1, O=2, S=4, W=8). Deiche verbinden sich auch mit Land.
@@ -838,6 +835,10 @@ func find_approach(from: Vector2i, target_cells: Array, adjacent: bool, for_anim
 
 
 func mark_unreachable(obj) -> void:
+	if _unreachable.size() > 200:  # Abgelaufenes und Verschwundenes entfernen, sonst wächst die Liste endlos
+		for k in _unreachable.keys():
+			if not is_instance_valid(k) or float(_unreachable[k]) <= Game.time_days:
+				_unreachable.erase(k)
 	_unreachable[obj] = Game.time_days + 0.5
 
 
@@ -957,7 +958,7 @@ func place_building(type: String, c: Vector2i, complete: bool, bid: int = 0) -> 
 		ground.add_child(b)
 	else:
 		entities.add_child(b)
-	buildings.append(b)
+	track_building(b)
 	for cc in b.cells():
 		building_at[cc] = b
 		_drop_roof(cc)
@@ -979,12 +980,8 @@ func place_building(type: String, c: Vector2i, complete: bool, bid: int = 0) -> 
 
 ## Dachfelder eines Gebäudes sperren; frei bleiben Felder anderer Gebäude, Türen und Wasser.
 func _claim_roof(b: Building) -> void:
-	var doors := {}
-	for o in buildings:
-		if o != b and not o.is_ground():
-			doors[o.entrance_cell()] = true
 	for rc in b.roof_cells():
-		if not is_inside(rc) or building_at.has(rc) or roof_at.has(rc) or doors.has(rc) or is_water(rc):
+		if not is_inside(rc) or building_at.has(rc) or roof_at.has(rc) or door_at(rc, b) or is_water(rc):
 			continue
 		roof_at[rc] = b
 		_set_solid(rc, true)
@@ -1036,9 +1033,8 @@ func can_place(type: String, c: Vector2i, ignore = null) -> bool:
 		var ob = building_at.get(rc)
 		if ob != null and ob != ignore and not ob.is_ground() and not ob.def.has("tile") and not ob.is_decor():
 			return false
-		for ob2 in buildings:
-			if ob2 != ignore and not ob2.is_ground() and ob2.entrance_cell() == rc:
-				return false
+		if door_at(rc, ignore):
+			return false
 	# Eingang muss frei sein; eine Straße vor der Tür ist erlaubt (josh 2026-10-16)
 	if not def.get("ground", false):
 		var e := c + Vector2i(int(def.size[0]) / 2, int(def.size[1]))
@@ -1107,7 +1103,7 @@ func demolish(b: Building) -> void:
 		if d._reserved == b or d._incoming.any(func(i): return i[0] == b):
 			d.abort_plan()
 	_release_roof(b)
-	buildings.erase(b)
+	untrack_building(b)
 	if b.is_decor():
 		decor_dirty()
 	for cc in b.cells():
@@ -1134,19 +1130,118 @@ func demolish(b: Building) -> void:
 func building_by_id(bid: int):
 	if bid == 0:
 		return null
+	var hit = _by_id.get(bid)
+	if hit != null and is_instance_valid(hit) and hit.id == bid:
+		return hit
 	for b in buildings:
 		if b.id == bid:
+			_by_id[bid] = b
 			return b
 	return null
+
+
+# ---------------------------------------------------------------- Gebäudeliste und gemerkte Auswahlen
+## build_rev zählt jede Änderung, die eine Auswahl aus der Gebäudeliste verändern kann: Gebäude kommt dazu
+## oder geht (track_building/untrack_building), wird fertig oder Baustelle, Wiederaufbau an/aus (Setter in
+## building.gd). Auswahlen wie Baustellen, Lager oder Freizeitorte werden damit einmal je Stand berechnet
+## statt bei jedem Aufruf über alle Gebäude (bei 900 Gebäuden und 130 Siedlern die größte Dauerlast).
+var build_rev := 0
+## Zählt die Änderungen aller Inseln zusammen, dazu jede neue oder entfernte Insel (Sea) und jeden Wechsel bei
+## den Bewohnern (people_rev): für Merker, die über alle Inseln gehen (Admin.office, Admin.local_manager).
+static var global_rev := 0
+static var people_rev := 0
+
+
+func bump_rev() -> void:
+	build_rev += 1
+	global_rev += 1
+var cap_rev := -1  # Stauraum der Lager, gemerkt für Game.storage_volume
+var cap_sum := 0
+var _by_id: Dictionary = {}    # Gebäude-ID -> Gebäude
+var _door_n: Dictionary = {}   # Eingangsfeld -> Anzahl Gebäude mit Tür dort
+var _picks: Dictionary = {}    # Schlüssel -> [build_rev, Array]
+
+
+func track_building(b) -> void:
+	buildings.append(b)
+	_by_id[b.id] = b
+	_door_add(b, 1)
+	bump_rev()
+
+
+func untrack_building(b) -> void:
+	if buildings.has(b):
+		_door_add(b, -1)
+	buildings.erase(b)
+	if _by_id.get(b.id) == b:
+		_by_id.erase(b.id)
+	bump_rev()
+
+
+func _door_add(b, n: int) -> void:
+	if b.is_ground():
+		return
+	var e: Vector2i = b.entrance_cell()
+	var v: int = int(_door_n.get(e, 0)) + n
+	if v > 0:
+		_door_n[e] = v
+	else:
+		_door_n.erase(e)
+
+
+## Liegt auf dem Feld die Tür eines Gebäudes (außer `skip`)?
+func door_at(c: Vector2i, skip = null) -> bool:
+	var n := int(_door_n.get(c, 0))
+	if skip != null and n > 0 and not skip.is_ground() and skip.entrance_cell() == c and buildings.has(skip):
+		n -= 1
+	return n > 0
+
+
+## Auswahl aus der Gebäudeliste, gemerkt bis zur nächsten Änderung (build_rev). Die Liste gehört dem Merker:
+## Aufrufer, die sie verändern wollen, nehmen eine Kopie.
+func pick(key: String, pred: Callable) -> Array:
+	var hit = _picks.get(key)
+	if hit != null and hit[0] == build_rev:
+		return hit[1]
+	var out: Array = buildings.filter(pred)
+	_picks[key] = [build_rev, out]
+	return out
+
+
+func storages() -> Array:
+	return pick("lager", func(b): return b.is_storage())
+
+
+func fires() -> Array:
+	return pick("feuer", func(b): return b.type == "lagerfeuer")
 
 
 ## Nächstes Lager nach Wegzeit (josh 2026-10-12): der schnellste Weg zählt, Straßen sind schneller als
 ## Gras. Nur ein Lager oder keins erreichbar: das nach Luftlinie nächste.
 func nearest_storage(from: Vector2i):
+	# Je Feld gemerkt, bis sich die Gebäude ändern, längstens einen Vierteltag (Bäume und Wege ändern die Wegzeit)
+	if _near_rev != build_rev or Game.time_days >= _near_until or Game.time_days < _near_until - 0.3:
+		_near_store.clear()
+		_near_rev = build_rev
+		_near_until = Game.time_days + 0.25
+	var hit = _near_store.get(from)
+	if hit != null and is_instance_valid(hit):
+		return hit
+	var found = _nearest_storage(from)
+	if found != null:
+		_near_store[from] = found
+	return found
+
+
+var _near_store: Dictionary = {}
+var _near_rev := -1
+var _near_until := 0.0
+
+
+func _nearest_storage(from: Vector2i):
 	var cand := []
-	for b in buildings:
-		if b.is_storage():
-			cand.append([b.dist_sq(from), b])
+	for b in storages():
+		cand.append([b.dist_sq(from), b])
 	if cand.is_empty():
 		return null
 	cand.sort_custom(func(a, b): return a[0] < b[0])
@@ -1207,15 +1302,19 @@ func delivery_storage(from: Vector2i):
 ## Baustellen für einen Beruf: Baumeister (und Helfer) bauen alles ohne "builder", der Förster
 ## nur seine Pflanzstellen (buildings.json "builder": "foerster").
 func construction_sites(builder: String = "") -> Array:
-	return buildings.filter(func(b): return not b.complete and str(b.def.get("builder", "")) == builder)
+	return pick("bau:" + builder, func(b): return not b.complete and str(b.def.get("builder", "")) == builder).duplicate()
 
 
 ## Wiederaufbau nach Katastrophen (josh 2026-11-01): zerstörte Gebäude in der Reihenfolge Deich, Häuser,
 ## andere Gebäude, Felder, Straßen und Wege.
 func repair_sites() -> Array:
+	var hit = _picks.get("reparatur")
+	if hit != null and hit[0] == build_rev:
+		return hit[1].duplicate()
 	var out: Array = buildings.filter(func(b): return b.repair and not b.complete and str(b.def.get("builder", "")) == "")
 	out.sort_custom(func(a, b): return repair_rank(a) < repair_rank(b))
-	return out
+	_picks["reparatur"] = [build_rev, out]
+	return out.duplicate()
 
 
 static func repair_rank(b) -> int:
@@ -1333,7 +1432,7 @@ func upgrade_building(b: Building) -> Building:
 		if d._reserved == b or d._incoming.any(func(i): return i[0] == b):
 			d.abort_plan()
 	_release_roof(b)
-	buildings.erase(b)
+	untrack_building(b)
 	for cc in b.cells():
 		building_at.erase(cc)
 		_set_solid(cc, false)
@@ -1392,7 +1491,10 @@ func move_building(b: Building, c: Vector2i) -> bool:
 	for cc in old_cells:
 		building_at.erase(cc)
 		_set_solid(cc, node_at.has(cc) and node_at[cc].blocks_path())
+	_door_add(b, -1)
 	b.cell = c
+	_door_add(b, 1)
+	bump_rev()
 	b.position = b.foot_pos()
 	for cc in b.cells():
 		building_at[cc] = b
@@ -1513,6 +1615,7 @@ func spawn_settler(data: Dictionary) -> Settler:
 		Game.register_lineage(s.id, s.parents)
 	entities.add_child(s)
 	settlers.append(s)
+	people_rev += 1
 	return s
 
 
@@ -1680,6 +1783,7 @@ func remove_settler(s: Settler) -> void:
 		return
 	s.abort_plan()
 	settlers.erase(s)
+	people_rev += 1
 	if Game.selected == s:
 		Game.select(null)
 	s.queue_free()
@@ -1702,6 +1806,7 @@ func kill_settler(s: Settler, reason: String, cause: String = "") -> void:
 		return
 	s.abort_plan()
 	settlers.erase(s)
+	people_rev += 1
 	# Die Familie trauert, die anderen auf der Insel ein wenig
 	for o in settlers:
 		o.mind.on_relative_died(s.display_name, SettlerMind.is_close(o.id, s.id))
@@ -1743,6 +1848,8 @@ const CHIP_SOUNDS := {"baum": "axt", "palme": "axt", "fels": "stein", "erzader":
 
 
 func spawn_effect(kind: String, p: Vector2) -> void:
+	if not visible:
+		return  # Insel wird nicht angezeigt: keine Effekte erzeugen (Töne gibt es dort ohnehin nicht)
 	var colors := {
 		"chips_baum": [Color("#c49a5c"), Color("#7a4e32")],
 		"chips_fels": [Color("#b8bac6"), Color("#6a6c80")],
@@ -1786,6 +1893,8 @@ func spawn_effect(kind: String, p: Vector2) -> void:
 
 
 func spawn_smoke(p: Vector2) -> void:
+	if not visible:
+		return
 	var r := ColorRect.new()
 	var sz := _rng.randf_range(2.0, 4.0)
 	r.size = Vector2(sz, sz)
@@ -1802,6 +1911,8 @@ func spawn_smoke(p: Vector2) -> void:
 
 
 func float_text(p: Vector2, text: String, icon_res: String) -> void:
+	if not visible:
+		return
 	var box := HBoxContainer.new()
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_theme_constant_override("separation", 1)
@@ -2530,10 +2641,6 @@ func _update_danger(delta: float) -> void:
 			_update_weight(c)
 
 
-func is_dangerous(c: Vector2i) -> bool:
-	return _danger_cells.has(c)
-
-
 func _check_extinct(type: String) -> void:
 	if animals.any(func(b): return b.type == type and not b.dead):
 		return
@@ -2602,7 +2709,7 @@ func pen_near(c: Vector2i) -> int:
 
 ## Fertige Jagdhütten dieser Insel.
 func lodges() -> Array:
-	return buildings.filter(func(b): return b.complete and b.def.get("lodge", false))
+	return pick("jagd", func(b): return b.complete and b.def.get("lodge", false)).duplicate()
 
 
 ## Gehege, an das die Jagdhütte grenzt (0 = keins).
@@ -2719,8 +2826,8 @@ func nearest_refuge(from: Vector2i):
 
 ## Das Lagerfeuer haelt wilde Tiere fern.
 func near_fire(p: Vector2) -> bool:
-	for b in buildings:
-		if b.type == "lagerfeuer" and (b.position - p).length() < 3.5 * T:
+	for b in fires():
+		if (b.position - p).length() < 3.5 * T:
 			return true
 	return false
 

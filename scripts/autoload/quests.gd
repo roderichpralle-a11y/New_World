@@ -1219,7 +1219,7 @@ func autotest_setup(args: Dictionary, main) -> void:
 	if args.has("questtest"):
 		await _quest_test(int(args.questtest), main)
 	if args.has("questadapt"):
-		QuestRewardsTest.adapt_test(main, str(args.questadapt))
+		Game.test("quest_rewards_test").adapt_test(main, str(args.questadapt))
 	if args.has("questshot"):
 		await _quest_shot(str(args.questshot), main)
 	if args.has("questauto"):

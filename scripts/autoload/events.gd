@@ -1277,11 +1277,11 @@ func autotest_setup(args: Dictionary, main) -> void:
 		Game.goals.tut = Data.goals.get("tutorial", []).size()  # Einführung überspringen (sonst keine Ereignisse)
 		print("Einführung übersprungen")
 	if args.has("eventtest"):
-		await EventsTest.run(main, str(args.eventtest))
+		await Game.test("events_test").run(main, str(args.eventtest))
 	if args.has("eventshot"):
-		await EventsTest.shot(main, str(args.eventshot))
+		await Game.test("events_test").shot(main, str(args.eventshot))
 	if args.has("eventsched"):
-		await EventsTest.schedule(main)
+		await Game.test("events_test").schedule(main)
 
 
 func autotest_report() -> String:

@@ -108,9 +108,12 @@ func center_allowed(w) -> bool:
 	return not Powers.covers(w)
 
 
+## Abgelaufene Sperren entfernen, dazu die Sperren von Siedlern, die es nicht mehr gibt (die Sperre des
+## Spielers läuft nie ab und blieb sonst für jeden Verstorbenen für immer im Spielstand).
 func _prune() -> void:
+	var alive: Dictionary = Game.living_ids()
 	for k in claims.keys():
-		if float(claims[k][0]) <= Game.time_days:
+		if float(claims[k][0]) <= Game.time_days or not alive.has(int(k)):
 			claims.erase(k)
 
 

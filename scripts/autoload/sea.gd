@@ -36,6 +36,7 @@ func clear_worlds() -> void:
 				w.get_parent().remove_child(w)
 			w.queue_free()
 	worlds = {}
+	World.global_rev += 1
 
 
 func meta(id: int) -> Dictionary:
@@ -162,6 +163,7 @@ func create_world_node(id: int) -> World:
 	world_root.add_child(w)
 	world_root.move_child(w, 0)
 	worlds[id] = w
+	World.global_rev += 1
 	return w
 
 
@@ -188,6 +190,7 @@ func island_lost(w) -> void:
 		return
 	m.state = "lost"
 	worlds.erase(w.island_id)
+	World.global_rev += 1
 	_ships_lost(int(w.island_id))
 	Game.notify(tr("%s ist verloren! Dort lebt niemand mehr.") % m.name, "abriss")
 	Sound.play("verloren")
@@ -1098,15 +1101,15 @@ func _once_end(sh: Dictionary, w) -> void:
 func autotest_setup(args: Dictionary, main) -> void:
 	if args.has("oncetest"):
 		if str(args.oncetest) == "trip":
-			await RouteTest.trip_test(main)
+			await Game.test("route_test").trip_test(main)
 		elif str(args.oncetest) == "room":
-			await RouteTest.room_test(main)
+			await Game.test("route_test").room_test(main)
 		elif str(args.oncetest) == "werft":
-			await RouteTest.yard_test(main)
+			await Game.test("route_test").yard_test(main)
 		elif str(args.oncetest) == "werftshot":
-			await RouteTest.yard_test(main, true)
+			await Game.test("route_test").yard_test(main, true)
 		else:
-			await RouteTest.once_test(main, str(args.oncetest))
+			await Game.test("route_test").once_test(main, str(args.oncetest))
 
 
 # ---------------------------------------------------------------- Fahrten (josh 2026-10-17)

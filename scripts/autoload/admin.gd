@@ -32,7 +32,6 @@ signal proposal(job: String, text: String)
 ## Die Leute eines Berufs hören unter Protest mit den Überstunden auf (text: übersetzter Grund, ProtestVideo).
 signal protest_started(job: String, text: String)
 
-const OFFICE := "verwaltung"
 const JOB := "verwalter"
 ## Werkstattart (production.job) -> Beruf
 const KIND_JOB := {"kueche": "koch", "handwerk": "handwerker", "stein": "steinmetz", "stall": "bauer"}
@@ -72,12 +71,25 @@ func _c(key: String, default) -> float:
 
 # ---------------------------------------------------------------- Abfragen
 ## Die fertige Verwaltung (auf irgendeiner Insel) oder null.
+## Gemerkt, bis sich auf irgendeiner Insel die Gebäude ändern (World.global_rev): die Abfrage läuft für jeden
+## Siedler mehrmals je Bild (Schicht, Überstunden, fester Arbeitstag) und ging jedes Mal alle Gebäude durch.
 func office():
+	if _office_rev == World.global_rev and (_office == null or is_instance_valid(_office)):
+		return _office
+	_office_rev = World.global_rev
+	_office = null
 	for w in Sea.all_worlds():
 		for b in w.buildings:
 			if b.def.get("office", false) and (b.complete or int(b.def.get("office_level", 1)) > 1):
-				return b  # eine Ausbau-Baustelle arbeitet mit der Stufe davor weiter
+				_office = b  # eine Ausbau-Baustelle arbeitet mit der Stufe davor weiter
+				return b
 	return null
+
+
+var _office = null
+var _office_rev := -1
+var _mgr = null
+var _mgr_key := Vector2i(-1, -1)
 
 
 ## Ausbaustufe der Verwaltung (josh 2026-10-29): 0 ohne fertige Verwaltung oder ohne Verwalter auf ihrer
@@ -120,8 +132,17 @@ func local_manager():
 	var w = admin_world()
 	if w == null:
 		return null
+	var key := Vector2i(World.global_rev, World.people_rev)
+	if _mgr_key == key:
+		if _mgr == null:
+			return null
+		if is_instance_valid(_mgr) and not _mgr.is_queued_for_deletion() and _mgr.job == JOB and _mgr.is_adult() and _mgr.world == w:
+			return _mgr
+	_mgr_key = key
+	_mgr = null
 	for s in w.settlers:
 		if s.job == JOB and s.is_adult():
+			_mgr = s
 			return s
 	return null
 
@@ -580,10 +601,6 @@ func add_log(text: String) -> void:
 		log_entries = log_entries.slice(log_entries.size() - LOG_MAX)
 
 
-func produced_in(y: int, w = null) -> Dictionary:
-	return produced.get(str(y), {}).get(_isl(w), {})
-
-
 ## Auslastung je Beruf auf der Insel w (null: alle Inseln): {job: [Leute, im Beruf %, hilft aus %, nichts zu tun %]},
 ## Anteile -1 solange zu wenig gemessen ist (Settler.busy_shares).
 func job_load(w = null) -> Dictionary:
@@ -683,16 +700,16 @@ func _on_load(data: Dictionary, old_rules: int) -> void:
 	changed.emit()
 
 
-## Selbsttest --admintest=1 (scripts/autoload/admin_test.gd).
+## Selbsttest --admintest=1 (scripts/test/admin_test.gd).
 func autotest_setup(args: Dictionary, main) -> void:
 	if args.has("admintest"):
-		await AdminTest.run(main)
+		await Game.test("admin_test").run(main)
 	if args.has("adminmeasure"):  # Ertrag: normal | ot | shift[,Tage]
-		await AdminTest.measure(main, str(args.adminmeasure))
+		await Game.test("admin_test").measure(main, str(args.adminmeasure))
 	if args.has("strolltest"):  # Spaziergang am Ufer (josh 2026-10-20)
-		await AdminTest.stroll(main)
+		await Game.test("admin_test").stroll(main)
 	if args.has("adminshot"):  # Bildschirmfoto: office | shifts | night | stats | workshop | proposal (mit --shot)
-		AdminTest.shot(main, str(args.adminshot))
+		Game.test("admin_test").shot(main, str(args.adminshot))
 
 
 ## Hilfetext (Menü > Hilfe), wie Extras.help_text.
