@@ -900,7 +900,9 @@ er meldet sich als System bei Game an).
   Hunger). Haltbares zuerst (`durable_first`) und der Abzug für Werkstatt-Zutaten gelten nicht mehr. Je Insel und
   Nahrung eine Menge „Nicht essen“ (`World.food_keep`, im Spielstand; `Game.food_keep_of/set_food_keep`, Lagerfenster
   zweite Zeile je Nahrung, Schritte 10). `Game.edible` = Vorrat minus diese Menge; `total_food` und `food_days`
-  zählen nur Essbares. Test `--foodorder=1` (`Extras._food_test`), Bild `--panel=stock --stockcat=food --shot=…`.
+  zählen nur Essbares. Rohstoffe (josh 2026-11-12): dieselbe Menge heißt „Nicht verarbeiten“; `Game.usable` = Vorrat minus
+  Menge (Nahrung: ganzer Vorrat); Werkstätten (`prod_blocker`/`take_inputs`), Hausbedarf (`HouseNeeds._eval` good) und
+  Schreibstoffe (`Writing.consume`) nehmen nur das, Bauen und Heizen weiter alles. Test `--foodorder=1` (`Extras._food_test`), Bild `--panel=stock --stockcat=food --shot=…`.
 - **Belohnung für die Einführung** (`Extras.tutorial_reward`, aus `GoalCard._advance`, wenn der letzte
   Schritt erfüllt ist; nicht beim Überspringen und nicht beim stillen Nachholen alter Spielstände):
   `Extras.TUT_FINAL` über `Extras.tutorial_step_reward` (auch für die Belohnung jedes Schritts):

@@ -455,6 +455,27 @@ func _food_test(w) -> void:
 	Game.set_food_keep("brot", 25, w)
 	data = JSON.parse_string(JSON.stringify(w.serialize()))
 	print("Essen-Test %s: gesperrte Menge steht im Spielstand (%s)" % [_ok(int(data.get("food_keep", {}).get("brot", 0)) == 25), data.get("food_keep")])
+	# Rohstoffe (josh 2026-11-12): „Nicht verarbeiten“ sperrt Werkstätten, nicht Bauen und Heizen
+	w.food_keep = {}
+	var kb = w.place_building("koehlerei", w.center + Vector2i(30, 30), true) if w.can_place("koehlerei", w.center + Vector2i(30, 30)) else null
+	if kb == null:
+		for dy in range(-20, 21):
+			for dx in range(-20, 21):
+				if kb == null and w.can_place("koehlerei", w.center + Vector2i(dx, dy)):
+					kb = w.place_building("koehlerei", w.center + Vector2i(dx, dy), true)
+	w.stock["holz"] = 10
+	w.stock["kohle"] = 0
+	Game.set_food_keep("holz", 8, w)
+	var blocked: String = kb.prod_blocker() if kb != null else "?"
+	var took: bool = kb.take_inputs() if kb != null else true
+	print("Essen-Test %s: 8 von 10 Holz zurückgehalten: Köhlerei nimmt nichts (%s, Holz %d)" % [_ok(kb != null and blocked != "" and not took and Game.amount("holz", w) == 10), blocked, Game.amount("holz", w)])
+	Game.set_food_keep("holz", 4, w)
+	var took2: bool = kb.take_inputs() if kb != null else false
+	print("Essen-Test %s: 4 zurückgehalten: Köhlerei nimmt 4, 6 bleiben (Holz %d)" % [_ok(took2 and Game.amount("holz", w) == 6), Game.amount("holz", w)])
+	var burned: Array = Extras.burn_fuel(w, 3.0)
+	print("Essen-Test %s: Heizen darf das zurückgehaltene Holz nutzen (Holz %d)" % [_ok(Game.amount("holz", w) == 3), Game.amount("holz", w)])
+	if kb != null:
+		w.demolish(kb)
 	w.stock = keep
 	w.food_keep = keep_fk
 

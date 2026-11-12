@@ -1427,17 +1427,18 @@ func _stock_row(id: String) -> Control:
 	tail.custom_minimum_size.x = 30
 	h.add_child(tail)
 	r.merge({"ll": ll, "plus": plus, "tail": tail, "kind": ""})
-	if Data.resources[id].get("category", "") != "food":
-		return h
-	# Nahrung: Menge, die nicht gegessen wird (josh 2026-11-09), z. B. Getreide für die Mühle
+	# Zweite Zeile (josh 2026-11-09/12): Nahrung „Nicht essen“ (z. B. Getreide für die Mühle), andere Waren
+	# „Nicht verarbeiten“ (Werkstätten, Hausbedarf und Forschung lassen sie liegen; Bauen und Heizen nicht)
+	var is_food: bool = Data.resources[id].get("category", "") == "food"
 	var v := VBoxContainer.new()
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	v.add_theme_constant_override("separation", 0)
 	v.add_child(h)
 	var kh := HBoxContainer.new()
 	kh.alignment = BoxContainer.ALIGNMENT_END
-	var kt := UiTheme.label(tr("Nicht essen:"), 12, Win.DIM)
-	kt.tooltip_text = tr("So viel davon essen die Siedler nicht. Es bleibt für Werkstätten, Handel oder Schiffe.")
+	var kt := UiTheme.label(tr("Nicht essen:") if is_food else tr("Nicht verarbeiten:"), 12, Win.DIM)
+	kt.tooltip_text = tr("So viel davon essen die Siedler nicht. Es bleibt für Werkstätten, Handel oder Schiffe.") if is_food \
+		else tr("So viel davon nehmen Werkstätten, Hausbedarf und Forschung nicht. Bauen und Heizen dürfen es nutzen.")
 	kt.mouse_filter = Control.MOUSE_FILTER_PASS
 	kh.add_child(kt)
 	var km := UiTheme.button("−", "", 26)

@@ -2665,5 +2665,8 @@
  "Ratten werden einen Teil von Getreide, Mehl, Obst, Beeren, Pilzen, Fisch, Fleisch, Milch, Eiern und Brot fressen und die Ruhr bringen. Konserven sind sicher.": "Rats will eat part of the grain, flour, fruit, berries, mushrooms, fish, meat, milk, eggs and bread and bring dysentery. Canned food is safe.",
  "Ein Großes Lager oder Hochregallager hält sie zur Hälfte ab.": "A Large store or High-bay warehouse keeps half of them out.",
  "Krank geworden: %s.": "Fallen ill: %s.",
- "Das Lager aus Stein hat die Hälfte abgehalten.": "The solid store kept half of them out."
+ "Das Lager aus Stein hat die Hälfte abgehalten.": "The solid store kept half of them out.",
+ "Nicht verarbeiten:": "Don't process:",
+ "So viel davon nehmen Werkstätten, Hausbedarf und Forschung nicht. Bauen und Heizen dürfen es nutzen.": "Workshops, household needs and research won't take this much. Building and heating may still use it.",
+ "%s: der Rest ist zurückgehalten": "%s: the rest is held back"
 }
