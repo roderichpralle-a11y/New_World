@@ -59,6 +59,8 @@ func holder(s) -> String:
 func assign(s, job: String, by: String, days: float = -1.0, force := false) -> bool:
 	if by != "spieler" and player_controlled(s):
 		return false  # „nur vom Spieler“ gilt auch gegen force (josh 2026-11-07)
+	if s.job == "seemann" and job != "seemann" and (by in ["verwalter", "automat", "zentrum"] or (by == "ki" and not AiRule.si())):
+		return false  # Seeleute setzt nur der Spieler um (josh 2026-11-12), auch gegen force
 	if not force and not may(s, by):
 		return false
 	s.set_job(job, by != "spieler")
