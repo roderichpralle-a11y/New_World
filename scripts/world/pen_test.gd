@@ -147,6 +147,44 @@ static func run(main) -> void:
 	var outside := c + Vector2i(6, 3)
 	var s2 = w.settlers[1] if w.settlers.size() > 1 else hunter
 	_ok(w.pen_of(outside) != pen, "Siedler draußen: kein Gehege")
+	# josh 2026-11-12: eine Wand am Zaun reicht, egal welcher Teil der Hütte, auch von außen,
+	# auch mit der Tür zum Zaun
+	for spot in [[Vector2i(-1, 5), "unten draußen, Wand am Zaun"], [Vector2i(-1, -6), "oben draußen, Tür zum Zaun"],
+			[Vector2i(-7, -3), "links draußen, Wand am Zaun"]]:
+		var o: Vector2i = c + spot[0]
+		for y in range(-1, 4):
+			for x in range(-1, 4):
+				var nn = w.node_at.get(o + Vector2i(x, y))
+				if nn != null:
+					w.remove_node(nn)
+		var okp: bool = w.can_place("jagdhuette", o)
+		if not okp:
+			for yy in range(-1, 4):
+				var row := ""
+				for xx in range(-2, 5):
+					var q: Vector2i = o + Vector2i(xx, yy)
+					row += ("W" if w.is_water(q) else ("B" if w.building_at.has(q) else ("N" if w.node_at.has(q) else ("R" if w.roof_at.has(q) else ("x" if not w.is_walkable(q) else ".")))))
+				print("DBG ", row)
+		var lb = w.place_building("jagdhuette", o, true)
+		_ok(okp and lb != null and w.lodge_pen(lb) == pen, "Hütte %s: baubar %s, Gehege %d" % [spot[1], okp, w.lodge_pen(lb) if lb else -1])
+	# Raubtiere verhungern nie (josh 2026-11-12)
+	var wc: Vector2i = c + Vector2i(9, 8)
+	if w.node_at.has(wc):
+		w.remove_node(w.node_at[wc])
+	w.spawn_node("wolfsbau", wc)
+	var wolf = w.spawn_animal("wolf", wc + Vector2i(0, 1), wc, -1.0, -1.0, 0.0)
+	if wolf:
+		var hp0: float = wolf.hp
+		for i in 20:
+			wolf._needs(1.0)
+		_ok(not wolf.dead and wolf.hp >= hp0 - 0.01, "Wolf ohne Futter verhungert nicht (hp %.0f -> %.0f)" % [hp0, wolf.hp])
+		wolf.home = Vector2i(-5000, -5000)  # keine Futterquelle in Reichweite
+		wolf.food = 0.1
+		for i in 5:
+			wolf._forage(3.5)
+		_ok(wolf.food >= 0.99, "Wolf ohne Futterquelle fängt Kleinwild (satt %.2f)" % wolf.food)
+	else:
+		_ok(false, "kein Wolf")
 	# Spielstand
 	var data = JSON.parse_string(JSON.stringify(w.serialize()))
 	_ok(data != null and str(data).find("zaun") >= 0 and str(data).find("jagdhuette") >= 0, "Zaun und Jagdhütte im Spielstand")
