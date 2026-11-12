@@ -2671,5 +2671,6 @@
  "%s: der Rest ist zurückgehalten": "%s: the rest is held back",
  "Umbenennen": "Rename",
  "Dem Schiff einen eigenen Namen geben.": "Give the ship a name of your own.",
- "OK": "OK"
+ "OK": "OK",
+ "Reserve": "Reserve"
 }
