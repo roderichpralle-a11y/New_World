@@ -382,6 +382,17 @@ func _new_ship(type: String, island_id: int) -> Dictionary:
 	return sh
 
 
+## Schiff umbenennen (josh 2026-11-12). Leer oder nur Leerzeichen: Name bleibt. Gibt den gültigen Namen zurück.
+func rename_ship(sh: Dictionary, text: String) -> String:
+	var n := text.strip_edges().replace("\n", " ")
+	if n.length() > 24:
+		n = n.substr(0, 24).strip_edges()
+	if n != "":
+		sh.name = n
+		islands_changed.emit()
+	return str(sh.name)
+
+
 ## Siedler der Besatzung, die gerade auf der Insel des Schiffs sind.
 func crew_present(sh: Dictionary) -> Array:
 	var w = worlds.get(int(sh.at))

@@ -2668,5 +2668,8 @@
  "Das Lager aus Stein hat die Hälfte abgehalten.": "The solid store kept half of them out.",
  "Nicht verarbeiten:": "Don't process:",
  "So viel davon nehmen Werkstätten, Hausbedarf und Forschung nicht. Bauen und Heizen dürfen es nutzen.": "Workshops, household needs and research won't take this much. Building and heating may still use it.",
- "%s: der Rest ist zurückgehalten": "%s: the rest is held back"
+ "%s: der Rest ist zurückgehalten": "%s: the rest is held back",
+ "Umbenennen": "Rename",
+ "Dem Schiff einen eigenen Namen geben.": "Give the ship a name of your own.",
+ "OK": "OK"
 }

@@ -1211,6 +1211,32 @@ func _ship_row(sh: Dictionary) -> PanelContainer:
 		rt.tooltip_text = tr("Fährt immer wieder von Insel zu Insel und bringt jedes Mal dieselben Waren.")
 		rt.pressed.connect(func(): _open_ship(sid))
 		acts.add_child(rt)
+	# Umbenennen (josh 2026-11-12): Feld mit dem Namen und OK in der Zeile
+	var ren := _small_btn(tr("Umbenennen"))
+	ren.tooltip_text = tr("Dem Schiff einen eigenen Namen geben.")
+	ren.pressed.connect(func():
+		ren.disabled = true
+		var rh := HBoxContainer.new()
+		rh.add_theme_constant_override("separation", 6)
+		var le := LineEdit.new()
+		le.text = str(sh.name)
+		le.max_length = 24
+		le.select_all_on_focus = true
+		le.custom_minimum_size.x = 180
+		le.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		le.add_theme_font_size_override("font_size", 14)
+		le.add_theme_color_override("font_color", UiTheme.TEXT)
+		rh.add_child(le)
+		var ok := _small_btn(tr("OK"))
+		var apply := func(_t = ""):
+			Sea.rename_ship(sh, le.text)
+			refresh()
+		ok.pressed.connect(apply)
+		le.text_submitted.connect(apply)
+		rh.add_child(ok)
+		v.add_child(rh)
+		le.grab_focus())
+	acts.add_child(ren)
 	v.add_child(acts)
 	return box
 
