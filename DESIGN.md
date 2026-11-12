@@ -2114,6 +2114,11 @@ Bilder in `assets/sprites/objects3.png` (`tools/gen_art_land.py`, `Data.OBJECT3_
   bisher. Infofenster: Tiere im Gehege, Hinweise.
 - **Test** `--pentest=1` (`pen_test.gd`): Gehege, Wege, Jäger in der Hütte, Schuss, Flucht, Fleisch, 2
   bleiben, Junge, Spielstand. Ausgabe `Gehege OK`. Bild: `--pentest=shot`.
+- **Jagdhütte am Zaun, Raubtiere satt (josh 2026-11-12):** `World.lodge_pen` nimmt das Gehege, an das irgendeine
+  Zelle der Hütte (oder ihr Dach) grenzt, auch über Eck, oder das hinter einem Zaun liegt, an dem die Hütte
+  steht (egal welche Wand, auch von außen). Die Tür einer Jagdhütte darf auf einen Zaun zeigen (`can_place`).
+  Raubtiere (`Animal.is_predator`: Futter enthält "beute", also Wolf und Bär) verhungern nie: Futter fällt nicht
+  unter 0,2, und finden sie dreimal keine Futterquelle, fangen sie Kleinwild (satt). Test in `--pentest=1`.
 
 ## Bücher, Zeitungen und Lesen (josh 2026-10-20, Testversion /neu/)
 

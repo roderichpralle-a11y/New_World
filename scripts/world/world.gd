@@ -1040,6 +1040,8 @@ func can_place(type: String, c: Vector2i, ignore = null) -> bool:
 		var e := c + Vector2i(int(def.size[0]) / 2, int(def.size[1]))
 		var own: bool = ignore != null and building_at.get(e) == ignore
 		var road: bool = building_at.has(e) and (building_at[e].def.get("tile", "") == "road" or building_at[e].def.has("path_speed"))
+		if def.get("lodge", false) and building_at.has(e) and (building_at[e].def.get("tile", "") == "fence" or building_at[e].def.get("animal_wall", false)):
+			road = true  # Jagdhütte: Tür darf zum Zaun zeigen, der Jäger steigt darüber (josh 2026-11-12)
 		if def.has("decor"):
 			pass  # Schmuck hat keine Tür und darf dicht an dicht stehen
 		elif building_at.has(e) and not own and not road:
@@ -2712,13 +2714,41 @@ func lodges() -> Array:
 	return pick("jagd", func(b): return b.complete and b.def.get("lodge", false)).duplicate()
 
 
-## Gehege, an das die Jagdhütte grenzt (0 = keins).
+## Gehege, an das die Jagdhütte grenzt (0 = keins). josh 2026-11-12: egal welcher Teil der Hütte;
+## es reicht, wenn eine Wand am Zaun eines Geheges steht (auch über Eck, auch von außen am Zaun).
 func lodge_pen(b) -> int:
-	for c in b.cells():
-		for d in [Vector2i(0, 1), Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, -1)]:
+	# Auch über die eigenen Dachfelder hinweg (V2-Dach der Jagdhütte ragt links über den Zaun)
+	var own: Array = b.cells()
+	for rc in b.roof_cells():
+		if roof_at.get(rc) == b:
+			own.append(rc)
+	var dirs8 := [Vector2i(0, 1), Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, -1),
+			Vector2i(1, 1), Vector2i(-1, 1), Vector2i(1, -1), Vector2i(-1, -1)]
+	var fences := []
+	for c in own:
+		for d in dirs8:
 			var nb: Vector2i = c + d
-			if building_at.get(nb) != b and pen_of(nb) > 0:
+			if building_at.get(nb) == b or roof_at.get(nb) == b:
+				continue
+			if pen_of(nb) > 0:
 				return pen_of(nb)
+			if fence_at(nb):
+				fences.append(nb)
+	# Hütte steht am Zaun: das Gehege auf der anderen Seite dieses Zauns (ggf. ein Feld weiter am Zaun entlang)
+	var seen := {}
+	var i := 0
+	while i < fences.size() and i < 40:
+		var f: Vector2i = fences[i]
+		i += 1
+		if seen.has(f):
+			continue
+		seen[f] = true
+		for d in dirs8:
+			var nb: Vector2i = f + d
+			if pen_of(nb) > 0:
+				return pen_of(nb)
+			if fence_at(nb) and not seen.has(nb) and Vector2(nb - b.cell).length() <= 6.0:
+				fences.append(nb)
 	return 0
 
 

@@ -40,6 +40,7 @@ var _eat_node = null
 var _shy = null  # Fleisch eines erlegten Tiers im Gehege: so lange bleibt das Tier fern (startle)
 var _eat_t: float = 0.0
 var _food_cd: float = 0.0
+var _small_game_t: float = 0.0  # Raubtier ohne Futterquelle: jagt Kleinwild (josh 2026-11-12)
 var _rng := RandomNumberGenerator.new()
 
 var _sprite: Sprite2D
@@ -79,6 +80,11 @@ func max_hp() -> float:
 
 func is_adult() -> bool:
 	return age >= float(def.get("adult_days", 2.0))
+
+
+## Wolf, Bär (alles, was Aas frisst): finden immer zu fressen, verhungern nie (josh 2026-11-12).
+func is_predator() -> bool:
+	return def.food.has("beute")
 
 
 func is_hungry() -> bool:
@@ -230,6 +236,8 @@ func _needs(days: float) -> bool:
 	if Seasons.is_winter():
 		hunger *= float(Data.bal("animal_winter_hunger", 0.6))
 	food = max(0.0, food - hunger * days)
+	if food <= 0.0 and is_predator():
+		food = 0.2  # Raubtiere finden immer etwas (Kleinwild, Mäuse, Fische am Ufer)
 	if food <= 0.0:
 		hp -= float(Data.bal("animal_starve_per_day", 0.45)) * float(def.hp) * days
 		# Die letzten zwei einer Art magern ab, verhungern aber nicht
@@ -257,8 +265,15 @@ func _forage(delta: float) -> void:
 		var n = world.find_animal_food(self)
 		var spot = world.find_approach(cell, [n.cell], true, true) if n != null else null
 		if spot == null:
+			if is_predator():
+				# Kein Futter in Reichweite: das Raubtier jagt beim Umherstreifen Kleinwild
+				_small_game_t += 3.0
+				if _small_game_t >= 9.0:
+					_small_game_t = 0.0
+					food = 1.0
 			_wander(delta)
 			return
+		_small_game_t = 0.0
 		_eat_node = n
 		_path = _path_to(spot)
 		_path_i = 1

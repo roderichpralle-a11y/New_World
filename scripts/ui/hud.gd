@@ -3482,7 +3482,7 @@ func _info_lodge(b) -> void:
 	var txt := ""
 	var col := UiTheme.TEXT
 	if pen <= 0:
-		txt = tr("Grenzt an kein Gehege. Baue Zäune ganz um ein Stück Land mit einem Tierbau, direkt an der Hütte.")
+		txt = tr("Grenzt an kein Gehege. Baue Zäune ganz um ein Stück Land mit einem Tierbau und stelle die Hütte mit einer Wand an den Zaun.")
 		col = UiTheme.BAD
 	else:
 		var counts := {}
