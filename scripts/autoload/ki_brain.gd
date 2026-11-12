@@ -23,7 +23,7 @@ const TICK_DAYS := 0.25
 const HOLD_DAYS := 0.5
 const BRAIN_PATH := "res://data/ki_brain.json"
 const PROCESSED_PTS := 2.0
-const DEATH_PTS := -20.0
+const DEATH_PTS := -100.0
 const WOOD_CAP := 1000
 
 var on := false             # Schalter im Fenster Verwalter (Spielstand)

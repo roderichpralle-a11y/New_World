@@ -352,6 +352,19 @@ Testhilfe `--v3build`.
   zusammen 61 % mehr Punkte als der Verwalter (`vs_verwalter`); nur auf Tag 312 gewinnt der Verwalter (61 540 zu 54 985,
   er hält am Ende 34–53 Siedler, die KIs 2–22). Protokolle /mnt/project-files/ki_berufe/training/p6 und
   vergleich_10jahre_2026-11-09.jsonl. josh-Karte „Ja, veröffentlichen“ (2026-11-10).
+- **Bauen lernen (josh 2026-11-11, Plan 2 Stufe 1)**: 10 Bau-Handlungen `KiBrain.BUILD_ACTS` (haus, ausbau, lager, feld,
+  obstgarten, strasse, werft, schiff, erkunden, besiedeln), Gewichte `b` in data/ki_brain.json (10 x 64 Eingänge; fehlt
+  `b`, baut die KI nichts). Neue Eingänge 50..63 (freie Betten, Häuser, Baustellen, Felder, Felder je Bauer, Lagerraum,
+  Straßen, Werft, Schiffe, freie Schiffe, unbesiedelte entdeckte Inseln, besiedelte Inseln, ausbaubare Häuser, Tage seit
+  dem letzten KI-Bau). `learn_build_tick` alle 0,5 Tage je Insel: beste erlaubte Handlung (`can_act`), nur wenn ihr Wert
+  > 0. Höchstens `max_sites` = 2 eigene Baustellen, Platz über `Planner.spot`, Straßen über `road_cells` (eigene
+  Laufkarte mit `astar.get_id_path`), besiedeln braucht 3 freie und 8 Erwachsene. Selbsttest `--kibuildtest=1|see`.
+  Training: `train.py --build --only_build` (Berufe fest) 2 x 10 Runden zu 120 Tagen, dann 10 Runden alles mit
+  -100 je Toter (josh-Karte 2026-11-12, `DEATH_PTS`). Prüfung 2 neue Würfel, 120 Tage, mit -100 je Toter gezählt: KI 3.0.7
+  127 344, neue KI 191 535 (+50 %, 6 von 7 Ständen besser, nur Tag 149 schwächer), Verwalter 54 347; mit der alten
+  Zählung 129 % über dem Verwalter (`vs_verwalter`). Kein Stand stirbt mehr fast aus (vorher Tag 149 und 222).
+  Sie baut vor allem Lager, Straßen, Obstgärten, Felder und Ausbauten; Schiffe und Besiedeln nutzt sie noch nicht.
+  Protokolle /mnt/project-files/ki_berufe/training/b1..b3, vergleich_bauen_*.jsonl.
 
 ## Spielregeln (Etappe 1)
 
