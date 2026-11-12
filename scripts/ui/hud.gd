@@ -1434,39 +1434,37 @@ func _stock_row(id: String) -> Control:
 	tail.custom_minimum_size.x = 30
 	h.add_child(tail)
 	r.merge({"ll": ll, "plus": plus, "tail": tail, "kind": ""})
-	# Zweite Zeile (josh 2026-11-09/12): Nahrung „Nicht essen“ (z. B. Getreide für die Mühle), andere Waren
-	# „Nicht verarbeiten“ (Werkstätten, Hausbedarf und Forschung lassen sie liegen; Bauen und Heizen nicht)
+	# Reserve in derselben Zeile (josh 2026-11-12 19:19; vorher zweite Zeile): Nahrung „nicht essen“ (z. B. Getreide
+	# für die Mühle), andere Waren „nicht verarbeiten“ (Werkstätten, Hausbedarf und Forschung lassen sie liegen)
 	var is_food: bool = Data.resources[id].get("category", "") == "food"
-	var v := VBoxContainer.new()
-	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	v.add_theme_constant_override("separation", 0)
-	v.add_child(h)
-	var kh := HBoxContainer.new()
-	kh.alignment = BoxContainer.ALIGNMENT_END
-	var kt := UiTheme.label(tr("Nicht essen:") if is_food else tr("Nicht verarbeiten:"), 12, Win.DIM)
+	var gap := Control.new()
+	gap.custom_minimum_size.x = 10
+	h.add_child(gap)
+	var kt := UiTheme.label(tr("Reserve"), 12, Win.DIM)
 	kt.tooltip_text = tr("So viel davon essen die Siedler nicht. Es bleibt für Werkstätten, Handel oder Schiffe.") if is_food \
 		else tr("So viel davon nehmen Werkstätten, Hausbedarf und Forschung nicht. Bauen und Heizen dürfen es nutzen.")
 	kt.mouse_filter = Control.MOUSE_FILTER_PASS
-	kh.add_child(kt)
-	var km := UiTheme.button("−", "", 26)
-	km.tooltip_text = tr("Weniger zurückhalten")
+	h.add_child(kt)
+	var km := UiTheme.button("−", "", 30)
+	km.tooltip_text = kt.tooltip_text
 	km.pressed.connect(func():
 		Game.set_food_keep(id, Game.food_keep_of(id) - 10)
 		_refresh_stock(true))
-	kh.add_child(km)
-	var kl := UiTheme.label("", 13)
-	kl.custom_minimum_size.x = 64
+	h.add_child(km)
+	var kl := UiTheme.label("", 14)
+	kl.custom_minimum_size.x = 38
 	kl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	kh.add_child(kl)
-	var kp := UiTheme.button("+", "", 26)
-	kp.tooltip_text = tr("Mehr zurückhalten")
+	kl.tooltip_text = kt.tooltip_text
+	kl.mouse_filter = Control.MOUSE_FILTER_PASS
+	h.add_child(kl)
+	var kp := UiTheme.button("+", "", 30)
+	kp.tooltip_text = kt.tooltip_text
 	kp.pressed.connect(func():
 		Game.set_food_keep(id, Game.food_keep_of(id) + 10)
 		_refresh_stock(true))
-	kh.add_child(kp)
-	v.add_child(kh)
+	h.add_child(kp)
 	r.merge({"kl": kl, "km": km})
-	return v
+	return h
 
 
 ## Zahlen und Knöpfe einer bestehenden Lagerzeile auf den Stand bringen.
@@ -1482,7 +1480,7 @@ func _update_stock_row(id: String) -> void:
 	r.h.modulate.a = 1.0 if a > 0 or lim >= 0 else 0.6
 	if r.has("kl"):
 		var k := Game.food_keep_of(id)
-		r.kl.text = tr("nichts") if k <= 0 else "%d" % k
+		r.kl.text = "0" if k <= 0 else "%d" % k
 		r.km.disabled = k <= 0
 	if not r.has("ll"):
 		return

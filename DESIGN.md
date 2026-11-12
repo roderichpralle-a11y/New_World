@@ -972,7 +972,7 @@ er meldet sich als System bei Game an).
   (Zuschlag für Vitamine bei Bedarf, Abwechslung, bald Verderbendes; halbes Gewicht, wenn viel zu groß für den Rest
   Hunger). Haltbares zuerst (`durable_first`) und der Abzug für Werkstatt-Zutaten gelten nicht mehr. Je Insel und
   Nahrung eine Menge „Nicht essen“ (`World.food_keep`, im Spielstand; `Game.food_keep_of/set_food_keep`, Lagerfenster
-  zweite Zeile je Nahrung, Schritte 10). `Game.edible` = Vorrat minus diese Menge; `total_food` und `food_days`
+  in derselben Zeile wie die Ware als „Reserve − n +“ für alle Waren (josh 2026-11-12), Schritte 10). `Game.edible` = Vorrat minus diese Menge; `total_food` und `food_days`
   zählen nur Essbares. Rohstoffe (josh 2026-11-12): dieselbe Menge heißt „Nicht verarbeiten“; `Game.usable` = Vorrat minus
   Menge (Nahrung: ganzer Vorrat); Werkstätten (`prod_blocker`/`take_inputs`), Hausbedarf (`HouseNeeds._eval` good) und
   Schreibstoffe (`Writing.consume`) nehmen nur das, Bauen und Heizen weiter alles. Test `--foodorder=1` (`Extras._food_test`), Bild `--panel=stock --stockcat=food --shot=…`.
