@@ -2661,5 +2661,12 @@
  "Das Lager aus Stein hat die Hälfte abgehalten.": "The solid store kept half of them out.",
  "Der Spielstand war beschädigt. Die Sicherung von Tag %d wurde geladen.": "The save file was damaged. The backup from day %d was loaded.",
  "Der Spielstand war beschädigt und konnte nicht geladen werden. Es gibt keine Sicherung.": "The save file was damaged and could not be loaded. There is no backup.",
- "Ab dem zweiten Jahr kündigen sich Ereignisse an: Dürre, Ratten, Brand, Seuche, Sturmflut und ab dem Mittelalter Piraten. Wer sie gut übersteht, bekommt Einwanderer.": "From the second year on, events are announced: drought, rats, fire, plague, storm surge and, from the Middle Ages, pirates. Those who weather them well gain immigrants."
+ "Ab dem zweiten Jahr kündigen sich Ereignisse an: Dürre, Ratten, Brand, Seuche, Sturmflut und ab dem Mittelalter Piraten. Wer sie gut übersteht, bekommt Einwanderer.": "From the second year on, events are announced: drought, rats, fire, plague, storm surge and, from the Middle Ages, pirates. Those who weather them well gain immigrants.",
+ "%s: der Rest ist zurückgehalten": "%s: the rest is held back",
+ "Reserve": "Reserve",
+ "So viel davon essen die Siedler nicht. Es bleibt für Werkstätten, Handel oder Schiffe.": "Settlers won't eat this much of it. It stays for workshops, trade or ships.",
+ "So viel davon nehmen Werkstätten, Hausbedarf und Forschung nicht. Bauen und Heizen dürfen es nutzen.": "Workshops, household needs and research won't take this much. Building and heating may still use it.",
+ "Umbenennen": "Rename",
+ "Dem Schiff einen eigenen Namen geben.": "Give the ship a name of your own.",
+ "OK": "OK"
 }
