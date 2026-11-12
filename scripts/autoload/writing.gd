@@ -117,7 +117,7 @@ func consume(w, rates: Dictionary, pts: float) -> float:
 	cycles += 1
 	var missing := []
 	for id in rates:
-		if Game.amount(id, w) < 1:
+		if Game.usable(id, w) < 1:  # „Nicht verarbeiten“-Menge bleibt liegen (josh 2026-11-12)
 			missing.append(id)
 	if not missing.is_empty():
 		slow_cycles += 1
@@ -127,7 +127,7 @@ func consume(w, rates: Dictionary, pts: float) -> float:
 		var d := float(w.writing_debt.get(id, 0.0)) + pts * float(rates[id]) / 100.0
 		var n := int(floor(d))
 		if n > 0:
-			n = Game.take_stock(id, n, w)
+			n = Game.take_stock(id, mini(n, Game.usable(id, w)), w)
 			used[id] = int(used.get(id, 0)) + n
 			Game.stats["writing_used"] = int(Game.stats.get("writing_used", 0)) + n
 		w.writing_debt[id] = d - n

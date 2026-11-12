@@ -376,14 +376,14 @@ func _eval(w, st: Dictionary, nd: Dictionary, cons: float, dt: float) -> float:
 			var want := int(acc)
 			if want <= 0:
 				st.acc[g] = acc
-				var have := Game.amount(g, w)
+				var have := Game.usable(g, w)
 				for alt in nd.get("alt", []):
-					have += Game.amount(str(alt), w)
+					have += Game.usable(str(alt), w)
 				return 1.0 if have > 0 else 0.0
-			var got := Game.take_stock(g, want, w)
+			var got := Game.take_stock(g, mini(want, Game.usable(g, w)), w)  # „Nicht verarbeiten“ bleibt liegen
 			for alt in nd.get("alt", []):  # Ersatzware (Lesestoff: Zeitungen, sonst Bücher)
 				if got < want:
-					got += Game.take_stock(str(alt), want - got, w)
+					got += Game.take_stock(str(alt), mini(want - got, Game.usable(str(alt), w)), w)
 			st.acc[g] = acc - want  # was fehlt, bleibt nicht als Schuld stehen
 			return float(got) / float(want)
 		"stock":

@@ -442,6 +442,15 @@ func edible(id: String, w = null) -> int:
 	return maxi(0, amount(id, w) - food_keep_of(id, w))
 
 
+## Wie viel von einer Ware Werkstätten, Hausbedarf und Forschung nehmen dürfen (josh 2026-11-12): bei Rohstoffen
+## Vorrat minus „Nicht verarbeiten“ (dieselbe Menge food_keep_of); Bauen und Heizen nutzen weiter alles. Bei Nahrung
+## sperrt die Menge nur das Essen (edible), verarbeitet werden darf sie.
+func usable(id: String, w = null) -> int:
+	if Data.resources.get(id, {}).get("category", "") == "food":
+		return amount(id, w)
+	return maxi(0, amount(id, w) - food_keep_of(id, w))
+
+
 ## Menge dieser Nahrung, die nicht gegessen wird (z. B. Getreide für die Mühle). 0 = alles essbar.
 func food_keep_of(id: String, w = null) -> int:
 	var i = _isle(w)
