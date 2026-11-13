@@ -982,6 +982,7 @@ er meldet sich als System bei Game an).
   Kinder und Alte zuerst“ (`Extras.cold_text`, Schätzung für den Schwächsten; über 72 Stunden ohne
   Zahl), sobald die Gesundheit des Ersten sinkt einmal „Die ersten Siedler erfrieren!“ (Art
   `gesundheit`), dann je Toter „… ist erfroren.“ Laune-Grund „Friert (kein Holz, keine Kohle)“.
+- **Eingabe auf dem Handy (josh 2026-11-13):** Godots LineEdit öffnet im Browser auf iPhone/iPad keine Tastatur. Auf Touch-Geräten im Browser (`UiTheme.touch_web`) sind die Felder nicht editierbar; Antippen öffnet `window.prompt` (`UiTheme.touch_input`/`ask_text`), der Wert geht durch dieselbe Prüfung wie getippt. Gilt für die Mengenfelder im Schiff-/Inselfenster und „Umbenennen“ (dort gleich das Eingabefenster). Geprüft in Chromium mit Touch-Simulation, nicht auf einem echten iPhone.
 - **Essen ohne Reihenfolge (josh 2026-11-09):** `Game.choose_food` wählt zufällig nach essbarem Vorrat gewichtet
   (Zuschlag für Vitamine bei Bedarf, Abwechslung, bald Verderbendes; halbes Gewicht, wenn viel zu groß für den Rest
   Hunger). Haltbares zuerst (`durable_first`) und der Abzug für Werkstatt-Zutaten gelten nicht mehr. Je Insel und

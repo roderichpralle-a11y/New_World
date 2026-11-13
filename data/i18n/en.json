@@ -2678,5 +2678,7 @@
  "Bewegungen ausblenden": "Hide movement",
  "Siedler, die nur gehen und nichts tragen, sind unsichtbar. Zu sehen sind sie, wenn sie stehen, arbeiten oder etwas transportieren. Die Wege dauern genauso lang wie sonst.": "Settlers who are just walking and carrying nothing are invisible. You see them when they stand, work or carry something. Walking takes just as long as before.",
  "Angehalten: hier wird nicht gejagt, die Tiere im Gehege bleiben in Ruhe.": "Paused: no hunting here, the animals in the pen are left alone.",
- "Stauraum %d statt %d. Die Vorräte bleiben, der alte Stauraum zählt weiter, bis der Ausbau fertig ist.": "Storage %d instead of %d. Your goods stay, and the old storage keeps counting until the upgrade is finished."
+ "Stauraum %d statt %d. Die Vorräte bleiben, der alte Stauraum zählt weiter, bis der Ausbau fertig ist.": "Storage %d instead of %d. Your goods stay, and the old storage keeps counting until the upgrade is finished.",
+ "Menge (nur Zahlen):": "Amount (numbers only):",
+ "Neuer Name für die %s:": "New name for the %s:"
 }
