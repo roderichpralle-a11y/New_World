@@ -648,6 +648,13 @@ func _free_adults(w) -> Array:
 	return w.settlers.filter(func(s): return is_instance_valid(s) and s.is_adult() and s.job == "frei" and not JobDesk.player_controlled(s))
 
 
+## Wer darf mit auf eine neue Insel: zuerst Freie, dann alle, die die KI umsetzen darf (keine Baumeister).
+func _colonists(w) -> Array:
+	var free := _free_adults(w)
+	var rest: Array = _adults(w).filter(func(s): return s.job != "frei" and s.job != "baumeister" and _movable(s))
+	return free + rest
+
+
 func can_act(w, act: String) -> bool:
 	var site_acts := ["haus", "ausbau", "lager", "feld", "obstgarten", "strasse", "werft"]
 	if act in site_acts and _ki_sites(w) >= max_sites:
@@ -673,7 +680,7 @@ func can_act(w, act: String) -> bool:
 		"erkunden":
 			return Sea.can_explore(w) == ""
 		"besiedeln":
-			return not _unsettled().is_empty() and not Sea.idle_ships(int(w.island_id)).is_empty() and _free_adults(w).size() >= 3 and _adults(w).size() >= 8
+			return not _unsettled().is_empty() and not Sea.idle_ships(int(w.island_id)).is_empty() and _colonists(w).size() >= 3 and _adults(w).size() >= 8
 	return false
 
 
@@ -757,7 +764,7 @@ func act_build(w, act: String) -> String:
 				if dd < best_d:
 					best_d = dd
 					target = m
-			var people: Array = _free_adults(w).slice(0, 3)
+			var people: Array = _colonists(w).slice(0, 3)
 			var goods := {}
 			var wood := mini(40, Game.amount("holz", w) / 3)
 			if wood > 0:
@@ -831,14 +838,25 @@ func _score_tick() -> void:
 func score_day() -> Dictionary:
 	var w = Game.world
 	var r := {"day": int(floor(Game.time_days))}
-	r["food"] = food_days(w)
-	r["wood"] = minf(_amt("holz", w), WOOD_CAP) / 100.0
+	# alle besiedelten Inseln zählen (josh: Punkte je Siedler); Nahrungstage nach Köpfen gewichtet
+	var ws: Array = Sea.all_worlds().filter(func(o): return not o.settlers.is_empty())
+	if ws.is_empty():
+		ws = [w]
+	var fd := 0.0
+	var heads := 0
+	var wood := 0.0
+	for o in ws:
+		fd += food_days(o) * float(o.settlers.size())
+		heads += o.settlers.size()
+		wood += _amt("holz", o)
+	r["food"] = fd / maxf(1.0, float(heads))
+	r["wood"] = minf(wood, WOOD_CAP) / 100.0
 	r["proc"] = processed_today
 	r["res"] = research_today + RESEARCH_DONE_PTS * finished_today
 	r["rpts"] = research_raw
 	var sat := 0
 	var mood := 0
-	for s in w.settlers:
+	for s in ws.reduce(func(acc, o): return acc + o.settlers, []):
 		if is_instance_valid(s):
 			if s.hunger > 50.0:
 				sat += 1
@@ -847,7 +865,8 @@ func score_day() -> Dictionary:
 	r["sat"] = sat
 	r["mood"] = mood
 	r["dead"] = DEATH_PTS * deaths_today
-	r["pop"] = w.settlers.size()
+	r["pop"] = heads
+	r["islands"] = ws.size()
 	r["total"] = float(r.food) + float(r.wood) + float(r.proc) + float(r.res) + sat + mood + float(r.dead)
 	score_total += float(r.total)
 	score_log.append(r)
