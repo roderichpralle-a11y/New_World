@@ -142,6 +142,39 @@ static func icon_rect(tex: Texture2D, px: float = 16.0) -> TextureRect:
 	return r
 
 
+## Handy im Browser (josh 2026-11-13): Godots Eingabefelder öffnen auf iPhone/iPad keine Tastatur. Dort fragt
+## ein Antippen des Felds über das Eingabefenster des Browsers (window.prompt), das die Tastatur sicher zeigt.
+static func touch_web() -> bool:
+	return OS.has_feature("web") and DisplayServer.is_touchscreen_available()
+
+
+## Fragt im Browser nach einem Text; gibt null zurück, wenn abgebrochen.
+static func ask_text(msg: String, current: String):
+	if not OS.has_feature("web"):
+		return null
+	return JavaScriptBridge.eval("window.prompt(%s, %s)" % [JSON.stringify(msg), JSON.stringify(current)], true)
+
+
+## Macht ein Eingabefeld auf dem Handy im Browser antippbar: statt der (dort fehlenden) Tastatur kommt das
+## Eingabefenster des Browsers; on_text bekommt den neuen Text. Am PC bleibt das Feld, wie es ist.
+static func touch_input(le: LineEdit, msg: String, on_text: Callable) -> void:
+	if not touch_web():
+		return
+	le.editable = false
+	le.focus_mode = Control.FOCUS_NONE
+	le.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	le.gui_input.connect(func(ev: InputEvent):
+		if ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT and not ev.pressed:
+			var now := Time.get_ticks_msec()
+			if now - int(le.get_meta("ask_ms", -10000)) < 600:
+				return
+			var r = ask_text(msg, le.text)
+			le.set_meta("ask_ms", Time.get_ticks_msec())
+			if r != null:
+				le.text = str(r)
+				on_text.call(str(r)))
+
+
 static func label(text: String, size: int = 16, color: Color = TEXT, bold: bool = false) -> Label:
 	var l := Label.new()
 	l.text = text

@@ -600,6 +600,7 @@ func _goods_row(id: String, info: String, get_n: Callable, set_n: Callable, step
 		apply.call(t)
 		val.release_focus())
 	val.focus_exited.connect(apply)
+	UiTheme.touch_input(val, tr("Menge (nur Zahlen):"), func(_t): apply.call())  # Handy: Eingabefenster mit Tastatur
 	var plus := UiTheme.button("+", "", 30)
 	plus.custom_minimum_size.x = 30
 	plus.focus_mode = Control.FOCUS_NONE
@@ -1235,6 +1236,15 @@ func _ship_row(sh: Dictionary) -> PanelContainer:
 		le.text_submitted.connect(apply)
 		rh.add_child(ok)
 		v.add_child(rh)
+		if UiTheme.touch_web():
+			# Handy im Browser: gleich das Eingabefenster mit Tastatur (josh 2026-11-13)
+			var r = UiTheme.ask_text(tr("Neuer Name für die %s:") % str(sh.name), str(sh.name))
+			if r != null:
+				le.text = str(r)
+				apply.call()
+			else:
+				refresh()
+			return
 		le.grab_focus())
 	acts.add_child(ren)
 	v.add_child(acts)

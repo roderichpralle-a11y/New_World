@@ -2672,5 +2672,7 @@
  "Umbenennen": "Rename",
  "Dem Schiff einen eigenen Namen geben.": "Give the ship a name of your own.",
  "OK": "OK",
- "Reserve": "Reserve"
+ "Reserve": "Reserve",
+ "Menge (nur Zahlen):": "Amount (numbers only):",
+ "Neuer Name für die %s:": "New name for the %s:"
 }
