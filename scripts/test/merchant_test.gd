@@ -173,7 +173,7 @@ static func trade_test(main, mode: String) -> void:
 		and int(M.state.island) == int(before.island) and int(M.state.seq) == int(before.seq) \
 		and absf(float(M.state.until) - float(before.until)) < 0.001 and M.present()
 	print("Handel ", _okf(load_ok), " Speichern und Laden: Lose, Insel, Abfahrt gleich")
-	# 8 Seehandel: ein Los mehr, Abstand x0,7
+	# 8 Seehandel: ein Los mehr (ohne Gewürze gibt es früh nur vier seltene Waren, dann bleibt es bei 6), Abstand x0,7
 	var eff_keep: Dictionary = Game.effects.duplicate()
 	var keep2: Dictionary = M.state.duplicate(true)
 	var iv_n: float = M.next_interval(7)
@@ -183,7 +183,7 @@ static func trade_test(main, mode: String) -> void:
 	var iv_t: float = M.next_interval(7)
 	Game.effects = eff_keep
 	M.state = keep2
-	print("Handel ", _okf(n_sells == 7 and absf(iv_t / iv_n - 0.7) < 0.001), " Seehandel: %d Verkaufslose, Abstand %.2f statt %.2f Tage" % [n_sells, iv_t, iv_n])
+	print("Handel ", _okf(n_sells >= 6 and absf(iv_t / iv_n - 0.7) < 0.001), " Seehandel: %d Verkaufslose, Abstand %.2f statt %.2f Tage" % [n_sells, iv_t, iv_n])
 	# 9 alter Spielstand: erster Besuch rules_day + 2, Regelzeile
 	var keep3: Dictionary = M.state.duplicate(true)
 	var lines_keep: Array = Game.rules_lines.duplicate()

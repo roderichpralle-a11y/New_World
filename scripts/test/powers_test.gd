@@ -135,7 +135,9 @@ static func run(main, mode: String) -> void:
 	_round(w)
 	var j2 := _jobs(w)
 	_ok(int(j2.get("sammler", 0)) == 2, "Sammler zu 50 %% ausgelastet: einer wird frei (%d Sammler)" % int(j2.get("sammler", 0)))
-	_ok(int(j2.get("holzfaeller", 0)) == 3, "Holzfäller zu 96 %% ausgelastet: ein Freier kommt dazu (%d)" % int(j2.get("holzfaeller", 0)))
+	# seit 2026-11-14 nach Bedarf: hohe Auslastung allein bringt keinen weiteren Holzfäller, das Soll entscheidet
+	var soll: Array = Steward.balance_info(w).get("holzfaeller", [0, 0])
+	_ok(int(j2.get("holzfaeller", 0)) >= 2 and int(j2.get("holzfaeller", 0)) <= maxi(2, int(soll[0])), "Holzfäller nach Bedarf: Soll %d, Ist %d" % [int(soll[0]), int(j2.get("holzfaeller", 0))])
 	# Zwischen 80 und 90 % bleibt alles
 	for s in w.settlers:
 		if s.is_adult() and s.job in ["sammler", "holzfaeller"]:

@@ -1396,6 +1396,8 @@ func find_workshop(kind: String, from: Vector2i, sid: int):
 		for res in b.prod_def().get("outputs", {}):
 			scarce = min(scarce, float(Game.amount(res, self)))
 		var score := scarce * 4.0 + Vector2(b.cell - from).length()
+		if kind == "handwerk":  # Rangliste der Werkstätten (Steward.craft_rank): weiter oben zuerst
+			score += Steward.rank_index(self, b) * 100000.0
 		if score < best_score:
 			best_score = score
 			best = b

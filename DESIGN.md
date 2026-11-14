@@ -2255,6 +2255,47 @@ selbst pflanzenden Förster (die Flächen werden gebraucht).
   Eingaben werden, danach wird neu trainiert.
 - **Test**: `--noreserve=1` (`Extras.reserve_off`) schaltet Reserve und Brennholzplatz für Vergleichsläufe ab.
 
+## Nahrung, Vorkommen, verlassene Inseln und Berufe nach Bedarf (josh 2026-11-14, Version 3)
+
+Anlass: Analyse `analyse/spielmechanik_v3_2026-11-14.md`; josh nahm die Vorschläge mit eigenen Änderungen an
+(kein Fischerboot, Konserven auch aus Fleisch, Gewürze weg, Erz auf der Heimatinsel endlich, Inseln sterben nicht,
+Rangliste für Handwerker, Überproduktion bleibt wie sie ist).
+
+- **Nahrung** (`resources.json`, `buildings.json`; Rechnung mit `konzept/essen_matrix/essen_matrix.py`): Brot 50
+  (Bäckerei gibt 3 statt 2), Äpfel 13 (Obstgarten: 8 Äpfel, Pflege 10 s, Ernte 4 s; Gewächshaus 12, 6 s, 3 s),
+  Getreide roh 6, Feld gibt 6 statt 8, Hühnerhof/Schweinestall/Kuhstall brauchen 2/6/4 Getreide, Räucherfisch 43,
+  Konserven 70. Ziel der Leiter (Siedler satt je Arbeitskraft, Stufe 5): Beeren 1, Fisch 2, Getreide roh 2,5,
+  Eier und Äpfel 3, Fleisch und Milch 4,5, Brot 5. `"raw_food": true` (Getreide): `Game.choose_food` nimmt es nur,
+  wenn sonst nichts Essbares da ist.
+- **Ausweichrezept** (`production.alt_inputs`, Liste von Zutaten): `Building.prod_def()` nimmt das erste Rezept,
+  dessen Zutaten da sind. Konservenfabrik: 3 Fisch + 1 Eisen oder 3 Fleisch + 1 Eisen. Die Rezeptzeile im
+  Gebäudefenster zeigt „oder“.
+- **Gewürze gibt es nicht mehr** (Ware, Strauch, Bedürfnis der Städter, Händlerware, Inselaufgabe, Bilder). Die
+  Plätze im Bilderbogen (`icons.txt` Zeile `gewuerze`, objects2 `spice_*`) sind leer, damit sich keine Nummern
+  verschieben. `Retired.scrub()` nimmt `gewuerze`/`gewuerzstrauch` beim Laden überall aus dem Spielstand.
+- **Erz nur aus dem Boden** (`World.ore_left`, `islands.json` `ore`: Heimat 800, Felseninsel -1 = ohne Ende, Wald
+  und Palmen 0; Spielstand `ore`, ältere Stände bekommen den Anfangswert). Gebäude mit `"deposit": "erz"` (Erzmine)
+  ziehen ihre Erzmenge ab (`World.take_ore`, Meldung bei 100 und 0), stehen bei 0 still (`prod_blocker`) und lassen
+  sich dort nicht bauen (`can_place`). Anzeige: Gebäudefenster und Seekarte (`IslandTraits.ore_text`). Steinkohle
+  wie oben nur aus der Mine der Felseninsel. Palmeninsel hat mehr Fischgründe (`fish` 0,15).
+- **Verlassene Insel statt verlorener** (`Sea.island_lost`): Zustand `empty`; Welt, Gebäude, Lager und Schiffe
+  bleiben, die Welt läuft weiter. Schiff dorthin braucht Siedler an Bord (wie `discovered`); bei Ankunft wieder
+  `settled`. `lost` aus alten Ständen wird beim Laden `discovered`. `Sea.main_world()` ist die Heimatinsel nur,
+  solange dort jemand lebt. Test `--emptytest=1`.
+- **Berufe nach Bedarf** (`Steward.raw_wants`, `targets`, `balance`; Befugnis „Auslastung“): Soll je Beruf aus dem,
+  was es zu tun gibt (Baustellen; Brennholz bis Winterende + gemessener Verbrauch + wartende Werkstätten; Felder,
+  bei genug Getreide `GRAIN_PER_HEAD` nur ein Drittel, plus Ställe; Werkstätten, die arbeiten können `_workable`;
+  reife Fundstellen; Forschungsplätze; Förster nur mit Aufträgen). Geglättet (`_want_avg`), unter `LOAD_LOW` %
+  Auslastung einer weniger. Reichen die Leute nicht: erst `FIRST` (Essen, Holz), Rest anteilig. `balance` versetzt
+  je Runde wenige Leute, die der Verwalter einteilen darf (keine Spieler-Siedler); ohne Lücke wird aus einem Beruf
+  mit zwei oder mehr zu vielen einer frei. `idle_tick` (Berufe der Reihe nach probieren) läuft nicht mehr.
+  Testausgabe mit `--daylog=1`: Zeilen `BEDARF` (Soll/Ist) und `HINDERNIS` (warum Werkstätten stehen).
+- **Rangliste der Werkstätten** (`Steward.craft_rank`, Fenster Verwalter, Reiter Rangliste): je Insel Reihenfolge
+  der Handwerker-Werkstätten; `World.find_workshop` nimmt die oberste, die arbeiten kann. Ohne Rangliste wie
+  bisher die knappste Ware zuerst.
+- **Holzstoß**: Brennholz bis zum Winterbedarf zählt nicht zum belegten Stauraum (`Game._pile`), sonst blockiert
+  der Wintervorrat ein volles Lager.
+
 ## Testen
 
 ```

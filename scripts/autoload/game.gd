@@ -347,7 +347,16 @@ func used_volume(w = null) -> int:
 	var n := 0
 	for id in st:
 		n += int(st[id]) * Data.good_size(id)
-	return n
+	return n - _pile(w) * Data.good_size("holz")
+
+
+## Brennholz bis zum Winterbedarf liegt als Holzstoß vor den Häusern und braucht keinen Stauraum (josh 2026-11-14,
+## Winterreserve): so viele Holz zählen nicht mit. Sonst blockiert der Wintervorrat ein volles Lager für alles andere.
+func _pile(w = null) -> int:
+	var i = _isle(w)
+	if i == null:
+		return 0
+	return mini(int(i.stock.get("holz", 0)), int(ceil(Extras.heat_reserve(i, true))))
 
 
 ## Hoechstmenge einer Ware oder -1 fuer "frei".
@@ -361,7 +370,7 @@ func reserved_volume(w = null, skip: String = "") -> int:
 	var n := 0
 	for id in lim:
 		if id != skip:
-			n += max(int(lim[id]), amount(id, w)) * Data.good_size(id)
+			n += max(int(lim[id]), amount(id, w) - (_pile(w) if id == "holz" else 0)) * Data.good_size(id)
 	return n
 
 
@@ -372,7 +381,7 @@ func _free_used(w = null, skip: String = "") -> int:
 	var n := 0
 	for id in st:
 		if id != skip and not lim.has(id):
-			n += int(st[id]) * Data.good_size(id)
+			n += (int(st[id]) - (_pile(w) if id == "holz" else 0)) * Data.good_size(id)
 	return n
 
 

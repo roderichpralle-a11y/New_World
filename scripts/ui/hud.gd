@@ -694,7 +694,7 @@ const MENU_HELP := {
 	"spielstaende": "Es gibt fünf Plätze. Im aktiven Spielstand speichert das Spiel von selbst. Hier kannst du einen Spielstand laden, hierhin speichern, ein neues Spiel beginnen sowie als Datei ausgeben und einlesen.",
 	"meldungen": "Hier schaltest du ein, welche Arten von Meldungen im Spiel erscheinen. „Alle an“ schaltet alle Arten wieder ein.",
 	"auftraege": "Hier stehen die offenen Aufträge mit Fortschritt und Belohnung.",
-	"verwalter": "Unter „Befugnisse“ schaltest du ein, was der Verwalter selbst macht (Nachbesetzen, Auslastung), und wählst, wer die Berufe vergibt. Unter „Arbeitszeit“ ordnest du für einen Beruf Überstunden oder Schichtarbeit an und siehst, wie ausgelastet jeder Beruf ist.\n\nUnter „Log“ stehen alle Entscheidungen des Verwalters, neueste oben.",
+	"verwalter": "Unter „Befugnisse“ schaltest du ein, was der Verwalter selbst macht (Nachbesetzen, Auslastung), und wählst, wer die Berufe vergibt. Unter „Arbeitszeit“ ordnest du für einen Beruf Überstunden oder Schichtarbeit an und siehst, wie ausgelastet jeder Beruf ist.\n\nUnter „Log“ stehen alle Entscheidungen des Verwalters, neueste oben. Unter „Rangliste“ legst du fest, welche Werkstätten die Handwerker zuerst besetzen.",
 	"inseln": "Unter „Inseln“ siehst du, welche Waren auf welcher Insel liegen. Unter „Schiffe“ schickst du ein Schiff einmal los (Waren von einer Insel zur anderen) oder legst eine Route fest, die es immer wieder fährt. Rot heißt: dort fehlen Seeleute. Unter „Karte“ siehst du alle Inseln und suchst mit der Entdeckungsreise neue.",
 }
 var _menu_help: PanelContainer
