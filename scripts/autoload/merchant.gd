@@ -1,5 +1,5 @@
 extends Node
-## Fremde Händler (Regeln ab Version 2, "Herausforderung": Inselstärken, Gewürze und fremde Händler).
+## Fremde Händler (Regeln ab Version 2, "Herausforderung": Inselstärken und fremde Händler).
 ##
 ## Sobald auf einer besiedelten Insel ein fertiger Hafen steht (die Werft zählt mit), kommt
 ## `first_after_days` später der erste Händler, angekündigt `announce_days` vorher (Meldungsart
@@ -12,8 +12,7 @@ extends Node
 ## `sell_lots` Lose, die er verkauft, und `buy_lots`, die er kauft, jedes 1-3-mal. Losgröße: Waren für
 ## 6-14 Gold (resources.json price), bei billigen Waren in Fünferschritten. Er verkauft zum Preis x1,0-1,25
 ## (aufgerundet) und kauft zu x0,5-0,65 (abgerundet, mindestens 1 Gold). Was er anbietet, hängt vom
-## Zeitalter ab ("sells": Ware -> ab Zeitalter); Gewürze bietet er immer an, solange keine Palmeninsel
-## besiedelt ist, sonst jedes zweite Mal. Gewürze kauft er immer, wenn es eine Palmeninsel gibt. Die Lose
+## Zeitalter ab ("sells": Ware -> ab Zeitalter). Die Lose
 ## entstehen aus Hash(Seed, Besuchsnummer) und stehen im Spielstand.
 ##
 ## Spielstand: oben "merchant" = {next, plan, island, until, seq, name_i, sells, buys}
@@ -255,13 +254,6 @@ func tradeable(id: String) -> bool:
 		and d.get("category", "") != "ship"
 
 
-func _tropen_settled() -> bool:
-	for m in Sea.settled_islands():
-		if m.get("biome", "") == "tropen":
-			return true
-	return false
-
-
 func _lot_n(id: String, rng: RandomNumberGenerator) -> int:
 	var price := float(Data.resources[id].price)
 	var lg: Array = _c("lot_gold", [6, 14])
@@ -283,18 +275,13 @@ func make_lots(w) -> void:
 	var names: Array = cfg.get("names", [])
 	state.name_i = rng.randi() % maxi(1, names.size())
 	var age := maxi(2, Game.current_age())
-	var tropen := _tropen_settled()
-	# Er verkauft: Waren seines Zeitalters, Gewürze immer ohne Palmeninsel, sonst jedes zweite Mal
+	# Er verkauft: Waren seines Zeitalters
 	var pool := []
 	var sells: Dictionary = cfg.get("sells", {})
 	for id in sells:
 		if tradeable(str(id)) and int(sells[id]) <= age:
 			pool.append(str(id))
 	_shuffle(pool, rng)
-	var spice := pool.has("gewuerze") and (not tropen or rng.randf() < float(_c("spice_offer_chance", 0.5)))
-	pool.erase("gewuerze")
-	if spice:
-		pool.push_front("gewuerze")
 	var n_sell := int(_c("sell_lots", 4)) + (int(_c("trade_extra_lots", 1)) if Game.eff_add("trade") > 0.0 else 0)
 	var out := []
 	var mk: Array = _c("sell_markup", [1.0, 1.25])
@@ -303,29 +290,25 @@ func make_lots(w) -> void:
 		var gold := ceili(n * float(Data.resources[id].price) * rng.randf_range(float(mk[0]), float(mk[1])))
 		out.append({"id": id, "n": n, "gold": maxi(1, gold), "left": _times(rng)})
 	state.sells = out
-	# Er kauft: Gewürze zuerst (gibt es eine Palmeninsel), dann Waren, die die Insel hat, dann der Rest
+	# Er kauft: zuerst Waren, die die Insel hat, dann der Rest
 	var taken := out.map(func(l): return l.id)
 	var bpool := []
 	for id in cfg.get("buys", []):
-		if tradeable(str(id)) and (not str(id) in taken or str(id) == "gewuerze"):
+		if tradeable(str(id)) and not str(id) in taken:
 			bpool.append(str(id))
 	_shuffle(bpool, rng)
 	var br: Array = _c("buy_rate", [0.5, 0.65])
-	var want_spice := tropen or Game.amount("gewuerze", w) > 0
-	var first := []
 	var have := []
 	var rest := []
 	for id in bpool:
 		var n := _lot_n(id, rng)
 		var gold := maxi(1, floori(n * float(Data.resources[id].price) * rng.randf_range(float(br[0]), float(br[1]))))
 		var lot := {"id": id, "n": n, "gold": gold, "left": _times(rng)}
-		if id == "gewuerze" and want_spice:
-			first.append(lot)
-		elif Game.amount(id, w) >= n:
+		if Game.amount(id, w) >= n:
 			have.append(lot)
 		else:
 			rest.append(lot)
-	state.buys = (first + have + rest).slice(0, int(_c("buy_lots", 3)))
+	state.buys = (have + rest).slice(0, int(_c("buy_lots", 3)))
 	_add_basic_lots(w)
 
 
@@ -527,7 +510,7 @@ func _on_load(data: Dictionary, old_rules: int) -> void:
 	elif has_harbor():
 		state.next = Game.rules_day + float(_c("first_after_days", 2.0))
 	if old_rules < 1:
-		Game.rules_lines.append(tr("Jede Inselart hat Stärken. Palmeninseln haben Gewürze. Händler kommen an Häfen und handeln gegen Gold."))
+		Game.rules_lines.append(tr("Jede Inselart hat Stärken. Händler kommen an Häfen und handeln gegen Gold."))
 	var w = world()
 	if w != null:
 		w.sync_ships()  # Sea.build_from_save hat die Schiffe schon vor dem Laden dieses Zustands gezeigt
@@ -536,7 +519,7 @@ func _on_load(data: Dictionary, old_rules: int) -> void:
 
 # ---------------------------------------------------------------- Selbsttest
 ## Testhilfen (Game.systems): --merchant=off (keine Händler), --tradetest2=1 (Händler sofort auf der
-## aktiven Insel, Kauf, Verkauf, Gründe, Speichern/Laden, Seehandel), --spicetest=1 (Generator, alter
+## aktiven Insel, Kauf, Verkauf, Gründe, Speichern/Laden, Seehandel); (Generator, alter
 ## Spielstand, Sammler-Reihenfolge), --biometest=1 (Inselstärken), --goisland=N (vorher auf Insel N
 ## wechseln, für Bildschirmfotos; mit --goplace=typ,typ fertige Gebäude dort), --tradetest2=shot (nur den
 ## Händler hinlegen), --basictrade=1 (einfache Waren), --panel=trade (Handelsfenster offen lassen).
@@ -550,8 +533,6 @@ func autotest_setup(args: Dictionary, main) -> void:
 			print("Gebäude auf Insel %d: %s %s" % [int(args.goisland), type, main._place_on(Game.world, type)])
 	if args.has("biometest"):
 		Game.test("merchant_test").biome_test(main)
-	if args.has("spicetest"):
-		await Game.test("merchant_test").spice_test(main)
 	if args.has("tradetest2"):
 		await Game.test("merchant_test").trade_test(main, str(args.tradetest2))
 	if args.has("basictrade"):
@@ -580,13 +561,6 @@ func autotest_report() -> String:
 		day = float(state.next) + 1.0
 	print("   Händler: %s %s Tag %.2f | Besuch Nr. %d, Handel %d | verkauft %s | kauft %s" % [mode, where, day,
 		int(state.seq), int(Game.stats.get("trades", 0)), _lots_text(state.sells), _lots_text(state.buys)])
-	var sp := []
-	for w in Sea.all_worlds():
-		var bushes: int = w.nodes.filter(func(n): return n.type == "gewuerzstrauch").size()
-		if bushes > 0 or Game.amount("gewuerze", w) > 0:
-			sp.append([Sea.island_name(w), bushes, Game.amount("gewuerze", w)])
-	if not sp.is_empty():
-		print("   Gewürze (Insel, Sträucher, Vorrat): ", sp)
 	return ""
 
 

@@ -3039,7 +3039,7 @@ func _volume_row(text: String, icon_name: String, value: float, on_change: Calla
 ## Anleitung zur Erweiterung "Mehr Herausforderung" (eigener Text, damit HELP_TEXT gleich bleibt).
 const CHALLENGE_HELP := """[b]Mehr Herausforderung[/b]
 Jedes Jahr ist anders: Es gibt milde, normale, harte und eisige Winter und manchmal einen heißen Sommer. Im Herbst sagen die Alten genau voraus, wie hart der Winter wird; das Symbol neben der Jahreszeit zeigt es. Lege dann genug Holz und Essen zurück.
-Häuser haben Bedürfnisse: Dorfbewohner im Holzhaus wollen Abwechslung beim Essen und Möbel (Bretter), Bürger im Steinhaus zubereitetes Essen, Hausrat (Werkzeug) und eine Schule, später kommen Glas, Papier, Gewürze, Strom und Elektronik dazu. Nur zufriedene Häuser stellen Fachkräfte für höhere Werkstätten wie Schmiede, Bibliothek oder Fabrik. Ein Haus zählt nur dann als Steinhaus oder höher, wenn auch die Bedürfnisse der Stufen darunter erfüllt sind. Tippe auf ein Haus, um zu sehen, was fehlt.
+Häuser haben Bedürfnisse: Dorfbewohner im Holzhaus wollen Abwechslung beim Essen und Möbel (Bretter), Bürger im Steinhaus zubereitetes Essen, Hausrat (Werkzeug) und eine Schule, später kommen Glas, Papier, Strom und Elektronik dazu. Nur zufriedene Häuser stellen Fachkräfte für höhere Werkstätten wie Schmiede, Bibliothek oder Fabrik. Ein Haus zählt nur dann als Steinhaus oder höher, wenn auch die Bedürfnisse der Stufen darunter erfüllt sind. Tippe auf ein Haus, um zu sehen, was fehlt.
 Ab dem zweiten Jahr kündigen sich Ereignisse an: Dürre, Ratten, Brand, Seuche, Sturmflut und ab Forschungsstufe 4 Piraten. Das Ereignis-Symbol oben rechts zeigt, was kommt und was hilft (zum Beispiel ein Großes Lager gegen Ratten).
 Ab der Antike verbrauchen Forscher Tontafeln aus der Tafelmacherei, später Papier, Strom und Elektronik. Fehlen sie, wird nur mit 20 % des Tempos geforscht.
 Ein neues Zeitalter beginnt erst nach einer Prüfung. Im Entwicklungsbaum steht unter dem nächsten Zeitalter, was dafür fehlt. Jede bestandene Prüfung bringt ein Fest, Einwanderer und Waren.
@@ -3507,6 +3507,11 @@ func _recipe_row(p: Dictionary) -> HBoxContainer:
 	for res in p.get("outputs", {}):
 		h.add_child(UiTheme.label(str(int(p.outputs[res])), 15, UiTheme.TEXT, true))
 		h.add_child(UiTheme.icon_rect(Data.res_icon(res), 18))
+	for alt in p.get("alt_inputs", []):  # Ausweichrezept, z. B. Konserven aus Fleisch
+		h.add_child(UiTheme.label(tr("  oder "), 15, UiTheme.TEXT, true))
+		for res in alt:
+			h.add_child(UiTheme.label(str(int(alt[res])), 15, UiTheme.TEXT, true))
+			h.add_child(UiTheme.icon_rect(Data.res_icon(res), 18))
 	return h
 
 
@@ -3778,8 +3783,7 @@ func _info_node(n: ResNode) -> void:
 	elif n.def.get("on_empty", "") == "remove":
 		_info_box.add_child(UiTheme.label(tr("Wächst nicht nach."), 13))
 	var who := {"baum": tr("Holzfäller"), "fels": tr("Steinmetz"), "busch": tr("Sammler"), "fischgrund": tr("Fischer"),
-		"palme": tr("Sammler"), "pilzkreis": tr("Sammler"), "erzader": tr("Steinmetz"), "goldader": tr("Steinmetz"), "beute": tr("Jäger"),
-		"gewuerzstrauch": tr("Sammler")}
+		"palme": tr("Sammler"), "pilzkreis": tr("Sammler"), "erzader": tr("Steinmetz"), "goldader": tr("Steinmetz"), "beute": tr("Jäger")}
 	if n.def.has("spawns"):
 		var an: Dictionary = Data.animals[n.def.spawns]
 		var w = n.world

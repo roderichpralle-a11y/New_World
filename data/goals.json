@@ -83,7 +83,7 @@
       ["holz", "stein", "bretter", "fisch"],
       ["bretter", "ziegel", "brot", "kohle", "felle"],
       ["werkzeug", "eisen", "brot", "gold"],
-      ["glas", "papier", "werkzeug", "gold", "gewuerze"],
+      ["glas", "papier", "werkzeug", "gold"],
       ["stahl", "werkzeug", "konserven", "papier"],
       ["stahl", "maschinen", "glas"],
       ["maschinen", "elektronik", "stahl"],

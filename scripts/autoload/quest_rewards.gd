@@ -9,7 +9,7 @@ extends RefCounted
 ##   heizen  Sommer bis Winter: Brennstoff bis Winterende (nach Wintervorhersage; Kohle zählt mit,
 ##           mit Köhlerei gibt es Kohle statt Holz)
 ##   schrift laufende Forschung: fehlende Schreibwaren (Tontafeln, Papier)
-##   haeuser Bedürfnisse der Hausstufen, die es gibt (Bretter, Werkzeug, Brot, Glas, Papier, Gewürze ...)
+##   haeuser Bedürfnisse der Hausstufen, die es gibt (Bretter, Werkzeug, Brot, Glas, Papier ...)
 ##   pruefung nächste Prüfung: Lagerwaren und Baukosten der verlangten Häuser und Gebäude
 ##   forschung Kosten der nächsten wählbaren Forschungen
 ##   bauen   Baustoffe (Holz, Bretter, Stein, Ziegel) für freigeschaltete Gebäude

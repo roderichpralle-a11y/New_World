@@ -368,7 +368,23 @@ func farm_task() -> String:
 func prod_def() -> Dictionary:
 	if def.get("ships", false):
 		return ship_recipe(next_ship())
-	return def.get("production", {})
+	var p: Dictionary = def.get("production", {})
+	# Ausweichrezept (buildings.json alt_inputs, josh 2026-11-14: Konserven auch aus Fleisch): fehlt eine Zutat
+	# des ersten Rezepts und liegt ein anderes vollständig bereit, arbeitet die Werkstatt mit dem.
+	if p.has("alt_inputs") and world != null and not _has_inputs(p.inputs):
+		for alt in p.alt_inputs:
+			if _has_inputs(alt):
+				var q: Dictionary = p.duplicate()
+				q["inputs"] = alt
+				return q
+	return p
+
+
+func _has_inputs(ins: Dictionary) -> bool:
+	for res in ins:
+		if Game.usable(res, world) < int(ins[res]):
+			return false
+	return true
 
 
 ## Inselstärke (buildings.json biome_bonus): so viel schneller arbeitet die Werkstatt auf dieser Insel.

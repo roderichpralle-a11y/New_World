@@ -220,7 +220,6 @@ func build_from_save(w: Dictionary, m: Dictionary) -> void:
 				var have := animals.filter(func(an): return an.home == n.cell).size()
 				for i in max(0, int(n.def.get("den_cap", 1)) - have):
 					_spawn_at_den(n)
-	IslandTraits.patch_spice(self, island)  # Gewürzsträucher (Palmeninsel) für ältere Spielstände
 	Game.on_population_changed()
 
 
@@ -1868,7 +1867,7 @@ func _add_grave(p: Vector2, until: float) -> void:
 # ================================================================== Effekte
 ## Geraeusch beim Abbauen je Rohstoffquelle
 const CHIP_SOUNDS := {"baum": "axt", "palme": "axt", "fels": "stein", "erzader": "stein", "goldader": "stein",
-	"busch": "pfluecken", "pilzkreis": "pfluecken", "fischgrund": "platsch", "gewuerzstrauch": "pfluecken"}
+	"busch": "pfluecken", "pilzkreis": "pfluecken", "fischgrund": "platsch"}
 
 
 func spawn_effect(kind: String, p: Vector2) -> void:
@@ -1887,7 +1886,6 @@ func spawn_effect(kind: String, p: Vector2) -> void:
 		"chips_wolfsbau": [Color("#7e5438"), Color("#4a3428")],
 		"chips_eberbau": [Color("#6e5a40"), Color("#4a3428")],
 		"chips_baerenhoehle": [Color("#8a8c9e"), Color("#4a3428")],
-		"chips_gewuerzstrauch": [Color("#c0502a"), Color("#5aa852")],
 		"blood": [Color("#c03030"), Color("#ff6a5a")],
 		"leaves": [Color("#62ac52"), Color("#8acb62")],
 		"dust": [Color("#e8d8b0"), Color("#c8b890")],

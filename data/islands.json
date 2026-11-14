@@ -9,15 +9,14 @@
     "dens": [], "special": []
   },
   "tropen": {
-    "name": "Palmeninsel", "desc": "Weißer Strand und Kokospalmen. Nur ein paar Wildschweine wühlen im Unterholz. Nur hier wachsen Gewürze. Räucherei, Konservenfabrik und Solarpark arbeiten hier schneller.",
+    "name": "Palmeninsel", "desc": "Weißer Strand und Kokospalmen. Nur ein paar Wildschweine wühlen im Unterholz. Räucherei, Konservenfabrik und Solarpark arbeiten hier schneller.",
     "names": ["Kokosriff", "Sonnenbucht", "Palmenstrand", "Muschelinsel", "Papageienkap", "Korallenbank", "Lagunenland"],
     "size": [44, 52], "grass_level": 0.42, "tint": "#fff4b8", "tree_variant": 1,
     "dense": "palme", "dense_threshold": 0.18, "dense_chance": 0.35,
     "grass": [["baum", 0.015], ["busch", 0.035], ["fels", 0.01]],
     "sand": [["palme", 0.04], ["fels", 0.012]], "fish": 0.11,
     "ring": [["palme", 4, 6.0, 10.0, false], ["baum", 5, 7.0, 12.0, true], ["busch", 3, 6.5, 10.0, true], ["fels", 3, 7.0, 13.0, false]],
-    "dens": [["eberbau", 1, 2]], "special": ["kokos", "fisch", "gewuerze"],
-    "extra": [["gewuerzstrauch", 8, 10.0, 20.0, true]]
+    "dens": [["eberbau", 1, 2]], "special": ["kokos", "fisch"]
   },
   "wald": {
     "name": "Waldinsel", "desc": "Dichte Nadelwälder voller Pilze. Wölfe streifen durch die Nacht. Sägegrube, Köhlerei und Papiermühle arbeiten hier schneller.",

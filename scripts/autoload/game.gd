@@ -574,6 +574,10 @@ func choose_food(s, w = null) -> String:
 			total += n
 	if ids.is_empty():
 		return ""
+	# Rohes Getreide (resources.json raw_food) kommt nur auf den Tisch, wenn sonst nichts da ist (josh 2026-11-14)
+	var cooked := ids.filter(func(i): return not Data.resources[i].get("raw_food", false))
+	if not cooked.is_empty():
+		ids = cooked
 	# Keine feste Reihenfolge mehr: früher erst Haltbares (durable_first) und Abzug für Werkstatt-Zutaten;
 	# was übrig bleiben soll, stellt der Spieler jetzt im Lager ein (food_keep).
 	# Zufällig nach Vorrat gewichtet (josh 2026-11-09: alle Produkte, keine Reihenfolge): wovon mehr da ist,

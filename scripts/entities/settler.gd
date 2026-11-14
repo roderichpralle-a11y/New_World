@@ -200,6 +200,8 @@ func setup(p_world, data: Dictionary) -> void:
 	home_id = int(data.get("home", 0))
 	look = data.get("look", random_look(_rng))
 	carry_res = data.get("carry_res", "")
+	if carry_res != "" and not Data.resources.has(carry_res):
+		carry_res = ""  # Ware gibt es nicht mehr (Retired.scrub)
 	carry_n = int(data.get("carry_n", 0))
 	birth_cooldown_until = float(data.get("birth_cd", 0.0))
 	parents = data.get("parents", [])
@@ -1143,7 +1145,7 @@ func _plan_work() -> bool:
 			return _plan_free_gather()
 		_:
 			var targets: Array = Data.jobs.get(job, {}).get("targets", [])
-			targets = IslandTraits.gather_order(targets, world)  # Sammler: Gewürze zuerst, wenn genug Essen da ist
+			targets = IslandTraits.gather_order(targets, world)  # Hauptaufgabe der Insel: deren Fundstellen zuerst
 			if _plan_gather(targets):
 				return true
 			# Ist das eigene Lager voll, hilft der Siedler woanders aus
@@ -1215,15 +1217,14 @@ func _plan_gather(types: Array) -> bool:
 func _tool_for_node(t: String) -> String:
 	return {"baum": "axe", "fels": "pick", "busch": "basket", "fischgrund": "rod", "palme": "basket",
 		"pilzkreis": "basket", "erzader": "pick", "goldader": "pick", "beute": "spear", "wolfsbau": "shovel",
-		"eberbau": "shovel", "baerenhoehle": "pick", "gewuerzstrauch": "basket"}.get(t, "")
+		"eberbau": "shovel", "baerenhoehle": "pick"}.get(t, "")
 
 
 func _verb(t: String) -> String:
 	return {"baum": tr("Fällt einen Baum"), "fels": tr("Schlägt Steine"), "busch": tr("Pflückt Beeren"),
 		"fischgrund": tr("Angelt"), "palme": tr("Pflückt Kokosnüsse"), "pilzkreis": tr("Sammelt Pilze"),
 		"erzader": tr("Schlägt Erz"), "goldader": tr("Schürft Gold"), "beute": tr("Zerlegt die Beute"),
-		"wolfsbau": tr("Räumt den Bau aus"), "eberbau": tr("Räumt den Bau aus"), "baerenhoehle": tr("Räumt die Höhle aus"),
-		"gewuerzstrauch": tr("Erntet Gewürze")}.get(t, tr("Arbeitet"))
+		"wolfsbau": tr("Räumt den Bau aus"), "eberbau": tr("Räumt den Bau aus"), "baerenhoehle": tr("Räumt die Höhle aus")}.get(t, tr("Arbeitet"))
 
 
 func _do_harvest(node) -> void:

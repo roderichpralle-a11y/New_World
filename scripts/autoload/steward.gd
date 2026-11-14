@@ -656,7 +656,7 @@ func _producer(w, id: String) -> String:
 
 # ---------------------------------------------------------------- Lieferketten (josh 2026-10-30)
 ## Quellen in der Natur je Beruf (Knoten aus nodes.json), für _raw_block.
-const RAW_NODES := {"holzfaeller": ["baum"], "sammler": ["busch", "palme", "pilzkreis", "gewuerzstrauch"],
+const RAW_NODES := {"holzfaeller": ["baum"], "sammler": ["busch", "palme", "pilzkreis"],
 	"fischer": ["fischgrund"], "steinmetz": ["fels", "erzader", "goldader"], "jaeger": ["beute", "wolfsbau", "eberbau", "baerenhoehle"]}
 const RIPE_MIN := 3  # so viel muss in der Natur reif sein, damit ein weiterer Arbeiter etwas holen kann
 
@@ -695,7 +695,7 @@ func _raw_block(w, job: String) -> String:
 	if not RAW_NODES.has(job):
 		return ""
 	var types: Array = RAW_NODES[job]
-	if job == "sammler":  # nur, was in dieser Jahreszeit wächst (im Winter nichts, außer Palmen und Gewürzen)
+	if job == "sammler":  # nur, was in dieser Jahreszeit wächst (im Winter nichts, außer Palmen)
 		types = types.filter(func(t): return Seasons.growth(str(t), w) > 0.0)
 		if types.is_empty():
 			return tr("Im Winter wächst nichts zum Sammeln.")
@@ -1137,7 +1137,6 @@ const TASKS := {
 	"sammeln": {"name": "Beeren", "icon": "beeren", "goods": ["beeren"], "jobs": ["sammler"], "nodes": ["busch"]},
 	"pilze": {"name": "Pilze", "icon": "pilze", "goods": ["pilze"], "jobs": ["sammler"], "nodes": ["pilzkreis"]},
 	"kokos": {"name": "Kokosnüsse", "icon": "kokos", "goods": ["kokos"], "jobs": ["sammler"], "nodes": ["palme"]},
-	"gewuerze": {"name": "Gewürze", "icon": "gewuerze", "goods": ["gewuerze"], "jobs": ["sammler"], "nodes": ["gewuerzstrauch"]},
 	"jagd": {"name": "Fleisch und Felle", "icon": "fleisch", "goods": ["fleisch", "felle"], "jobs": ["jaeger"], "nodes": []},
 	"metall": {"name": "Erz und Metall", "icon": "eisen", "goods": ["erz", "kohle", "eisen", "werkzeug", "stahl"], "jobs": ["steinmetz", "handwerker"], "nodes": ["erzader"]},
 	"gold": {"name": "Gold", "icon": "gold", "goods": ["gold"], "jobs": ["steinmetz"], "nodes": ["goldader"]},

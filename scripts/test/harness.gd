@@ -1429,7 +1429,7 @@ func _sample_rules_lines() -> Array:
 	return [tr("Forschung ab der Antike verbraucht Tontafeln (Tafelmacherei), später Papier, Strom und Elektronik. Fehlen sie, wird nur mit 20 % des Tempos geforscht."),
 		tr("Winter und Sommer sind jedes Jahr anders. Im Herbst sagen die Alten voraus, wie hart der Winter wird."),
 		tr("Häuser haben Bedürfnisse. Höhere Werkstätten brauchen Arbeiter aus zufriedenen Häusern, z. B. die Schmiede Bewohner zufriedener Holzhäuser."),
-		tr("Jede Inselart hat Stärken. Palmeninseln haben Gewürze. Händler kommen an Häfen und handeln gegen Gold."),
+		tr("Jede Inselart hat Stärken. Händler kommen an Häfen und handeln gegen Gold."),
 		tr("Ab dem zweiten Jahr kündigen sich Ereignisse an: Dürre, Ratten, Brand, Seuche, Sturmflut und ab dem Mittelalter Piraten. Wer sie gut übersteht, bekommt Einwanderer."),
 		tr("Neue Aufträge mit Wahl: du suchst dir einen von drei aus. Belohnungen sind Einwanderer, dauerhafte Segen, Baupläne oder seltene Waren."),
 		tr("Ein neues Zeitalter beginnt erst nach einer Prüfung. Jede bestandene Prüfung bringt ein Fest, Einwanderer und Waren. Neu: Menü > Wertung mit Rekorden.")]
