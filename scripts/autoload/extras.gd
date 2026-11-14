@@ -28,11 +28,12 @@ func _ready() -> void:
 	Game.state_save.connect(_on_save)
 	Game.state_load.connect(_on_load)
 	Game.settler_died.connect(_on_died)
+	Game.day_started.connect(func(_d): _reserve_note())
 
 
 ## Abschnitt der Spielanleitung (hud.gd hängt ihn an).
 const HELP := """[b]Kohle, Kälte und Vorräte[/b]
-Im Herbst und Winter heizen die Siedler. Liegt Kohle im Lager, verbrennen sie zuerst die Kohle (1 Kohle heizt wie 2 Holz), Holz erst, wenn die Kohle alle ist. Fehlt beides, frieren sie: nach etwa einem Tag Kälte sinkt die Gesundheit, und sie können erfrieren, Kinder und Alte zuerst. Eine Meldung warnt, sobald der Brennstoff ausgeht. Auf Palmeninseln erfriert niemand.
+Im Herbst und Winter heizen die Siedler. Liegt Kohle im Lager, verbrennen sie zuerst die Kohle (1 Kohle heizt wie 2 Holz), Holz erst, wenn die Kohle alle ist. Ab dem Sommer legen sie Brennholz für den Winter zurück: Werkstätten und Baustellen bekommen Holz und Kohle nur, was darüber liegt. Fehlt beides, frieren sie und fällen selbst Bäume: nach etwa einem Tag Kälte sinkt die Gesundheit, und sie können erfrieren, Kinder und Alte zuerst. Eine Meldung warnt, sobald der Brennstoff ausgeht. Auf Palmeninseln erfriert niemand.
 Die Siedler essen zuerst haltbares Essen wie Brot, Räucherfisch, Kokosnüsse und Konserven, frisches Essen und rohes Getreide erst, wenn nichts Haltbares mehr da ist. Nur wer zu wenig Vitamine hat, greift trotzdem zu Obst und Beeren."""
 
 
@@ -49,6 +50,57 @@ static func coal_ratio() -> float:
 ## Brennstoff einer Insel in Holz gerechnet (Holz + Kohle x coal_ratio).
 static func fuel(w) -> float:
 	return float(Game.amount("holz", w)) + float(Game.amount("kohle", w)) * coal_ratio()
+
+
+## Brennholz für den Winter (josh 2026-11-14): so viel Brennstoff (in Holz gerechnet) bleibt auf dieser Insel
+## liegen. Werkstätten, Hausbedarf, Forschung (Game.usable) und Baustellen (Game.build_free) nehmen Holz und
+## Kohle nur darüber. Bedarf = Siedler x Heizholz für den Rest von Herbst und Winter dieses Jahres; im Frühling
+## wird noch nichts zurückgelegt, im Sommer die Hälfte (RESERVE_SHARE), ab Herbst alles.
+const RESERVE_SHARE := [0.0, 0.5, 1.0, 1.0]
+static var reserve_off := false  # Testhilfe --noreserve=1: alte Regel zum Vergleich
+
+
+static func heat_reserve(w, full := false) -> float:
+	if reserve_off or w == null or not is_instance_valid(w) or w.settlers.is_empty():
+		return 0.0
+	var s: int = Seasons.season()
+	var share: float = 1.0 if full else float(RESERVE_SHARE[s])
+	if share <= 0.0:
+		return 0.0
+	var sd: float = Seasons.season_days()
+	var left: float = (1.0 - Seasons.season_progress()) * sd
+	var days_w: float = left if s == Seasons.WINTER else sd
+	var days_a: float = left if s == Seasons.AUTUMN else (0.0 if s == Seasons.WINTER else sd)
+	var need: float = Seasons.heat_per_settler(Seasons.AUTUMN) * days_a + Seasons.heat_per_settler(Seasons.WINTER) * days_w
+	return ceilf(need * w.settlers.size() * share)
+
+
+## Platz für Brennholz: bis zum ganzen Winterbedarf passt Holz immer aufs Lager (Holzstoß vor der Tür), auch wenn
+## das Lager voll ist oder eine Höchstmenge für Holz darunter liegt. Sonst erfriert eine Insel neben vollen Lagern.
+static func firewood_room(w) -> int:
+	return maxi(0, int(ceil(heat_reserve(w, true) - fuel(w))))
+
+
+## Wie viel von Holz oder Kohle über der Winterreserve liegt (andere Waren: der ganze Vorrat).
+static func above_reserve(id: String, w) -> int:
+	var have: int = Game.amount(id, w)
+	if id != "holz" and id != "kohle":
+		return have
+	var free := fuel(w) - heat_reserve(w)
+	if id == "kohle":
+		free /= coal_ratio()
+	return clampi(int(floor(free)), 0, have)
+
+
+## Einmal je Jahreszeit und Insel melden, wenn die Winterreserve nicht voll ist (ab Sommer).
+func _reserve_note() -> void:
+	for w in Sea.all_worlds():
+		var need := heat_reserve(w)
+		var key := "%d/%d" % [Seasons.year(), Seasons.season()]
+		if need <= 0.0 or fuel(w) >= need or Seasons.cold.has(w) or str(w.get_meta("reserve_note", "")) == key:
+			continue
+		w.set_meta("reserve_note", key)
+		Game.notify_at(w, Loc.t("Brennholz für den Winter: %d von %d zurückgelegt. Werkstätten und Baustellen bekommen erst wieder Holz und Kohle, wenn die Reserve voll ist.") % [int(fuel(w)), int(need)], "holz", "lager")
 
 
 ## Heizt eine Insel: `acc` = angefangener Bedarf in Holz. Erst Kohle (ganze Stücke, je coal_ratio Holz),

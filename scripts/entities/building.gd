@@ -437,6 +437,9 @@ func prod_blocker() -> String:
 			return tr("Kein freier Liegeplatz für ein weiteres Schiff. Baue einen Hafen oder Steg")
 	for res in ({} if ship_wip != "" else p.get("inputs", {})):  # Schiff in Arbeit: Material ist schon genommen
 		if Game.usable(res, world) < int(p.inputs[res]):  # „Nicht verarbeiten“-Menge bleibt liegen (josh 2026-11-12)
+			if (res == "holz" or res == "kohle") and Extras.above_reserve(res, world) < int(p.inputs[res]) \
+					and Game.amount(res, world) >= int(p.inputs[res]):
+				return tr("%s liegt als Brennstoff für den Winter zurück") % Data.resource_name(res)
 			if Game.amount(res, world) >= int(p.inputs[res]):
 				return tr("%s: der Rest ist zurückgehalten") % Data.resource_name(res)
 			return tr("Es fehlt %s") % Data.resource_name(res)

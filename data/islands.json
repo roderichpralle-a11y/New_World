@@ -30,7 +30,7 @@
     "dens": [["wolfsbau", 2, 3], ["eberbau", 0, 1]], "special": ["pilze", "holz", "felle"]
   },
   "berg": {
-    "name": "Felseninsel", "desc": "Karge Felsen voller Erz und Gold. In den Höhlen schlafen Bären. Mine, Steinbruch und Stahlwerk arbeiten hier schneller.",
+    "name": "Felseninsel", "desc": "Karge Felsen voller Erz und Gold. In den Höhlen schlafen Bären. Mine, Steinbruch und Stahlwerk arbeiten hier schneller. Ab der Dampfmaschine fördert die Erzmine hier auch Steinkohle.",
     "names": ["Goldfels", "Bärenklippe", "Erzkuppe", "Granitkap", "Adlerhorst", "Donnerberg", "Silberküste"],
     "size": [46, 56], "grass_level": 0.38, "tint": "#c8c4a8", "tree_variant": 2,
     "dense": "fels", "dense_threshold": 0.3, "dense_chance": 0.3,

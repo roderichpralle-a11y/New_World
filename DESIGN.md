@@ -2227,6 +2227,34 @@ einen Fahnenmast und noch 10 weitere Sachen, nach und nach freigeschaltet.“
   Ausgabe `Schmuck OK`. Bild: `--decorshot=1` (Dorf mit allem Schmuck, `--seed=11`), Bau-Reiter:
   `--panel=build --cat=schmuck`.
 
+## Winterreserve für Brennholz, Notholz und Steinkohle (josh 2026-11-14, Version 3)
+
+Anlass: In joshs Spielständen erfror die halbe Siedlung, weil Werkstätten und Baustellen das Holz vor dem Winter
+verbrauchten (Analyse `analyse/spielmechanik_v3_2026-11-14.md`). josh nahm die Holz-Vorschläge an, aber **ohne**
+selbst pflanzenden Förster (die Flächen werden gebraucht).
+
+- **Winterreserve** (`Extras.heat_reserve(w)`): Siedler der Insel × (Heizholz Herbst × restliche Herbsttage + Heizholz
+  Winter × Wintertage, mit dem Faktor der Winterart) × Anteil der Jahreszeit (`RESERVE_SHARE`: Frühling 0, Sommer 0,5,
+  Herbst und Winter 1). Im Frühling gibt es keine Reserve, damit der Spielstart nicht blockiert.
+  `Extras.above_reserve(id, w)` sagt, wie viel Holz oder Kohle über der Reserve liegt (Kohle zählt als
+  `heat_coal_wood` Holz). `Game.usable()` (Werkstätten, Hausbedarf, Forschung) und `Game.build_free()` (Baustellen:
+  `Settler._plan_sites`, `_do_pickup`) geben nur das frei. Heizen selbst nimmt weiter alles. Werkstätten zeigen
+  „Holz liegt als Brennstoff für den Winter zurück“, einmal je Jahreszeit und Insel kommt eine Meldung
+  (`Extras._reserve_note`). Der Spieler kann die Reserve noch nicht abschalten.
+- **Platz für Brennholz** (`Extras.firewood_room(w)`, in `Game.space_for("holz")`): Bis zum ganzen Winterbedarf passt
+  Holz immer aufs Lager, auch wenn das Lager voll ist oder eine Höchstmenge für Holz darunter liegt. Sonst fällt
+  niemand Bäume (`_plan_gather` überspringt Vorkommen ohne Lagerplatz) und die Insel erfriert neben vollen Lagern.
+- **Notholz** (`Settler._plan_firewood`, Schritt 4b in `_think`): Friert die Insel (`Seasons.cold`), fällt jeder
+  Erwachsene tagsüber nach Essen und Schlaf selbst Bäume, egal welcher Beruf, Tätigkeit „Friert und holt Brennholz“.
+  Gibt es keinen Baum mehr, hilft das nicht: gepflanzt wird weiter nur vom Förster auf Befehl des Spielers.
+- **Holzfäller ohne Arbeit** (`Settler._idle_text`): „Kein Baum mehr zu fällen“ (dazu höchstens alle 3 Tage je Insel
+  eine Meldung) oder „Kein Platz für Holz im Lager“ statt „Hat nichts zu tun“.
+- **Steinkohle**: `buildings.json` kennt `biome_extra` (Inselart → `requires` Forschung, `outputs`). Die Mine fördert
+  auf der Felseninsel (`berg`) ab der Dampfmaschine je Arbeitsgang zusätzlich 1 Kohle (`Settler._do_produce`).
+- **KI**: Belohnung und Training gehören dem KI-Thema; `Extras.heat_reserve(w)` und `Extras.fuel(w)` sollen dort
+  Eingaben werden, danach wird neu trainiert.
+- **Test**: `--noreserve=1` (`Extras.reserve_off`) schaltet Reserve und Brennholzplatz für Vergleichsläufe ab.
+
 ## Testen
 
 ```
