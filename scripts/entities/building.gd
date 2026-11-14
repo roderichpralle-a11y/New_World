@@ -440,6 +440,8 @@ func prod_blocker() -> String:
 		return tr("nicht fertig")
 	if paused:
 		return tr("angehalten")
+	if def.has("deposit") and world.ore_left == 0:
+		return tr("Auf dieser Insel liegt kein Erz mehr. Erz ohne Ende gibt es nur auf einer Felseninsel")
 	if def.get("ships", false):
 		var t := next_ship()
 		if t == "":

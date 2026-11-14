@@ -81,12 +81,23 @@ static func build_row(btn: Control, box: Control, type: String, w) -> void:
 ## Infofenster einer Werkstatt: Inselstärke dieser Insel bzw. wo das Gebäude schneller wäre.
 static func info_rows(hud, b) -> void:
 	var biome: String = b.world.biome if b.world else "heimat"
+	if b.def.has("deposit") and b.world:
+		hud._info_box.add_child(UiTheme.label(ore_text(b.world.ore_left), 13, UiTheme.BAD if b.world.ore_left == 0 else DIM))
 	var text := bonus_text(b.type, biome)
 	if text == "":
 		return
 	var l := UiTheme.label(text, 13, UiTheme.GOOD if b.biome_factor() > 1.0 else DIM)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	hud._info_box.add_child(l)
+
+
+## Erz im Boden einer Insel als Text (World.ore_left).
+static func ore_text(n: int) -> String:
+	if n < 0:
+		return Loc.t("Erz im Boden: unerschöpflich")
+	if n == 0:
+		return Loc.t("Erz im Boden: keines")
+	return Loc.t("Erz im Boden: noch %d") % n
 
 
 ## Seekarte (Inselansicht): "Stärken:" mit den Gebäuden, die auf dieser Inselart schneller arbeiten.

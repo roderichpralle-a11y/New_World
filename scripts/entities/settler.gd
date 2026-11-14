@@ -1489,6 +1489,8 @@ func _do_produce(b) -> void:
 	gain_xp(p.get("skill", "handwerk"))
 	var outs: Dictionary = p.get("outputs", {})
 	var first := true
+	if b.def.has("deposit"):
+		world.take_ore(int(outs.get(str(b.def.deposit), 0)))  # endliches Erz der Insel (World.ore_left)
 	for res in outs:
 		var n := int(outs[res])
 		Admin.note_produced(res, n, world)  # Statistik

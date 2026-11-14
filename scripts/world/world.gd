@@ -36,6 +36,9 @@ var center: Vector2i
 var stock: Dictionary = {}  # Lager dieser Insel (Ware -> Menge), siehe Game.amount
 var store_limits: Dictionary = {}  # Hoechstmengen je Ware auf dieser Insel (fehlt = frei)
 var food_keep: Dictionary = {}  # Nahrung, die nicht gegessen wird (josh 2026-11-09): Ware -> Menge, z. B. für die Weiterverarbeitung
+## Erz im Boden dieser Insel (josh 2026-11-14, islands.json "ore"): -1 = unerschöpflich (Felseninsel), 0 = keines
+## (mehr), sonst der Rest. Die Erzmine (buildings.json "deposit") fördert nur daraus.
+var ore_left: int = -1
 var had_stock: bool = false  # Spielstand hatte ein eigenes Inselllager (ab Version 3)
 
 var ground: Node2D  # Felder unter allem
@@ -97,6 +100,7 @@ func build_new(seed_value: int) -> void:
 	stock = {}
 	for id in Data.bal("start_stock", {}):
 		stock[id] = int(Data.bal("start_stock")[id])
+	ore_left = ore_start()
 	var island := IslandGen.generate(seed_value, size)
 	_build_terrain(island)
 	for n in island.nodes:
@@ -128,6 +132,7 @@ func build_colony(m: Dictionary) -> void:
 	island_id = int(m.id)
 	biome = m.biome
 	size = int(m.size)
+	ore_left = ore_start()
 	var island := IslandGen.generate(int(m.seed), size, _gen_opts(m))
 	_build_terrain(island)
 	for n in island.nodes:
@@ -139,6 +144,23 @@ func build_colony(m: Dictionary) -> void:
 		if a != "":
 			for i in int(n.def.get("den_cap", 1)):
 				_spawn_at_den(n)
+
+
+## Erzvorkommen der Inselart zu Beginn (siehe ore_left).
+func ore_start() -> int:
+	return int(Data.islands.get(biome, {}).get("ore", -1))
+
+
+## Die Mine hat n Erz gefördert: vom Vorkommen abziehen und melden, wenn es knapp wird oder leer ist.
+func take_ore(n: int) -> void:
+	if ore_left < 0 or n <= 0:
+		return
+	var before := ore_left
+	ore_left = maxi(0, ore_left - n)
+	if ore_left == 0:
+		Game.notify_at(self, tr("Das Erz auf %s ist erschöpft. Die Minen stehen still. Erz ohne Ende liegt nur auf einer Felseninsel.") % Sea.island_name(self), "abriss")
+	elif before > 100 and ore_left <= 100:
+		Game.notify_at(self, tr("Auf %s liegen nur noch %d Erz im Boden. Erz ohne Ende gibt es nur auf einer Felseninsel.") % [Sea.island_name(self), ore_left], "erz")
 
 
 func _gen_opts(m: Dictionary) -> Dictionary:
@@ -155,6 +177,7 @@ func build_from_save(w: Dictionary, m: Dictionary) -> void:
 	Land.apply_saved(self, island, w)  # Neuland hinter Deichen (ab dieser Version)
 	_build_terrain(island)
 	stock = {}
+	ore_left = int(w.get("ore", ore_start()))  # ältere Spielstände: volles Vorkommen der Inselart
 	had_stock = w.has("stock")
 	for id in w.get("stock", {}):
 		if Data.resources.has(id):
@@ -1012,6 +1035,8 @@ func _drop_roof(c: Vector2i) -> void:
 func can_place(type: String, c: Vector2i, ignore = null) -> bool:
 	var def: Dictionary = Data.buildings[type]
 	if def.get("unique", false) and Admin.exists(type, ignore):  # z. B. Verwaltung: nur eine im Spiel
+		return false
+	if def.has("deposit") and ore_left == 0 and ignore == null:  # Erzmine nur, wo Erz liegt
 		return false
 	if def.get("planner", false) and not Planner.near_office(self, c, def.size):  # Planungsautomat: direkt vor der Verwaltung
 		return false
@@ -2239,7 +2264,7 @@ func pick_at(p: Vector2, radius: float = 12.0):
 # ================================================================== Speichern
 func serialize() -> Dictionary:
 	return {
-		"stock": stock,
+		"stock": stock, "ore": ore_left,
 		"store_limits": store_limits, "food_keep": food_keep,
 		"nodes": nodes.map(func(n): return n.serialize()),
 		"buildings": buildings.map(func(b): return b.serialize()),

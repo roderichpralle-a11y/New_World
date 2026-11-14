@@ -1553,6 +1553,8 @@ func _on_placement(active: bool, type: String, valid: bool) -> void:
 			why = tr("\nMuss am Ufer stehen und Platz haben.")
 		elif Data.buildings[type].get("water_ok", false):
 			why = tr("\nIm Wasser nur neben Land oder einem anderen Deich.")
+		elif Data.buildings[type].has("deposit") and world.ore_left == 0:
+			why = tr("\nAuf dieser Insel liegt kein Erz. Erz gibt es auf der Heimatinsel (begrenzt) und auf Felseninseln.")
 		_place_label.text = "%s.%s" % [
 			Data.buildings[type].name, tr(" Der Platz passt.") if valid else why]
 		if Data.buildings[type].get("repeat", false):
