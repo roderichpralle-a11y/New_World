@@ -610,6 +610,9 @@ func _think() -> void:
 		else:
 			_plan_wander(5, tr("Spielt"))
 		return
+	# 4b. Die Insel friert (kein Holz, keine Kohle): jeder Erwachsene fällt selbst Bäume (josh 2026-11-14)
+	if Seasons.cold.has(world) and _plan_firewood():
+		return
 	# 5. Freizeit: mit festem Arbeitstag Mittagspause nahe der Arbeit und Feierabend, sonst nach Erholung
 	if wd == "pause":
 		_plan_wander(3, tr("Macht Mittagspause"), cell)  # in der Nähe, damit er nach einer Stunde wieder dort ist
@@ -624,7 +627,33 @@ func _think() -> void:
 	if _plan_work():
 		return
 	_stat_kind = "idle"
-	_plan_wander(4, tr("Hat nichts zu tun"))
+	_plan_wander(4, _idle_text())
+
+
+## Warum ein Holzfäller steht (josh 2026-11-14): kein Baum mehr oder kein Platz, sonst der übliche Text.
+func _idle_text() -> String:
+	if job == "holzfaeller":
+		if Game.space_for("holz", world) <= 0:
+			return tr("Kein Platz für Holz im Lager")
+		if not world.nodes.any(func(n): return n.type == "baum" and n.is_available()):
+			var key := Game.day()
+			if int(world.get_meta("no_tree_note", -99)) < key - 2:  # höchstens alle 3 Tage je Insel
+				world.set_meta("no_tree_note", key)
+				Game.notify_at(world, tr("Alle Bäume sind gefällt. Die Holzfäller warten, bis Bäume nachwachsen (im Winter wächst nichts). Ein Förster kann neue Bäume pflanzen."), "holz", "lager")
+			return tr("Kein Baum mehr zu fällen")
+	return tr("Hat nichts zu tun")
+
+
+## Notholz: friert die Insel, fällt der Siedler den nächsten Baum und bringt das Holz zum Lager.
+func _plan_firewood() -> bool:
+	if not is_adult() or Game.is_night():
+		return false
+	_stat_kind = "other"
+	if not _plan_gather(["baum"]):
+		_stat_kind = "needs"
+		return false
+	activity = tr("Friert und holt Brennholz")
+	return true
 
 
 func abort_plan() -> void:
@@ -1314,7 +1343,7 @@ func _plan_sites(sites: Array) -> bool:
 	for site in sites:
 		var need: Dictionary = site.remaining_cost()
 		for res in need:
-			var n: int = min(min(int(need[res]), Game.amount(res, world)), carry_capacity() + 2)
+			var n: int = min(min(int(need[res]), Game.build_free(res, world)), carry_capacity() + 2)
 			if n <= 0:
 				continue
 			var st = world.nearest_storage(cell)
@@ -1343,7 +1372,7 @@ func _site_adjacent(site) -> bool:
 func _do_pickup(site, res: String, n: int) -> void:
 	if carry_n > 0:
 		_do_deliver()
-	var got := Game.take_stock(res, n, world)
+	var got := Game.take_stock(res, mini(n, Game.build_free(res, world)), world)
 	# Reservierung anpassen
 	for inc in _incoming:
 		if inc[0] == site and inc[1] == res:
@@ -1481,6 +1510,11 @@ func _do_produce(b) -> void:
 			Game.add_stock(res, n, world)
 	world.spawn_effect("dust", b.position + Vector2(_rng.randf_range(-8, 8), -4))
 	Sound.play_at(String(b.def.get("sound", "hammer")), world, b.position)
+	# Inselware (buildings.json biome_extra): z. B. Steinkohle aus der Erzmine der Felseninsel (josh 2026-11-14)
+	var ex: Dictionary = b.def.get("biome_extra", {}).get(str(world.biome), {})
+	if not ex.is_empty() and Game.is_researched(str(ex.get("requires", ""))):
+		for res in ex.get("outputs", {}):
+			Admin.note_produced(res, Game.add_stock(res, int(ex.outputs[res]), world), world)
 	if carry_n > 0:
 		_plan_deliver_after()
 	else:

@@ -339,6 +339,8 @@ func _maybe_autotest() -> void:
 		print("Dachfelder: %d Gebäudearten nach data/roofs.json" % out.size())
 		get_tree().quit()
 		return
+	if args.has("noreserve"):  # Vergleich ohne Winterreserve (josh 2026-11-14)
+		Extras.reserve_off = true
 	if args.has("workday"):
 		WorkDay.off = str(args.workday) == "0"
 	if args.has("agetest"):  # Zeitalter-Test nach dem Useraktionsplan (scripts/test/age_test.gd)
