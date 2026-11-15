@@ -27,8 +27,7 @@
     ]},
     {"name": "Städter", "needs": [
       {"id": "glas", "kind": "good", "name": "Glas", "good": "glas", "rate": 0.08},
-      {"id": "papier", "kind": "good", "name": "Papier", "good": "papier", "rate": 0.08},
-      {"id": "gewuerze", "kind": "good", "name": "Gewürze", "good": "gewuerze", "rate": 0.05}
+      {"id": "papier", "kind": "good", "name": "Papier", "good": "papier", "rate": 0.08}
     ]},
     {"name": "Großstädter", "needs": [
       {"id": "strom", "kind": "good", "name": "Strom", "good": "strom", "rate": 0.4},

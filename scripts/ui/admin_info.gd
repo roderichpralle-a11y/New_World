@@ -37,6 +37,7 @@ static var _tab := 0  # Reiter im Fenster Verwalter (josh 2026-11-07): nur noch 
 const TAB_POWERS := 0
 const TAB_HOURS := 1
 const TAB_LOG := 2
+const TAB_RANK := 3
 static var _box: Container  # hierhin bauen die Reiter ihre Zeilen (Fenster Verwalter oder Infofenster)
 static var _rebuild: Callable  # baut das Fenster neu auf
 
@@ -59,7 +60,7 @@ static func office_rows(hud, b) -> void:
 static func fill_window(hud, b, box: Container, rebuild: Callable, ft: Dictionary) -> void:
 	_box = box
 	_rebuild = rebuild
-	var names := [Loc.t("Befugnisse"), Loc.t("Arbeitszeit"), Loc.t("Log")]
+	var names := [Loc.t("Befugnisse"), Loc.t("Arbeitszeit"), Loc.t("Log"), Loc.t("Rangliste")]
 	if _tab < 0 or _tab >= names.size():
 		_tab = TAB_POWERS
 	box.add_child(Win.tabs(names, _tab, func(i):
@@ -68,7 +69,7 @@ static func fill_window(hud, b, box: Container, rebuild: Callable, ft: Dictionar
 	var m = Admin.local_manager()
 	ft.left.text = Loc.t("Verwalter: %s") % m.display_name if m else Loc.t("Kein Verwalter")
 	Win.set_left2(ft, Sea.island_name(b.world) if b != null and Sea.settled_islands().size() > 1 else "")
-	if b == null and _tab != TAB_LOG:
+	if b == null and _tab != TAB_LOG and _tab != TAB_RANK:
 		var l := UiTheme.label(Loc.t("Baue zuerst die Verwaltung (Bauen, Reiter Wissen) und gib einem Siedler den Beruf Verwalter."), 14, UiTheme.BAD)
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		box.add_child(l)
@@ -80,7 +81,55 @@ static func fill_window(hud, b, box: Container, rebuild: Callable, ft: Dictionar
 			_orders_tab(hud, b, "ot")
 			_box.add_child(UiTheme.label(Loc.t("Schichtarbeit (auch nachts)"), 15, UiTheme.TEXT, true))
 			_orders_tab(hud, b, "sh")
+		TAB_RANK: _rank_tab()
 		_: _log_tab()
+
+
+## Reiter Rangliste (josh 2026-11-14): Reihenfolge der Werkstätten für die Handwerker der Insel, die man gerade ansieht.
+static func _rank_tab() -> void:
+	var w = Game.world
+	if w == null:
+		return
+	var list: Array = Steward.rank_list(w)
+	var custom: bool = Steward.has_rank(w)
+	var txt := Loc.t("Handwerker auf %s besetzen zuerst die Werkstatt, die hier am weitesten oben steht und arbeiten kann. Schiebe mit den Pfeilen nach oben, was dir wichtiger ist.") % Sea.island_name(w)
+	if not custom:
+		txt += " " + Loc.t("Im Moment gilt die Automatik: zuerst dorthin, wo am wenigsten von der Ware im Lager liegt.")
+	_note(txt)
+	if list.is_empty():
+		_note(Loc.t("Auf dieser Insel steht noch keine Werkstatt für Handwerker."))
+		return
+	for i in list.size():
+		var t: String = list[i]
+		var d: Dictionary = Data.buildings[t]
+		var n: int = w.buildings.filter(func(x): return x.complete and Steward.craft_type(x) == t).size()
+		var outs := ", ".join(d.get("production", {}).get("outputs", {}).keys().map(func(r): return Data.resource_name(r)))
+		var first_out := str(d.production.outputs.keys()[0])
+		var r := Win.row(Data.res_icon(first_out) if Data.resources.has(first_out) else Data.icon("hammer"),
+			"%d. %s" % [i + 1, str(d.name)] if custom else str(d.name), Loc.t("%d Stück, stellt her: %s") % [n, outs], {"icon_px": 28})
+		var chips := HBoxContainer.new()
+		chips.add_theme_constant_override("separation", 6)
+		var up := UiTheme.button("▲", "", 36)
+		up.disabled = i == 0
+		up.pressed.connect(func():
+			Steward.rank_move(w, t, -1)
+			_rebuild.call())
+		var down := UiTheme.button("▼", "", 36)
+		down.disabled = i == list.size() - 1
+		down.pressed.connect(func():
+			Steward.rank_move(w, t, 1)
+			_rebuild.call())
+		chips.add_child(up)
+		chips.add_child(down)
+		chips.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		r.text.get_parent().add_child(chips)  # Pfeile rechts in der Zeile
+		_box.add_child(r.box)
+	if custom:
+		var back := UiTheme.button(Loc.t("Wieder Automatik"), "", 40)
+		back.pressed.connect(func():
+			Steward.rank_clear(w)
+			_rebuild.call())
+		_box.add_child(back)
 
 
 ## Reiter Befugnisse: Verwalter, Tagesbilanz, dann die Befugnisse (Nachbesetzen, Auslastung) mit den Schaltern

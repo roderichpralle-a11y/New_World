@@ -347,7 +347,16 @@ func used_volume(w = null) -> int:
 	var n := 0
 	for id in st:
 		n += int(st[id]) * Data.good_size(id)
-	return n
+	return n - _pile(w) * Data.good_size("holz")
+
+
+## Brennholz bis zum Winterbedarf liegt als Holzstoß vor den Häusern und braucht keinen Stauraum (josh 2026-11-14,
+## Winterreserve): so viele Holz zählen nicht mit. Sonst blockiert der Wintervorrat ein volles Lager für alles andere.
+func _pile(w = null) -> int:
+	var i = _isle(w)
+	if i == null:
+		return 0
+	return mini(int(i.stock.get("holz", 0)), int(ceil(Extras.heat_reserve(i, true))))
 
 
 ## Hoechstmenge einer Ware oder -1 fuer "frei".
@@ -361,7 +370,7 @@ func reserved_volume(w = null, skip: String = "") -> int:
 	var n := 0
 	for id in lim:
 		if id != skip:
-			n += max(int(lim[id]), amount(id, w)) * Data.good_size(id)
+			n += max(int(lim[id]), amount(id, w) - (_pile(w) if id == "holz" else 0)) * Data.good_size(id)
 	return n
 
 
@@ -372,7 +381,7 @@ func _free_used(w = null, skip: String = "") -> int:
 	var n := 0
 	for id in st:
 		if id != skip and not lim.has(id):
-			n += int(st[id]) * Data.good_size(id)
+			n += (int(st[id]) - (_pile(w) if id == "holz" else 0)) * Data.good_size(id)
 	return n
 
 
@@ -383,10 +392,15 @@ func space_for(id: String, w = null) -> int:
 		return 1 << 30
 	var total_free: int = storage_volume(w) - used_volume(w)
 	var lim := limit_of(id, w)
+	var room := 0
 	if lim >= 0:
-		return max(0, min(lim - amount(id, w), total_free / size))
-	var free: int = storage_volume(w) - reserved_volume(w) - _free_used(w)
-	return max(0, min(free, total_free) / size)
+		room = max(0, min(lim - amount(id, w), total_free / size))
+	else:
+		var free: int = storage_volume(w) - reserved_volume(w) - _free_used(w)
+		room = max(0, min(free, total_free) / size)
+	if id == "holz":  # Brennholz für den Winter hat immer Platz (josh 2026-11-14)
+		room = maxi(room, Extras.firewood_room(w if w != null else world))
+	return room
 
 
 ## Groesste Hoechstmenge, die fuer diese Ware eingestellt werden kann.
@@ -454,7 +468,14 @@ func total_food(w = null) -> int:
 
 ## Wie viel von dieser Nahrung gegessen werden darf: Vorrat minus „nicht essen“.
 func edible(id: String, w = null) -> int:
+	if id == "holz" or id == "kohle":  # Brennholz für den Winter bleibt liegen (josh 2026-11-14)
+		return maxi(0, mini(amount(id, w) - food_keep_of(id, w), Extras.above_reserve(id, w)))
 	return maxi(0, amount(id, w) - food_keep_of(id, w))
+
+
+## Wie viel Baustellen von einer Ware nehmen dürfen: alles, bei Holz und Kohle nur, was über der Winterreserve liegt.
+func build_free(id: String, w = null) -> int:
+	return Extras.above_reserve(id, w if w != null else world)
 
 
 ## Wie viel von einer Ware Werkstätten, Hausbedarf und Forschung nehmen dürfen (josh 2026-11-12): bei Rohstoffen
@@ -562,6 +583,10 @@ func choose_food(s, w = null) -> String:
 			total += n
 	if ids.is_empty():
 		return ""
+	# Rohes Getreide (resources.json raw_food) kommt nur auf den Tisch, wenn sonst nichts da ist (josh 2026-11-14)
+	var cooked := ids.filter(func(i): return not Data.resources[i].get("raw_food", false))
+	if not cooked.is_empty():
+		ids = cooked
 	# Keine feste Reihenfolge mehr: früher erst Haltbares (durable_first) und Abzug für Werkstatt-Zutaten;
 	# was übrig bleiben soll, stellt der Spieler jetzt im Lager ein (food_keep).
 	# Zufällig nach Vorrat gewichtet (josh 2026-11-09: alle Produkte, keine Reihenfolge): wovon mehr da ist,

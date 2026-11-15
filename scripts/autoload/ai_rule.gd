@@ -19,7 +19,7 @@ const FIRE_FOOD := 30  # so viel Essen passt noch ans Lagerfeuer
 const FOOD_JOBS := ["bauer", "fischer", "sammler", "koch"]
 const USELESS_CATS := ["wohnen", "nahrung", "wissen"]
 const KEEP_TYPES := ["lagerfeuer", "ki_zentrum", "zukunftsstadt"]
-const NATURE := ["baum", "busch", "palme", "pilzkreis", "gewuerzstrauch", "wolfsbau", "eberbau", "baerenhoehle"]
+const NATURE := ["baum", "busch", "palme", "pilzkreis", "wolfsbau", "eberbau", "baerenhoehle"]
 const FILLER := ["elektronik", "maschinen", "stahl"]
 
 var offered_ki := false

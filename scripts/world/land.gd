@@ -22,7 +22,7 @@ extends RefCounted
 ##   Gerodete Bäume bringen ihr Holz, Sträucher nichts.
 
 const DIRS := [Vector2i(0, -1), Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 0)]
-const CLEARABLE := ["baum", "busch", "palme", "gewuerzstrauch", "pilzkreis"]
+const CLEARABLE := ["baum", "busch", "palme", "pilzkreis"]
 
 
 # ---------------------------------------------------------------- Spielstand

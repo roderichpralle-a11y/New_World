@@ -550,7 +550,7 @@ func _needs_test(main, mode: String) -> void:
 		"forscher", "forscher", "forscher", "holzfaeller", "fischer", "sammler"]
 	for i in w.settlers.size():
 		w.settlers[i].set_job(jobs[i] if i < jobs.size() else "frei")
-	var goods_l2 := ["bretter", "werkzeug", "glas", "papier", "gewuerze", "strom", "elektronik"]
+	var goods_l2 := ["bretter", "werkzeug", "glas", "papier", "strom", "elektronik"]
 	var prepared := ["brot", "raeucherfisch", "eier", "konserven"]
 	var stock_up := func(skip: Array):
 		for id in ["beeren", "fisch", "aepfel", "weizen", "holz", "stein", "lehm", "kohle", "erz", "eisen", "stahl"] + goods_l2 + prepared:
@@ -601,7 +601,7 @@ func _needs_test(main, mode: String) -> void:
 	for pi in phases.size():
 		match pi:
 			0: print("Bedürfnis-Test Abschnitt 1: alles da")
-			1: print("Bedürfnis-Test Abschnitt 2: ohne Waren ab Stufe 2 (Bretter, Werkzeug, Glas, Papier, Gewürze, Strom, Elektronik)")
+			1: print("Bedürfnis-Test Abschnitt 2: ohne Waren ab Stufe 2 (Bretter, Werkzeug, Glas, Papier, Strom, Elektronik)")
 			2: print("Bedürfnis-Test Abschnitt 3: auch ohne zubereitetes Essen")
 			3: print("Bedürfnis-Test Abschnitt 4: alles wieder da")
 		var skip: Array = phases[pi]

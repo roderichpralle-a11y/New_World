@@ -20,7 +20,37 @@ static var pending: Dictionary = {}
 static var last: Dictionary = {}
 
 
+## Gewürze und Gewürzsträucher gibt es nicht mehr (josh 2026-11-14): überall aus dem Spielstand nehmen
+## (Lager, Ladung, Grenzen, Händlerlose, Rohstoffquellen, Inselaufgaben). Ohne Ersatz und ohne Meldung.
+const GONE := ["gewuerze", "gewuerzstrauch"]
+
+
+static func scrub(v):
+	if v is Dictionary:
+		for k in v.keys():
+			if str(k) in GONE:
+				v.erase(k)
+			elif v[k] is String and v[k] in GONE:
+				v[k] = ""  # z. B. die Ware, die ein Siedler gerade trägt
+			else:
+				v[k] = scrub(v[k])
+	elif v is Array:
+		var out := []
+		for x in v:
+			if x is String and x in GONE:
+				continue
+			if x is Array and not x.is_empty() and x[0] is String and x[0] in GONE:
+				continue  # Rohstoffquelle im Spielstand: [Art, x, y, ...]
+			if x is Dictionary and (str(x.get("id", "")) in GONE or str(x.get("type", "")) in GONE or str(x.get("good", "")) in GONE):
+				continue
+			out.append(scrub(x))
+		return out
+	return v
+
+
 static func strip_save(d: Dictionary, backup: Dictionary) -> void:
+	scrub(d)
+	scrub(backup)
 	pending = {"isl": {}, "n": 0, "techs": []}
 	last = {}
 	var seen := {}  # Insel-ID -> Gebäude-IDs, die schon gezählt sind

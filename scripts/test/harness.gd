@@ -339,6 +339,8 @@ func _maybe_autotest() -> void:
 		print("Dachfelder: %d Gebäudearten nach data/roofs.json" % out.size())
 		get_tree().quit()
 		return
+	if args.has("noreserve"):  # Vergleich ohne Winterreserve (josh 2026-11-14)
+		Extras.reserve_off = true
 	if args.has("workday"):
 		WorkDay.off = str(args.workday) == "0"
 	if args.has("agetest"):  # Zeitalter-Test nach dem Useraktionsplan (scripts/test/age_test.gd)
@@ -481,6 +483,18 @@ func _maybe_autotest() -> void:
 			WorkDay.log_on = true
 			_dl_arr = WorkDay.arr
 			if Game.day() != _dl_day:
+				for bw in Sea.all_worlds():  # Soll/Ist der Berufe (Steward.balance_info, josh 2026-11-14)
+					if not bw.settlers.is_empty():
+						var bi: Dictionary = Steward.balance_info(bw)
+						print("BEDARF Tag %d %s (Soll/Ist): %s | frei %d, Essen %.1f Tage, Holz %d, Reserve %d, Getreide %d" % [Game.day(), Sea.island_name(bw),
+							", ".join(bi.keys().map(func(j): return "%s %d/%d" % [j, bi[j][0], bi[j][1]])), Steward._count(bw, "frei"),
+							Steward._food_sat(bw) / maxf(1.0, Steward.food_per_day(bw)), Game.amount("holz", bw), int(Extras.heat_reserve(bw)), Game.amount("weizen", bw)])
+						var why := {}
+						for bb in bw.buildings:
+							if bb.complete and bb.def.has("production") and bb.occupants.is_empty():
+								var t: String = "%s: %s" % [bb.prod_def().get("job", "?"), bb.prod_blocker()]
+								why[t] = int(why.get(t, 0)) + 1
+						print("HINDERNIS Tag %d %s: %s | Stauraum %d von %d" % [Game.day(), Sea.island_name(bw), why, Game.used_volume(bw), Game.storage_volume(bw)])
 				if _dl_day >= 0:
 					var parts := []
 					for k in ["auf", "morgens", "mittags", "Bett"]:
@@ -598,7 +612,7 @@ func _maybe_autotest() -> void:
 				"score":
 					hud._toggle(hud._score_panel)
 				"admin":  # Fenster Verwalter, Reiter Befugnisse (mit dem Schalter der lernenden KI)
-					AdminInfo._tab = 0
+					AdminInfo._tab = int(args.get("admintab", 0))  # 3 = Rangliste
 					hud._open_admin()
 				"quests":
 					hud._toggle(hud._quest_panel)
@@ -1427,7 +1441,7 @@ func _sample_rules_lines() -> Array:
 	return [tr("Forschung ab der Antike verbraucht Tontafeln (Tafelmacherei), später Papier, Strom und Elektronik. Fehlen sie, wird nur mit 20 % des Tempos geforscht."),
 		tr("Winter und Sommer sind jedes Jahr anders. Im Herbst sagen die Alten voraus, wie hart der Winter wird."),
 		tr("Häuser haben Bedürfnisse. Höhere Werkstätten brauchen Arbeiter aus zufriedenen Häusern, z. B. die Schmiede Bewohner zufriedener Holzhäuser."),
-		tr("Jede Inselart hat Stärken. Palmeninseln haben Gewürze. Händler kommen an Häfen und handeln gegen Gold."),
+		tr("Jede Inselart hat Stärken. Händler kommen an Häfen und handeln gegen Gold."),
 		tr("Ab dem zweiten Jahr kündigen sich Ereignisse an: Dürre, Ratten, Brand, Seuche, Sturmflut und ab dem Mittelalter Piraten. Wer sie gut übersteht, bekommt Einwanderer."),
 		tr("Neue Aufträge mit Wahl: du suchst dir einen von drei aus. Belohnungen sind Einwanderer, dauerhafte Segen, Baupläne oder seltene Waren."),
 		tr("Ein neues Zeitalter beginnt erst nach einer Prüfung. Jede bestandene Prüfung bringt ein Fest, Einwanderer und Waren. Neu: Menü > Wertung mit Rekorden.")]

@@ -6,8 +6,9 @@ extends Node
 ##   - weniger als FEW_ADULTS Erwachsene: einmal Meldung, alle (außer Verwalter und Seeleute) werden der Reihe nach
 ##     Holzfäller, Fischer, Sammler; danach teilt er nicht mehr ein, bis wieder genug Erwachsene da sind.
 ##   - immer mindestens ein Baumeister und ein Fischer (der Verwalter wird vom Spiel immer nachbesetzt).
-##   - Beruf unter LOAD_LOW % Auslastung (Anteil der Arbeitszeit im eigenen Beruf, Admin.job_load): einen Siedler
-##     freistellen (den mit dem meisten Leerlauf). Beruf über LOAD_HIGH %: einen Freien dazu.
+##   - seit josh 2026-11-14 Verteilung nach Bedarf (balance, raw_wants, targets weiter unten) statt nur nach
+##     Auslastung: Soll je Beruf aus dem, was es zu tun gibt; Essen und Brennholz zuerst; unter LOAD_LOW %
+##     Auslastung einer weniger. idle_tick (Freie der Reihe nach probieren) wird nicht mehr aufgerufen.
 ##   - nach einem Wechsel in einem Beruf wartet er LOAD_DAYS, bis die Auslastung neu gemessen ist.
 
 signal offer(kind: String)  # Hud zeigt ein Fenster (nur noch für die Geschichte der KI)
@@ -125,8 +126,6 @@ func tick(w) -> void:
 	if KiBrain.controls(w):
 		return  # Berufe vergibt die lernende KI (josh 2026-11-07)
 	load_tick(w)
-	if Powers.on("auslastung") and _adults(w).size() >= FEW_ADULTS:
-		idle_tick(w)
 
 
 # ---------------------------------------------------------------- Auslastung (josh 2026-11-07)
@@ -154,31 +153,208 @@ func load_tick(w) -> void:
 			pick = _from_lowest(w, job)
 		if pick != null and _move(w, pick, job, tr("es muss immer einen %s geben") % Data.jobs[job].name):
 			budget -= 1
-	# 2. Auslastung je Beruf: unter 80 % einen freistellen, über 90 % einen Freien dazu
-	var load := Admin.job_load(w)
-	var jobs: Array = load.keys()
-	jobs.sort_custom(func(x, y): return int(load[x][1]) > int(load[y][1]))  # die vollsten zuerst
-	for job in jobs:
-		if budget <= 0:
-			return
-		if job in PROTECT or job == "frei" or not _settled(w, job):
+	# 2. Verteilung nach Bedarf (josh 2026-11-14), siehe balance
+	balance(w, budget)
+
+
+# ---------------------------------------------------------------- Verteilung nach Bedarf (josh 2026-11-14)
+## josh: „Teile die Berufsgruppen so zu den Aufgaben ein, dass eine gewisse Ausgewogenheit entsteht.“
+## Für jeden Beruf wird gezählt, wie viele Leute er gerade sinnvoll beschäftigen kann (raw_wants): Baustellen,
+## Brennholz bis zum Winterende plus gemessener Holzverbrauch, Felder (weniger, wenn genug Getreide liegt) und
+## Ställe, Werkstätten und Küchen, die arbeiten können (Zutaten da, Lager nicht voll), reife Fundstellen,
+## Forschungsplätze. Reichen die Erwachsenen nicht, bekommt jeder Beruf seinen Anteil (targets). Ein Beruf, der
+## gemessen unter LOAD_LOW % ausgelastet ist, braucht einen weniger. balance() versetzt je Runde wenige Leute:
+## Freie in den Beruf mit der größten Lücke, sonst vom Beruf mit dem größten Überhang dorthin.
+const WANT_JOBS := ["baumeister", "holzfaeller", "bauer", "sammler", "fischer", "koch", "handwerker", "steinmetz",
+	"foerster", "jaeger", "forscher"]
+const GRAIN_PER_HEAD := 25    # so viel Getreide je Siedler gilt als genug: dann nur noch ein Drittel der Bauern
+const FOOD_SAFE_DAYS := 8.0   # so viele Tage Essen im Lager: Sammler und Fischer nur noch als Grundbesetzung
+var _want_avg: Dictionary = {}  # "Insel-ID:Beruf" -> geglätteter Bedarf
+const FIRST := ["bauer", "koch", "fischer", "sammler", "holzfaeller"]  # Essen und Brennholz gehen vor
+
+
+## Plätze in Werkstätten dieser Art, die gerade arbeiten können (besetzt oder ohne Hindernis).
+func _workable(w, kind: String) -> int:
+	var n := 0
+	for b in w.buildings:
+		if not b.complete or b.paused or not b.def.has("production") or b.prod_def().get("job", "") != kind:
 			continue
-		var pct := int(load[job][1])
-		if pct < 0:
-			continue  # noch nicht gemessen
-		if pct > LOAD_HIGH:
-			var pick = _free_for(w, job)
-			if pick != null and _move(w, pick, job, tr("%s ausgelastet zu %d %%") % [Data.jobs[job].name, pct]):
-				budget -= 1
-		elif pct < LOAD_LOW:
-			if job in ALWAYS and _count(w, job) <= 1:
-				continue
-			var cands := _adults(w).filter(func(s): return s.job == job and not s.busy_shares().is_empty())
+		if not b.occupants.is_empty() or b.prod_blocker() == "":
+			n += maxi(1, b.slots())
+	return n
+
+
+## Bedarf je Beruf ohne Rücksicht darauf, wie viele Erwachsene es gibt.
+func raw_wants(w) -> Dictionary:
+	var want := {}
+	var prev: Dictionary = _day_stats.get(int(w.island_id), {}).get("prev", {})
+	var sites: int = w.buildings.filter(func(b): return not b.complete and str(b.def.get("builder", "")) != "foerster").size()
+	want["baumeister"] = 1 + sites / 4
+	# Holz: Brennstoff bis zum Winterende, gemessener Verbrauch, Werkstätten, die auf Holz warten
+	var hw := 0
+	if int(_ripe(w, ["baum"])[0]) >= RIPE_MIN:
+		var gap := maxf(0.0, Extras.heat_reserve(w, true) - Extras.fuel(w))
+		var s := Seasons.season()
+		var days_left := maxf(1.0, (1.0 - Seasons.season_progress()) * Seasons.season_days() + float(maxi(0, 2 - s)) * Seasons.season_days())
+		var waiting := 0
+		for b in w.buildings:
+			if b.complete and not b.paused and b.def.has("production"):
+				var need := int(b.prod_def().get("inputs", {}).get("holz", 0))
+				if need > 0 and Game.usable("holz", w) < need:
+					waiting += 1
+		hw = maxi(1, ceili((float(prev.get("used_fuel", 0.0)) + gap / days_left) / wood_rate(w)) + ceili(waiting / 3.0))
+		if Game.space_for("holz", w) <= 0:
+			hw = 1
+	want["holzfaeller"] = hw
+	# Essen
+	var food_days := _food_sat(w) / maxf(1.0, food_per_day(w))
+	var grain_ok: bool = Game.amount("weizen", w) >= GRAIN_PER_HEAD * w.settlers.size() or Game.space_for("weizen", w) <= 0
+	var fields := 0.0
+	for b in w.buildings:
+		if b.complete and b.def.has("farm") and Seasons.growth(str(b.type), w) > 0.0:
+			var y := str(b.def.farm.get("yield", ""))
+			if Game.space_for(y, w) > 0:
+				fields += (1.0 / 3.0) if (y == "weizen" and grain_ok) else 1.0
+	want["bauer"] = ceili(fields / FIELDS_PER_FARMER) + _workable(w, "stall")
+	var wild := 0
+	for t in RAW_NODES["sammler"]:
+		if Seasons.growth(str(t), w) > 0.0:
+			wild += int(_ripe(w, [t])[0])
+	var fish := int(_ripe(w, ["fischgrund"])[0])
+	want["sammler"] = mini(ceili(wild / 9.0), 1 if food_days >= FOOD_SAFE_DAYS else 99)
+	want["fischer"] = maxi(1, mini(ceili(fish / 9.0), 1 if food_days >= FOOD_SAFE_DAYS else 99))
+	want["koch"] = _workable(w, "kueche")
+	want["handwerker"] = _workable(w, "handwerk")
+	var rocks := int(_ripe(w, RAW_NODES["steinmetz"])[0])
+	want["steinmetz"] = _workable(w, "stein") + (1 if rocks >= RIPE_MIN and Game.space_for("stein", w) > 0 else 0)
+	# Förster nur, wenn der Spieler ihm Arbeit gegeben hat (Pflanzplätze, Rodungen)
+	var forest: int = w.buildings.filter(func(b): return not b.complete and str(b.def.get("builder", "")) == "foerster").size() \
+		+ w.nodes.filter(func(n): return is_instance_valid(n) and n.clear_mark).size()
+	want["foerster"] = ceili(forest / 8.0)
+	want["jaeger"] = maxi(1, w.animals.size() / 3) if _raw_block(w, "jaeger") == "" else 0
+	var slots := 0
+	if Sea.is_main(w) and Game.research.current != "":
+		for b in w.buildings:
+			if b.complete and b.def.has("research"):
+				slots += int(b.def.research.get("slots", 1))
+	want["forscher"] = slots
+	# Not: Essen für weniger als PLAN_DAYS Tage oder Brennstoff unter der Winterreserve zählt anderthalbfach
+	if food_days < PLAN_DAYS:
+		for j in ["bauer", "sammler", "fischer", "koch"]:
+			want[j] = ceili(int(want[j]) * 1.5)
+	if Extras.fuel(w) < Extras.heat_reserve(w) or Seasons.cold.has(w):
+		want["holzfaeller"] = ceili(int(want["holzfaeller"]) * 1.5) + (1 if hw > 0 else 0)
+	for j in want.keys():
+		if not Data.jobs.has(j) or not Data.job_unlocked(j):
+			want.erase(j)
+	return want
+
+
+## Soll je Beruf: der geglättete Bedarf, bei zu wenigen Erwachsenen anteilig gekürzt (jeder nötige Beruf behält
+## mindestens einen). n = Erwachsene, die der Verwalter einteilen darf.
+func targets(w, n: int) -> Dictionary:
+	var raw := raw_wants(w)
+	var load := Admin.job_load(w)
+	var want := {}
+	var sum := 0.0
+	for j in raw:
+		var key := "%d:%s" % [int(w.island_id), j]
+		var v := float(raw[j])
+		# wenig ausgelastet: einer weniger als jetzt genügt
+		if load.has(j) and int(load[j][1]) >= 0 and int(load[j][1]) < LOAD_LOW and _settled(w, j):
+			v = minf(v, maxf(float(1 if j in ALWAYS else 0), float(_count(w, j)) - 1.0))
+		var avg := lerpf(float(_want_avg.get(key, v)), v, 0.4)
+		_want_avg[key] = avg
+		want[j] = avg
+		sum += avg
+	var out := {}
+	if sum <= float(n) or sum <= 0.0:
+		for j in want:
+			out[j] = roundi(float(want[j]))
+		return out
+	# Zu wenige Erwachsene: erst Essen und Brennholz (FIRST), dann der Rest anteilig. Jeder nötige Beruf behält
+	# einen Platz, solange Leute da sind; gekürzt wird von hinten (TRIM_ORDER).
+	var left := n
+	for group in [want.keys().filter(func(j): return j in FIRST), want.keys().filter(func(j): return not j in FIRST)]:
+		var gsum := 0.0
+		for j in group:
+			gsum += float(want[j])
+		if gsum <= 0.0 or left <= 0:
+			for j in group:
+				out[j] = 0
+			continue
+		var k := minf(1.0, float(left) / gsum)
+		var used := 0
+		var rest := []
+		for j in group:
+			var share := float(want[j]) * k
+			out[j] = floori(share)
+			used += floori(share)
+			rest.append([share - floorf(share), j])
+		rest.sort_custom(func(x, y): return float(x[0]) > float(y[0]))
+		for e in rest:
+			if used >= mini(left, roundi(gsum)):
+				break
+			out[e[1]] = int(out[e[1]]) + 1
+			used += 1
+		left -= used
+	return out
+
+
+## Für Anzeige und Tests: Soll und Ist je Beruf.
+func balance_info(w) -> Dictionary:
+	var movable := _adults(w).filter(func(s): return not s.job in PROTECT and not JobDesk.player_controlled(s))
+	var t := targets(w, movable.size())
+	var out := {}
+	for j in t:
+		out[j] = [int(t[j]), _count(w, j)]
+	return out
+
+
+## Eine Runde: höchstens budget Wechsel hin zum Soll.
+func balance(w, budget: int) -> void:
+	var movable := _adults(w).filter(func(s): return not s.job in PROTECT and not JobDesk.player_controlled(s))
+	var t := targets(w, movable.size())
+	var mine := func(s): return JobDesk.may(s, "verwalter") or JobDesk.holder(s) == "verwalter"
+	while budget > 0:
+		var short := ""
+		var short_n := 0
+		var over := ""
+		var over_n := 0
+		for j in t:
+			var d := _count(w, j) - int(t[j])
+			if d < short_n:
+				short = j
+				short_n = d
+			if d > over_n and movable.any(func(s): return s.job == j and mine.call(s)):
+				over = j
+				over_n = d
+		if short == "":
+			# Nirgends fehlt jemand: aus einem Beruf mit deutlich zu vielen Leuten wird einer frei (Freie helfen
+			# beim Bauen und Tragen), statt Waren zu häufen, die niemand braucht
+			if over != "" and over_n >= 2:
+				var extra := movable.filter(func(s): return s.job == over and mine.call(s) \
+					and Game.time_days - float(s.get_meta("adm_moved", -99.0)) >= KEEP_DAYS)
+				extra.sort_custom(func(x, y): return _idle(x) > _idle(y))
+				if not extra.is_empty() and _move(w, extra[0], "frei", tr("Bedarf: %d %s genügen, %d da") % [int(t[over]), Data.jobs[over].name, _count(w, over)]):
+					budget -= 1
+					continue
+			return
+		var free := movable.filter(func(s): return s.job == "frei" and mine.call(s))
+		var pick = _pick(w, free, short) if not free.is_empty() else null
+		var why := tr("Bedarf: %d %s nötig, %d da") % [int(t[short]), Data.jobs[short].name, _count(w, short)]
+		if pick == null:
+			if over == "":
+				return
+			var cands := movable.filter(func(s): return s.job == over and mine.call(s) \
+				and Game.time_days - float(s.get_meta("adm_moved", -99.0)) >= KEEP_DAYS)
 			if cands.is_empty():
-				continue
-			cands.sort_custom(func(x, y): return float(x.busy_shares()[0]) < float(y.busy_shares()[0]))
-			if _move(w, cands[0], "frei", tr("%s nur zu %d %% ausgelastet") % [Data.jobs[job].name, pct]):
-				budget -= 1
+				return
+			pick = _pick(w, cands, short)
+			why += tr(", %s hat %d zu viel") % [Data.jobs[over].name, over_n]
+		if pick == null or not _move(w, pick, short, why):
+			return
+		budget -= 1
 
 
 ## Freie einteilen und Versuche prüfen (josh 2026-11-07): Wer frei ist (auch vom Spieler freigestellt), bekommt
@@ -656,7 +832,7 @@ func _producer(w, id: String) -> String:
 
 # ---------------------------------------------------------------- Lieferketten (josh 2026-10-30)
 ## Quellen in der Natur je Beruf (Knoten aus nodes.json), für _raw_block.
-const RAW_NODES := {"holzfaeller": ["baum"], "sammler": ["busch", "palme", "pilzkreis", "gewuerzstrauch"],
+const RAW_NODES := {"holzfaeller": ["baum"], "sammler": ["busch", "palme", "pilzkreis"],
 	"fischer": ["fischgrund"], "steinmetz": ["fels", "erzader", "goldader"], "jaeger": ["beute", "wolfsbau", "eberbau", "baerenhoehle"]}
 const RIPE_MIN := 3  # so viel muss in der Natur reif sein, damit ein weiterer Arbeiter etwas holen kann
 
@@ -695,7 +871,7 @@ func _raw_block(w, job: String) -> String:
 	if not RAW_NODES.has(job):
 		return ""
 	var types: Array = RAW_NODES[job]
-	if job == "sammler":  # nur, was in dieser Jahreszeit wächst (im Winter nichts, außer Palmen und Gewürzen)
+	if job == "sammler":  # nur, was in dieser Jahreszeit wächst (im Winter nichts, außer Palmen)
 		types = types.filter(func(t): return Seasons.growth(str(t), w) > 0.0)
 		if types.is_empty():
 			return tr("Im Winter wächst nichts zum Sammeln.")
@@ -750,6 +926,65 @@ func _surplus(w, job: String) -> bool:
 	return true
 
 
+# ---------------------------------------------------------------- Rangliste der Werkstätten (josh 2026-11-14)
+## josh: „Für die Handwerker kannst du eine Rangliste einführen.“ Je Insel eine Reihenfolge der Werkstattarten
+## des Handwerkers (Fenster Verwalter, Reiter Rangliste). Handwerker besetzen zuerst die Werkstatt, die am
+## weitesten oben steht und arbeiten kann (World.find_workshop). Ohne eigene Rangliste wie bisher: zuerst dorthin,
+## wo am wenigsten von der Ware im Lager liegt.
+var craft_rank: Dictionary = {}  # Insel-ID (String) -> Array Gebäudearten (Grundart), oben = zuerst
+
+
+## Grundart einer Werkstatt (ausgebaute Werft zählt als Werft).
+static func craft_type(b) -> String:
+	return str(b.def.get("base", b.type))
+
+
+## Hat die Insel eine eigene Rangliste?
+func has_rank(w) -> bool:
+	return w != null and not Array(craft_rank.get(str(int(w.island_id)), [])).is_empty()
+
+
+## Werkstattarten des Handwerkers auf dieser Insel in ihrer Reihenfolge: erst die Rangliste, dann neue Arten.
+func rank_list(w) -> Array:
+	var have := []
+	for t in Data.buildings:  # Reihenfolge der Bauliste
+		for b in w.buildings:
+			if b.def.get("production", {}).get("job", "") == "handwerk" and craft_type(b) == t and not t in have:
+				have.append(t)
+	var out: Array = Array(craft_rank.get(str(int(w.island_id)), [])).filter(func(t): return t in have)
+	for t in have:
+		if not t in out:
+			out.append(t)
+	return out
+
+
+## Platz in der Rangliste (0 = zuerst); ohne Rangliste 0.
+func rank_index(w, b) -> int:
+	if not has_rank(w):
+		return 0
+	var i := rank_list(w).find(craft_type(b))
+	return i if i >= 0 else 99
+
+
+## Eine Art um einen Platz nach oben (dir -1) oder unten (dir 1) schieben.
+func rank_move(w, type: String, dir: int) -> void:
+	var list := rank_list(w)
+	var i := list.find(type)
+	var j := i + dir
+	if i < 0 or j < 0 or j >= list.size():
+		return
+	list[i] = list[j]
+	list[j] = type
+	craft_rank[str(int(w.island_id))] = list
+	World.global_rev += 1
+
+
+## Zurück zur Automatik (knappste Ware zuerst).
+func rank_clear(w) -> void:
+	craft_rank.erase(str(int(w.island_id)))
+	World.global_rev += 1
+
+
 # ---------------------------------------------------------------- Spielstand
 func _on_reset() -> void:
 	on = false
@@ -762,6 +997,8 @@ func _on_reset() -> void:
 	net_on = true
 	minmax = {}
 	tasks = {}
+	craft_rank = {}
+	_want_avg = {}
 	_next = 0.0
 	_moved = {}
 	_few = {}
@@ -775,7 +1012,7 @@ func _on_reset() -> void:
 
 
 func _on_save(d: Dictionary) -> void:
-	d["steward"] = {"on": on, "offered": offered, "offered_routes": offered_routes, "offered_net": offered_net, "offered_automat": offered_automat, "net_on": net_on, "minmax": minmax.duplicate(true), "tasks": tasks.duplicate(true)}
+	d["steward"] = {"on": on, "offered": offered, "offered_routes": offered_routes, "offered_net": offered_net, "offered_automat": offered_automat, "net_on": net_on, "minmax": minmax.duplicate(true), "tasks": tasks.duplicate(true), "craft_rank": craft_rank.duplicate(true)}
 
 
 func _on_load(data: Dictionary, _old_rules: int) -> void:
@@ -799,6 +1036,11 @@ func _on_load(data: Dictionary, _old_rules: int) -> void:
 						if not minmax.has(str(k)):
 							minmax[str(k)] = {}
 						minmax[str(k)][str(id)] = [int(v[0]), int(v[1])]
+	var cr = e.get("craft_rank", {})
+	if cr is Dictionary:
+		for k in cr:
+			if cr[k] is Array:
+				craft_rank[str(k)] = Array(cr[k]).map(func(x): return str(x)).filter(func(x): return Data.buildings.has(x))
 	var tk = e.get("tasks", {})
 	if tk is Dictionary:
 		for k in tk:
@@ -1137,7 +1379,6 @@ const TASKS := {
 	"sammeln": {"name": "Beeren", "icon": "beeren", "goods": ["beeren"], "jobs": ["sammler"], "nodes": ["busch"]},
 	"pilze": {"name": "Pilze", "icon": "pilze", "goods": ["pilze"], "jobs": ["sammler"], "nodes": ["pilzkreis"]},
 	"kokos": {"name": "Kokosnüsse", "icon": "kokos", "goods": ["kokos"], "jobs": ["sammler"], "nodes": ["palme"]},
-	"gewuerze": {"name": "Gewürze", "icon": "gewuerze", "goods": ["gewuerze"], "jobs": ["sammler"], "nodes": ["gewuerzstrauch"]},
 	"jagd": {"name": "Fleisch und Felle", "icon": "fleisch", "goods": ["fleisch", "felle"], "jobs": ["jaeger"], "nodes": []},
 	"metall": {"name": "Erz und Metall", "icon": "eisen", "goods": ["erz", "kohle", "eisen", "werkzeug", "stahl"], "jobs": ["steinmetz", "handwerker"], "nodes": ["erzader"]},
 	"gold": {"name": "Gold", "icon": "gold", "goods": ["gold"], "jobs": ["steinmetz"], "nodes": ["goldader"]},

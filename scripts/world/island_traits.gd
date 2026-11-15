@@ -1,15 +1,10 @@
 class_name IslandTraits
-## Inselstärken und Gewürze (Regeln ab Version 2, "Herausforderung").
+## Inselstärken (Regeln ab Version 2, "Herausforderung").
 ##
 ## Inselstärken: buildings.json `biome_bonus` {Inselart: Faktor}. Eine Werkstatt auf einer passenden
 ## Insel arbeitet so viel schneller (Arbeitszeit / Faktor, siehe Settler._plan_production). Felseninsel:
 ## Mine x2, Steinbruch und Stahlwerk x1,5; Waldinsel: Sägegrube, Köhlerei, Papiermühle x1,5;
 ## Palmeninsel: Räucherei, Konservenfabrik, Solarpark x1,5; die Heimatinsel hat keine (Allrounder).
-##
-## Gewürze: der Gewürzstrauch wächst nur auf Palmeninseln (islands.json "extra", eigener Durchgang im
-## Generator, IslandGen._place_extra). Ältere Spielstände bekommen die Sträucher beim Laden auf freien
-## Feldern (patch_spice). Sammler pflücken Gewürze zuerst, solange die Insel genug Essen hat
-## (spice_first).
 ##
 ## Die Anzeige-Helfer (build_row, info_rows, strength_row) hängen je eine Zeile an; hud.gd und
 ## sea_panel.gd rufen sie mit je einer Zeile auf.
@@ -86,12 +81,23 @@ static func build_row(btn: Control, box: Control, type: String, w) -> void:
 ## Infofenster einer Werkstatt: Inselstärke dieser Insel bzw. wo das Gebäude schneller wäre.
 static func info_rows(hud, b) -> void:
 	var biome: String = b.world.biome if b.world else "heimat"
+	if b.def.has("deposit") and b.world:
+		hud._info_box.add_child(UiTheme.label(ore_text(b.world.ore_left), 13, UiTheme.BAD if b.world.ore_left == 0 else DIM))
 	var text := bonus_text(b.type, biome)
 	if text == "":
 		return
 	var l := UiTheme.label(text, 13, UiTheme.GOOD if b.biome_factor() > 1.0 else DIM)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	hud._info_box.add_child(l)
+
+
+## Erz im Boden einer Insel als Text (World.ore_left).
+static func ore_text(n: int) -> String:
+	if n < 0:
+		return Loc.t("Erz im Boden: unerschöpflich")
+	if n == 0:
+		return Loc.t("Erz im Boden: keines")
+	return Loc.t("Erz im Boden: noch %d") % n
 
 
 ## Seekarte (Inselansicht): "Stärken:" mit den Gebäuden, die auf dieser Inselart schneller arbeiten.
@@ -112,48 +118,12 @@ static func strength_row(box: Control, m: Dictionary) -> void:
 	box.add_child(flow)
 
 
-# ---------------------------------------------------------------- Gewürze
-## Älterer Spielstand: hat eine Insel, auf der der Generator Gewürzsträucher setzt (Palmeninsel), noch
-## keinen, kommen sie einmalig auf ihre Plätze, soweit frei (kein Rohstoff, kein Gebäude und keines
-## direkt daneben, damit kein Eingang zugestellt wird). Sträucher wachsen nach und verschwinden nie;
-## sobald einer steht, passiert beim nächsten Laden nichts mehr. Liefert die Zahl neuer Sträucher.
-static func patch_spice(w, island: Dictionary) -> int:
-	var want: Array = island.get("nodes", []).filter(func(n): return n.type == "gewuerzstrauch")
-	if want.is_empty() or w.nodes.any(func(n): return n.type == "gewuerzstrauch"):
-		return 0
-	var placed := 0
-	for e in want:
-		var c: Vector2i = e.cell
-		if not w.is_inside(c) or w.is_water(c) or w.node_at.has(c):
-			continue
-		var free := true
-		for dy in range(-1, 2):
-			for dx in range(-1, 2):
-				if w.building_at.has(c + Vector2i(dx, dy)):
-					free = false
-		if not free:
-			continue
-		w.spawn_node("gewuerzstrauch", c, int(e.get("variant", -1)))
-		placed += 1
-	if placed > 0:
-		Game.queue_note(Loc.t("Auf %s wachsen jetzt %d Gewürzsträucher. Sammler pflücken die Gewürze.") % [Sea.island_name(w), placed], "gewuerze", "lager")
-	return placed
-
-
-## Sammler: Gewürze nur, solange die Insel Essen für 10 Mahlzeiten je Siedler hat, dann aber zuerst;
-## sonst sammeln sie nur Essen. Mit Hauptaufgabe der Insel gehen Sammler und Steinmetze zuerst an deren Fundstellen
-## (Gewürze dann schon ab 4 Mahlzeiten je Siedler).
+# ---------------------------------------------------------------- Fundstellen
+## Mit Hauptaufgabe der Insel (Steward) gehen Sammler und Steinmetze zuerst an deren Fundstellen.
 static func gather_order(targets: Array, w) -> Array:
 	if w == null:
 		return targets
-	var out := targets
-	if "gewuerzstrauch" in targets:
-		out = targets.filter(func(t): return t != "gewuerzstrauch")
-		if Game.total_food(w) >= w.settlers.size() * 10:
-			out.push_front("gewuerzstrauch")
-	# Hauptaufgabe der Insel (Steward): deren Fundstellen zuerst, Gewürze aber nur, wenn das Essen nicht knapp ist
-	var first: Array = Steward.task_nodes(w).filter(func(t): return t in targets and \
-		(t != "gewuerzstrauch" or Game.total_food(w) >= w.settlers.size() * 4))
+	var first: Array = Steward.task_nodes(w).filter(func(t): return t in targets)
 	if first.is_empty():
-		return out
-	return first + out.filter(func(t): return not t in first)
+		return targets
+	return first + targets.filter(func(t): return not t in first)

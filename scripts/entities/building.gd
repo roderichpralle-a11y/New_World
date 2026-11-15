@@ -368,7 +368,23 @@ func farm_task() -> String:
 func prod_def() -> Dictionary:
 	if def.get("ships", false):
 		return ship_recipe(next_ship())
-	return def.get("production", {})
+	var p: Dictionary = def.get("production", {})
+	# Ausweichrezept (buildings.json alt_inputs, josh 2026-11-14: Konserven auch aus Fleisch): fehlt eine Zutat
+	# des ersten Rezepts und liegt ein anderes vollständig bereit, arbeitet die Werkstatt mit dem.
+	if p.has("alt_inputs") and world != null and not _has_inputs(p.inputs):
+		for alt in p.alt_inputs:
+			if _has_inputs(alt):
+				var q: Dictionary = p.duplicate()
+				q["inputs"] = alt
+				return q
+	return p
+
+
+func _has_inputs(ins: Dictionary) -> bool:
+	for res in ins:
+		if Game.usable(res, world) < int(ins[res]):
+			return false
+	return true
 
 
 ## Inselstärke (buildings.json biome_bonus): so viel schneller arbeitet die Werkstatt auf dieser Insel.
@@ -424,6 +440,8 @@ func prod_blocker() -> String:
 		return tr("nicht fertig")
 	if paused:
 		return tr("angehalten")
+	if def.has("deposit") and world.ore_left == 0:
+		return tr("Auf dieser Insel liegt kein Erz mehr. Erz ohne Ende gibt es nur auf einer Felseninsel")
 	if def.get("ships", false):
 		var t := next_ship()
 		if t == "":
@@ -437,6 +455,9 @@ func prod_blocker() -> String:
 			return tr("Kein freier Liegeplatz für ein weiteres Schiff. Baue einen Hafen oder Steg")
 	for res in ({} if ship_wip != "" else p.get("inputs", {})):  # Schiff in Arbeit: Material ist schon genommen
 		if Game.usable(res, world) < int(p.inputs[res]):  # „Nicht verarbeiten“-Menge bleibt liegen (josh 2026-11-12)
+			if (res == "holz" or res == "kohle") and Extras.above_reserve(res, world) < int(p.inputs[res]) \
+					and Game.amount(res, world) >= int(p.inputs[res]):
+				return tr("%s liegt als Brennstoff für den Winter zurück") % Data.resource_name(res)
 			if Game.amount(res, world) >= int(p.inputs[res]):
 				return tr("%s: der Rest ist zurückgehalten") % Data.resource_name(res)
 			return tr("Es fehlt %s") % Data.resource_name(res)
