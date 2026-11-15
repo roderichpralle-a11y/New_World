@@ -178,6 +178,9 @@ func _ki_train_setup(args: Dictionary) -> void:
 			ev.pressed = true
 			main._unhandled_key_input(ev)
 		print("CHEATTEST Tempo ", Engine.time_scale, " speed ", Game.speed)
+	if args.has("kiwatch"):  # zusehen: die Einführungskarte stört nur (im Training läuft sie unsichtbar mit)
+		hud.goal_card.set_process(false)
+		hud.goal_card.visible = false
 	KiBrain.score_start()
 	print("KITRAIN Start Tag %.2f, Siedler %d, KI %s" % [Game.time_days, Game.population(), "an" if KiBrain.on else "aus"])
 
@@ -633,7 +636,7 @@ func _maybe_autotest() -> void:
 			_ki_train_auto()
 		if args.has("kitrain"):
 			_ki_progress(args)
-		if args.has("kitrain") and (KiBrain.score_log.size() >= int(args.get("kidays", "3")) or Game.is_over or KiBrain.goal_done or _ki_stalled):
+		if args.has("kitrain") and not args.has("kiwatch") and (KiBrain.score_log.size() >= int(args.get("kidays", "3")) or Game.is_over or KiBrain.goal_done or _ki_stalled):
 			_ki_train_finish(args)
 			break
 		if args.has("foodsim"):

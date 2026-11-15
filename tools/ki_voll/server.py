@@ -13,6 +13,7 @@ Nur Python-Standardbibliothek.
 import argparse
 import json
 import os
+import shutil
 import signal
 import subprocess
 import sys
@@ -127,6 +128,26 @@ class App:
             except Exception:
                 self.proc.kill()
             return "gestoppt"
+
+    # ------------------------------------------------------------ Spiel ansehen
+    def watch(self, which, seed, tempo):
+        """Ein Spiel mit Fenster starten: die KI spielt vom Anfang, du siehst zu (Fenster schließen beendet es).
+        Gleiche Gewichte und gleiche Würfel wie im Training; ganz genau gleich wird es nicht, weil das Spiel nicht
+        in jedem Punkt vorherbestimmt ist."""
+        g = os.path.join(self.p["lauf"], "best.json" if which == "best" else "aktuell.json")
+        if not os.path.exists(g):
+            return "Es gibt noch keine Gewichte. Warte auf die erste Prüfung."
+        d = os.path.join(self.p["lauf"], "zusehen")
+        os.makedirs(d, exist_ok=True)
+        w = os.path.join(d, "w.json")
+        shutil.copyfile(g, w)
+        env = dict(os.environ)
+        env["XDG_DATA_HOME"] = os.path.join(d, "daten")  # eigener Speicherplatz: deine Spielstände bleiben unberührt
+        env["KI_LANG"] = "de"
+        cmd = [self.a.godot, "--path", self.p["spiel"], "--", "--autotest=999999", "--scale=%s" % tempo, "--kitrain=1", "--kifull=1",
+               "--kiw=" + w, "--kidays=999999", "--kiseed=%d" % seed, "--kiwatch=1", "--kiout=" + os.path.join(d, "r.json")]
+        subprocess.Popen(cmd, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return "gestartet"
 
     # ------------------------------------------------------------ Daten für die Seite
     def read(self, name, default=None):
@@ -312,6 +333,9 @@ def make_handler(app):
                 return self.js({"ok": app.start()})
             if self.path == "/api/stop":
                 return self.js({"ok": app.stop()})
+            if self.path.startswith("/api/zusehen"):
+                q = parse_qs(urlparse(self.path).query)
+                return self.js({"ok": app.watch(q.get("welche", ["best"])[0], int(q.get("saat", ["900000"])[0]), q.get("tempo", ["3"])[0])})
             return self.js({"fehler": "unbekannt"}, 404)
     return H
 

@@ -36,6 +36,9 @@ Der Mac braucht Python 3. Fehlt es, sagt die Startdatei, was zu tun ist (`xcode-
   Zeitalter, Forschung), Bilder zum Verlauf, alle Prüfungen.
 - **Was die KI gelernt hat**: ein ganzes Prüfspiel zum Ansehen (jede Entscheidung der KI mit Spieltag),
   der Vergleich über die Prüfungen und die Gewichte in Worten („eher, wenn ...“).
+- **Spiel live ansehen** (im Reiter „Was die KI gelernt hat“): öffnet das Spiel in einem eigenen Fenster, die KI spielt dort
+  vom Anfang mit den besten oder den jetzigen Gewichten, du siehst ihr zu. Tempo und Würfel wählbar, Fenster schließen
+  beendet es. Deine eigenen Spielstände bleiben unberührt.
 - **Programmcode**: das Trainingsprogramm und die KI im Spiel zum Lesen, dazu alle Dateien des Spiels.
 - **Freischalt-Liste**: welches Gebäude der KI im Spiel welche Entscheidungen freigibt.
 

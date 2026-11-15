@@ -112,6 +112,13 @@ pre .l::before{content:attr(data-n);display:inline-block;width:52px;padding-righ
   <input id="gfilter" placeholder="Suchen, z. B. Haus oder Forschung" style="width:min(360px,100%)">
   <div class="box scroll" style="max-height:420px;overflow:auto"><table id="gtrace"></table></div>
 
+  <h2>Ein Spiel live ansehen</h2>
+  <p class="mute small">Öffnet das Spiel in einem eigenen Fenster. Die KI spielt dort vom Anfang mit den gewählten Gewichten, du siehst ihr zu: wo sie baut, wie die Siedler arbeiten, wann sie forscht. Das Fenster schließen beendet das Spiel. Deine eigenen Spielstände bleiben unberührt. Es läuft neben dem Training und braucht einen Kern.</p>
+  <div class="box">Gewichte: <select id="wsel"><option value="best">bester Stand</option><option value="aktuell">jetziger Stand</option></select>
+   Tempo: <select id="wtempo"><option value="1">normal</option><option value="3" selected>3-fach</option><option value="8">8-fach</option><option value="20">20-fach</option></select>
+   Würfel: <input id="wseed" value="900000" size="8">
+   <button id="bwatch" class="pri">Spiel ansehen</button> <span id="wmsg" class="mute small"></span></div>
+
   <h2>Fortschritt über die Prüfungen</h2>
   <div class="box scroll"><table id="gcmp"></table></div>
 
@@ -231,6 +238,7 @@ function renderTrace(){
 }
 $('gfilter').oninput=renderTrace;
 $('selr').onchange=()=>loadCheck($('selr').value);
+$('bwatch').onclick=async()=>{const r=await (await fetch('/api/zusehen?welche='+$('wsel').value+'&tempo='+$('wtempo').value+'&saat='+encodeURIComponent($('wseed').value),{method:'POST'})).json();$('wmsg').textContent=r.ok==='gestartet'?'Das Fenster öffnet sich gleich (beim ersten Mal ein paar Sekunden).':r.ok};
 $('selw').onchange=loadWeights;
 async function loadWeights(){
   const g=await get('/api/gelernt?welche='+$('selw').value);
