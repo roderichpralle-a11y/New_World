@@ -1807,6 +1807,8 @@ func apply_save_header(d: Dictionary) -> void:
 			tut = 0 if tut < 27 else 999
 		goals = {"tut": tut, "ms": _ms_upgrade(g), "hide": str(g.get("hide", "")), "qhide": str(g.get("qhide", "")), "tv": 9,
 			"gift": str(g.get("gift", "")), "mv": 2}
+		if g.get("live", false):
+			goals["live"] = true
 		if tv >= 9 and g.get("br", null) is Dictionary:
 			goals["br"] = {"cur": str(g.br.get("cur", "")), "i": int(g.br.get("i", 0)), "done": Array(g.br.get("done", [])).map(func(x): return str(x))}
 	else:
