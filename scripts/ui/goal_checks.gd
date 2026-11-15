@@ -120,6 +120,16 @@ static func progress(c: Dictionary) -> Array:
 					if s.job == what:
 						cnt += 1
 			return [cnt, n]
+		"jobs_any":  # Siedler mit einem der Berufe aus what (Liste), neuer Spielstart (josh 2026-11-15)
+			var cnt := 0
+			var list: Array = c.get("what", [])
+			for w in Sea.all_worlds():
+				for s in w.settlers:
+					if s.job in list:
+						cnt += 1
+			return [cnt, n]
+		"choice":  # Auswahl der nächsten Schritte: erfüllt sich nie von selbst
+			return [0, 1]
 		"no_starve_days":
 			return [no_starve_days(), n]
 		"exams":

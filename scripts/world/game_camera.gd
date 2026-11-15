@@ -169,6 +169,13 @@ func reset_zoom() -> void:
 	zoom = Vector2(z, z)
 
 
+## Neuer Spielstart (josh 2026-11-15): näher heran, damit man die beiden Siedler bei der Arbeit erkennt.
+func intro_zoom() -> void:
+	reset_zoom()
+	var z: float = clamp(roundf(zoom.x * 1.35 * 4.0) / 4.0, 1.5, 4.0)
+	zoom = Vector2(z, z)
+
+
 func focus(p: Vector2) -> void:
 	_vel = Vector2.ZERO
 	position = p

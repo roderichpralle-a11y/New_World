@@ -537,11 +537,13 @@ func _tut_test() -> void:
 	var n: int = Data.goals.get("tutorial", []).size()
 	var before := [w.settlers.size(), w.buildings.filter(func(b): return b.type == "huette").size(), w.buildings.filter(func(b): return b.type == "lager").size()]
 	print("Einfuehrungs-Test: vorher Siedler %d, Huetten %d, Platz fuer Huette %s" % [before[0], before[1], hut_spot(w)])
-	Game.goals.tut = n - 1  # letzter Schritt: Erklaerung mit Weiter
-	Game.player_action.emit("next", "")
+	# neuer Spielstart (josh 2026-11-15): letzter Schritt des letzten Zweigs (Forscher einsetzen), danach die Schlussbelohnung
+	Game.goals.tut = n - 1
+	Game.goals["br"] = {"cur": "forschung", "i": Data.goals.branches.forschung.steps.size() - 1, "done": ["wohnen", "versorgung"]}
+	w.settlers[0].set_job("forscher")
 	await get_tree().create_timer(2.0, true, false, true).timeout
 	var after := [w.settlers.size(), w.buildings.filter(func(b): return b.type == "huette").size(), w.buildings.filter(func(b): return b.type == "lager" and b.complete).size()]
-	var c: bool = after[0] == before[0] + 2 and after[1] == before[1] + 1 and after[2] == before[2] + 1
+	var c: bool = after[0] == before[0] + 2 and after[1] == before[1] + 1
 	print("Einfuehrungs-Test %s: nachher Siedler %d (+%d), Huetten %d (+%d), Lagerhaus +%d, tut=%d/%d" % [_ok(c), after[0], after[0] - before[0], after[1], after[1] - before[1], after[2] - before[2], int(Game.goals.tut), n])
 	var t_ok: bool = Game.is_researched("steinwerkzeuge") and Game.is_researched("schrift")
 	print("Einfuehrungs-Test %s: Steinwerkzeuge und Schrift erforscht" % _ok(t_ok))

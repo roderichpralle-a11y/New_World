@@ -142,7 +142,14 @@ func _on_new_game() -> void:
 	hud.notify_on("ziel")
 	Game.save_game()
 	Game.flush_notes()
-	Game.notify(tr("Willkommen auf deiner Insel! Lena und Jonas brauchen ein Zuhause für Nachwuchs."), "sonne")
+	# Neuer Spielstart (josh 2026-11-15): nah heran, beide warten auf die erste Entscheidung (nicht in Selbsttests,
+	# dort behalten Lena und Jonas ihre Berufe; mit --intro=1 doch)
+	if test == null or "--intro=1" in OS.get_cmdline_user_args():
+		hud.goal_card.begin_intro()
+		camera.intro_zoom()
+		if world.settlers.size() >= 2:
+			camera.focus((world.settlers[0].position + world.settlers[1].position) / 2.0 + Vector2(0, -8))
+	Game.notify(tr("Willkommen auf deiner Insel!"), "sonne")
 
 
 func _on_continue() -> void:

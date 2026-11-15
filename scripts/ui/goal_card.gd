@@ -14,6 +14,8 @@ var _hint: Label
 var _bar: ProgressBar
 var _skip: Button
 var _next: Button  # Weiter bei Erklaer-Schritten der Einfuehrung
+var _act: Button  # Knopf eines Schritts im neuen Spielstart ("btn": Lager bauen, Baumeister einsetzen)
+var _choices: VBoxContainer  # Auswahl der nächsten Schritte (Wohnraum, Versorgung, Verbesserung)
 var bubble: bool = false  # Karte steht als Sprechblase neben dem Ziel des Zeigers (hud._layout laesst sie dann in Ruhe)
 var _home_idx: int = -1
 var _pointer: PointerArrow
@@ -86,6 +88,17 @@ func setup(p_hud) -> void:
 		Game.player_action.emit("next", _cur_id)
 		_tick = 0.0)  # gleich weiter, nicht erst nach der naechsten Pruefung
 	v.add_child(_next)
+	_act = UiTheme.button("", "", 44)
+	_act.name = "IntroAct"
+	_act.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_act.add_theme_font_size_override("font_size", 16)
+	_act.visible = false
+	_act.pressed.connect(_do_act)
+	v.add_child(_act)
+	_choices = VBoxContainer.new()
+	_choices.add_theme_constant_override("separation", 4)
+	_choices.visible = false
+	v.add_child(_choices)
 	tooltip_text = tr("Tippen: Erklärung ein- und ausblenden")
 	gui_input.connect(func(ev):
 		if in_tutorial():
@@ -123,10 +136,146 @@ func current() -> Dictionary:
 	var tut: Array = Data.goals.get("tutorial", [])
 	var t := int(Game.goals.get("tut", 0))
 	if t < tut.size():
+		if tut[t].get("choice", false):
+			var bs := _branch_step()
+			if not bs.is_empty():
+				return bs
 		return tut[t]
 	if Exams.blocking():  # Pruefung haelt das Weiterforschen auf: sie kommt vor den Zielen
 		return Exams.goal()
 	return milestone(int(Game.goals.get("ms", 0)))
+
+
+# ---------------------------------------------------------------- neuer Spielstart (josh 2026-11-15)
+## Zustand der wählbaren Zweige am Ende des Spielstarts: cur = gewählter Zweig, i = Schritt darin, done = fertige.
+func _br() -> Dictionary:
+	if not Game.goals.get("br", null) is Dictionary:
+		Game.goals["br"] = {"cur": "", "i": 0, "done": []}
+	return Game.goals.br
+
+
+func _branch_step() -> Dictionary:
+	var br := _br()
+	var b: Dictionary = Data.goals.get("branches", {}).get(str(br.cur), {})
+	var steps: Array = b.get("steps", [])
+	var i := int(br.i)
+	return steps[i] if i >= 0 and i < steps.size() else {}
+
+
+## Der Start-Siedler für einen Schritt: "b" = wer Baumeister ist (sonst der erste Mann), "o" = der andere.
+func _who(k: String):
+	var w = Sea.main_world()
+	if w == null or not is_instance_valid(w):
+		return null
+	var adults: Array = w.settlers.filter(func(x): return x.is_adult() and not x is Droid)
+	if adults.is_empty():
+		return null
+	var b = null
+	for x in adults:
+		if x.job == "baumeister":
+			b = x
+			break
+	if b == null:
+		for x in adults:
+			if x.sex == "m":
+				b = x
+				break
+	if b == null:
+		b = adults[0]
+	if k == "b":
+		return b
+	for x in adults:
+		if x != b:
+			return x
+	return b
+
+
+func _fmt(text: String) -> String:
+	if not "{" in text:
+		return text
+	var b = _who("b")
+	var o = _who("o")
+	return text.replace("{b}", b.display_name if b else "?").replace("{o}", o.display_name if o else "?")
+
+
+## Knopf auf der Karte: Platzierung öffnen oder einem Siedler einen Beruf geben.
+func _do_act() -> void:
+	var g := current()
+	var btn: Dictionary = g.get("btn", {})
+	Sound.play("klick")
+	match str(btn.get("do", "")):
+		"place":
+			hud.start_build(str(btn.what), g.get("spots", false))
+		"job":
+			var s = _who(str(btn.get("who", "b")))
+			if s != null:
+				JobDesk.assign(s, str(btn.what), "spieler")
+				Game.player_action.emit("job", str(btn.what))
+	_tick = 0.0
+
+
+func _choose(id: String) -> void:
+	var br := _br()
+	br.cur = id
+	br.i = 0
+	Sound.play("klick")
+	Game.player_action.emit("choice", id)
+	_actions.clear()
+	_cur_id = ""
+	_tick = 0.0
+
+
+func _fill_choices() -> void:
+	for c in _choices.get_children():
+		_choices.remove_child(c)
+		c.queue_free()
+	var br := _br()
+	var bs: Dictionary = Data.goals.get("branches", {})
+	for id in bs:
+		if id in br.done:
+			continue
+		var b := UiTheme.button(str(bs[id].name), "", 40)
+		b.name = "Choice_" + str(id)
+		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.add_theme_font_size_override("font_size", 15)
+		var cid: String = id
+		b.pressed.connect(func(): _choose(cid))
+		_choices.add_child(b)
+		var d := UiTheme.label(str(bs[id].desc), 12)
+		d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_choices.add_child(d)
+
+
+## Knöpfe der unteren Leiste, die der Spielstart schon eingeführt hat ("show" aller bisherigen Schritte).
+func ui_on(key: String) -> bool:
+	if not in_tutorial():
+		return true
+	var tut: Array = Data.goals.get("tutorial", [])
+	var t := int(Game.goals.get("tut", 0))
+	for i in range(0, mini(t, tut.size() - 1) + 1):
+		if key in tut[i].get("show", []):
+			return true
+	var br := _br()
+	var bs: Dictionary = Data.goals.get("branches", {})
+	for id in bs:
+		var steps: Array = bs[id].steps
+		var upto := steps.size() if id in br.done else (int(br.i) + 1 if id == str(br.cur) else 0)
+		for i in mini(upto, steps.size()):
+			if key in steps[i].get("show", []):
+				return true
+	return false
+
+
+## Neues Spiel (nicht in Selbsttests): die beiden Start-Siedler warten ohne Beruf, bis der Spieler entscheidet.
+func begin_intro() -> void:
+	var w = Game.world
+	for s in w.settlers:
+		if s.is_adult():
+			s.set_job("frei")
+	Game.intro_idle = true
+	_cur_id = ""
+	_tick = 0.0
 
 
 ## Feste Ziele aus goals.json, danach endlos neue (Bevoelkerung, Inseln, Geburten).
@@ -155,12 +304,19 @@ func milestone(i: int) -> Dictionary:
 ## den Pruefungen und Auftraegen).
 func progress(g: Dictionary) -> Array:
 	var c: Dictionary = g.get("check", {})
-	var what: String = c.get("what", "")
+	var what := str(c.get("what", ""))
 	match c.get("type", ""):
 		"selected_settler":
 			return [1 if Game.selected is Settler else 0, 1]
 		"no_panel":  # zurück zum Hauptbildschirm: kein Fenster offen
 			return [0 if _panel_open() else 1, 1]
+		"food_in":  # Nahrung kam ins Lager (mehr als beim niedrigsten Stand seit Beginn des Schritts)
+			var f := Game.total_food(Sea.main_world())
+			var m := int(Game.goals.get("fmark", -1))
+			if m < 0 or f < m:
+				Game.goals["fmark"] = f
+				return [0, 1]
+			return [1 if f > m else 0, 1]
 		"action":
 			if c.has("or_job") and int(GoalChecks.progress({"type": "job", "what": c.or_job, "n": 1})[0]) >= 1:
 				return [1, 1]  # Beruf schon auf anderem Weg vergeben
@@ -184,7 +340,18 @@ func _is_done(g: Dictionary) -> bool:
 func _advance(g: Dictionary, silent: bool) -> void:
 	var was_tut := in_tutorial()
 	if was_tut:
-		Game.goals.tut = int(Game.goals.get("tut", 0)) + 1
+		Game.goals.erase("fmark")
+		var br := _br()
+		if str(br.cur) != "" and not _branch_step().is_empty():  # Schritt eines gewählten Zweigs
+			br.i = int(br.i) + 1
+			if _branch_step().is_empty():
+				br.done.append(str(br.cur))
+				br.cur = ""
+				br.i = 0
+				if br.done.size() >= Data.goals.get("branches", {}).size():
+					Game.goals.tut = int(Game.goals.get("tut", 0)) + 1  # alle Zweige fertig: Spielstart geschafft
+		else:
+			Game.goals.tut = int(Game.goals.get("tut", 0)) + 1
 	else:
 		Game.goals.ms = int(Game.goals.get("ms", 0)) + 1
 	_actions.clear()
@@ -193,7 +360,7 @@ func _advance(g: Dictionary, silent: bool) -> void:
 	Sound.play("ziel")
 	if was_tut:
 		if not in_tutorial():
-			hud.toast(tr("Einführung geschafft! Jetzt warten Ziele mit Belohnungen auf dich."), "ziel")
+			hud.toast(tr("Die ersten Schritte sind geschafft! Jetzt warten Ziele mit Belohnungen auf dich."), "ziel")
 			Extras.tutorial_reward(Game.world)  # 2 Siedler, Hütte, Lagerhaus und zwei Forschungen
 		if g.get("close_after", false):  # josh 2026-10-30: nach dem Baumeister das Menü Siedler schließen
 			for p in hud._panels():
@@ -219,7 +386,7 @@ func _advance(g: Dictionary, silent: bool) -> void:
 
 ## Solange nur Stufe I erforscht ist: Mahnung, wenn eine Baustelle ohne Baumeister wartet oder eine Forschung
 ## ohne Forscher stillsteht (josh 2026-10-22). Leer, wenn alles passt.
-func tier1_warning() -> String:
+func tier1_warning(only_build: bool = false) -> String:
 	if Game.max_tier() > 1:
 		return ""
 	var w = Game.world
@@ -229,6 +396,8 @@ func tier1_warning() -> String:
 		return wd.settlers.any(func(x): return x.is_adult() and x.job == j)
 	if w.buildings.any(func(b): return not b.complete) and not has_job.call(w, "baumeister"):
 		return tr("Achtung: Eine Baustelle wartet, aber niemand ist Baumeister. Gib einem Siedler im Menü Siedler den Beruf Baumeister.")
+	if only_build:
+		return ""
 	var home = Sea.main_world()
 	if Game.research.current != "" and home != null and not has_job.call(home, "forscher"):
 		return tr("Achtung: Die Forschung steht still, weil niemand Forscher ist. Gib mindestens einem Siedler den Beruf Forscher.")
@@ -276,16 +445,27 @@ func _give_gift(g: Dictionary) -> void:
 func _skip_tutorial() -> void:
 	var steps: Array = Data.goals.get("tutorial", [])
 	var parts := []
-	for i in range(int(Game.goals.get("tut", 0)), steps.size()):
-		var got := Extras.tutorial_step_reward(Game.world, steps[i].get("reward", {}))
+	var rest: Array = steps.slice(int(Game.goals.get("tut", 0)))
+	var br := _br()
+	var bs: Dictionary = Data.goals.get("branches", {})
+	for id in bs:  # auch die noch offenen Zweige (Wohnraum, Versorgung, Verbesserung)
+		if not id in br.done:
+			rest.append_array(bs[id].steps.slice(int(br.i) if id == str(br.cur) else 0))
+	for st in rest:
+		var got := Extras.tutorial_step_reward(Game.world, st.get("reward", {}))
 		if got != "":
 			parts.append(got)
+	br.done = bs.keys()
+	br.cur = ""
+	br.i = 0
 	Game.goals.tut = steps.size()
+	Game.intro_idle = false
 	_actions.clear()
 	_cur_id = ""
 	Sound.play("ziel")
 	Extras.tutorial_reward(Game.world)
-	hud.toast(tr("Einführung übersprungen und als gelernt gezählt. Jetzt warten Ziele mit Belohnungen auf dich. Die Spielanleitung findest du im Menü."), "ziel")
+	hud.toast(tr("Erste Schritte übersprungen und als gelernt gezählt. Jetzt warten Ziele mit Belohnungen auf dich. Die Spielanleitung findest du im Menü."), "ziel")
+	hud.apply_intro_ui()
 	if not parts.is_empty():
 		hud.toast(tr("Belohnung: %s.") % ", ".join(parts), "ziel")
 
@@ -311,6 +491,8 @@ func _process(delta: float) -> void:
 	_set_visible(_shown_now)
 	if visible:
 		_update_pointer()
+		if not bubble:  # Meldungen nie über der Karte (ihre Höhe ändert sich mit dem Text)
+			hud.toasts_below(get_global_rect())
 
 
 var _shown_now := false
@@ -339,17 +521,30 @@ func _check() -> void:
 		_advance(g, false)
 		g = current()
 	var t := in_tutorial()
-	if g.id != _cur_id:
-		_cur_id = g.id
-		var tut_n: int = Data.goals.get("tutorial", []).size()
-		_head.text = (tr("Einführung %d/%d") % [int(Game.goals.tut) + 1, tut_n]) if t else (tr("Prüfung") if is_exam(g) else tr("Ziel"))
-		_text.text = g.text
-		_hint.text = g.get("hint", "")
-		if t:  # was der Schritt bringt; der letzte zeigt die Belohnung für die ganze Einführung
-			var last := int(Game.goals.tut) == tut_n - 1
-			var rw: Dictionary = g.get("reward", Extras.TUT_FINAL if last else {})
+	var idle: bool = t and g.get("idle", false)
+	if Game.intro_idle != idle:
+		Game.intro_idle = idle
+	hud.apply_intro_ui()
+	var choice: bool = t and g.get("choice", false)
+	var key: String = str(g.id) + ("|%d" % _br().done.size() if choice else "")
+	if key != _cur_id:
+		_cur_id = key
+		_head.text = tr("Erste Schritte") if t else (tr("Prüfung") if is_exam(g) else tr("Ziel"))
+		_text.text = _fmt(g.text)
+		_hint.text = _fmt(g.get("hint", ""))
+		if choice:
+			if not _br().done.is_empty():
+				_text.text = tr("Gut gemacht. Was kommt jetzt?")
+			_hint.text = tr("Wenn alles geschafft ist: %s.") % Extras.tutorial_reward_text(Extras.TUT_FINAL)
+			_fill_choices()
+		_choices.visible = choice
+		var btn: Dictionary = g.get("btn", {}) if t else {}
+		_act.visible = not btn.is_empty()
+		_act.text = _fmt(str(btn.get("text", "")))
+		if t and not choice:  # was der Schritt bringt
+			var rw: Dictionary = g.get("reward", {})
 			if not rw.is_empty():
-				_hint.text += "\n" + tr("Belohnung: %s.") % Extras.tutorial_reward_text(rw)
+				_hint.text += ("\n" if _hint.text != "" else "") + tr("Belohnung: %s.") % Extras.tutorial_reward_text(rw)
 		# In der Einfuehrung ist die Erklaerung immer offen
 		_hint.visible = t and _hint.text != ""
 		_skip.visible = t
@@ -362,7 +557,11 @@ func _check() -> void:
 		_hint.text = g.get("hint", "")  # Pruefung: was noch fehlt, aendert sich laufend
 		if _hint.visible:
 			_relayout()
-	var wt := tier1_warning() if not t else ""
+	var wt := tier1_warning(t) if not t or g.get("warn", false) else ""
+	if t and _act.visible:  # während der Platzierung ist der Knopf weg
+		var placing: bool = Game.world.is_placing()
+		if _act.disabled != placing:
+			_act.disabled = placing
 	if wt != _warn.text:
 		_warn.text = wt
 		_warn.visible = wt != ""
@@ -413,7 +612,9 @@ func _update_pointer() -> void:
 	# bei kleinen Zielen hoechstens bis zur Mitte
 	var into := minf(12.0, r.size.y * 0.5)
 	_pointer.position = Vector2(px, r.end.y - into + bob) if below else Vector2(px, r.position.y - 30.0 + into + bob)
-	if in_tutorial():
+	if target is Vector2:  # Ziel in der Spielwelt (ein Siedler): die Karte bleibt an ihrem Platz
+		_set_bubble(false)
+	elif in_tutorial():
 		_set_bubble(true)
 		var w := minf(330.0, vs.x - 12.0)
 		_fit_width(w)
@@ -507,6 +708,13 @@ func _pointer_target(g: Dictionary):
 	var w = Game.world
 	var pt: String = g.get("point", "")
 	match pt:
+		"who_b", "who_o":  # über dem Kopf eines Start-Siedlers
+			var ws = _who(pt.substr(4))
+			if ws == null or Game.selected != null or _panel_open() or w.is_placing() or ws.world != w:
+				return null
+			var sp: Vector2 = ws.get_global_transform_with_canvas().origin - Vector2(0, 24 * hud.camera.zoom.y)
+			var vr := get_viewport().get_visible_rect()
+			return sp if vr.grow(-20).has_point(sp) else null
 		"settler", "info":
 			if Game.selected is Settler or _panel_open() or w.settlers.is_empty():
 				return null
@@ -590,14 +798,19 @@ func _pointer_target(g: Dictionary):
 			if hud._settler_head_row.visible:
 				return hud._settler_head_row
 			return hud._settler_list.get_child(0) if hud._settler_list.get_child_count() > 0 else null
-		"job":
+		"job", "job_food":
 			# Berufswahl der ersten Erwachsenenzeile im Menü Siedler, sonst der Knopf Siedler
 			if hud._settler_panel.visible:
 				var obs: Array = hud._settler_list.find_children("*", "OptionButton", true, false)
 				if obs.is_empty():
 					return null
+				if pt == "job_food":  # jemand, der noch nicht für Nahrung sorgt
+					var food := [Data.jobs.sammler.name, Data.jobs.fischer.name]
+					for ob in obs:
+						if ob.selected < 0 or not ob.get_item_text(ob.selected) in food:
+							return ob
 				# Forscher: am besten der Baumeister, der nach der Hütte frei ist
-				if g.check.get("what", "") == "forscher":
+				if str(g.check.get("what", "")) == "forscher":
 					for ob in obs:
 						if ob.selected >= 0 and ob.get_item_text(ob.selected) == Data.jobs.baumeister.name:
 							return ob

@@ -435,6 +435,40 @@ func _build_bottom() -> void:
 	menu_btn = mb
 
 
+## Neuer Spielstart (josh 2026-11-15): die Knöpfe Bauen, Forschung und Siedler kommen erst, wenn der Spieler
+## sie braucht (GoalCard.ui_on); nach den ersten Schritten sind alle da. Das Menü ist immer da.
+func apply_intro_ui() -> void:
+	var changed := false
+	for e in [[_build_btn, "bauen"], [_research_btn, "forschung"], [settler_btn, "siedler"]]:
+		var on: bool = goal_card.ui_on(e[1])
+		if e[0] != null and e[0].visible != on:
+			e[0].visible = on
+			changed = true
+	if changed:
+		_layout()
+
+
+## Platzierung eines Gebäudes direkt öffnen (Knopf auf der Zielkarte, z. B. „Lager bauen“). false: Material fehlt.
+func start_build(tp: String, spots: bool = false) -> bool:
+	var miss := []
+	var fr := _build_free()
+	for res in Data.buildings[tp].cost:
+		var n := int(Data.buildings[tp].cost[res]) - int(fr.get(res, 0))
+		if n > 0:
+			miss.append("%d %s" % [n, Data.resource_name(res)])
+	if not miss.is_empty():
+		toast(tr("Fehlt auf dieser Insel: %s") % ", ".join(miss), "hammer")
+		return false
+	for p in _panels():
+		p.visible = false
+	Game.select(null)
+	world.start_placement(tp, camera.position)
+	if spots:
+		world.show_spots(tp)
+	Game.player_action.emit("place_open", tp)
+	return true
+
+
 ## Verwalter-Knopf (josh 2026-10-19): ab der Forschung der Verwaltung; öffnet das Fenster der Verwaltung.
 func _update_admin_button() -> void:
 	if _admin_btn == null:
@@ -3266,6 +3300,28 @@ func _rebuild_info() -> void:
 
 func _info_settler(s: Settler) -> void:
 	_info_head(s.display_name)
+	# Neuer Spielstart (josh 2026-11-15): beim ersten Antippen nur wenige, verständliche Möglichkeiten
+	var picks: Array = goal_card.current().get("pick", []) if goal_card != null and goal_card.in_tutorial() else []
+	if not picks.is_empty() and s.is_adult():
+		var q := UiTheme.label(tr("Was soll %s tun?") % s.display_name, 15, UiTheme.TEXT, true)
+		q.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_info_box.add_child(q)
+		for pk in picks:
+			var jid: String = pk.job
+			var b := UiTheme.button(str(pk.text), "", 48)
+			b.name = "Pick_" + jid
+			b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			b.add_theme_font_size_override("font_size", 16)
+			b.pressed.connect(func():
+				JobDesk.assign(s, jid, "spieler")
+				Game.player_action.emit("job", jid)
+				Sound.play("klick")
+				Game.select(null))  # Fenster zu: man sieht, wie der Siedler losgeht
+			_info_box.add_child(b)
+			var dl := UiTheme.label(Data.jobs[jid].desc, 12, DIM)
+			dl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			_info_box.add_child(dl)
+		return
 	var sex := tr("Frau") if s.sex == "f" else tr("Mann")
 	if not s.is_adult():
 		sex = tr("Mädchen") if s.sex == "f" else tr("Junge")
@@ -4058,6 +4114,7 @@ func _layout() -> void:
 	_bottom.add_theme_constant_override("separation", 4 if narrow_bar else 6)
 	bp.reset_size()
 	bp.position = Vector2((vs.x - bp.size.x) / 2.0, vs.y - bp.size.y - 6)
+	_place_label.custom_minimum_size.x = 110 if vs.x < 520 else 220  # schmal: sonst ragt die Leiste aus dem Bild
 	_place_bar.reset_size()
 	_place_bar.size.x = min(vs.x - 12, 620)
 	_place_bar.position = Vector2((vs.x - _place_bar.size.x) / 2.0, vs.y - _place_bar.size.y - 6)

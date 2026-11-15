@@ -90,6 +90,8 @@ var lineage: Dictionary = {}  # Siedler-ID -> [Eltern-IDs], auch fuer Verstorben
 var research: Dictionary = {"current": "", "progress": {}, "done": [], "paid": []}
 ## Einfuehrung und Ziele: Schritt der Einfuehrung (tut), Index des Ziels (ms)
 var goals: Dictionary = {"tut": 0, "ms": 0, "tv": 4}
+## Neuer Spielstart (josh 2026-11-15): solange true, warten Siedler ohne Beruf (setzt GoalCard je Schritt, "idle")
+var intro_idle := false
 var eaten: Dictionary = {}  # gegessene Speisen seit Spielbeginn (fuer Statistik und Tests)
 var effects: Dictionary = {}  # Summe aller Forschungs-Effekte, z. B. {"build": 0.2}
 var reward_wait: Dictionary = {}  # Belohnungen ohne Lagerplatz, siehe _wait_goods
@@ -186,7 +188,8 @@ func reset_state(new_seed: int) -> void:
 	stats = {"births": 0, "deaths": 0, "max_pop": 0, "starved": 0, "starve_day": time_days}
 	lineage = {}
 	research = {"current": "", "next": "", "progress": {}, "done": [], "paid": []}
-	goals = {"tut": 0, "ms": 0, "tv": 8, "mv": 2}
+	goals = {"tut": 0, "ms": 0, "tv": 9, "mv": 2}
+	intro_idle = false
 	rules = RULES
 	rules_old = RULES
 	rules_day = time_days
@@ -1798,10 +1801,17 @@ func apply_save_header(d: Dictionary) -> void:
 		# Seit tv 8 (josh 2026-10-22): ohne die 2 Schritte zum Menü (vorher 25 und 26)
 		if tv >= 5 and tv < 8 and tut >= 25 and tut < 999:
 			tut = 999 if tut >= 29 else (tut - 2 if tut >= 27 else 25)
-		goals = {"tut": tut, "ms": _ms_upgrade(g), "hide": str(g.get("hide", "")), "qhide": str(g.get("qhide", "")), "tv": 8,
+		# Seit tv 9 (josh 2026-11-15): neuer Spielstart mit 7 Schritten und drei wählbaren Zweigen (goals.br);
+		# eine angefangene alte Einführung beginnt neu (erledigte Schritte gehen von selbst weiter), fertig bleibt fertig
+		if tv < 9:
+			tut = 0 if tut < 27 else 999
+		goals = {"tut": tut, "ms": _ms_upgrade(g), "hide": str(g.get("hide", "")), "qhide": str(g.get("qhide", "")), "tv": 9,
 			"gift": str(g.get("gift", "")), "mv": 2}
+		if tv >= 9 and g.get("br", null) is Dictionary:
+			goals["br"] = {"cur": str(g.br.get("cur", "")), "i": int(g.br.get("i", 0)), "done": Array(g.br.get("done", [])).map(func(x): return str(x))}
 	else:
 		goals = {"tut": 999, "ms": 0, "catchup": true, "mv": 2}
+	intro_idle = false
 	_recompute_effects()
 	research_changed.emit()
 	is_over = false

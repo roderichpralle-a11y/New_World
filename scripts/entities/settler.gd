@@ -1105,6 +1105,8 @@ func _plan_work() -> bool:
 		return true
 	match job:
 		"frei":
+			if Game.intro_idle:  # neuer Spielstart: die beiden warten, bis der Spieler ihnen etwas aufträgt
+				return false
 			return _plan_free()
 		"baumeister":
 			if _plan_construction():

@@ -82,6 +82,32 @@ bleiben bei der alten Grafik; dieser Zweig wird nicht nach main gemischt, solang
   (`build.icons_extra`, Symbol `sehr_schnell`).
 - Neu bauen: `python3 tools/art_v2/build.py`, Bildschirmfoto mit festem Zoom: `--zoom=4` (Testhilfe).
 
+## Neuer Spielstart (josh 2026-11-15, V2 ab 2.1.4 und V3, `goals.tv` = 9)
+
+Ersetzt die Einführung mit 27 Schritten (Statuszeile Symbol für Symbol, Menüs erklären). Der Anfang ist eine kleine
+spielbare Lage; erklärt wird erst, wenn es gebraucht wird. Daten in `data/goals.json` (`tutorial`, `branches`,
+Erklärung in `_start_doc`), Ablauf in `GoalCard`.
+
+- **Start** (`main._on_new_game` -> `GoalCard.begin_intro`, `GameCamera.intro_zoom`): Kamera 1,35-fach näher, Lena und
+  Jonas ohne Beruf; solange ein Schritt `idle` hat, warten Freie (`Game.intro_idle`, `Settler._plan_work`). Nicht in
+  Selbsttests (dort behalten beide ihre Berufe), außer mit `--intro=1`. Keine Hinweis-Fenster vor dem Ende (`Hints`).
+- **Schritte**: `n_store` Knopf „Lager bauen“ auf der Karte (`btn`, `Hud.start_build`) öffnet sofort die Platzierung;
+  helle Flächen (`World.show_spots`/`good_spots`, `SpotLayer`) zeigen bis zu 4 gute Plätze, ein Tipp hinein rastet ein,
+  jeder andere freie Platz geht auch. `n_builder` Knopf „Jonas als Baumeister einsetzen“. `n_gather` Lena antippen:
+  das Infofenster zeigt nur „Beeren sammeln“ und „Fischen gehen“ (`pick`, `Hud._info_settler`). `n_food_wait` bis
+  Nahrung ankommt (Prüfart `food_in`), `n_food` erklärt die Nahrung, `n_store_done` wartet aufs Lager.
+- **Auswahl** (`n_choice`, Zustand `Game.goals.br {cur, i, done}`): Mehr Wohnraum (Hütte bauen, Wohnplätze erklärt,
+  2 neue Siedler), Sichere Versorgung (zwei Siedler für Nahrung, Prüfart `jobs_any`), Erste Verbesserung (Flechtkörbe
+  starten, Forscher einsetzen, Forschung erklärt). Reihenfolge frei; nach allen dreien `Extras.TUT_FINAL` (2 Siedler,
+  Hütte, Steinwerkzeuge, Schrift). Am Ende wie bisher 6 Siedler, 3 Hütten, Lagerhaus.
+- **Knöpfe unten** kommen schrittweise (`show` je Schritt, `GoalCard.ui_on`, `Hud.apply_intro_ui`): anfangs nur das
+  Menü, Siedler ab dem Warten aufs Lager, Bauen ab der Auswahl, Forschung mit der ersten Verbesserung.
+- „Überspringen“ gibt alle offenen Belohnungen (auch der Zweige) und zeigt alle Knöpfe.
+- Alte Spielstände mitten in der alten Einführung beginnen den neuen Start (Erledigtes geht von selbst weiter).
+- Tests: `--tuttest=1 --intro=1` (ohne Klicks), `xvfb-run godot --rendering-driver opengl3 --resolution 402x874 --
+  --autotest=999 --tutclick=1 --intro=1 --shotdir=DIR` (nur Klicks, „EINFUEHRUNG FERTIG, Fehler: 0“), `--tutdone=1`.
+- Die folgenden Abschnitte zur alten Einführung beschreiben nur noch Zeigerpfeil und Sprechblase, die weiter gelten.
+
 ## Einführung in V2 (josh 2026-10-29)
 
 - **Zeigerpfeil:** `GoalCard.PointerArrow` zeichnet den Pfeil selbst (gelb, braun umrandet, Spitze unten bzw. mit

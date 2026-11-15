@@ -1,34 +1,29 @@
 {
-  "_doc": "Einführung (tutorial) und Ziele (milestones, danach endlos erzeugt). close_after: nach dem Schritt alle Fenster schließen. check.type: selected_settler, action (kind next = Knopf Weiter, place = Hammer eines Gebäudes, job_list = Berufsliste geöffnet; or_job: auch erfüllt, wenn es den Beruf schon gibt), no_panel (kein Fenster offen), tech_started (what), building (n, any = auch Baustellen), housing, pop, techs (all: true = der ganze Baum), tier, tech, variety, islands_found, islands_settled, kills, births, speed, stock, job (what, n: so viele Siedler mit diesem Beruf). point: build, research, settlers, speed, settler, info.",
+  "_doc": "Einführung (tutorial) und Ziele (milestones, danach endlos erzeugt). close_after: nach dem Schritt alle Fenster schließen. check.type: selected_settler, jobs_any (what = Liste von Berufen, n Siedler), food_in (Nahrung kam ins Lager), choice, action (kind next = Knopf Weiter, place = Hammer eines Gebäudes, job_list = Berufsliste geöffnet; or_job: auch erfüllt, wenn es den Beruf schon gibt), no_panel (kein Fenster offen), tech_started (what), building (n, any = auch Baustellen), housing, pop, techs (all: true = der ganze Baum), tier, tech, variety, islands_found, islands_settled, kills, births, speed, stock, job (what, n: so viele Siedler mit diesem Beruf). point: build, research, settlers, speed, settler, info.",
+  "_start_doc": "Neuer Spielstart (josh 2026-11-15, goals.tv 9): kleine spielbare Lage statt Erklärung der Oberfläche. btn: Knopf auf der Karte (do place = Platzierung von what öffnen, do job = Beruf what an Siedler who geben). {b} = Name des Baumeisters (sonst erster Mann), {o} = der andere Start-Siedler. idle: freie Siedler warten. spots: gute Bauplätze leuchten. pick: beim Antippen eines Siedlers nur diese Berufe als große Knöpfe. show: Knöpfe der unteren Leiste, die ab diesem Schritt da sind (bauen, forschung, siedler). Letzter Schritt choice: der Spieler wählt nacheinander die Zweige aus branches (name, desc, steps).",
   "tutorial": [
-    {"id": "t_top_holz", "text": "Das ist dein Holz.", "hint": "Du brauchst es zum Bauen, Forschen und Heizen.", "check": {"type": "action", "kind": "next"}, "point": "top_holz"},
-    {"id": "t_stock_open", "text": "Tippe auf die Statuszeile, um das Lager zu öffnen.", "check": {"type": "action", "kind": "panel", "what": "lager"}, "point": "top_bar"},
-    {"id": "t_stock_close", "text": "Hier stehen alle deine Waren.", "hint": "Schließe das Lager mit dem X.", "check": {"type": "no_panel"}, "point": "close"},
-    {"id": "t_top_stein", "text": "Das sind deine Steine.", "hint": "Eine rote Zahl heißt: Das Lager ist dafür voll.", "check": {"type": "action", "kind": "next"}, "point": "top_stein"},
-    {"id": "t_top_food", "text": "Das ist deine Nahrung.", "hint": "In Klammern steht, wie viele Tage sie reicht.", "check": {"type": "action", "kind": "next"}, "point": "top_food"},
-    {"id": "t_top_pop", "text": "Das sind deine Siedler und Wohnplätze.", "hint": "Kinder kommen nur, wenn Wohnplätze frei sind.", "check": {"type": "action", "kind": "next"}, "point": "top_pop"},
-    {"id": "t_top_day", "text": "Das ist der Tag mit der Uhrzeit.", "hint": "Nachts schlafen die Siedler.", "check": {"type": "action", "kind": "next"}, "point": "top_day"},
-    {"id": "t_top_season", "text": "Das ist die Jahreszeit.", "hint": "Im Winter wächst nichts, und es wird geheizt.", "check": {"type": "action", "kind": "next"}, "point": "top_season"},
-    {"id": "t_speeds", "text": "Hier stellst du die Geschwindigkeit ein.", "hint": "Von Pause bis achtfach schnell.", "check": {"type": "action", "kind": "next"}, "point": "speeds"},
-    {"id": "t_build_open", "text": "Tippe unten auf Bauen.", "check": {"type": "action", "kind": "panel", "what": "bauen"}, "point": "build_btn"},
-    {"id": "t_build_menu", "text": "Das ist das Baumenü.", "hint": "Rot heißt: zu wenig im Lager. Der Hammer baut.", "check": {"type": "action", "kind": "next"}, "point": "hut_row"},
-    {"id": "t_hut_pick", "text": "Öffne den Reiter Lager und tippe beim Lagerhaus auf den Hammer.", "check": {"type": "action", "kind": "place", "what": "lager"}, "point": "build"},
-    {"id": "t_hut_place", "text": "Tippe auf einen freien Platz auf der Wiese.", "reward": {"beeren": 30, "stein": 12}, "hint": "Am Handy danach auf Hier bauen.", "check": {"type": "building", "what": "lager", "n": 1, "any": true}, "point": "build"},
-    {"id": "t_builder_need", "text": "Nur ein Baumeister baut das Lagerhaus.", "hint": "Gib darum einem Siedler diesen Beruf.", "check": {"type": "action", "kind": "next"}},
-    {"id": "t_settlers_open", "text": "Tippe unten auf Siedler.", "check": {"type": "action", "kind": "panel", "what": "siedler"}, "point": "settler_btn"},
-    {"id": "t_settlers_menu", "text": "Hier siehst du alle Siedler.", "hint": "Jede Zeile zeigt Name, Alter, Beruf und Zustand.", "check": {"type": "action", "kind": "next"}, "point": "settler_head"},
-    {"id": "t_job_open", "text": "Tippe auf den Beruf, auf den der Pfeil zeigt.", "check": {"type": "action", "kind": "job_list", "or_job": "baumeister"}, "point": "job"},
-    {"id": "t_builder", "close_after": true, "text": "Wähle in der Liste Baumeister.", "reward": {"holz": 20}, "check": {"type": "job", "what": "baumeister", "n": 1}, "point": "job"},
-    {"id": "t_hut_done", "text": "Warte, bis das Lagerhaus steht.", "reward": {"settlers": 1, "buildings": ["huette"]}, "hint": "Mit den Pfeilen oben rechts geht die Zeit schneller.", "check": {"type": "building", "what": "lager", "n": 1}},
-    {"id": "t_research_open", "text": "Tippe unten auf Forschung.", "check": {"type": "action", "kind": "panel", "what": "forschung"}, "point": "research_btn"},
-    {"id": "t_ages", "text": "Die Forschung ist nach Zeitaltern geordnet.", "hint": "Ein neues Zeitalter beginnt nach einer Prüfung.", "check": {"type": "action", "kind": "next"}, "point": "age_tab"},
-    {"id": "t_row", "text": "Starte Flechtkörbe mit dem Knopf rechts.", "hint": "Das Holz dafür schenke ich dir.", "gift": {"holz": 12}, "check": {"type": "tech_started", "what": "flechtkoerbe"}, "point": "tech_btn", "reward": {"settlers": 1}},
-    {"id": "t_research_close", "text": "Schließe die Forschung mit dem X.", "check": {"type": "no_panel"}, "point": "close"},
-    {"id": "t_settlers_open2", "text": "Tippe unten auf Siedler.", "check": {"type": "action", "kind": "panel", "what": "siedler"}, "point": "settler_btn"},
-    {"id": "t_researcher", "text": "Mache einen Siedler zum Forscher.", "reward": {"techs": ["flechtkoerbe"]}, "hint": "Ohne Forscher geht die Forschung kaum voran.", "check": {"type": "job", "what": "forscher", "n": 1}, "point": "job"},
-    {"id": "t_child", "text": "Kinder müssen erst wachsen.", "hint": "Erst als Erwachsene bekommen sie einen Beruf.", "check": {"type": "action", "kind": "next"}, "point": "child"},
-    {"id": "t_death", "text": "Siedler sterben an Alter, Hunger, Kälte oder Krankheit.", "hint": "Sorge für Essen und Holz und besetze freie Berufe neu.", "check": {"type": "action", "kind": "next"}}
+    {"id": "n_store", "idle": true, "spots": true, "text": "Baue euer erstes Lager.", "hint": "Helle Flächen passen gut. Den Platz bestimmst du.", "btn": {"text": "Lager bauen", "do": "place", "what": "lager"}, "reward": {"beeren": 30, "stein": 12}, "check": {"type": "building", "what": "lager", "n": 1, "any": true}},
+    {"id": "n_builder", "idle": true, "text": "Der Bauplatz steht. Jetzt braucht er einen Baumeister.", "btn": {"text": "{b} als Baumeister einsetzen", "do": "job", "what": "baumeister", "who": "b"}, "reward": {"holz": 20}, "point": "who_b", "check": {"type": "job", "what": "baumeister", "n": 1}},
+    {"id": "n_gather", "idle": true, "text": "Während {b} baut, kann {o} Nahrung sammeln.", "hint": "Tippe {o} an.", "point": "who_o", "pick": [{"job": "sammler", "text": "Beeren sammeln"}, {"job": "fischer", "text": "Fischen gehen"}], "check": {"type": "jobs_any", "what": ["sammler", "fischer"], "n": 1}},
+    {"id": "n_food_wait", "text": "{o} läuft los und bringt Nahrung zurück.", "hint": "Das geschieht, weil du es entschieden hast.", "check": {"type": "food_in"}},
+    {"id": "n_food", "text": "Das ist eure Nahrung.", "hint": "In Klammern steht, wie viele Tage sie reicht.", "point": "top_food", "check": {"type": "action", "kind": "next"}},
+    {"id": "n_store_done", "show": ["siedler"], "text": "Warte, bis das Lager steht.", "hint": "Mit den Pfeilen oben rechts vergeht die Zeit schneller.", "check": {"type": "building", "what": "lager", "n": 1}},
+    {"id": "n_choice", "show": ["siedler", "bauen"], "choice": true, "text": "Das Lager steht. Was möchtest du als Nächstes?", "check": {"type": "choice"}}
   ],
+  "branches": {
+    "wohnen": {"name": "Mehr Wohnraum", "desc": "Eine Hütte bauen. Neue Siedler ziehen ein.", "steps": [
+      {"id": "w_place", "show": ["bauen"], "text": "Baue eine zweite Hütte.", "hint": "Tippe unten auf Bauen und bei der Hütte auf den Hammer.", "gift": {"holz": 16}, "point": "build", "check": {"type": "building", "what": "huette", "n": 2, "any": true}},
+      {"id": "w_pop", "text": "Das sind eure Siedler und Wohnplätze.", "hint": "Kinder und neue Siedler kommen nur, wenn Wohnplätze frei sind.", "point": "top_pop", "check": {"type": "action", "kind": "next"}},
+      {"id": "w_done", "warn": true, "text": "Warte, bis die Hütte steht.", "hint": "Gebaut wird nur, wenn jemand Baumeister ist.", "reward": {"settlers": 2}, "check": {"type": "building", "what": "huette", "n": 2}}
+    ]},
+    "versorgung": {"name": "Sichere Versorgung", "desc": "Zwei Siedler sorgen für Nahrung.", "steps": [
+      {"id": "v_jobs", "close_after": true, "show": ["siedler"], "text": "Lass zwei Siedler für Nahrung sorgen.", "hint": "Tippe unten auf Siedler und dann auf einen Beruf. Fisch gibt es das ganze Jahr.", "reward": {"fisch": 15, "holz": 10}, "point": "job_food", "check": {"type": "jobs_any", "what": ["sammler", "fischer"], "n": 2}}
+    ]},
+    "forschung": {"name": "Erste Verbesserung", "desc": "Flechtkörbe erforschen. Sammler tragen mehr.", "steps": [
+      {"id": "f_start", "show": ["forschung"], "text": "Forschung bringt neue Werkzeuge und Gebäude.", "hint": "Tippe unten auf Forschung und starte Flechtkörbe. Das Holz dafür schenke ich dir.", "gift": {"holz": 12}, "point": "tech_btn", "check": {"type": "tech_started", "what": "flechtkoerbe"}},
+      {"id": "f_researcher", "close_after": true, "show": ["forschung", "siedler"], "text": "Mache einen Siedler zum Forscher.", "hint": "Ohne Forscher geht die Forschung kaum voran.", "reward": {"techs": ["flechtkoerbe"]}, "point": "job", "check": {"type": "job", "what": "forscher", "n": 1}}
+    ]}
+  },
   "milestones": [
     {"id": "m_fischer", "text": "Mache einen Siedler zum Fischer.", "hint": "Fisch macht sehr satt und gibt es das ganze Jahr.", "check": {"type": "job", "what": "fischer", "n": 1}, "reward": {"holz": 10}},
     {"id": "m_schreib", "text": "Baue eine Schreibstube.", "hint": "Bauen, Reiter Wissen. Dort forschen Forscher doppelt so schnell.", "check": {"type": "building", "what": "schreibstube", "n": 1}, "reward": {"stein": 8}},

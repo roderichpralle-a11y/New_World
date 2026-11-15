@@ -1064,83 +1064,90 @@ func _autotest_store() -> void:
 	world.store_limits = {}
 
 
-## Spielt die Einfuehrung durch, wie es ein Spieler tun wuerde.
+## Spielt den Spielstart durch, wie es ein Spieler tun wuerde (--tuttest=1, ohne Klicks).
 func _autotest_tutorial() -> void:
-	var g: Dictionary = hud.goal_card.current()
-	print("   Ziel: ", g.id, " ", hud.goal_card.progress(g), " tut=", Game.goals.tut, " ms=", Game.goals.ms)
+	var gc = hud.goal_card
+	var g: Dictionary = gc.current()
+	print("   Ziel: ", g.id, " ", gc.progress(g), " tut=", Game.goals.tut, " br=", Game.goals.get("br", {}), " ms=", Game.goals.ms)
+	if not gc.in_tutorial():
+		return
+	if g.get("choice", false):
+		for id in Data.goals.branches:
+			if not id in gc._br().done:
+				gc._choose(id)
+				return
 	match g.id:
-		"t_build_open":
-			Game.player_action.emit("panel", "bauen")
-		"t_settlers_open":
-			Game.player_action.emit("panel", "siedler")
-		"t_research_open":
-			Game.player_action.emit("panel", "forschung")
-		"t_builder":
-			world.settlers[1].set_job("baumeister")
-		"t_researcher":
-			world.settlers[1].set_job("forscher")
-		"t_job_open":
-			Game.player_action.emit("job_list", "")
-		"t_stock_open":
-			Game.player_action.emit("panel", "lager")
-		"t_hut_pick":
-			Game.player_action.emit("place", "lager")
-		"t_settlers_open2":
-			Game.player_action.emit("panel", "siedler")
-		"t_hut_place":
-			for rad in range(3, 12):
-				for dy in range(-rad, rad + 1):
-					for dx in range(-rad, rad + 1):
-						var cc := world.center + Vector2i(dx, dy)
-						if not world.is_placing() and hud.goal_card.current().id == g.id and world.can_place("lager", cc) and _roomy("lager", cc):
-							world.start_placement("lager", world.cell_to_pos(cc))
-							world.move_placement(world.cell_to_pos(cc))
-							print("   platziert: ", world.confirm_placement())
-							return
-		"t_row":
+		"n_store", "w_place":
+			var type: String = g.check.what
+			for cc in world.good_spots(type, 1):
+				if not world.is_placing():
+					world.start_placement(type, world.cell_to_pos(cc))
+					world.move_placement(world.cell_to_pos(cc))
+					print("   platziert: ", world.confirm_placement())
+		"n_builder":
+			gc._do_act()
+		"n_gather":
+			gc._who("o").set_job("sammler")
+		"v_jobs":
+			for s in world.settlers:
+				if s.is_adult() and not s.job in ["sammler", "fischer", "baumeister"]:
+					s.set_job("fischer")
+					return
+			gc._who("b").set_job("fischer")
+		"f_start":
 			Game.start_research("flechtkoerbe")
-		"t_hut_done":
-			Game.set_speed(3)
-			Engine.time_scale = 10.0
+		"f_researcher":
+			gc._who("b").set_job("forscher")
+		"w_done":
+			if not world.settlers.any(func(x): return x.job == "baumeister"):
+				gc._who("b").set_job("baumeister")
 		_:
 			if g.get("check", {}).get("kind", "") == "next":
 				Game.player_action.emit("next", g.id)
 
 
-## Testhilfe --tutclick=1 (josh 2026-10-29): spielt die Einführung wie ein Mensch. Jeder Schritt wird mit einem
-## Klick genau auf die Pfeilspitze erledigt (bzw. auf Weiter); trifft der Pfeil daneben, geht es nicht weiter und
-## der Test meldet FEHLER. --shotdir=<Ordner> legt je Schritt ein Bild ab. Mit --resolution=402x874 wie am Handy.
+## Testhilfe --tutclick=1 (josh 2026-10-29, neuer Spielstart 2026-11-15): spielt den Spielstart wie ein Mensch,
+## nur mit Klicks: Knopf auf der Karte, heller Bauplatz, Siedler antippen, Auswahl, Pfeilspitze, Weiter. Geht ein
+## Schritt nach dem Klick nicht weiter, meldet der Test FEHLER. --shotdir=<Ordner> legt je Schritt ein Bild ab.
+## Mit --resolution=402x874 wie am Handy; --intro=1 lässt die beiden wie im echten Spiel ohne Beruf warten.
 func _tut_click_run(dir: String) -> void:
 	Engine.time_scale = 1.0
 	var gc = hud.goal_card
-	var n: int = Data.goals.tutorial.size()
 	var fails := 0
-	var last := -1
+	var last := ""
 	var tries := 0
+	var shot := 0
+	var waits := ["n_food_wait", "n_store_done", "w_done"]
 	while gc.in_tutorial() and tries < 400:
 		tries += 1
 		await get_tree().create_timer(0.7, true, false, true).timeout
 		await RenderingServer.frame_post_draw
-		var t := int(Game.goals.tut)
-		if gc.current().id != "t_hut_done":
-			Engine.time_scale = 1.0
 		var g: Dictionary = gc.current()
-		if t != last:
-			last = t
+		var key: String = str(g.id) + str(gc._br().done.size())
+		Engine.time_scale = 8.0 if g.id in waits else 1.0
+		if g.id in waits:
+			Game.set_speed(3)
+		if key != last:
+			last = key
 			tries = 0
+			shot += 1
 			if dir != "":
 				await get_tree().create_timer(0.8, true, false, true).timeout
 				await RenderingServer.frame_post_draw
-				get_viewport().get_texture().get_image().save_png("%s/schritt_%02d.png" % [dir, t + 1])
-			print("SCHRITT %d/%d %s: %s | %s" % [t + 1, n, g.id, tr(g.text), tr(g.get("hint", ""))])
-		var ptr: Control = gc._pointer
+				get_viewport().get_texture().get_image().save_png("%s/schritt_%02d_%s.png" % [dir, shot, g.id])
+			print("SCHRITT %s: %s | %s" % [g.id, gc._text.text, gc._hint.text.replace("\n", " / ")])
+		if tries > 25 and not g.id in waits:
+			print("FEHLER: Schritt %s geht nicht weiter" % g.id)
+			fails += 1
+			break
 		var popup_ob: OptionButton = null
 		for ob in hud._settler_list.find_children("*", "OptionButton", true, false):
 			if ob.get_popup().visible:
 				popup_ob = ob
 		if popup_ob:
 			# Berufsliste offen: den gewünschten Beruf antippen
-			var want: String = Data.jobs.get(g.get("check", {}).get("what", "baumeister"), {}).get("name", "")
+			var wj: String = "fischer" if g.id == "v_jobs" else str(g.get("check", {}).get("what", "baumeister"))
+			var want: String = Data.jobs.get(wj, {}).get("name", "")
 			for i in popup_ob.item_count:
 				if popup_ob.get_item_text(i) == want:
 					popup_ob.get_popup().hide()
@@ -1148,40 +1155,53 @@ func _tut_click_run(dir: String) -> void:
 					popup_ob.item_selected.emit(i)
 					print("   Beruf gewählt: ", want)
 			continue
+		var picks: Array = hud._info_box.find_children("Pick_*", "Button", true, false) if hud._info_panel.visible else []
+		if not picks.is_empty():
+			if dir != "":
+				get_viewport().get_texture().get_image().save_png("%s/schritt_%02d_%s_auswahl.png" % [dir, shot, g.id])
+			print("   Auswahl: ", picks.map(func(b): return b.text))
+			_click(picks[0].get_global_rect().get_center())
+			continue
+		if world.is_placing():
+			if dir != "" and tries <= 2:
+				get_viewport().get_texture().get_image().save_png("%s/schritt_%02d_%s_platz.png" % [dir, shot, g.id])
+			var cells: Array = world._spots if not world._spots.is_empty() else world.good_spots(world._placing, 1)
+			print("   helle Bauplätze: ", world._spots.size())
+			if not cells.is_empty():
+				var sz: Array = Data.buildings[world._placing].size
+				_click(world.get_global_transform_with_canvas() * (world.cell_to_pos(cells[0]) + Vector2(int(sz[0]) - 1, int(sz[1]) - 1) * 8.0))
+			continue
+		if gc._choices.visible and gc._choices.is_visible_in_tree():
+			var cb: Array = gc._choices.find_children("Choice_*", "Button", true, false)
+			print("   Wahl: ", cb.map(func(b): return b.text))
+			_click(cb[0].get_global_rect().get_center())
+			continue
+		if gc._act.visible and gc._act.is_visible_in_tree() and not gc._act.disabled:
+			print("   Knopf: ", gc._act.text)
+			_click(gc._act.get_global_rect().get_center())
+			continue
 		if gc._next.visible and gc._next.is_visible_in_tree():
 			_click(gc._next.get_global_rect().get_center())
 			continue
+		if g.id == "n_gather":
+			var who = gc._who("o")
+			_click(who.get_global_transform_with_canvas().origin - Vector2(0, 8.0 * camera.zoom.y))
+			continue
+		var ptr: Control = gc._pointer
 		if ptr.visible:
 			var tip: Vector2 = ptr.position + (Vector2(15, 1) if ptr.flip_v else Vector2(15, 29))
 			var hit := _control_at(tip)
 			print("   Pfeil auf ", hit.name if hit else "Karte", " (", hit.get_class() if hit else "", ") bei ", tip)
 			_click(tip)
-			if tries > 1:
-				fails += 1
-				print("FEHLER: Schritt %d geht nach Klick auf die Pfeilspitze nicht weiter" % (t + 1))
-				break
 			continue
-		match g.id:
-			"t_hut_place":
-				for rad in range(3, 12):
-					var done := false
-					for dy in range(-rad, rad + 1):
-						for dx in range(-rad, rad + 1):
-							var cc := world.center + Vector2i(dx, dy)
-							if not done and world.can_place("lager", cc) and _roomy("lager", cc):
-								_click(world.get_global_transform_with_canvas() * world.cell_to_pos(cc))
-								done = true
-					if done:
-						break
-			"t_hut_done":
-				Engine.time_scale = 8.0
-				Game.set_speed(3)
-			_:
-				if tries > 20:
-					print("FEHLER: Schritt %d ohne Pfeil und ohne Weiter" % (t + 1))
-					fails += 1
-					break
 	Engine.time_scale = 1.0
+	await get_tree().create_timer(1.5, true, false, true).timeout
+	await RenderingServer.frame_post_draw
+	if dir != "":
+		get_viewport().get_texture().get_image().save_png("%s/schritt_99_ende.png" % dir)
+	var w = Game.world
+	print("ENDE: Siedler %d, Hütten %d, Lagerhaus %d, erforscht %s, Berufe %s" % [w.settlers.size(), w.buildings.filter(func(b): return b.type == "huette" and b.complete).size(),
+		w.buildings.filter(func(b): return b.type == "lager" and b.complete).size(), str(Game.research.done), str(w.settlers.map(func(x): return x.job))])
 	print("EINFUEHRUNG ", "FERTIG" if not gc.in_tutorial() else "ABGEBROCHEN", ", Fehler: ", fails)
 
 
