@@ -29,6 +29,7 @@ var isl: Dictionary = {}  # Insel-ID (Text) -> Schritt der Anleitung für neue I
 var _seed := false  # beim nächsten Prüfen alles, was schon gilt, ohne Fenster als gesehen merken
 var _next := 0.0
 var _off := false  # Selbsttest ohne --hinttest
+var _test := false  # --hinttest: Fenster auch während des Spielstarts
 
 
 func _ready() -> void:
@@ -36,6 +37,7 @@ func _ready() -> void:
 	texts.erase("_info")
 	var a := " ".join(OS.get_cmdline_user_args())
 	_off = a.contains("--autotest") and not a.contains("--hinttest")
+	_test = a.contains("--hinttest")
 	Game.register_system(self)
 	Game.state_reset.connect(_on_reset)
 	Game.state_save.connect(func(data: Dictionary): data["hints"] = {"seen": seen.keys(), "isl": isl.duplicate()})
@@ -71,6 +73,8 @@ func _on_load(data: Dictionary, _old_rules: int) -> void:
 
 func _process(_delta: float) -> void:
 	if _off or Game.world == null or Game.is_over or not Game.notes_live:
+		return
+	if Quests.in_tutorial() and not _test:  # neuer Spielstart (josh 2026-11-15): Hinweis-Fenster erst danach
 		return
 	var now := Time.get_ticks_msec() / 1000.0
 	if now < _next:

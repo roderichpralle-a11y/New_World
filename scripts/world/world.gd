@@ -331,6 +331,11 @@ func _build_terrain(island: Dictionary) -> void:
 	_ghost_sprite.centered = false
 	_ghost_sprite.modulate = Color(1, 1, 1, 0.65)
 	_ghost.add_child(_ghost_sprite)
+	_spot_layer = SpotLayer.new()
+	_spot_layer.z_index = 19
+	_spot_layer.world = self
+	_spot_layer.visible = false
+	add_child(_spot_layer)
 
 
 func _make_tileset() -> TileSet:
@@ -2130,6 +2135,71 @@ func start_placement(type: String, at_pos: Vector2) -> void:
 	_update_ghost()
 
 
+# ---------------------------------------------------------------- vorgeschlagene Bauplätze
+## Neuer Spielstart (josh 2026-11-15): beim ersten Lager leuchten einige gute Plätze nahe dem Lagerfeuer.
+## Der Spieler darf auch woanders bauen; ein Tipp in eine helle Fläche rastet dort ein.
+var _spots: Array = []  # Zellen (linke obere Ecke) für das Gebäude, das gerade gesetzt wird
+var _spot_layer: SpotLayer
+
+
+func show_spots(type: String, want: int = 4) -> void:
+	_spots = good_spots(type, want)
+	if not _spots.is_empty() and _placing == type:  # die Vorschau beginnt auf dem nächsten guten Platz
+		_ghost_cell = _spots[0]
+		_update_ghost()
+	_spot_layer.sz = Vector2i(int(Data.buildings[type].size[0]), int(Data.buildings[type].size[1]))
+	_spot_layer.visible = not _spots.is_empty()
+
+
+func hide_spots() -> void:
+	_spots = []
+	if _spot_layer != null:
+		_spot_layer.visible = false
+
+
+## Bis zu want freie Plätze rund um die Mitte, mit einer Zelle Abstand zu Gebäuden und Abstand voneinander.
+func good_spots(type: String, want: int = 4) -> Array:
+	var sz := Vector2i(int(Data.buildings[type].size[0]), int(Data.buildings[type].size[1]))
+	var out: Array = []
+	for rad in range(3, 8):
+		for dy in range(-rad, rad + 1):
+			for dx in range(-rad, rad + 1):
+				if maxi(absi(dx), absi(dy)) != rad or out.size() >= want:
+					continue
+				var c: Vector2i = center + Vector2i(dx, dy)
+				if not can_place(type, c):
+					continue
+				var roomy := true
+				for y in range(-1, sz.y + 2):
+					for x in range(-1, sz.x + 1):
+						if building_at.has(c + Vector2i(x, y)):
+							roomy = false
+				for o in out:
+					if absi(o.x - c.x) < sz.x + 3 and absi(o.y - c.y) < sz.y + 3:
+						roomy = false
+				if roomy:
+					out.append(c)
+	return out
+
+
+class SpotLayer extends Node2D:
+	var world
+	var sz := Vector2i(3, 2)
+	var _t := 0.0
+
+	func _process(delta: float) -> void:
+		if visible:
+			_t += delta / maxf(Engine.time_scale, 0.001) if Engine.time_scale > 0.0 else 1.0 / 60.0
+			queue_redraw()
+
+	func _draw() -> void:
+		var a := 0.5 + 0.5 * sin(_t * 4.0)
+		for c in world._spots:
+			var r := Rect2(Vector2(c.x * 16 - 8, c.y * 16 - 8), Vector2(sz) * 16.0)
+			draw_rect(r, Color(1.0, 0.95, 0.55, 0.22 + 0.18 * a))
+			draw_rect(r.grow(-0.5), Color(1.0, 0.98, 0.75, 0.6 + 0.4 * a), false, 1.5)
+
+
 ## Verschieben: wie Bauen, nur mit einem fertigen Gebaeude.
 func start_move(b: Building) -> void:
 	start_placement(b.type, b.position)
@@ -2151,6 +2221,10 @@ func move_placement(at_pos: Vector2) -> void:
 	var def: Dictionary = Data.buildings[_placing]
 	var sz := Vector2i(int(def.size[0]), int(def.size[1]))
 	_ghost_cell = pos_to_cell(at_pos - (Vector2(sz) - Vector2.ONE) * 8.0)
+	var tap := pos_to_cell(at_pos)
+	for c in _spots:  # Tipp in eine helle Fläche: dort einrasten
+		if Rect2i(c, sz).has_point(tap):
+			_ghost_cell = c
 	_update_ghost()
 
 
@@ -2218,6 +2292,7 @@ func cancel_placement() -> void:
 		_move_b.modulate.a = 1.0
 	_move_b = null
 	_placing = ""
+	hide_spots()
 	_ghost.visible = false
 	placement_changed.emit(false, "", false)
 
