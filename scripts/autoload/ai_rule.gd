@@ -38,7 +38,8 @@ func _ready() -> void:
 
 
 func ki() -> bool:
-	return Game.is_researched("ki")
+	# Mit der lernenden KI für das ganze Spiel (josh 2026-11-15) übernimmt die feste Regel-KI nicht mehr
+	return Game.is_researched("ki") and not (KiBrain.train_all or KiBrain.unlock_list)
 
 
 func si() -> bool:

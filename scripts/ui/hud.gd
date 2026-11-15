@@ -3484,6 +3484,14 @@ func _info_building(b: Building) -> void:
 		_info_lodge(b)
 	if b.def.has("upgrade"):
 		_info_upgrade(b)
+	if not b.def.has("tile") and KiBrain.available and KiBrain.on:
+		# Nur Spieler (josh 2026-11-15): die KI lässt dieses Gebäude in Ruhe (kein Ausbau, Abriss, Versetzen, Anhalten)
+		var po := UiTheme.button(tr("Steuerung: nur Spieler") if b.player_only else tr("Steuerung: KI darf"), "person", 34)
+		po.tooltip_text = tr("Nur Spieler: Die KI baut dieses Gebäude nicht aus, versetzt es nicht, reißt es nicht ab und hält es nicht an.")
+		po.pressed.connect(func():
+			b.player_only = not b.player_only
+			_rebuild_info())
+		_info_box.add_child(po)
 	if not b.def.has("tile"):  # Straßen, Deiche, Pflanzstellen: neu bauen statt verschieben
 		var mv := UiTheme.button(tr("Verschieben"), "hammer", 36)
 		mv.tooltip_text = tr("Stellt das Gebäude an einen anderen Platz. Vorräte, Bewohner und Baufortschritt ziehen mit.")

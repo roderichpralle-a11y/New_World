@@ -20,6 +20,8 @@ static func setup() -> void:
 	var cf := ConfigFile.new()
 	if cf.load(SETTINGS_PATH) == OK:
 		language = str(cf.get_value("game", "language", "en"))
+	if OS.has_environment("KI_LANG"):
+		language = OS.get_environment("KI_LANG")  # Training: Namen und Verlauf auf Deutsch, ohne Einstellungsdatei
 	if not LANGUAGES.has(language):
 		language = "en"
 	var f := FileAccess.open("res://data/i18n/en.json", FileAccess.READ)

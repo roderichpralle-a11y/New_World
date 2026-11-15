@@ -140,6 +140,10 @@ def main():
         if tag == "start":
             for si in per:
                 base[si] = max(1.0, sum(per[si]) / len(per[si]))
+            # Stände, die im Startlauf fast aussterben, nicht mit winzigem Nenner überbewerten
+            med = sorted(base)[len(base) // 2]
+            for si in range(len(base)):
+                base[si] = max(base[si], 0.25 * med)
         sc = [r[0] for r in rs if r[0] is not None]
         mean = sum(sum(v) / len(v) / base[si] for si, v in per.items()) / max(1, len(per)) * 1000.0  # 1000 = Startstand
         parts = {}

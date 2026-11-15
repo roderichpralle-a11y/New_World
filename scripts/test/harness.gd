@@ -99,6 +99,15 @@ func _ki_train_setup(args: Dictionary) -> void:
 	if args.has("kibuild"):  # Trainingshilfe: fertige Gebäude einsetzen (z. B. Schmelzofen), Liste mit Kommas
 		for t in str(args.kibuild).split(","):
 			_ki_place(t)
+	if args.has("kinames"):  # Trainer fragt ab, welche Zeilen die Gewichte haben müssen
+		var nf := FileAccess.open(str(args.kinames), FileAccess.WRITE)
+		nf.store_string(JSON.stringify({"jobs": KiBrain.JOBS, "acts": KiActs.names(), "features": KiBrain.FEATURES,
+			"act_x": KiBrain.ACT_X, "tech_f": KiBrain.TECH_F, "groups": KiActs.names().map(func(n): return KiActs.group(n)),
+			"unlock": KiActs.unlock_rows(), "techs_total": Data.sorted_tech_ids().size(), "ages": Data.ages.map(func(x): return x.name),
+			"job_names": KiBrain.JOBS.map(func(j): return Data.jobs[j].name), "act_names": KiActs.names().map(func(n): return Data.buildings[n.substr(4)].name if n.begins_with("bau:") else n)}))
+		nf.close()
+	if args.has("kifull"):  # ganzes Spiel (josh 2026-11-15): alles freigeschaltet, die KI steuert allein
+		KiBrain.train_all = true
 	KiBrain.set_on(not args.has("kioff"))
 	KiBrain.built_log = {}
 	if args.has("kibuildtest"):  # Selbsttest der Bau-Handlungen (josh 2026-11-11): jede einmal versuchen
@@ -169,13 +178,56 @@ func _ki_train_finish(args: Dictionary) -> void:
 	var res := {"score": KiBrain.score_total, "days": KiBrain.score_log, "jobs": jobs, "seed": int(args.get("kiseed", "1")),
 		"research": Game.research.done.slice(maxi(0, Game.research.done.size() - 5)), "current": Game.research.current,
 		"produced": Admin.produced.duplicate(true), "eaten": Game.eaten.duplicate(true) if Game.eaten is Dictionary else {}, "stock": world.stock.duplicate(),
-		"built": KiBrain.built_log.duplicate(), "buildings": world.buildings.size(), "pop": Game.population()}
+		"built": KiBrain.built_log.duplicate(), "buildings": world.buildings.size(), "pop": Game.population(),
+		"age": Game.current_age(), "age_name": Data.age_name(Game.current_age()), "age_days": Exams.days.duplicate(),
+		"techs": Game.research.done.duplicate(), "goal": KiBrain.goal_done, "over": Game.is_over, "stalled": _ki_stalled,
+		"day": Game.time_days, "islands": Sea.settled_islands().size(), "droids": Droids.count(),
+		"trace": KiBrain.trace_log.duplicate(), "types": _ki_types()}
 	var out := str(args.get("kiout", ""))
 	if out != "":
 		var f := FileAccess.open(out, FileAccess.WRITE)
 		f.store_string(JSON.stringify(res))
 		f.close()
 	print("KITRAIN Ende ", JSON.stringify(res))
+
+
+## Gebäude aller Inseln nach Art gezählt (fertige).
+func _ki_types() -> Dictionary:
+	var out := {}
+	for w in Sea.all_worlds():
+		for b in w.buildings:
+			if b.complete and not b.def.has("tile") and not b.def.has("decor"):
+				out[b.def.name] = int(out.get(b.def.name, 0)) + 1
+	return out
+
+
+## Training: je Spieltag eine Zeile Fortschritt in die Datei --kiprog (die Oberfläche zeigt sie an).
+var _ki_prog_day := -1
+var _ki_mark := -1
+var _ki_mark_day := 0
+var _ki_stalled := false
+
+func _ki_progress(args: Dictionary) -> void:
+	var d := KiBrain.score_log.size()
+	if d == _ki_prog_day:
+		return
+	_ki_prog_day = d
+	# Stillstand (--kistall=Tage): kein neues Gebäude, keine neue Forschung, nicht mehr Siedler -> Spiel beenden
+	var mark: int = Game.research.done.size() * 1000 + Sea.total_people()
+	for w in Sea.all_worlds():
+		mark += w.buildings.filter(func(b): return b.complete and not b.def.has("tile")).size() * 7
+	if mark != _ki_mark:
+		_ki_mark = mark
+		_ki_mark_day = d
+	_ki_stalled = args.has("kistall") and d - _ki_mark_day >= int(args.kistall)
+	if not args.has("kiprog"):
+		return
+	var f := FileAccess.open(str(args.kiprog), FileAccess.WRITE)
+	if f:
+		f.store_string(JSON.stringify({"day": d, "pop": Game.population(), "age": Data.age_name(Game.current_age()),
+			"techs": Game.research.done.size(), "islands": Sea.settled_islands().size(), "score": KiBrain.score_total,
+			"research": Data.techs[Game.research.current].name if Game.research.current != "" else "", "droids": Droids.count()}))
+		f.close()
 
 
 ## Testhilfe --fixture=<pfad>: alten Spielstand vor dem Laden in den aktiven Platz kopieren
@@ -543,7 +595,9 @@ func _maybe_autotest() -> void:
 					", ".join(ks.map(func(k): return "%s %d" % [k, cnt[k]]))])
 		if args.has("kiauto"):
 			_ki_train_auto()
-		if args.has("kitrain") and KiBrain.score_log.size() >= int(args.get("kidays", "3")):
+		if args.has("kitrain"):
+			_ki_progress(args)
+		if args.has("kitrain") and (KiBrain.score_log.size() >= int(args.get("kidays", "3")) or Game.is_over or KiBrain.goal_done or _ki_stalled):
 			_ki_train_finish(args)
 			break
 		if args.has("foodsim"):

@@ -9,8 +9,13 @@ extends Node
 ## Die KI vergibt nur Produktionsberufe (JOBS). Verwalter, Seeleute und Forscher fasst sie nie an; Baumeister nach
 ## einer festen Regel (Baustellen). Vom Spieler eingeteilte Siedler bleiben, Freie nimmt sie immer.
 
-const JOBS := ["holzfaeller", "steinmetz", "sammler", "fischer", "bauer", "koch", "handwerker", "jaeger", "forscher"]
-const FEATURES := 66
+const JOBS := ["holzfaeller", "steinmetz", "sammler", "fischer", "bauer", "koch", "handwerker", "jaeger", "forscher", "foerster", "frei"]
+const OLD_JOBS := 9      # so viele Berufe kennen die Gewichte bis 3.0.19; Förster und „frei“ nur mit neuen Gewichten
+const FEATURES := 96
+## Ganzes Spiel (josh 2026-11-15): jede Handlung aus KiActs.names() hat eine Zeile mit FEATURES + ACT_X Gewichten
+## (die letzten ACT_X Eingänge beschreiben die Handlung selbst, z. B. wie viele Gebäude dieser Art schon stehen).
+const ACT_X := 4
+const TECH_F := 12       # Eingänge der Forschungswahl (KiActs.tech_features)
 ## Bau-Handlungen (josh 2026-11-11, Stufe 1 des Plans): je eine Zeile Gewichte. Gelernt wird, WAS und WANN gebaut
 ## wird; WO, sucht das Spiel (Planner.spot, Straßen auf den meistbegangenen Feldern). „Nichts“ hat den Wert 0.
 const BUILD_ACTS := ["haus", "ausbau", "lager", "feld", "obstgarten", "strasse", "werft", "schiff", "erkunden", "besiedeln"]
@@ -35,6 +40,10 @@ const ISLAND_PTS := 20.0         # je bewohnter Nebeninsel und Tag
 const SUPPLY_PTS := 1.0          # je Erz oder Kohle, das ein Schiff auf einer Insel ablädt
 const WORK_PTS := 20.0           # je Tag mal Anteil der Erwachsenen, die gerade in ihrem Beruf arbeiten
 const SAMPLE_DAYS := 0.25
+# Ziel des ganzen Spiels (josh 2026-11-15: „bis alles erforscht und die Zukunftsstadt gebaut ist“, „Droiden, bis alle
+# Menschen frei sind“). Diese zwei Werte hat Claude gesetzt, josh kann sie ändern.
+const GOAL_PTS := 20000.0        # einmal, wenn die Zukunftsstadt fertig steht
+const DROID_PTS := 2.0           # je Tag und arbeitendem Droiden
 
 var on := false             # Schalter im Fenster Verwalter (Spielstand)
 ## Im Browser nur mit ?ki in der Adresse (josh 2026-11-07: /v21test2/ ohne „Berufe vergeben“, die KI unter
@@ -43,7 +52,15 @@ var available := true
 var v3 := false        # Version 3 (josh 2026-11-08): die KI-Fassung unter /v3/, KI immer verfügbar und anfangs an
 var _kept_on := false  # Schalter aus dem Spielstand, solange die KI hier nicht verfügbar ist (bleibt beim Speichern erhalten)
 var weights: Array = []     # JOBS.size() Zeilen mit FEATURES Zahlen
-var bweights: Array = []    # BUILD_ACTS.size() Zeilen mit FEATURES Zahlen (leer = die KI baut nichts selbst)
+var job_rows := OLD_JOBS    # so viele Berufe-Zeilen standen in der Datei (die übrigen Berufe vergibt die KI nicht)
+var aweights: Dictionary = {}   # Handlung -> Zeile mit FEATURES + ACT_X Zahlen (leer = die KI baut nichts selbst)
+var tweights: Array = []    # TECH_F Zahlen für die Wahl der Forschung (leer = feste Reihenfolge der Liste)
+## Training: alles freigeschaltet, die KI steuert das ganze Spiel allein (--kifull=1). Im Spiel gilt die
+## Freischalt-Liste KiActs.UNLOCK: jedes Gebäude gibt der KI eine Gruppe von Entscheidungen frei.
+var train_all := false
+var unlock_list := false    # Freischalt-Liste anwenden (Version 3 mit neuen Gewichten)
+var trace_log: Array = []   # [Tag, Insel, Text] der letzten Entscheidungen (Training: Verlauf in der Oberfläche)
+var goal_done := false      # Zukunftsstadt steht (Training: Spiel zu Ende)
 var built_log: Dictionary = {}  # Handlung -> Anzahl (Training, Anzeige)
 var _bnext: Dictionary = {}     # Insel-ID -> Spieltag der nächsten Bau-Entscheidung
 var _last_build: Dictionary = {}  # Insel-ID -> Spieltag des letzten eigenen Baus
@@ -101,17 +118,52 @@ func _load_weights(path: String) -> bool:
 			row.append(0.0)
 		out.append(row)
 	weights = out
-	bweights = []
-	if d.get("b") is Array and not (d.b as Array).is_empty():
-		for i in BUILD_ACTS.size():
-			var row: Array = (d.b[i] as Array).duplicate() if i < d.b.size() else []
-			while row.size() < FEATURES:
-				row.append(0.0)
-			bweights.append(row)
+	job_rows = clampi(w.size(), 1, JOBS.size())
+	aweights = {}
+	# alte Dateien: Zeilen "b" in der Reihenfolge BUILD_ACTS; neue: "a" {Handlung: Zeile}
+	if d.get("b") is Array:
+		for i in mini(BUILD_ACTS.size(), (d.b as Array).size()):
+			aweights[BUILD_ACTS[i]] = _pad_act(d.b[i])
+	if d.get("a") is Dictionary:
+		for k in d.a:
+			if d.a[k] is Array:
+				aweights[str(k)] = _pad_act(d.a[k])
+	tweights = []
+	if d.get("t") is Array and not (d.t as Array).is_empty():
+		tweights = (d.t as Array).duplicate()
+		while tweights.size() < TECH_F:
+			tweights.append(0.0)
+	unlock_list = bool(d.get("full", false))
 	brain_score = int(d.get("score", 0))
 	brain_base = int(d.get("base", 0))
 	brain_vs = int(d.get("vs_verwalter", 0))
 	return true
+
+
+## Zeile einer Handlung auf FEATURES + ACT_X bringen (alte Zeilen haben nur die Eingänge der Insel).
+func _pad_act(r) -> Array:
+	var row: Array = (r as Array).duplicate()
+	if row.size() <= FEATURES:
+		while row.size() < FEATURES:
+			row.append(0.0)
+		for _i in ACT_X:
+			row.append(0.0)
+	while row.size() < FEATURES + ACT_X:
+		row.append(0.0)
+	return row
+
+
+## Darf die KI Entscheidungen dieser Gruppe treffen? Im Training alles; im Spiel nach der Freischalt-Liste.
+func allowed(group: String) -> bool:
+	if train_all or not unlock_list:
+		return true
+	return KiActs.unlocked(group)
+
+
+func note(w, text: String) -> void:
+	trace_log.append([snappedf(Game.time_days, 0.01), Sea.island_name(w) if w != null else "", text])
+	if trace_log.size() > 4000:
+		trace_log = trace_log.slice(1000)
 
 
 func set_weights_file(path: String) -> bool:
@@ -121,7 +173,7 @@ func set_weights_file(path: String) -> bool:
 ## Steuert die KI auf dieser Insel die Berufe?
 func controls(w) -> bool:
 	return on and available and not weights.is_empty() and w != null and is_instance_valid(w) \
-		and (Sea.is_main(w) or Powers.covers(w))  # Nebeninseln nur mit Rundfunkanstalt hier und dort (josh 2026-11-07)
+		and (Sea.is_main(w) or Powers.covers(w)) and allowed("berufe")  # Nebeninseln nur mit Rundfunkanstalt hier und dort (josh 2026-11-07)
 
 
 func set_on(v: bool) -> void:
@@ -164,7 +216,8 @@ func _movable(s) -> bool:
 func tick(w) -> void:
 	if Sea.is_main(w):
 		research_tick()
-		build_tick(w)
+		if not aweights.has("bau:schmiede"):
+			build_tick(w)  # alte Gewichte: fehlende Werkstatt für die Forschung nach fester Regel
 	learn_build_tick(w)
 	var adults := _adults(w)
 	var pool: Array = adults.filter(func(s): return _movable(s))
@@ -186,13 +239,15 @@ func tick(w) -> void:
 				gap_job = j
 		if gap_job == "":
 			break
-		# woher: Freie, dann Berufe über dem Soll
-		var cands: Array = pool.filter(func(s): return s.job == "frei")
+		# woher: Freie (über dem Soll an Freien), dann Berufe über dem Soll
+		var cands: Array = []
+		if int(count.get("frei", 0)) > int(want.get("frei", 0)):
+			cands = pool.filter(func(s): return s.job == "frei")
 		if cands.is_empty():
 			cands = pool.filter(func(s): return s.job != gap_job and int(count.get(s.job, 0)) > int(want.get(s.job, 0)))
 		if cands.is_empty():
 			break
-		var pick = Steward._pick(w, cands, gap_job)
+		var pick = cands[0] if gap_job == "frei" else Steward._pick(w, cands, gap_job)
 		if pick == null:
 			break
 		count[pick.job] = int(count.get(pick.job, 0)) - 1
@@ -210,6 +265,8 @@ func research_tick() -> void:
 	var nx := str(Game.research.get("next", ""))
 	if nx != "" and Game.tech_state(nx) == "available":
 		target = nx
+	elif not tweights.is_empty() and allowed("forschung"):
+		target = KiActs.pick_tech()  # gelernte Wahl (josh 2026-11-15)
 	else:
 		target = ""
 		for t in Data.sorted_tech_ids():
@@ -218,6 +275,7 @@ func research_tick() -> void:
 				break
 	if target != "" and Game.start_research(target) == "":
 		Game.notify(Loc.t("KI: Forschung gestartet: %s") % Data.techs[target].name, "wissen")
+		note(Sea.main_world(), "Forschung gestartet: %s" % Data.techs[target].name)
 
 
 ## Bauen für die Forschung (josh 2026-11-07, Karte „KI darf auch bauen“): fehlt der Ziel-Forschung eine Ware und
@@ -325,7 +383,7 @@ func targets(w, n: int) -> Dictionary:
 		var z := 0.0
 		for k in FEATURES:
 			z += float(row[k]) * x[k]
-		if int(caps[JOBS[i]]) <= 0:
+		if i >= job_rows or int(caps[JOBS[i]]) <= 0:
 			z = -INF
 		logits.append(z)
 		best = maxf(best, z)
@@ -385,7 +443,13 @@ func targets(w, n: int) -> Dictionary:
 
 ## Wie viele Leute in jedem Beruf überhaupt Arbeit finden können.
 func capacities(w) -> Dictionary:
-	var c := {"holzfaeller": 99, "sammler": 99, "fischer": 99, "steinmetz": 0, "bauer": 0, "koch": 0, "handwerker": 0, "jaeger": 0, "forscher": 0}
+	var c := {"holzfaeller": 99, "sammler": 99, "fischer": 99, "steinmetz": 0, "bauer": 0, "koch": 0, "handwerker": 0, "jaeger": 0, "forscher": 0,
+		"foerster": 0, "frei": 99}
+	var plant := 0
+	for b in w.buildings:
+		if not b.complete and str(b.def.get("builder", "")) == "foerster":
+			plant += 1
+	c["foerster"] = ceili(plant / 8.0)
 	var researching: bool = Game.research.current != "" and Sea.is_main(w)
 	var fields := 0
 	for b in w.buildings:
@@ -548,6 +612,7 @@ func features(w) -> PackedFloat32Array:
 	var need_full: float = Extras.heat_reserve(w, true)
 	x[64] = minf(Extras.fuel(w) / maxf(1.0, need_full), 3.0)
 	x[65] = minf(maxf(0.0, Extras.fuel(w) - Extras.heat_reserve(w)) / 500.0, 3.0)
+	KiActs.more_features(w, x, n, adults.size(), beds)  # 66..95: Zeitalter, Prüfung, Droiden, Funk, Tiere, See, Waren
 	return x
 
 
@@ -569,29 +634,51 @@ func _unsettled() -> Array:
 ## wird ausgeführt, wenn ihr Wert über 0 liegt (0 = nichts tun). Erlaubt heißt: freigeschaltet, Material auf der
 ## Insel, ein Platz, höchstens MAX_KI_SITES eigene Baustellen zugleich.
 func learn_build_tick(w) -> void:
-	if bweights.is_empty():
+	if aweights.is_empty():
 		return
 	var iid := int(w.island_id)
 	if Game.time_days < float(_bnext.get(iid, 0.0)):
 		return
 	_bnext[iid] = Game.time_days + LEARN_BUILD_DAYS
+	max_sites = 2 + _adults(w).size() / 15
 	var x := features(w)
-	var best := ""
-	var best_v := 0.0
-	for i in BUILD_ACTS.size():
-		var act: String = BUILD_ACTS[i]
-		var row: Array = bweights[i]
-		var v := 0.0
-		for k in FEATURES:
-			v += float(row[k]) * x[k]
-		if v > best_v and can_act(w, act):
-			best_v = v
-			best = act
-	if best != "":
-		var res := act_build(w, best)
+	KiActs.settings_tick(w, x)  # Überstunden und Schichten: an, solange der Wert über 0 liegt
+	# alle Handlungen bewerten, die besten zuerst versuchen (höchstens 2 je Runde)
+	var vals := []
+	for act in aweights:
+		if act.begins_with("ot:") or act.begins_with("schicht:") or not allowed(KiActs.group(act)):
+			continue
+		var v := act_value(w, act, x)
+		if v > 0.0:
+			vals.append([v, act])
+	vals.sort_custom(func(a, b): return a[0] > b[0])
+	if OS.has_environment("KI_DEBUG"):
+		print("KIDBG Tag %.1f: %d über 0; %s" % [Game.time_days, vals.size(), vals.slice(0, 8).map(func(e): return "%s %.2f %s" % [e[1], e[0], can_act(w, e[1])])])
+	var done := 0
+	for e in vals:
+		if done >= 2:
+			break
+		var act: String = e[1]
+		if not can_act(w, act):
+			continue
+		var res := act_build(w, act)
 		if res != "":
-			built_log[best] = int(built_log.get(best, 0)) + 1
+			built_log[act] = int(built_log.get(act, 0)) + 1
 			_last_build[iid] = Game.time_days
+			note(w, res)
+			done += 1
+
+
+## Wert einer Handlung: Gewichte mal (Eingänge der Insel + ACT_X Eingänge der Handlung).
+func act_value(w, act: String, x: PackedFloat32Array) -> float:
+	var row: Array = aweights[act]
+	var v := 0.0
+	for k in FEATURES:
+		v += float(row[k]) * x[k]
+	var ex := KiActs.extras(w, act)
+	for k in ACT_X:
+		v += float(row[FEATURES + k]) * float(ex[k])
+	return v
 
 
 ## Felder ohne Straße, über die am meisten getragen wird: Wege von Arbeitsplätzen und Häusern zum nächsten Lager,
@@ -648,7 +735,7 @@ func _store_types() -> Array:
 
 func _upgrade_ok(w, b) -> bool:
 	var to: String = b.def.get("upgrade", "")
-	return to != "" and b.complete and Game.is_unlocked(to) and HouseNeeds.full_level(b) and Planner.missing_cost(w, to).is_empty()
+	return to != "" and b.complete and not b.player_only and Game.is_unlocked(to) and HouseNeeds.full_level(b) and Planner.missing_cost(w, to).is_empty()
 
 
 func _yard(w):
@@ -670,6 +757,8 @@ func _colonists(w) -> Array:
 
 
 func can_act(w, act: String) -> bool:
+	if not act in BUILD_ACTS:
+		return KiActs.can(w, act)
 	var site_acts := ["haus", "ausbau", "lager", "feld", "obstgarten", "strasse", "werft"]
 	if act in site_acts and _ki_sites(w) >= max_sites:
 		return false
@@ -690,7 +779,7 @@ func can_act(w, act: String) -> bool:
 			return _yard(w) == null and _affordable(w, "werft")
 		"schiff":
 			var y = _yard(w)
-			return y != null and y.ship_queue.is_empty() and y.ship_wip == "" and Sea.ships_of(int(w.island_id)).size() < 4
+			return y != null and y.ship_queue.is_empty() and y.ship_wip == "" and Sea.ships_of(int(w.island_id)).size() < 3 + Sea.settled_islands().size()
 		"erkunden":
 			return Sea.can_explore(w) == ""
 		"besiedeln":
@@ -710,6 +799,8 @@ func _place(w, type: String):
 
 ## Führt eine Bau-Handlung aus. Gibt einen kurzen Text zurück ("" = ging nicht).
 func act_build(w, act: String) -> String:
+	if not act in BUILD_ACTS:
+		return KiActs.do(w, act)
 	var txt := ""
 	match act:
 		"haus":
@@ -779,6 +870,10 @@ func act_build(w, act: String) -> String:
 					best_d = dd
 					target = m
 			var people: Array = _colonists(w).slice(0, 3)
+			# ohne Funk kann die KI drüben niemanden einteilen: die drei fahren als Sammler, Holzfäller und Fischer
+			var cj := ["sammler", "holzfaeller", "fischer"]
+			for i in people.size():
+				JobDesk.assign(people[i], cj[i % 3], "ki", 3.0, true)
 			var goods := {}
 			var wood := mini(40, Game.amount("holz", w) / 3)
 			if wood > 0:
@@ -853,6 +948,10 @@ func score_start() -> void:
 	supply_today = 0.0
 	distress_today = 0.0
 	work_today = 0.0
+	droid_today = 0.0
+	goal_today = 0.0
+	goal_done = false
+	trace_log = []
 	_age0 = Game.current_age()
 	_sample_t = Game.time_days
 	_score_t0 = Game.time_days
@@ -860,6 +959,8 @@ func score_start() -> void:
 
 
 var supply_today := 0.0
+var droid_today := 0.0
+var goal_today := 0.0
 var distress_today := 0.0
 var work_today := 0.0
 var _age0 := 0
@@ -881,8 +982,18 @@ func _sample() -> void:
 				adults += 1
 				if not s.sleeping and s._stat_kind == "job":
 					working += 1
+		# Droiden zählen wie arbeitende Erwachsene: übernehmen sie die Arbeit, kosten freie Menschen keine Punkte
+		if Droids.powered(o):
+			for d in o.droids:
+				if is_instance_valid(d) and d.job != "frei":
+					working += 1
+					droid_today += DROID_PTS * SAMPLE_DAYS
+		if not goal_done and o.buildings.any(func(b): return b.type == "zukunftsstadt" and b.complete):
+			goal_done = true
+			goal_today += GOAL_PTS
+			note(o, "Die Zukunftsstadt steht. Ziel erreicht.")
 	if adults > 0:
-		work_today += WORK_PTS * SAMPLE_DAYS * float(working) / float(adults)
+		work_today += WORK_PTS * SAMPLE_DAYS * minf(1.0, float(working) / float(adults))
 
 
 func food_days_score(w) -> float:
@@ -931,6 +1042,10 @@ func score_day() -> Dictionary:
 	r["need"] = distress_today
 	r["work"] = work_today
 	r["rpts"] = research_raw
+	r["goal"] = goal_today + droid_today
+	r["age"] = age
+	r["techs"] = Game.research.done.size()
+	r["droids"] = Droids.count()
 	var sat := 0
 	var mood := 0
 	for s in ws.reduce(func(acc, o): return acc + o.settlers, []):
@@ -945,7 +1060,7 @@ func score_day() -> Dictionary:
 	r["pop"] = heads
 	r["islands"] = ws.size()
 	r["total"] = float(r.food) + float(r.wood) + float(r.proc) + float(r.res) + sat + mood + float(r.dead) \
-		+ float(r.isl) + float(r.need) + float(r.work)
+		+ float(r.isl) + float(r.need) + float(r.work) + float(r.goal)
 	score_total += float(r.total)
 	score_log.append(r)
 	processed_today = 0.0
@@ -956,6 +1071,8 @@ func score_day() -> Dictionary:
 	supply_today = 0.0
 	distress_today = 0.0
 	work_today = 0.0
+	droid_today = 0.0
+	goal_today = 0.0
 	return r
 
 

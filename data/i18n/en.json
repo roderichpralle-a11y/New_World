@@ -1,5 +1,8 @@
 {
  "Tempo %d-fach": "Speed %dx",
+ "Steuerung: nur Spieler": "Control: player only",
+ "Steuerung: KI darf": "Control: AI allowed",
+ "Nur Spieler: Die KI baut dieses Gebäude nicht aus, versetzt es nicht, reißt es nicht ab und hält es nicht an.": "Player only: the AI will not upgrade, move, demolish or pause this building.",
  "%d Getreidefelder": "%d wheat fields",
  "%d Felder Straße": "%d road tiles",
  "Erkundung": "Exploration",

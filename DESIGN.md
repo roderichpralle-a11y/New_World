@@ -387,6 +387,20 @@ Testhilfe `--v3build`.
   zusammen 61 % mehr Punkte als der Verwalter (`vs_verwalter`); nur auf Tag 312 gewinnt der Verwalter (61 540 zu 54 985,
   er hält am Ende 34–53 Siedler, die KIs 2–22). Protokolle /mnt/project-files/ki_berufe/training/p6 und
   vergleich_10jahre_2026-11-09.jsonl. josh-Karte „Ja, veröffentlichen“ (2026-11-10).
+- **Ganzes Spiel (josh 2026-11-15)**: `scripts/autoload/ki_acts.gd` (`KiActs`, statisch) hält alle Handlungen der KI: 35 feste
+  (Haus, Ausbau, Lager, Felder, Straßen, Schmuck, Bäume pflanzen, Gehege, Verwalter einsetzen, Abriss, Versetzen, Anhalten,
+  Seemann, Fracht, Routen, Höchstmenge, Reserve, Nicht essen), `bau:<typ>` für jedes übrige baubare Gebäude und je Beruf
+  `ot:`/`schicht:` (an, solange der Wert über 0 liegt). Gewichte in der Datei unter `"a": {Handlung: Zeile}` mit FEATURES (96)
+  + ACT_X (4) Zahlen, alte `"b"`-Zeilen werden zugeordnet; `"t"`: 12 Gewichte für die Wahl der Forschung
+  (`KiActs.pick_tech`, nie Superintelligenz); Berufe um Förster und „frei“ erweitert (nur mit neuen Gewichten,
+  `job_rows`). Gelernt wird WAS und WANN; WO und WELCHES Gebäude sucht KiActs. **Freischalt-Liste** `KiActs.UNLOCK`
+  (Gruppe -> Stufe der Verwaltung oder Gebäude) gilt nur mit Gewichten, die `"full": true` tragen
+  (`KiBrain.unlock_list`); im Training (`--kifull=1`, `KiBrain.train_all`) ist alles frei und `AiRule` übernimmt nicht.
+  `Building.player_only` (Knopf im Gebäudefenster) sperrt ein Gebäude für die KI. Wertung zusätzlich: 20000 für die
+  Zukunftsstadt, 2 je Tag und arbeitendem Droiden, Droiden zählen beim Arbeitsanteil mit. Training vom Spielanfang:
+  `tools/ki_voll/` (trainer.py ARS, server.py + web/index.html Oberfläche im Browser, START.command für den Mac,
+  pack.sh baut `Insel-KI-Training.zip`); Harness `--kifull --kistall=<Tage> --kiprog=<Datei> --kinames=<Datei>`,
+  Sprache der Namen über Umgebungsvariable `KI_LANG=de`.
 - **Bauen lernen (josh 2026-11-11, Plan 2 Stufe 1)**: 10 Bau-Handlungen `KiBrain.BUILD_ACTS` (haus, ausbau, lager, feld,
   obstgarten, strasse, werft, schiff, erkunden, besiedeln), Gewichte `b` in data/ki_brain.json (10 x 64 Eingänge; fehlt
   `b`, baut die KI nichts). Neue Eingänge 50..63 (freie Betten, Häuser, Baustellen, Felder, Felder je Bauer, Lagerraum,

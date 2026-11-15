@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Insel-Siedler: KI-Training</title>
+<style>
+:root{--bg:#f4f1ea;--card:#fffdf8;--ink:#23201b;--mute:#6f685c;--line:#ddd5c5;--acc:#2f6f5e;--acc2:#b0652a;--bad:#a23b2e;--good:#2f7d46;--code:#fbf8f1;--kw:#8a3d7a;--str:#2f6f5e;--com:#8a8272;--num:#b0652a}
+@media (prefers-color-scheme: dark){:root{--bg:#181a1b;--card:#212425;--ink:#e9e6df;--mute:#9a968c;--line:#35393b;--acc:#6fc3ab;--acc2:#e0a064;--bad:#e07a6c;--good:#7fce94;--code:#1b1d1e;--kw:#d59bd0;--str:#8fd1bd;--com:#7d7a72;--num:#e0a064}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif}
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--card);position:sticky;top:0;z-index:5}
+h1{font-size:18px;margin:0;flex:1 1 220px}
+h2{font-size:16px;margin:26px 0 10px}
+h3{font-size:14px;margin:16px 0 6px}
+button{font:inherit;padding:7px 14px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+button.pri{background:var(--acc);color:#fff;border-color:var(--acc)}
+@media (prefers-color-scheme: dark){button.pri{color:#10201b}}
+button:disabled{opacity:.45;cursor:default}
+.pill{padding:4px 10px;border-radius:99px;font-size:13px;border:1px solid var(--line)}
+.pill.on{background:var(--good);color:#fff;border-color:var(--good)}
+nav{display:flex;gap:4px;padding:0 20px;background:var(--card);border-bottom:1px solid var(--line);overflow-x:auto}
+nav button{border:0;border-bottom:3px solid transparent;border-radius:0;background:none;padding:10px 12px;white-space:nowrap}
+nav button.sel{border-bottom-color:var(--acc);font-weight:600}
+main{padding:8px 20px 60px;max-width:1280px;margin:0 auto}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.card .k{font-size:12px;color:var(--mute)}
+.card .v{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums}
+.card .s{font-size:12px;color:var(--mute)}
+.box{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-top:10px}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;color:var(--mute);font-weight:600;white-space:nowrap}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+.bar{height:8px;border-radius:4px;background:var(--line);min-width:90px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--acc)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:10px}
+.mute{color:var(--mute)}
+.small{font-size:13px}
+svg{width:100%;height:auto;display:block}
+.legend{display:flex;gap:14px;font-size:12px;color:var(--mute);flex-wrap:wrap}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px}
+select,input{font:inherit;padding:5px 8px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
+details{border:1px solid var(--line);border-radius:10px;background:var(--card);margin-top:8px}
+details>summary{padding:8px 12px;cursor:pointer;font-weight:600}
+details>div{padding:0 12px 12px}
+.plus{color:var(--good)}.minus{color:var(--bad)}
+.code{display:grid;grid-template-columns:280px minmax(0,1fr);gap:12px;margin-top:14px}
+@media (max-width:820px){.code{grid-template-columns:1fr}}
+.flist{max-height:78vh;overflow:auto}
+.flist a{display:block;padding:7px 10px;border-radius:8px;color:inherit;text-decoration:none;cursor:pointer}
+.flist a.sel{background:var(--acc);color:#fff}
+@media (prefers-color-scheme: dark){.flist a.sel{color:#10201b}}
+.flist a small{display:block;color:var(--mute);font-size:12px}
+.flist a.sel small{color:inherit;opacity:.85}
+pre{margin:0;background:var(--code);border:1px solid var(--line);border-radius:10px;padding:10px 0;overflow:auto;max-height:78vh;font:12.5px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;tab-size:4}
+pre .l{display:block;padding:0 12px 0 0;white-space:pre}
+pre .l::before{content:attr(data-n);display:inline-block;width:52px;padding-right:12px;text-align:right;color:var(--com);user-select:none}
+.kw{color:var(--kw)}.st{color:var(--str)}.co{color:var(--com);font-style:italic}.nu{color:var(--num)}
+.hide{display:none}
+</style>
+</head>
+<body>
+<header>
+  <h1>Insel-Siedler: KI-Training</h1>
+  <span id="pill" class="pill">verbinde ...</span>
+  <button id="bstart" class="pri">Training starten</button>
+  <button id="bstop">Anhalten</button>
+</header>
+<nav id="nav">
+  <button data-t="status" class="sel">Status</button>
+  <button data-t="gelernt">Was die KI gelernt hat</button>
+  <button data-t="code">Programmcode</button>
+  <button data-t="frei">Freischalt-Liste</button>
+</nav>
+<main>
+<section id="t-status">
+  <div class="cards" id="cards"></div>
+  <h2>Was gerade läuft</h2>
+  <div class="box"><div id="phase" class="mute">noch keine Daten</div><div class="scroll"><table id="run"></table></div></div>
+  <h2>Verlauf des Trainings</h2>
+  <p class="mute small">Eine Runde = die Gewichte werden in mehrere Richtungen verändert, jede Fassung spielt ein ganzes Spiel vom Anfang. Die Spiele werden mit der Zeit länger, deshalb zeigt das erste Bild die Punkte je Spieltag.</p>
+  <div class="grid2">
+    <div class="box"><h3>Punkte je Spieltag</h3><div id="c1"></div></div>
+    <div class="box"><h3>Erforschte Forschungen je Spiel</h3><div id="c2"></div></div>
+    <div class="box"><h3>Siedler am Ende des Spiels</h3><div id="c3"></div></div>
+    <div class="box"><h3>Länge der Spiele in Spieltagen</h3><div id="c4"></div></div>
+  </div>
+  <h2>Prüfungen</h2>
+  <p class="mute small">Alle paar Runden spielen die jetzigen Gewichte mit festen Würfeln. Daran sieht man den echten Fortschritt.</p>
+  <div class="box scroll"><table id="checks"></table></div>
+  <details><summary>Protokoll des Trainingsprogramms</summary><div><pre id="log" style="padding:10px 12px;max-height:300px"></pre></div></details>
+</section>
+
+<section id="t-gelernt" class="hide">
+  <h2>Ein Prüfspiel ansehen</h2>
+  <p class="mute small">Hier siehst du ein ganzes Spiel, das die KI allein gespielt hat: was sie erreicht hat und jede ihrer Entscheidungen.</p>
+  <div>Prüfung nach Runde <select id="selr"></select></div>
+  <div class="cards" id="gcards"></div>
+  <div class="grid2">
+    <div class="box"><h3>Siedler über die Spieltage</h3><div id="g1"></div></div>
+    <div class="box"><h3>Punkte je Spieltag</h3><div id="g2"></div></div>
+  </div>
+  <div class="grid2">
+    <div class="box"><h3>Zeitalter und Forschung</h3><div id="gage"></div></div>
+    <div class="box"><h3>Was die KI in diesem Spiel getan hat</h3><div class="scroll"><table id="gacts"></table></div></div>
+  </div>
+  <div class="box"><h3>Gebäude am Ende</h3><div id="gtypes" class="small"></div></div>
+  <h3>Alle Entscheidungen der Reihe nach</h3>
+  <input id="gfilter" placeholder="Suchen, z. B. Haus oder Forschung" style="width:min(360px,100%)">
+  <div class="box scroll" style="max-height:420px;overflow:auto"><table id="gtrace"></table></div>
+
+  <h2>Fortschritt über die Prüfungen</h2>
+  <div class="box scroll"><table id="gcmp"></table></div>
+
+  <h2>Wovon die Entscheidungen abhängen</h2>
+  <p class="mute small">Jede Entscheidung hat eine Zeile Zahlen (Gewichte). Ein grüner Eintrag heißt: die KI tut das eher, wenn das zutrifft. Ein roter: sie tut es dann seltener. Die Zahl zeigt, wie stark. Am Anfang sind alle Zahlen 0.</p>
+  <div>Gewichte: <select id="selw"><option value="aktuell">jetziger Stand</option><option value="best">bester Stand</option></select></div>
+  <div id="weights"></div>
+</section>
+
+<section id="t-code" class="hide">
+  <div class="code">
+    <div class="box flist" id="flist"></div>
+    <div><div id="ftitle" class="mute small" style="margin-bottom:6px"></div><pre id="fview"></pre></div>
+  </div>
+</section>
+
+<section id="t-frei" class="hide">
+  <h2>Freischalt-Liste</h2>
+  <p>Im Spiel steuert am Anfang der Verwalter. Mit jedem dieser Gebäude übernimmt die KI eine weitere Gruppe von Entscheidungen. Im Training ist alles freigeschaltet: dort steuert die KI das ganze Spiel allein, vom Start bis zur Zukunftsstadt.</p>
+  <div class="box scroll"><table id="unlock"></table></div>
+  <p class="mute small">Siedler mit „Steuerung: Spieler“ und Gebäude mit „Steuerung: nur Spieler“ verändert die KI nie. Die Liste steht im Code in ki_acts.gd (UNLOCK).</p>
+</section>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const fmt=n=>n==null||isNaN(n)?'–':Math.round(n).toLocaleString('de-DE');
+const dur=s=>{s=Math.round(s||0);const h=Math.floor(s/3600),m=Math.floor(s%3600/60);return h?h+' h '+m+' min':m+' min'};
+const get=async u=>(await fetch(u)).json();
+let S=null, tab='status', curFile='';
+
+document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>{
+  tab=b.dataset.t;
+  document.querySelectorAll('#nav button').forEach(x=>x.classList.toggle('sel',x===b));
+  for(const t of ['status','gelernt','code','frei']) $('t-'+t).classList.toggle('hide',t!==tab);
+  if(tab==='gelernt'){loadCheck(-1);loadWeights()}
+  if(tab==='code')loadFiles();
+});
+$('bstart').onclick=async()=>{await fetch('/api/start',{method:'POST'});poll()};
+$('bstop').onclick=async()=>{$('bstop').disabled=true;await fetch('/api/stop',{method:'POST'});poll()};
+
+// ---------- Linienbild als SVG: series=[{name,color,pts:[[x,y]]}]
+function chart(el,series,opt={}){
+  const W=560,H=200,L=52,R=10,T=10,B=24;
+  const all=series.flatMap(s=>s.pts);
+  if(!all.length){el.innerHTML='<div class="mute small">noch keine Daten</div>';return}
+  let x0=Math.min(...all.map(p=>p[0])),x1=Math.max(...all.map(p=>p[0])),y0=Math.min(0,...all.map(p=>p[1])),y1=Math.max(...all.map(p=>p[1]));
+  if(x1===x0)x1=x0+1; if(y1===y0)y1=y0+1;
+  const X=x=>L+(x-x0)/(x1-x0)*(W-L-R),Y=y=>T+(1-(y-y0)/(y1-y0))*(H-T-B);
+  let g='';
+  for(let i=0;i<=4;i++){const v=y0+(y1-y0)*i/4,y=Y(v);g+=`<line x1="${L}" x2="${W-R}" y1="${y}" y2="${y}" stroke="var(--line)"/><text x="${L-6}" y="${y+4}" text-anchor="end" font-size="11" fill="var(--mute)">${(y1-y0)<8?v.toLocaleString('de-DE',{maximumFractionDigits:1}):fmt(v)}</text>`}
+  g+=`<text x="${L}" y="${H-6}" font-size="11" fill="var(--mute)">${opt.xl||'Runde'} ${fmt(x0)}</text><text x="${W-R}" y="${H-6}" text-anchor="end" font-size="11" fill="var(--mute)">${fmt(x1)}</text>`;
+  for(const s of series){
+    if(s.dots){g+=s.pts.map(p=>`<circle cx="${X(p[0])}" cy="${Y(p[1])}" r="3.5" fill="${s.color}"/>`).join('')}
+    else g+=`<polyline fill="none" stroke="${s.color}" stroke-width="2" points="${s.pts.map(p=>X(p[0]).toFixed(1)+','+Y(p[1]).toFixed(1)).join(' ')}"/>`;
+  }
+  el.innerHTML=`<svg viewBox="0 0 ${W} ${H}">${g}</svg><div class="legend">${series.map(s=>`<span><i style="background:${s.color}"></i>${s.name}</span>`).join('')}</div>`;
+}
+
+function renderStatus(){
+  const s=S; if(!s)return;
+  $('pill').textContent=s.laeuft?'Training läuft':'angehalten'; $('pill').classList.toggle('on',!!s.laeuft);
+  $('bstart').disabled=!!s.laeuft; $('bstop').disabled=!s.laeuft;
+  const v=s.verlauf||[], ch=s.pruefungen||[], nm=s.namen||{}, ages=nm.ages||[];
+  const maxAge=Math.max(0,...v.map(r=>r.alter_max||0),...ch.flatMap(c=>c.spiele.map(g=>g.alter||0)));
+  const maxTech=Math.max(0,...v.map(r=>r.forschungen_max||0),...ch.flatMap(c=>c.spiele.map(g=>g.forschungen||0)));
+  const goals=v.reduce((a,r)=>a+(r.ziel||0),0);
+  const cards=[['Runde',fmt(s.runde),'bisher gelernt'],['Spiellänge jetzt',fmt(s.tage)+' Tage','= '+(s.tage/12).toFixed(1)+' Spieljahre'],
+    ['Spiele gespielt',fmt(s.spiele),'jedes vom Anfang'],['Laufzeit',dur(s.sek),s.arbeiter?s.arbeiter+' Spiele gleichzeitig':''],
+    ['Weitestes Zeitalter',ages[maxAge]||'–','Stufe '+(maxAge+1)+' von '+(ages.length||8)],['Meiste Forschungen',maxTech+' von '+(nm.techs_total||'?'),'in einem Spiel'],
+    ['Zukunftsstadt gebaut',goals+' mal','das Ziel des Spiels'],['Gewichte',fmt(s.gewichte),fmt(s.handlungen)+' Handlungen']];
+  $('cards').innerHTML=cards.map(c=>`<div class="card"><div class="k">${c[0]}</div><div class="v">${c[1]}</div><div class="s">${c[2]}</div></div>`).join('');
+  $('phase').textContent=s.laeuft?(s.phase||''):'Das Training ist angehalten. '+(s.runde?'Mit „Training starten“ geht es bei Runde '+(s.runde+1)+' weiter.':'Mit „Training starten“ beginnt es.');
+  const run=s.laeuft?(s.laufend||[]):[];
+  $('run').innerHTML=run.length?'<tr><th>Spiel</th><th>Art</th><th>Spieltag</th><th></th><th class="n">Siedler</th><th>Zeitalter</th><th class="n">Forschungen</th><th>forscht gerade</th><th class="n">Inseln</th><th class="n">Punkte</th><th class="n">läuft seit</th></tr>'+
+    run.map(r=>`<tr><td>${r.platz+1}</td><td>${esc(r.art)}</td><td>${r.day??0} von ${r.tage}</td><td><div class="bar"><i style="width:${Math.min(100,100*(r.day||0)/r.tage)}%"></i></div></td><td class="n">${r.pop??'–'}</td><td>${esc(r.age||'–')}</td><td class="n">${r.techs??'–'}</td><td>${esc(r.research||'')}</td><td class="n">${r.islands??'–'}</td><td class="n">${fmt(r.score)}</td><td class="n">${dur(r.sek)}</td></tr>`).join(''):'';
+  chart($('c1'),[{name:'Mittel der Runde',color:'var(--acc)',pts:v.map(r=>[r.runde,r.mittel/Math.max(1,r.tag||r.tage)])},{name:'Prüfung',color:'var(--acc2)',dots:true,pts:ch.map(c=>[c.runde,c.je_tag])}]);
+  chart($('c2'),[{name:'Mittel',color:'var(--acc)',pts:v.map(r=>[r.runde,r.forschungen])},{name:'bestes Spiel',color:'var(--acc2)',pts:v.map(r=>[r.runde,r.forschungen_max])}]);
+  chart($('c3'),[{name:'Mittel',color:'var(--acc)',pts:v.map(r=>[r.runde,r.siedler])},{name:'bestes Spiel',color:'var(--acc2)',pts:v.map(r=>[r.runde,r.siedler_max])}]);
+  chart($('c4'),[{name:'geplant',color:'var(--acc)',pts:v.map(r=>[r.runde,r.tage])},{name:'erreicht (Mittel)',color:'var(--acc2)',pts:v.map(r=>[r.runde,r.tag])}]);
+  $('checks').innerHTML='<tr><th class="n">nach Runde</th><th class="n">Spieltage</th><th class="n">Punkte</th><th class="n">je Tag</th><th class="n">Siedler</th><th>Zeitalter</th><th class="n">Forschungen</th><th class="n">Inseln</th><th>Ende</th></tr>'+
+    ch.slice().reverse().map(c=>{const g=c.spiele[0];return `<tr><td class="n">${c.runde}${s.best&&s.best.runde===c.runde?' ★':''}</td><td class="n">${g.tag}</td><td class="n">${fmt(c.mittel)}</td><td class="n">${c.je_tag.toFixed(1)}</td><td class="n">${g.siedler}</td><td>${esc(g.zeitalter)}</td><td class="n">${g.forschungen}</td><td class="n">${g.inseln}</td><td>${g.ziel?'Zukunftsstadt':g.stillstand?'Stillstand':g.ende?'alle tot':'Zeit um'}</td></tr>`}).join('');
+  $('log').textContent=s.log||'';
+  const un=nm.unlock||[];
+  $('unlock').innerHTML='<tr><th>Gebäude</th><th>Die KI übernimmt</th></tr>'+un.map(u=>`<tr><td><b>${esc(u[0])}</b></td><td>${esc(u[1])}</td></tr>`).join('');
+}
+async function poll(){try{S=await get('/api/status');renderStatus()}catch(e){$('pill').textContent='keine Verbindung';$('pill').classList.remove('on')}}
+setInterval(poll,3000);poll();
+
+// ---------- Gelernt
+let CH=null;
+async function loadCheck(r){
+  const c=await get('/api/pruefung?runde='+r);
+  if(c.leer){$('gcards').innerHTML='<div class="mute">Noch keine Prüfung. Die erste kommt gleich nach dem Start.</div>';return}
+  CH=c;
+  $('selr').innerHTML=c.alle_runden.map(x=>`<option ${x===c.runde?'selected':''}>${x}</option>`).join('');
+  const d=c.days||[];
+  const cards=[['Punkte',fmt(c.score),'in '+Math.round(c.day)+' Spieltagen'],['Siedler am Ende',c.pop,''],['Zeitalter',esc(c.age_name),''],
+    ['Forschungen',c.techs.length,''],['Inseln',c.islands,'besiedelt'],['Droiden',c.droids,''],['Ende',c.goal?'Zukunftsstadt':c.stalled?'Stillstand':c.over?'alle tot':'Zeit um','']];
+  $('gcards').innerHTML=cards.map(k=>`<div class="card"><div class="k">${k[0]}</div><div class="v">${k[1]}</div><div class="s">${k[2]}</div></div>`).join('');
+  chart($('g1'),[{name:'Siedler',color:'var(--acc)',pts:d.map(x=>[x.day,x.pop])}],{xl:'Tag'});
+  chart($('g2'),[{name:'Punkte am Tag',color:'var(--acc)',pts:d.map(x=>[x.day,x.total])}],{xl:'Tag'});
+  const ages=(S&&S.namen&&S.namen.ages)||[];
+  $('gage').innerHTML=(c.age_days.length?'<p>'+c.age_days.map((t,i)=>`<b>${esc(ages[i+1]||'Zeitalter '+(i+2))}</b> erreicht an Tag ${Math.round(t)}`).join('<br>')+'</p>':'<p class="mute">Noch kein neues Zeitalter erreicht.</p>')+
+    '<p class="small"><b>Erforscht, der Reihe nach:</b> '+(c.forschung.map(esc).join(', ')||'nichts')+'</p>';
+  $('gacts').innerHTML='<tr><th>Handlung</th><th>Gruppe</th><th class="n">wie oft</th></tr>'+(c.handlungen.map(h=>`<tr><td>${esc(h.name)}</td><td class="mute">${esc(h.gruppe)}</td><td class="n">${h.anzahl}</td></tr>`).join('')||'<tr><td colspan="3" class="mute">nichts</td></tr>');
+  $('gtypes').innerHTML=Object.entries(c.types||{}).sort((a,b)=>b[1]-a[1]).map(([k,n])=>`${n} × ${esc(k)}`).join(' · ')||'–';
+  renderTrace();
+  const ch=(S&&S.pruefungen)||[];
+  $('gcmp').innerHTML='<tr><th class="n">nach Runde</th><th class="n">Spieltage</th><th class="n">Punkte je Tag</th><th class="n">Siedler</th><th>Zeitalter</th><th class="n">Forschungen</th><th class="n">Inseln</th><th class="n">Droiden</th></tr>'+
+    ch.map(k=>{const g=k.spiele[0];return `<tr><td class="n">${k.runde}</td><td class="n">${g.tag}</td><td class="n">${k.je_tag.toFixed(1)}</td><td class="n">${g.siedler}</td><td>${esc(g.zeitalter)}</td><td class="n">${g.forschungen}</td><td class="n">${g.inseln}</td><td class="n">${g.droiden}</td></tr>`}).join('');
+}
+function renderTrace(){
+  if(!CH)return; const f=$('gfilter').value.toLowerCase();
+  const rows=(CH.trace||[]).filter(t=>!f||String(t[2]).toLowerCase().includes(f));
+  $('gtrace').innerHTML='<tr><th class="n">Tag</th><th>Insel</th><th>Entscheidung</th></tr>'+rows.slice(0,1500).map(t=>`<tr><td class="n">${Number(t[0]).toFixed(1)}</td><td class="mute">${esc(t[1])}</td><td>${esc(t[2])}</td></tr>`).join('')+(rows.length>1500?`<tr><td colspan="3" class="mute">... und ${rows.length-1500} weitere</td></tr>`:'');
+}
+$('gfilter').oninput=renderTrace;
+$('selr').onchange=()=>loadCheck($('selr').value);
+$('selw').onchange=loadWeights;
+async function loadWeights(){
+  const g=await get('/api/gelernt?welche='+$('selw').value);
+  if(!g.zeilen.length){$('weights').innerHTML='<p class="mute">Noch keine Gewichte gespeichert.</p>';return}
+  const groups={};
+  for(const z of g.zeilen)(groups[z.gruppe||'Sonstiges']=groups[z.gruppe||'Sonstiges']||[]).push(z);
+  const mx=Math.max(1e-9,...g.zeilen.map(z=>z.staerke));
+  $('weights').innerHTML=(g.runde!=null?`<p class="mute small">Stand nach Runde ${g.runde}.</p>`:'')+Object.entries(groups).map(([k,zs])=>`<details><summary>${esc(k)} (${zs.length})</summary><div><table><tr><th>Entscheidung</th><th>gelernt</th><th>stärkste Einflüsse</th></tr>${
+    zs.sort((a,b)=>b.staerke-a.staerke).map(z=>`<tr><td>${esc(z.name)}</td><td><div class="bar"><i style="width:${100*z.staerke/mx}%"></i></div></td><td class="small">${
+      z.einfluss.length?z.einfluss.map(e=>`<span class="${e.w>0?'plus':'minus'}">${e.w>0?'eher':'seltener'}, wenn ${esc(e.was)} (${e.w>0?'+':''}${e.w})</span>`).join('<br>'):'<span class="mute">noch nichts gelernt</span>'}</td></tr>`).join('')}</table></div></details>`).join('');
+}
+
+// ---------- Programmcode
+const KW=/\b(func|var|const|static|class_name|extends|return|if|elif|else|for|while|in|match|break|continue|and|or|not|true|false|null|def|class|import|from|as|try|except|finally|with|lambda|None|True|False|self|pass|raise|global|await|signal|function|let|async)\b/g;
+function hl(line,ext){
+  let s=esc(line), com='';
+  const ci=ext==='json'?-1:findComment(line);
+  if(ci>=0){com='<span class="co">'+esc(line.slice(ci))+'</span>';s=esc(line.slice(0,ci))}
+  s=s.replace(/("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')/g,'\u0001$1\u0002');
+  s=s.split(/(\u0001.*?\u0002)/).map(p=>p.startsWith('\u0001')?'<span class="st">'+p.slice(1,-1)+'</span>':p.replace(KW,'<span class="kw">$1</span>').replace(/\b(\d+\.?\d*)\b/g,'<span class="nu">$1</span>')).join('');
+  return s+com;
+}
+function findComment(l){let q='';for(let i=0;i<l.length;i++){const c=l[i];if(q){if(c==='\\')i++;else if(c===q)q=''}else if(c==='"'||c==="'")q=c;else if(c==='#')return i}return -1}
+let FILES=null;
+async function loadFiles(){
+  if(!FILES)FILES=await get('/api/dateien');
+  const main=FILES.filter(f=>f.haupt), rest=FILES.filter(f=>!f.haupt);
+  $('flist').innerHTML='<h3 style="margin-top:0">Training und KI</h3>'+main.map(link).join('')+`<details style="border:0"><summary style="padding:8px 0">Alle Dateien des Spiels (${rest.length})</summary><div style="padding:0">${rest.map(link).join('')}</div></details>`;
+  $('flist').querySelectorAll('a').forEach(a=>a.onclick=()=>openFile(a.dataset.p));
+  if(!curFile&&main.length)openFile(main[0].p);
+}
+const link=f=>`<a data-p="${esc(f.p)}" class="${f.p===curFile?'sel':''}">${esc(f.titel)}${f.text?`<small>${esc(f.text)}</small>`:''}</a>`;
+async function openFile(p){
+  curFile=p; $('flist').querySelectorAll('a').forEach(a=>a.classList.toggle('sel',a.dataset.p===p));
+  const r=await get('/api/datei?p='+encodeURIComponent(p)); const ext=p.split('.').pop();
+  const lines=(r.text||'').split('\n');
+  $('ftitle').textContent=p+' · '+lines.length+' Zeilen';
+  $('fview').innerHTML=lines.map((l,i)=>`<span class="l" data-n="${i+1}">${ext==='html'||ext==='md'||ext==='command'?esc(l):hl(l,ext)}</span>`).join('');
+  $('fview').scrollTop=0;
+}
+</script>
+</body>
+</html>
