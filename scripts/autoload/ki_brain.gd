@@ -10,7 +10,7 @@ extends Node
 ## einer festen Regel (Baustellen). Vom Spieler eingeteilte Siedler bleiben, Freie nimmt sie immer.
 
 const JOBS := ["holzfaeller", "steinmetz", "sammler", "fischer", "bauer", "koch", "handwerker", "jaeger", "forscher"]
-const FEATURES := 64
+const FEATURES := 66
 ## Bau-Handlungen (josh 2026-11-11, Stufe 1 des Plans): je eine Zeile Gewichte. Gelernt wird, WAS und WANN gebaut
 ## wird; WO, sucht das Spiel (Planner.spot, Straßen auf den meistbegangenen Feldern). „Nichts“ hat den Wert 0.
 const BUILD_ACTS := ["haus", "ausbau", "lager", "feld", "obstgarten", "strasse", "werft", "schiff", "erkunden", "besiedeln"]
@@ -25,6 +25,16 @@ const BRAIN_PATH := "res://data/ki_brain.json"
 const PROCESSED_PTS := 2.0
 const DEATH_PTS := -100.0
 const WOOD_CAP := 1000
+# Wertung 2 (josh 2026-11-15, „Übernimm die Vorschläge für die Bewertung“)
+const RESERVE_PTS := 10.0        # je Tag für eine volle Winterreserve (Extras.heat_reserve), statt 1 je 100 Holz
+const FOOD_DAYS_CAP := 10.0      # Nahrungstage zählen höchstens bis 10, roher Weizen (raw_food) zählt nicht
+const DISTRESS_PTS := -1.0       # je Siedler-Tag mit Hunger (unter 25) oder Kälte (Insel ohne Brennstoff)
+const HUNGRY_BELOW := 25.0
+const AGE_PTS := 1000.0          # je neu erreichtem Zeitalter (bestandene Prüfung)
+const ISLAND_PTS := 20.0         # je bewohnter Nebeninsel und Tag
+const SUPPLY_PTS := 1.0          # je Erz oder Kohle, das ein Schiff auf einer Insel ablädt
+const WORK_PTS := 20.0           # je Tag mal Anteil der Erwachsenen, die gerade in ihrem Beruf arbeiten
+const SAMPLE_DAYS := 0.25
 
 var on := false             # Schalter im Fenster Verwalter (Spielstand)
 ## Im Browser nur mit ?ki in der Adresse (josh 2026-11-07: /v21test2/ ohne „Berufe vergeben“, die KI unter
@@ -132,7 +142,7 @@ func _process(_delta: float) -> void:
 		return
 	_next = Game.time_days + TICK_DAYS
 	for w in Sea.all_worlds():
-		if controls(w):
+		if not w.settlers.is_empty() and controls(w):  # verlassene Inseln ("empty") bleiben in Sea.worlds
 			tick(w)
 
 
@@ -534,6 +544,10 @@ func features(w) -> PackedFloat32Array:
 	x[61] = minf(Sea.settled_islands().size() / 4.0, 3.0)
 	x[62] = minf(up / 5.0, 3.0)
 	x[63] = minf((Game.time_days - float(_last_build.get(int(w.island_id), -99.0))) / 5.0, 1.0)
+	# Brennholz für den Winter (josh 2026-11-14): Vorrat gegen den ganzen Winterbedarf, und was über der Reserve liegt
+	var need_full: float = Extras.heat_reserve(w, true)
+	x[64] = minf(Extras.fuel(w) / maxf(1.0, need_full), 3.0)
+	x[65] = minf(maxf(0.0, Extras.fuel(w) - Extras.heat_reserve(w)) / 500.0, 3.0)
 	return x
 
 
@@ -547,7 +561,7 @@ func _count_job(w, job: String) -> int:
 
 ## Entdeckte, nicht besiedelte Inseln.
 func _unsettled() -> Array:
-	return Sea.islands.filter(func(m): return str(m.get("state", "")) == "discovered")
+	return Sea.islands.filter(func(m): return str(m.get("state", "")) in ["discovered", "empty"])
 
 
 # ---------------------------------------------------------------- Bauen lernen (josh 2026-11-11)
@@ -795,13 +809,26 @@ func food_days(w) -> float:
 
 
 # ---------------------------------------------------------------- Punkte (josh 2026-11-07)
-## Je Spieltag: 1 Punkt je Nahrungstag im Lager, 1 je 100 Holz (höchstens 1000 Holz), 2 je an diesem Tag
-## verarbeitetem Gut (alles, was eine Werkstatt, ein Stall, Steinbruch oder Mine herstellt), 1 je Siedler über
-## 50 satt, 1 je Siedler über 50 zufrieden, -20 je gestorbenem Siedler.
+## Je Spieltag über alle bewohnten Inseln (Wertung 2, josh 2026-11-15): Nahrungstage ohne rohen Weizen (bis 10),
+## 10 für eine volle Winterreserve an Brennstoff, 2 je verarbeitetem Gut, solange es gebraucht wird (3, wenn es der
+## Forschung fehlt), 500 je ganze Forschung und 1000 je neuem Zeitalter, 1 je satten und je zufriedenen Siedler,
+## -1 je Siedler-Tag mit Hunger oder Kälte, -100 je Toter, 20 je bewohnter Nebeninsel, 1 je Erz/Kohle per Schiff,
+## 20 mal Anteil der Erwachsenen, die im eigenen Beruf arbeiten.
 var score_on := false
 
-func note_processed(res: String, n: int) -> void:
+## Verarbeitete Ware zählt nur, solange sie gebraucht wird: unter der Höchstmenge der Insel und mit Platz im Lager.
+func note_processed(res: String, n: int, w = null) -> void:
+	if w != null and is_instance_valid(w):
+		var lim: int = Game.limit_of(res, w)
+		if (lim >= 0 and Game.amount(res, w) > lim) or Game.space_for(res, w) <= 0:
+			return
 	processed_today += float(n) * (NEEDED_PTS if research_missing().has(res) else PROCESSED_PTS)
+
+
+## Nachschub per Schiff (Sea.unload_goods/unload_some): Erz und Kohle.
+func note_supply(res: String, n: int) -> void:
+	if score_on and res in ["erz", "kohle"]:
+		supply_today += float(n) * SUPPLY_PTS
 
 
 func note_research(points: float, total: float = 0.0) -> void:
@@ -823,11 +850,54 @@ func score_start() -> void:
 	research_today = 0.0
 	research_raw = 0.0
 	finished_today = 0
+	supply_today = 0.0
+	distress_today = 0.0
+	work_today = 0.0
+	_age0 = Game.current_age()
+	_sample_t = Game.time_days
 	_score_t0 = Game.time_days
 	_score_day = 0
 
 
+var supply_today := 0.0
+var distress_today := 0.0
+var work_today := 0.0
+var _age0 := 0
+var _sample_t := 0.0
+
+
+## Alle 0,25 Tage: Siedler mit Hunger oder Kälte, Anteil der Erwachsenen im eigenen Beruf.
+func _sample() -> void:
+	var adults := 0
+	var working := 0
+	for o in Sea.all_worlds():
+		var cold: bool = Seasons.cold.has(o)
+		for s in o.settlers:
+			if not is_instance_valid(s):
+				continue
+			if cold or s.hunger < HUNGRY_BELOW:
+				distress_today += DISTRESS_PTS * SAMPLE_DAYS
+			if s.is_adult():
+				adults += 1
+				if not s.sleeping and s._stat_kind == "job":
+					working += 1
+	if adults > 0:
+		work_today += WORK_PTS * SAMPLE_DAYS * float(working) / float(adults)
+
+
+func food_days_score(w) -> float:
+	var sat := 0.0
+	for id in Data.food_ids():
+		if not bool(Data.resources.get(id, {}).get("raw_food", false)):
+			sat += _amt(id, w) * Data.food_satiety(id)
+	var need := Steward._need_per_head(w) * maxf(1.0, float(w.settlers.size()))
+	return minf(sat / maxf(1.0, need), FOOD_DAYS_CAP)
+
+
 func _score_tick() -> void:
+	while Game.time_days - _sample_t >= SAMPLE_DAYS:
+		_sample_t += SAMPLE_DAYS
+		_sample()
 	var d := int(floor(Game.time_days - _score_t0))
 	if d == _score_day:
 		return
@@ -844,15 +914,22 @@ func score_day() -> Dictionary:
 		ws = [w]
 	var fd := 0.0
 	var heads := 0
-	var wood := 0.0
+	var warm := 0.0
 	for o in ws:
-		fd += food_days(o) * float(o.settlers.size())
+		var n := float(o.settlers.size())
+		fd += food_days_score(o) * n
 		heads += o.settlers.size()
-		wood += _amt("holz", o)
+		var need: float = Extras.heat_reserve(o, true)
+		warm += (1.0 if need <= 0.0 else minf(1.0, Extras.fuel(o) / need)) * n
 	r["food"] = fd / maxf(1.0, float(heads))
-	r["wood"] = minf(wood, WOOD_CAP) / 100.0
+	r["wood"] = RESERVE_PTS * warm / maxf(1.0, float(heads))
 	r["proc"] = processed_today
-	r["res"] = research_today + RESEARCH_DONE_PTS * finished_today
+	var age := Game.current_age()
+	r["res"] = research_today + RESEARCH_DONE_PTS * finished_today + AGE_PTS * maxf(0.0, float(age - _age0))
+	_age0 = maxi(_age0, age)
+	r["isl"] = ISLAND_PTS * float(maxi(0, ws.size() - 1)) + supply_today
+	r["need"] = distress_today
+	r["work"] = work_today
 	r["rpts"] = research_raw
 	var sat := 0
 	var mood := 0
@@ -867,7 +944,8 @@ func score_day() -> Dictionary:
 	r["dead"] = DEATH_PTS * deaths_today
 	r["pop"] = heads
 	r["islands"] = ws.size()
-	r["total"] = float(r.food) + float(r.wood) + float(r.proc) + float(r.res) + sat + mood + float(r.dead)
+	r["total"] = float(r.food) + float(r.wood) + float(r.proc) + float(r.res) + sat + mood + float(r.dead) \
+		+ float(r.isl) + float(r.need) + float(r.work)
 	score_total += float(r.total)
 	score_log.append(r)
 	processed_today = 0.0
@@ -875,6 +953,9 @@ func score_day() -> Dictionary:
 	research_today = 0.0
 	research_raw = 0.0
 	finished_today = 0
+	supply_today = 0.0
+	distress_today = 0.0
+	work_today = 0.0
 	return r
 
 

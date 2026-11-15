@@ -566,6 +566,7 @@ func unload_goods(sh: Dictionary, keep: Array = []) -> Dictionary:
 		var n := Game.add_stock(id, int(sh.cargo[id]), w)
 		if n > 0:
 			got[id] = n
+			KiBrain.note_supply(id, n)
 		sh.cargo[id] = int(sh.cargo[id]) - n
 		if int(sh.cargo[id]) <= 0:
 			sh.cargo.erase(id)
@@ -583,6 +584,7 @@ func unload_some(sh: Dictionary, drop: Dictionary) -> Dictionary:
 		var added := Game.add_stock(id, n, w)
 		if added > 0:
 			got[id] = added
+			KiBrain.note_supply(id, added)
 			sh.cargo[id] = int(sh.cargo[id]) - added
 			if int(sh.cargo[id]) <= 0:
 				sh.cargo.erase(id)

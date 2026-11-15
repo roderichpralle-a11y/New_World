@@ -1496,8 +1496,7 @@ func _do_produce(b) -> void:
 	for res in outs:
 		var n := int(outs[res])
 		Admin.note_produced(res, n, world)  # Statistik
-		if world == Game.world:
-			KiBrain.note_processed(res, n)  # Punkte der lernenden KI (josh 2026-11-07)
+		KiBrain.note_processed(res, n, world)  # Punkte der lernenden KI (josh 2026-11-07, alle Inseln)
 		if Data.ships.has(res):
 			# Ein fertiges Schiff liegt sofort im Wasser (siehe Sea)
 			Game.add_stock(res, n, world)
