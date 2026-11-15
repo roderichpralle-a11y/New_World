@@ -329,10 +329,20 @@ static func tech_features(t: String) -> Array:
 ## Beste wählbare Forschung nach den gelernten Gewichten ("" = keine). Die Superintelligenz (böses Ende, für die
 ## Zukunftsstadt nicht nötig) wählt die KI nie.
 static func pick_tech() -> String:
+	# Nur Forschungen, die jetzt bezahlbar sind (josh 2026-11-15, Fund in Runde 32: die KI blieb 130 Tage an
+	# "Bewässerung" hängen, weil 2 Ziegel nie im Lager lagen). Ist keine bezahlbar, zählt die beste insgesamt.
+	var mw = Sea.main_world()
 	var best := ""
 	var best_v := -INF
+	var any_pay := false
+	for t in Data.sorted_tech_ids():
+		if t != "superintelligenz" and Game.tech_state(t) == "available" and (t in Game.research.paid or Game.can_afford(Data.techs[t].get("cost", {}), mw)):
+			any_pay = true
+			break
 	for t in Data.sorted_tech_ids():
 		if t == "superintelligenz" or Game.tech_state(t) != "available":
+			continue
+		if any_pay and not (t in Game.research.paid or Game.can_afford(Data.techs[t].get("cost", {}), mw)):
 			continue
 		var f := tech_features(t)
 		var v := 0.0
