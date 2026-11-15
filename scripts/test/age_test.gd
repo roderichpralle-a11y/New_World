@@ -2,7 +2,7 @@ class_name AgeTest
 extends RefCounted
 ## Zeitalter-Test nach dem Useraktionsplan (josh 2026-10-31, /mnt/project-files/konzept/useraktionsplan/):
 ## baut das Startszenario eines Zeitalters (Siedler, Gebäude, Forschung, Vorräte, Starttag) und lässt den
-## Plan-Bot (scripts/world/plan_bot.gd) spielen, bis die Prüfung bestanden ist oder das Limit erreicht ist.
+## Plan-Bot (scripts/test/plan_bot.gd) spielen, bis die Prüfung bestanden ist oder das Limit erreicht ist.
 ## Aufruf: godot --headless --fixed-fps 60 -- --autotest=<sek> --scale=15 --seed=11 --agetest=<0..6> [--workday=0]
 ## --workday=0 schaltet den festen Arbeitstag (Schritt 1) zum Vergleich ab.
 

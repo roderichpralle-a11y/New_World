@@ -10,31 +10,43 @@ extends Node
 ## einer festen Regel (Baustellen). Vom Spieler eingeteilte Siedler bleiben, Freie nimmt sie immer.
 
 const JOBS := ["holzfaeller", "steinmetz", "sammler", "fischer", "bauer", "koch", "handwerker", "jaeger", "forscher"]
-const FEATURES := 50
-const RESEARCH_PTS := 1.0        # je Forschungspunkt (josh 2026-11-07, Vorschlag)
-const RESEARCH_DONE_PTS := 100.0 # je fertiger Forschung
+const FEATURES := 64
+## Bau-Handlungen (josh 2026-11-11, Stufe 1 des Plans): je eine Zeile Gewichte. Gelernt wird, WAS und WANN gebaut
+## wird; WO, sucht das Spiel (Planner.spot, Straßen auf den meistbegangenen Feldern). „Nichts“ hat den Wert 0.
+const BUILD_ACTS := ["haus", "ausbau", "lager", "feld", "obstgarten", "strasse", "werft", "schiff", "erkunden", "besiedeln"]
+const LEARN_BUILD_DAYS := 0.5
+var max_sites := 2  # höchstens so viele eigene Baustellen zugleich
+const RESEARCH_WHOLE_PTS := 500.0 # eine ganze Forschung, anteilig nach Fortschritt, gleich in jedem Zeitalter (josh 2026-11-08)
+const RESEARCH_DONE_PTS := 0.0   # kein Extra mehr für fertige Forschung (steckt in den 500)
 const NEEDED_PTS := 3.0          # verarbeitete Ware, die der nächsten Forschung noch fehlt
 const TICK_DAYS := 0.25
 const HOLD_DAYS := 0.5
 const BRAIN_PATH := "res://data/ki_brain.json"
 const PROCESSED_PTS := 2.0
-const DEATH_PTS := -20.0
+const DEATH_PTS := -100.0
 const WOOD_CAP := 1000
 
 var on := false             # Schalter im Fenster Verwalter (Spielstand)
 ## Im Browser nur mit ?ki in der Adresse (josh 2026-11-07: /v21test2/ ohne „Berufe vergeben“, die KI unter
 ## /v21test2/?ki); außerhalb des Browsers (Tests, Training) immer.
 var available := true
+var v3 := false        # Version 3 (josh 2026-11-08): die KI-Fassung unter /v3/, KI immer verfügbar und anfangs an
 var _kept_on := false  # Schalter aus dem Spielstand, solange die KI hier nicht verfügbar ist (bleibt beim Speichern erhalten)
 var weights: Array = []     # JOBS.size() Zeilen mit FEATURES Zahlen
+var bweights: Array = []    # BUILD_ACTS.size() Zeilen mit FEATURES Zahlen (leer = die KI baut nichts selbst)
+var built_log: Dictionary = {}  # Handlung -> Anzahl (Training, Anzeige)
+var _bnext: Dictionary = {}     # Insel-ID -> Spieltag der nächsten Bau-Entscheidung
+var _last_build: Dictionary = {}  # Insel-ID -> Spieltag des letzten eigenen Baus
 var brain_score := 0        # aus der Datei: Punkte im Prüflauf (12 Tage ab Tag 163)
 var brain_base := 0         # ... und untrainiert
+var brain_vs := 0           # aus der Datei: Prozent mehr Punkte als der Verwalter (4 Spielstände, 24 Tage)
 var _next := 0.0
 
 # Punkte (Training und Anzeige)
 var processed_today := 0.0
 var deaths_today := 0
-var research_today := 0.0
+var research_today := 0.0       # Anteil ganzer Forschungen heute x 500
+var research_raw := 0.0         # rohe Forschungspunkte heute (nur zur Anzeige)
 var finished_today := 0
 var target := ""            # Forschung, auf die die KI hinarbeitet (läuft schon oder als Nächstes)
 var score_log: Array = []   # je Tag {day, food, wood, proc, sat, mood, dead, total}
@@ -53,7 +65,11 @@ func _ready() -> void:
 		available = false  # itch.io-Fassung 2.1.0 ohne KI (josh 2026-11-07)
 	elif OS.has_feature("web"):
 		var q := str(JavaScriptBridge.eval("window.location.search", true))
-		available = RegEx.create_from_string("[?&]ki(=|&|$)").search(q) != null
+		var path := str(JavaScriptBridge.eval("window.location.pathname", true))
+		v3 = "/v3/" in path
+		available = v3 or RegEx.create_from_string("[?&]ki(=|&|$)").search(q) != null
+	if "--v3build" in OS.get_cmdline_user_args():
+		v3 = true
 	_load_weights(BRAIN_PATH)
 
 
@@ -75,8 +91,16 @@ func _load_weights(path: String) -> bool:
 			row.append(0.0)
 		out.append(row)
 	weights = out
+	bweights = []
+	if d.get("b") is Array and not (d.b as Array).is_empty():
+		for i in BUILD_ACTS.size():
+			var row: Array = (d.b[i] as Array).duplicate() if i < d.b.size() else []
+			while row.size() < FEATURES:
+				row.append(0.0)
+			bweights.append(row)
 	brain_score = int(d.get("score", 0))
 	brain_base = int(d.get("base", 0))
+	brain_vs = int(d.get("vs_verwalter", 0))
 	return true
 
 
@@ -128,6 +152,7 @@ func tick(w) -> void:
 	if Sea.is_main(w):
 		research_tick()
 		build_tick(w)
+	learn_build_tick(w)
 	var adults := _adults(w)
 	var pool: Array = adults.filter(func(s): return _movable(s))
 	if pool.is_empty():
@@ -469,7 +494,285 @@ func features(w) -> PackedFloat32Array:
 	x[46] = minf(other / 40.0, 3.0)
 	x[47] = minf(_amt("eisen", w) / 50.0, 3.0)
 	x[48] = minf(_amt("werkzeug", w) / 50.0, 3.0)
+	# 50..63 Bauen (josh 2026-11-11)
+	var beds := 0
+	var houses := 0
+	var fields := 0
+	var roads := 0
+	var up := 0
+	var yard = null
+	for b in w.buildings:
+		if not is_instance_valid(b):
+			continue
+		var hs := int(b.def.get("housing", 0))
+		if hs > 0:
+			houses += 1
+			if b.complete:
+				beds += hs
+				if _upgrade_ok(w, b):
+					up += 1
+		if b.def.has("farm"):
+			fields += 1
+		if str(b.def.get("tile", "")) == "road":
+			roads += 1
+		if b.def.get("ships", false) and b.complete:
+			yard = b
+	x[50] = clampf(float(beds - n) / maxf(4.0, float(n)), -1.0, 2.0)
+	x[51] = minf(houses / 20.0, 3.0)
+	x[52] = minf(w.construction_sites().size() / 3.0, 3.0)
+	x[53] = minf(fields / 20.0, 3.0)
+	x[54] = minf(float(fields) / (4.0 * float(_count_job(w, "bauer")) + 4.0), 3.0)
+	x[55] = minf(float(Game.storage_volume(w)) / 2000.0, 3.0)
+	x[56] = minf(roads / 50.0, 3.0)
+	x[57] = 1.0 if yard != null else 0.0
+	x[58] = minf(Sea.ships_of(int(w.island_id)).size() / 3.0, 3.0)
+	x[59] = minf(Sea.idle_ships(int(w.island_id)).size() / 3.0, 3.0)
+	x[60] = minf(_unsettled().size() / 3.0, 3.0)
+	x[61] = minf(Sea.settled_islands().size() / 4.0, 3.0)
+	x[62] = minf(up / 5.0, 3.0)
+	x[63] = minf((Game.time_days - float(_last_build.get(int(w.island_id), -99.0))) / 5.0, 1.0)
 	return x
+
+
+func _count_job(w, job: String) -> int:
+	var c := 0
+	for s in w.settlers:
+		if is_instance_valid(s) and s.job == job:
+			c += 1
+	return c
+
+
+## Entdeckte, nicht besiedelte Inseln.
+func _unsettled() -> Array:
+	return Sea.islands.filter(func(m): return str(m.get("state", "")) == "discovered")
+
+
+# ---------------------------------------------------------------- Bauen lernen (josh 2026-11-11)
+## Alle LEARN_BUILD_DAYS je Insel: jede erlaubte Bau-Handlung bekommt einen Wert (Gewichte x Eingänge), die beste
+## wird ausgeführt, wenn ihr Wert über 0 liegt (0 = nichts tun). Erlaubt heißt: freigeschaltet, Material auf der
+## Insel, ein Platz, höchstens MAX_KI_SITES eigene Baustellen zugleich.
+func learn_build_tick(w) -> void:
+	if bweights.is_empty():
+		return
+	var iid := int(w.island_id)
+	if Game.time_days < float(_bnext.get(iid, 0.0)):
+		return
+	_bnext[iid] = Game.time_days + LEARN_BUILD_DAYS
+	var x := features(w)
+	var best := ""
+	var best_v := 0.0
+	for i in BUILD_ACTS.size():
+		var act: String = BUILD_ACTS[i]
+		var row: Array = bweights[i]
+		var v := 0.0
+		for k in FEATURES:
+			v += float(row[k]) * x[k]
+		if v > best_v and can_act(w, act):
+			best_v = v
+			best = act
+	if best != "":
+		var res := act_build(w, best)
+		if res != "":
+			built_log[best] = int(built_log.get(best, 0)) + 1
+			_last_build[iid] = Game.time_days
+
+
+## Felder ohne Straße, über die am meisten getragen wird: Wege von Arbeitsplätzen und Häusern zum nächsten Lager,
+## gewichtet nach Plätzen (wie das Gutachten, aber mit Zellen statt Bildpunkten). Meistbegangene zuerst.
+func road_cells(w) -> Array:
+	var heat := {}
+	for b in w.buildings:
+		if not is_instance_valid(b) or not b.complete or b.is_ground() or b.is_decor():
+			continue
+		if not (b.def.has("production") or b.def.has("research") or b.def.has("farm") or int(b.def.get("housing", 0)) > 0):
+			continue
+		var st = w.nearest_storage(b.entrance_cell())
+		if st == null or st == b:
+			continue
+		var weight := float(maxi(1, b.slots() if b.def.has("production") or b.def.has("research") else int(b.def.get("housing", 1)) / 2))
+		if not w.is_inside(b.entrance_cell()) or not w.is_inside(st.entrance_cell()):
+			continue
+		for c in w.astar.get_id_path(b.entrance_cell(), st.entrance_cell(), true):
+			if w.road_at(c) or w.building_at.has(c):
+				continue
+			heat[c] = float(heat.get(c, 0.0)) + weight
+	var cells: Array = heat.keys().filter(func(c): return float(heat[c]) >= 2.0)
+	cells.sort_custom(func(a, b): return heat[a] > heat[b])
+	return cells
+
+
+func _ki_sites(w) -> int:
+	return w.buildings.filter(func(b): return is_instance_valid(b) and not b.complete and b.has_meta("ki_site")).size()
+
+
+func _affordable(w, type: String) -> bool:
+	if not Data.buildings.has(type) or not Game.is_unlocked(type):
+		return false
+	return Planner.missing_cost(w, type).is_empty()
+
+
+func _best_of(w, types: Array, key: String) -> String:
+	var best := ""
+	var best_n := -1
+	for t in types:
+		if _affordable(w, t) and int(Data.buildings[t].get(key, 0)) > best_n:
+			best_n = int(Data.buildings[t].get(key, 0))
+			best = t
+	return best
+
+
+func _house_types() -> Array:
+	return Data.buildings.keys().filter(func(t): return Data.buildings[t].get("buildable", false) and int(Data.buildings[t].get("housing", 0)) > 0)
+
+
+func _store_types() -> Array:
+	return Data.buildings.keys().filter(func(t): return Data.buildings[t].get("buildable", false) and int(Data.buildings[t].get("storage", 0)) > 0 and t != "lagerfeuer")
+
+
+func _upgrade_ok(w, b) -> bool:
+	var to: String = b.def.get("upgrade", "")
+	return to != "" and b.complete and Game.is_unlocked(to) and HouseNeeds.full_level(b) and Planner.missing_cost(w, to).is_empty()
+
+
+func _yard(w):
+	for b in w.buildings:
+		if is_instance_valid(b) and b.complete and b.def.get("ships", false):
+			return b
+	return null
+
+
+func _free_adults(w) -> Array:
+	return w.settlers.filter(func(s): return is_instance_valid(s) and s.is_adult() and s.job == "frei" and not JobDesk.player_controlled(s))
+
+
+func can_act(w, act: String) -> bool:
+	var site_acts := ["haus", "ausbau", "lager", "feld", "obstgarten", "strasse", "werft"]
+	if act in site_acts and _ki_sites(w) >= max_sites:
+		return false
+	match act:
+		"haus":
+			return _best_of(w, _house_types(), "housing") != ""
+		"ausbau":
+			return w.buildings.any(func(b): return is_instance_valid(b) and int(b.def.get("housing", 0)) > 0 and _upgrade_ok(w, b))
+		"lager":
+			return _best_of(w, _store_types(), "storage") != ""
+		"feld":
+			return _affordable(w, "feld")
+		"obstgarten":
+			return _affordable(w, "obstgarten")
+		"strasse":
+			return _affordable(w, "strasse") and Game.amount("stein", w) >= 15 and not road_cells(w).is_empty()
+		"werft":
+			return _yard(w) == null and _affordable(w, "werft")
+		"schiff":
+			var y = _yard(w)
+			return y != null and y.ship_queue.is_empty() and y.ship_wip == "" and Sea.ships_of(int(w.island_id)).size() < 4
+		"erkunden":
+			return Sea.can_explore(w) == ""
+		"besiedeln":
+			return not _unsettled().is_empty() and not Sea.idle_ships(int(w.island_id)).is_empty() and _free_adults(w).size() >= 3 and _adults(w).size() >= 8
+	return false
+
+
+func _place(w, type: String):
+	var c = Planner.spot(w, type)
+	if c == null:
+		return null
+	var b = w.place_building(type, c, false)
+	if b != null:
+		b.set_meta("ki_site", true)
+	return b
+
+
+## Führt eine Bau-Handlung aus. Gibt einen kurzen Text zurück ("" = ging nicht).
+func act_build(w, act: String) -> String:
+	var txt := ""
+	match act:
+		"haus":
+			var t := _best_of(w, _house_types(), "housing")
+			if _place(w, t) != null:
+				txt = Data.buildings[t].name
+		"ausbau":
+			var cands: Array = w.buildings.filter(func(b): return is_instance_valid(b) and int(b.def.get("housing", 0)) > 0 and _upgrade_ok(w, b))
+			cands.sort_custom(func(a, b): return int(a.def.housing) < int(b.def.housing))
+			if not cands.is_empty():
+				var nb = w.upgrade_building(cands[0])
+				if nb != null:
+					nb.set_meta("ki_site", true)
+					txt = nb.def.name
+		"lager":
+			var t := _best_of(w, _store_types(), "storage")
+			if _place(w, t) != null:
+				txt = Data.buildings[t].name
+		"feld":
+			var c = Planner.spot(w, "obstgarten" if Data.buildings.has("obstgarten") else "feld")
+			if c != null:
+				var n := 0
+				for d in [Vector2i(0, 0), Vector2i(1, 0), Vector2i(0, 1), Vector2i(1, 1)]:
+					if _affordable(w, "feld") and w.can_place("feld", c + d):
+						var b = w.place_building("feld", c + d, false)
+						if b != null:
+							b.set_meta("ki_site", n == 0)
+							n += 1
+				if n > 0:
+					txt = tr("%d Getreidefelder") % n
+		"obstgarten":
+			if _place(w, "obstgarten") != null:
+				txt = Data.buildings["obstgarten"].name
+		"strasse":
+			var cells := road_cells(w)
+			var n := 0
+			for cc in cells:
+				if n >= 6 or not _affordable(w, "strasse"):
+					break
+				if w.can_place("strasse", cc):
+					w.place_building("strasse", cc, false)
+					n += 1
+			if n > 0:
+				txt = tr("%d Felder Straße") % n
+		"werft":
+			if _place(w, "werft") != null:
+				txt = Data.buildings["werft"].name
+		"schiff":
+			var y = _yard(w)
+			var best := "boot"
+			for t in ["kogge", "schnellsegler", "galeone"]:
+				if Data.ships.has(t) and Game.is_researched(str(Data.ships[t].get("requires", ""))) and int(Data.ships[t].get("yard", 1)) <= y.yard_level():
+					best = t
+					break
+			y.ship_queue.append(best)
+			y.ship_choice = best
+			txt = Data.ships[best].name
+		"erkunden":
+			if Sea.start_explore(w) == "":
+				txt = tr("Erkundung")
+		"besiedeln":
+			var target: Dictionary = _unsettled()[0]
+			var best_d := INF
+			for m in _unsettled():
+				var dd := Sea.distance(int(w.island_id), int(m.id))
+				if dd < best_d:
+					best_d = dd
+					target = m
+			var people: Array = _free_adults(w).slice(0, 3)
+			var goods := {}
+			var wood := mini(40, Game.amount("holz", w) / 3)
+			if wood > 0:
+				goods["holz"] = wood
+			for id in Data.food_ids():
+				var a := mini(30, Game.amount(id, w) / 3)
+				if a > 0 and goods.size() < 4:
+					goods[id] = a
+			for sh in Sea.idle_ships(int(w.island_id)):
+				Sea.fill_crew(sh)
+				if Sea.crew_missing(sh) > 0:
+					Sea.hire_sailor(sh, "ki")
+				if Sea.send_ship(w, int(target.id), people, sh, goods) == "":
+					txt = tr("Siedler nach %s") % str(target.get("name", "?"))
+					break
+	if txt != "":
+		Game.notify_at(w, tr("KI baut: %s") % txt if not act in ["schiff", "erkunden", "besiedeln"] else tr("KI: %s") % txt, "hammer", "verwaltung")
+	return txt
 
 
 ## Nahrung im Lager in Tagen für alle Siedler.
@@ -491,8 +794,10 @@ func note_processed(res: String, n: int) -> void:
 	processed_today += float(n) * (NEEDED_PTS if research_missing().has(res) else PROCESSED_PTS)
 
 
-func note_research(points: float) -> void:
-	research_today += points
+func note_research(points: float, total: float = 0.0) -> void:
+	research_raw += points
+	if total > 0.0:
+		research_today += RESEARCH_WHOLE_PTS * points / total
 
 
 func note_research_done() -> void:
@@ -506,6 +811,7 @@ func score_start() -> void:
 	processed_today = 0.0
 	deaths_today = 0
 	research_today = 0.0
+	research_raw = 0.0
 	finished_today = 0
 	_score_t0 = Game.time_days
 	_score_day = 0
@@ -525,8 +831,8 @@ func score_day() -> Dictionary:
 	r["food"] = food_days(w)
 	r["wood"] = minf(_amt("holz", w), WOOD_CAP) / 100.0
 	r["proc"] = processed_today
-	r["res"] = RESEARCH_PTS * research_today + RESEARCH_DONE_PTS * finished_today
-	r["rpts"] = research_today
+	r["res"] = research_today + RESEARCH_DONE_PTS * finished_today
+	r["rpts"] = research_raw
 	var sat := 0
 	var mood := 0
 	for s in w.settlers:
@@ -545,24 +851,31 @@ func score_day() -> Dictionary:
 	processed_today = 0.0
 	deaths_today = 0
 	research_today = 0.0
+	research_raw = 0.0
 	finished_today = 0
 	return r
 
 
 # ---------------------------------------------------------------- Spielstand
 func _on_reset() -> void:
-	on = false
+	on = v3 and available
 	_kept_on = false
 	_next = 0.0
 
 
 func _on_save(d: Dictionary) -> void:
-	d["ki_brain"] = {"on": on or (_kept_on and not available)}
+	d["ki_brain"] = {"on": on or (_kept_on and not available), "v3": v3 or bool(_v3_seen)}
+
+
+var _v3_seen := false
 
 
 func _on_load(data: Dictionary, _old_rules: int) -> void:
 	_on_reset()
 	var k = data.get("ki_brain", null)
+	_v3_seen = k is Dictionary and bool(k.get("v3", false))
 	if k is Dictionary:
 		_kept_on = bool(k.get("on", false))
 		on = _kept_on and available
+	if v3 and not _v3_seen:
+		on = available  # Spielstand zum ersten Mal in Version 3: die KI übernimmt (josh 2026-11-08)

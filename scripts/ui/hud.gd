@@ -132,14 +132,14 @@ func setup(p_world: World, p_camera: GameCamera) -> void:
 	_toasts_top.add_theme_constant_override("separation", 3)
 	root.add_child(_toasts_top)
 	get_viewport().size_changed.connect(_refresh_top)
-	Game.stock_changed.connect(_refresh_top)
+	Game.stock_changed.connect(_top_changed)  # nicht bei jeder einzelnen Lieferung neu rechnen, siehe _process
 	Game.stock_changed.connect(_on_stock_for_build)
 	Game.stock_changed.connect(_update_costs)
 	Game.stock_changed.connect(func():
 		if user_just_acted():
 			_refresh_stock())
 	Game.research_changed.connect(_on_research_changed)
-	Game.population_changed.connect(_refresh_top)
+	Game.population_changed.connect(_top_changed)
 	Game.population_changed.connect(func():
 		if user_just_acted():
 			_refresh_settler_list())
@@ -309,7 +309,20 @@ func _fix_top_widths(season_title: bool) -> void:
 	fit.call(_season_label, seasons)
 
 
+## Vorräte oder Bewohner haben sich geändert: die Leiste beim nächsten Takt auffrischen (höchstens alle
+## TOP_REFRESH_MS, echte Zeit). Vorher lief _refresh_top bei jeder einzelnen Lieferung und Mahlzeit.
+const TOP_REFRESH_MS := 300
+var _top_dirty := false
+var _top_next_ms := 0
+
+
+func _top_changed() -> void:
+	_top_dirty = true
+
+
 func _refresh_top() -> void:
+	_top_dirty = false
+	_top_next_ms = Time.get_ticks_msec() + TOP_REFRESH_MS
 	for id in _res_labels:
 		var room := Game.space_for(id)
 		_res_labels[id].text = "%d" % Game.amount(id)
@@ -681,7 +694,7 @@ const MENU_HELP := {
 	"spielstaende": "Es gibt fünf Plätze. Im aktiven Spielstand speichert das Spiel von selbst. Hier kannst du einen Spielstand laden, hierhin speichern, ein neues Spiel beginnen sowie als Datei ausgeben und einlesen.",
 	"meldungen": "Hier schaltest du ein, welche Arten von Meldungen im Spiel erscheinen. „Alle an“ schaltet alle Arten wieder ein.",
 	"auftraege": "Hier stehen die offenen Aufträge mit Fortschritt und Belohnung.",
-	"verwalter": "Unter „Verwalter“ siehst du, wer die Verwaltung leitet, und schaltest die automatische Neuzuweisung freier Berufe. Unter „Schichten“ ordnest du für einen Beruf Schichtarbeit rund um die Uhr an, unter „Nachtschicht“ siehst du, wer nachts arbeitet, unter „Überstunden“ lässt du einen Beruf länger arbeiten.\n\nUnter „Statistik“ steht, wie ausgelastet jeder Beruf ist (Anteil der Zeit, in der die Leute in ihrem Beruf arbeiten) und wie viel von jeder Ware in den letzten 5 Jahren und im laufenden Jahr erzeugt wurde.\n\nUnter „Log“ stehen alle Entscheidungen des Verwalters, neueste oben.",
+	"verwalter": "Unter „Befugnisse“ schaltest du ein, was der Verwalter selbst macht (Nachbesetzen, Auslastung), und wählst, wer die Berufe vergibt. Unter „Arbeitszeit“ ordnest du für einen Beruf Überstunden oder Schichtarbeit an und siehst, wie ausgelastet jeder Beruf ist.\n\nUnter „Log“ stehen alle Entscheidungen des Verwalters, neueste oben. Unter „Rangliste“ legst du fest, welche Werkstätten die Handwerker zuerst besetzen.",
 	"inseln": "Unter „Inseln“ siehst du, welche Waren auf welcher Insel liegen. Unter „Schiffe“ schickst du ein Schiff einmal los (Waren von einer Insel zur anderen) oder legst eine Route fest, die es immer wieder fährt. Rot heißt: dort fehlen Seeleute. Unter „Karte“ siehst du alle Inseln und suchst mit der Entdeckungsreise neue.",
 }
 var _menu_help: PanelContainer
@@ -1159,12 +1172,6 @@ func _age_header(a: int, cur_age: int) -> Control:
 	return box
 
 
-## Hoehe einer Listenzeile, damit der umbrechende Text hineinpasst.
-func _row_height(text: String, chars_per_line: int) -> float:
-	var lines := ceili(float(text.length()) / chars_per_line)
-	return max(62.0, 34.0 + 15.0 * lines)
-
-
 func _tech_row(t: String) -> Control:
 	# Zeile wie im Baumenü (josh 2026-10-19): Bild und Name links, Kosten und Punkte in der Mitte,
 	# Knopf als Bild, rechts „i“ mit der Beschreibung
@@ -1546,6 +1553,8 @@ func _on_placement(active: bool, type: String, valid: bool) -> void:
 			why = tr("\nMuss am Ufer stehen und Platz haben.")
 		elif Data.buildings[type].get("water_ok", false):
 			why = tr("\nIm Wasser nur neben Land oder einem anderen Deich.")
+		elif Data.buildings[type].has("deposit") and world.ore_left == 0:
+			why = tr("\nAuf dieser Insel liegt kein Erz. Erz gibt es auf der Heimatinsel (begrenzt) und auf Felseninseln.")
 		_place_label.text = "%s.%s" % [
 			Data.buildings[type].name, tr(" Der Platz passt.") if valid else why]
 		if Data.buildings[type].get("repeat", false):
@@ -3000,7 +3009,7 @@ func _update_notify_footer() -> void:
 ## Versionsnummer steht nur in project.godot (application/config/version).
 static func version_text() -> String:
 	var ver := str(ProjectSettings.get_setting("application/config/version", "?"))
-	return Loc.t("Version %s%s") % [ver, Loc.t(" (Testversion)") if Game.is_test_build and not Game.build_tag in ["v2", "v2t"] else ""]
+	return Loc.t("Version %s%s") % [ver, Loc.t(" (Testversion)") if Game.is_test_build and not Game.build_tag in ["v2", "v2t", "v3"] else ""]
 
 
 func _version_label() -> Label:
@@ -3032,8 +3041,8 @@ func _volume_row(text: String, icon_name: String, value: float, on_change: Calla
 ## Anleitung zur Erweiterung "Mehr Herausforderung" (eigener Text, damit HELP_TEXT gleich bleibt).
 const CHALLENGE_HELP := """[b]Mehr Herausforderung[/b]
 Jedes Jahr ist anders: Es gibt milde, normale, harte und eisige Winter und manchmal einen heißen Sommer. Im Herbst sagen die Alten genau voraus, wie hart der Winter wird; das Symbol neben der Jahreszeit zeigt es. Lege dann genug Holz und Essen zurück.
-Häuser haben Bedürfnisse: Dorfbewohner im Holzhaus wollen Abwechslung beim Essen und Möbel (Bretter), Bürger im Steinhaus zubereitetes Essen, Hausrat (Werkzeug) und eine Schule, später kommen Glas, Papier, Gewürze, Strom und Elektronik dazu. Nur zufriedene Häuser stellen Fachkräfte für höhere Werkstätten wie Schmiede, Bibliothek oder Fabrik. Ein Haus zählt nur dann als Steinhaus oder höher, wenn auch die Bedürfnisse der Stufen darunter erfüllt sind. Tippe auf ein Haus, um zu sehen, was fehlt.
-Ab dem zweiten Jahr kündigen sich Ereignisse an: Dürre, Ratten, Brand, Seuche, Sturmflut und ab dem Mittelalter Piraten. Das Ereignis-Symbol oben rechts zeigt, was kommt und was hilft (zum Beispiel ein Großes Lager gegen Ratten).
+Häuser haben Bedürfnisse: Dorfbewohner im Holzhaus wollen Abwechslung beim Essen und Möbel (Bretter), Bürger im Steinhaus zubereitetes Essen, Hausrat (Werkzeug) und eine Schule, später kommen Glas, Papier, Strom und Elektronik dazu. Nur zufriedene Häuser stellen Fachkräfte für höhere Werkstätten wie Schmiede, Bibliothek oder Fabrik. Ein Haus zählt nur dann als Steinhaus oder höher, wenn auch die Bedürfnisse der Stufen darunter erfüllt sind. Tippe auf ein Haus, um zu sehen, was fehlt.
+Ab dem zweiten Jahr kündigen sich Ereignisse an: Dürre, Ratten, Brand, Seuche, Sturmflut und ab Forschungsstufe 4 Piraten. Das Ereignis-Symbol oben rechts zeigt, was kommt und was hilft (zum Beispiel ein Großes Lager gegen Ratten).
 Ab der Antike verbrauchen Forscher Tontafeln aus der Tafelmacherei, später Papier, Strom und Elektronik. Fehlen sie, wird nur mit 20 % des Tempos geforscht.
 Ein neues Zeitalter beginnt erst nach einer Prüfung. Im Entwicklungsbaum steht unter dem nächsten Zeitalter, was dafür fehlt. Jede bestandene Prüfung bringt ein Fest, Einwanderer und Waren.
 Oben links bietet das Auftragsbrett drei Aufträge an; du suchst dir einen aus. Belohnungen sind Waren, Forschung, Einwanderer, dauerhafte Segen oder Baupläne."""
@@ -3500,6 +3509,11 @@ func _recipe_row(p: Dictionary) -> HBoxContainer:
 	for res in p.get("outputs", {}):
 		h.add_child(UiTheme.label(str(int(p.outputs[res])), 15, UiTheme.TEXT, true))
 		h.add_child(UiTheme.icon_rect(Data.res_icon(res), 18))
+	for alt in p.get("alt_inputs", []):  # Ausweichrezept, z. B. Konserven aus Fleisch
+		h.add_child(UiTheme.label(tr("  oder "), 15, UiTheme.TEXT, true))
+		for res in alt:
+			h.add_child(UiTheme.label(str(int(alt[res])), 15, UiTheme.TEXT, true))
+			h.add_child(UiTheme.icon_rect(Data.res_icon(res), 18))
 	return h
 
 
@@ -3771,8 +3785,7 @@ func _info_node(n: ResNode) -> void:
 	elif n.def.get("on_empty", "") == "remove":
 		_info_box.add_child(UiTheme.label(tr("Wächst nicht nach."), 13))
 	var who := {"baum": tr("Holzfäller"), "fels": tr("Steinmetz"), "busch": tr("Sammler"), "fischgrund": tr("Fischer"),
-		"palme": tr("Sammler"), "pilzkreis": tr("Sammler"), "erzader": tr("Steinmetz"), "goldader": tr("Steinmetz"), "beute": tr("Jäger"),
-		"gewuerzstrauch": tr("Sammler")}
+		"palme": tr("Sammler"), "pilzkreis": tr("Sammler"), "erzader": tr("Steinmetz"), "goldader": tr("Steinmetz"), "beute": tr("Jäger")}
 	if n.def.has("spawns"):
 		var an: Dictionary = Data.animals[n.def.spawns]
 		var w = n.world
@@ -3925,11 +3938,17 @@ func show_title(has_save: bool) -> void:
 	var st := UiTheme.label(tr("Zwei Siedler. Eine Insel. Viele Generationen."), 15)
 	st.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(st)
-	if Game.is_test_build and not Game.build_tag in ["v2", "v2t"]:  # V2 ohne roten Hinweis (josh 2026-10-30), 2.1.0 auch nicht (2026-11-07)
+	if Game.is_test_build and not Game.build_tag in ["v2", "v2t", "v3"]:  # V2 ohne roten Hinweis (josh 2026-10-30), 2.1.0 auch nicht (2026-11-07)
 		var tx := tr("Testversion mit eigenem Spielstand.\nDein normales Spiel bleibt unverändert.")
 		var tb := UiTheme.label(tx, 14, Color("#c03a2a"), true)
 		tb.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		v.add_child(tb)
+	if Game.save_note != "":
+		var sn := UiTheme.label(Game.save_note, 14, Color("#c03a2a"), true)
+		sn.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		sn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		sn.custom_minimum_size.x = 300
+		v.add_child(sn)
 	if has_save:
 		var cont := UiTheme.button(tr("Weiterspielen"), "play", 50)
 		cont.pressed.connect(func():
@@ -4298,6 +4317,8 @@ func _process(delta: float) -> void:
 			_update_research_head()
 	# echte Zeit: in der Pause ist delta 0 und das Fenster blieb sonst stehen (josh 2026-10-31)
 	var now_ms := Time.get_ticks_msec()
+	if _top_dirty and now_ms >= _top_next_ms:
+		_refresh_top()
 	if _info_panel.visible and now_ms >= _info_next_ms:
 		_info_next_ms = now_ms + 500
 		if _info_obj == null or not is_instance_valid(_info_obj):

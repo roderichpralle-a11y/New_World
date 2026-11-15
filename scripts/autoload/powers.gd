@@ -16,7 +16,7 @@ const LIST := [
 	{"id": "nachbesetzen", "level": 1, "icon": "person", "name": "Nachbesetzen",
 		"desc": "Stirbt ein Siedler, übernimmt ein Freier seinen Beruf (einer mit passendem Talent zuerst). Gibt es keinen, lernt ihn das nächste Kind, das erwachsen wird. Den Verwalter selbst ersetzt das Spiel immer sofort, auch ohne diese Befugnis."},
 	{"id": "auslastung", "level": 1, "icon": "hammer", "name": "Auslastung",
-		"desc": "Er schaut je Insel, wie ausgelastet jeder Beruf ist (Anteil der Arbeitszeit im eigenen Beruf). Unter 80 % stellt er einen Siedler dieses Berufs frei, über 90 % bekommt der Beruf einen Freien dazu. Es gibt immer einen Baumeister, einen Verwalter und einen Fischer. Leben auf einer Insel weniger als 7 Erwachsene, meldet er das, teilt einmal Holzfäller, Fischer und Sammler in dieser Reihenfolge ein und hört dann auf. Er verteilt Berufe auf der Insel der Verwaltung und auf Inseln, die mit einer Rundfunkanstalt am Funknetz hängen (die Insel der Verwaltung braucht dann auch eine)."},
+		"desc": "Er zählt je Insel, wie viele Leute jeder Beruf gerade sinnvoll beschäftigen kann: Baustellen, Brennholz bis zum Winterende, Felder und Ställe (weniger Bauern, wenn genug Getreide liegt), Werkstätten und Küchen, die Zutaten und Lagerplatz haben, reife Sträucher und Fischgründe, Forschungsplätze. Danach verteilt er die Erwachsenen ausgewogen: Essen und Brennholz gehen vor, der Rest bekommt seinen Anteil. Ein Beruf, der unter 80 % ausgelastet ist, bekommt einen weniger; wer nirgends gebraucht wird, wird frei und hilft beim Bauen. Es gibt immer einen Baumeister, einen Verwalter und einen Fischer. Leben auf einer Insel weniger als 7 Erwachsene, meldet er das, teilt einmal Holzfäller, Fischer und Sammler in dieser Reihenfolge ein und hört dann auf. Er verteilt Berufe auf der Insel der Verwaltung und auf Inseln, die mit einer Rundfunkanstalt am Funknetz hängen (die Insel der Verwaltung braucht dann auch eine)."},
 ]
 
 var mode: Dictionary = {}       # Befugnis -> AUS/SELBST (fehlt = SELBST; Fragen gibt es seit 2026-11-07 nicht mehr)
@@ -152,9 +152,9 @@ func new_level() -> bool:
 
 func autotest_setup(args: Dictionary, main) -> void:
 	if args.has("powerstest"):
-		await PowersTest.run(main, str(args.powerstest))
+		await Game.test("powers_test").run(main, str(args.powerstest))
 	if args.has("vlab"):
-		await StewardLab.run(main, str(args.vlab))
+		await Game.test("steward_lab").run(main, str(args.vlab))
 
 
 # ---------------------------------------------------------------- Spielstand

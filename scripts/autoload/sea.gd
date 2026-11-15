@@ -9,7 +9,9 @@ signal islands_changed
 signal island_switched(world)
 
 ## Meta-Daten je Insel: {id, name, biome, seed, size, pos: [x, y], state, found_day, dens: [[typ, anzahl]]}
-## state: "discovered" (entdeckt), "settled" (besiedelt), "lost" (verloren)
+## state: "discovered" (entdeckt), "settled" (besiedelt), "empty" (verlassen: niemand lebt dort mehr, Gebäude,
+## Lager und Schiffe bleiben; neue Siedler beleben sie wieder, josh 2026-11-14). "lost" (verloren) gab es bis
+## 3.0.31; solche Inseln werden beim Laden wieder "discovered" und lassen sich neu besiedeln.
 var islands: Array = []
 var worlds: Dictionary = {}  # Insel-ID -> World (nur besiedelte Inseln)
 ## Reisen: {kind: "explore"|"settle"|"ship", ship (ID, fehlt in alten Spielstaenden), from, to, depart,
@@ -36,6 +38,7 @@ func clear_worlds() -> void:
 				w.get_parent().remove_child(w)
 			w.queue_free()
 	worlds = {}
+	World.global_rev += 1
 
 
 func meta(id: int) -> Dictionary:
@@ -61,7 +64,7 @@ func all_worlds() -> Array:
 ## Insel mit den meisten Siedlern.
 func main_world():
 	var w = worlds.get(0)
-	if w != null and is_instance_valid(w):
+	if w != null and is_instance_valid(w) and (not w.settlers.is_empty() or total_on_land() == 0):
 		return w
 	var best = null
 	for o in all_worlds():
@@ -83,6 +86,13 @@ func island_name(w) -> String:
 
 
 ## Alle lebenden Siedler, auch die auf See.
+func total_on_land() -> int:
+	var n := 0
+	for w in all_worlds():
+		n += w.settlers.size()
+	return n
+
+
 func total_people() -> int:
 	var n := 0
 	for w in all_worlds():
@@ -162,6 +172,7 @@ func create_world_node(id: int) -> World:
 	world_root.add_child(w)
 	world_root.move_child(w, 0)
 	worlds[id] = w
+	World.global_rev += 1
 	return w
 
 
@@ -183,26 +194,24 @@ func switch_to(id: int) -> void:
 
 
 func island_lost(w) -> void:
+	# Die Insel geht nicht mehr verloren (josh 2026-11-14): sie ist nur verlassen. Gebäude, Lager und Schiffe
+	# bleiben, die Welt läuft weiter (Bäume, Tiere). Kommen neue Siedler an, geht es dort weiter (_arrive).
 	var m := meta(w.island_id)
-	if m.is_empty() or m.state == "lost":
+	if m.is_empty() or m.state != "settled":
 		return
-	m.state = "lost"
-	worlds.erase(w.island_id)
-	_ships_lost(int(w.island_id))
-	Game.notify(tr("%s ist verloren! Dort lebt niemand mehr.") % m.name, "abriss")
+	m.state = "empty"
+	World.global_rev += 1
+	Game.notify(tr("%s ist verlassen: Dort lebt niemand mehr. Die Gebäude bleiben stehen. Schicke neue Siedler hin, dann geht es dort weiter.") % m.name, "abriss")
 	Game.note_sound("verloren")
-	var others := all_worlds()
+	islands_changed.emit()
+	var others := all_worlds().filter(func(o): return o != w and not o.settlers.is_empty())
 	if Game.world == w and not others.is_empty():
 		var best = others[0]
 		for o in others:
 			if o.settlers.size() > best.settlers.size():
 				best = o
 		switch_to(best.island_id)
-	if not others.is_empty():
-		w.visible = false
-		w.queue_free()
 	Game.refresh_effects()
-	islands_changed.emit()
 
 
 # ---------------------------------------------------------------- Schiffe und Haefen
@@ -992,7 +1001,9 @@ func build_from_save(d: Dictionary) -> void:
 		m.seed = int(m.seed)
 		m.size = int(m.size)
 		islands.append(m)
-		if m.state == "settled" and e.has("world"):
+		if m.state == "lost":
+			m.state = "discovered"  # verlorene Inseln alter Spielstände lassen sich neu besiedeln
+		if m.state in ["settled", "empty"] and e.has("world"):
 			var w := create_world_node(m.id)
 			w.build_from_save(e.world, m)
 	for v in d.get("voyages", []):
@@ -1112,17 +1123,66 @@ func _once_end(sh: Dictionary, w) -> void:
 ## Testhilfe (Game.systems): --oncetest=1 (mit --fixture=sea.json) fährt eine Einmal-Route, siehe RouteTest;
 ## --oncetest=shot stellt nur die Route eines Schiffs auf „Einmal hin und zurück“ (mit --panel=sea --seaview=ship).
 func autotest_setup(args: Dictionary, main) -> void:
+	if args.has("emptytest"):
+		await _empty_test(main)
 	if args.has("oncetest"):
 		if str(args.oncetest) == "trip":
-			await RouteTest.trip_test(main)
+			await Game.test("route_test").trip_test(main)
 		elif str(args.oncetest) == "room":
-			await RouteTest.room_test(main)
+			await Game.test("route_test").room_test(main)
 		elif str(args.oncetest) == "werft":
-			await RouteTest.yard_test(main)
+			await Game.test("route_test").yard_test(main)
 		elif str(args.oncetest) == "werftshot":
-			await RouteTest.yard_test(main, true)
+			await Game.test("route_test").yard_test(main, true)
 		else:
-			await RouteTest.once_test(main, str(args.oncetest))
+			await Game.test("route_test").once_test(main, str(args.oncetest))
+
+
+## --emptytest=1 (mit --fixture=<Spielstand mit zweiter Insel>): alle Siedler einer Nebeninsel sterben, die Insel
+## ist danach verlassen statt verloren, Gebäude und Lager bleiben, Speichern und Laden behalten sie, zwei Siedler
+## von der Heimatinsel beleben sie wieder.
+func _empty_test(main) -> void:
+	print("--- Test verlassene Insel")
+	var side = null
+	for w in all_worlds():
+		if int(w.island_id) != 0 and not w.settlers.is_empty() and w.droids.is_empty():
+			side = w
+	if side == null:
+		print("Verlassen FEHLER keine besiedelte Nebeninsel im Spielstand")
+		return
+	var iid := int(side.island_id)
+	var nb: int = side.buildings.size()
+	var wood: int = Game.amount("holz", side)
+	var ships_n := ships_at(iid).size()
+	for s in side.settlers.duplicate():
+		side.kill_settler(s, "gestorben (Test)", "old")
+	var ok: bool = meta(iid).state == "empty" and worlds.get(iid) == side and side.buildings.size() == nb \
+		and Game.amount("holz", side) == wood and ships_at(iid).size() == ships_n and not Game.is_over
+	print("Verlassen ", "OK" if ok else "FEHLER", " %s: Zustand %s, Gebäude %d/%d, Holz %d/%d, Schiffe %d/%d, Hauptinsel %s" % [
+		meta(iid).name, meta(iid).state, side.buildings.size(), nb, Game.amount("holz", side), wood, ships_at(iid).size(), ships_n, island_name(main_world())])
+	var t0 := Game.time_days
+	while Game.time_days < t0 + 1.0:
+		await main.get_tree().create_timer(1.0).timeout
+	var d := serialize()
+	var saved := false
+	for e in d.islands:
+		if int(e.id) == iid:
+			saved = str(e.state) == "empty" and e.has("world") and Array(e.world.buildings).size() == side.buildings.size()
+	print("Verlassen ", "OK" if saved else "FEHLER", " nach einem Tag ohne Siedler: im Spielstand als verlassen mit Gebäuden")
+	var home = worlds.get(0)
+	var movers: Array = home.settlers.filter(func(s): return s.is_adult()).slice(0, 2)
+	var datas := []
+	for s in movers:
+		datas.append(s.serialize())
+		home.remove_settler(s)
+	_arrive({"kind": "settle", "ship": -1, "from": 0, "to": iid, "settlers": datas, "crew": []})
+	t0 = Game.time_days
+	while Game.time_days < t0 + 0.5:
+		await main.get_tree().create_timer(1.0).timeout
+	var back: bool = meta(iid).state == "settled" and worlds.get(iid) == side and side.settlers.size() == datas.size() \
+		and side.buildings.size() >= nb
+	print("Verlassen ", "OK" if back else "FEHLER", " wieder belebt: Zustand %s, %d Siedler, Gebäude %d, Tätigkeiten %s" % [
+		meta(iid).state, side.settlers.size(), side.buildings.size(), side.settlers.map(func(s): return s.activity)])
 
 
 # ---------------------------------------------------------------- Fahrten (josh 2026-10-17)

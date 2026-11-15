@@ -135,7 +135,9 @@ static func run(main, mode: String) -> void:
 	_round(w)
 	var j2 := _jobs(w)
 	_ok(int(j2.get("sammler", 0)) == 2, "Sammler zu 50 %% ausgelastet: einer wird frei (%d Sammler)" % int(j2.get("sammler", 0)))
-	_ok(int(j2.get("holzfaeller", 0)) == 3, "Holzfäller zu 96 %% ausgelastet: ein Freier kommt dazu (%d)" % int(j2.get("holzfaeller", 0)))
+	# seit 2026-11-14 nach Bedarf: hohe Auslastung allein bringt keinen weiteren Holzfäller, das Soll entscheidet
+	var soll: Array = Steward.balance_info(w).get("holzfaeller", [0, 0])
+	_ok(int(j2.get("holzfaeller", 0)) >= 2 and int(j2.get("holzfaeller", 0)) <= maxi(2, int(soll[0])), "Holzfäller nach Bedarf: Soll %d, Ist %d" % [int(soll[0]), int(j2.get("holzfaeller", 0))])
 	# Zwischen 80 und 90 % bleibt alles
 	for s in w.settlers:
 		if s.is_adult() and s.job in ["sammler", "holzfaeller"]:
@@ -256,6 +258,26 @@ static func run(main, mode: String) -> void:
 		side.append(landed)
 	for o in side:
 		w2.kill_settler(o, "test", "old")
+	# Seemann vom Spieler: Verwalter, Automat, KI setzen ihn nicht um (josh 2026-11-12)
+	var sm = _mk(w, "Seebär", "frei")
+	JobDesk.assign(sm, "seemann", "spieler")
+	JobDesk.set_player_controlled(sm, false)  # auch ohne Spieler-Sperre
+	var r1 := JobDesk.assign(sm, "frei", "verwalter", -1.0, true)
+	var r2 := JobDesk.assign(sm, "bauer", "automat", -1.0, true)
+	var r3 := JobDesk.assign(sm, "bauer", "ki", 0.5, true)
+	_ok(not r1 and not r2 and not r3 and sm.job == "seemann", "Seemann: Verwalter, Automat und KI setzen ihn nicht um (%s)" % sm.job)
+	_ok(JobDesk.assign(sm, "fischer", "spieler") and sm.job == "fischer", "Seemann: der Spieler darf ihn umsetzen")
+	w.kill_settler(sm, "test", "old")
+	# Schiff umbenennen (josh 2026-11-12)
+	var shp: Dictionary = Sea._new_ship("boot", int(w.island_id))
+	if not shp.is_empty():
+		var nm0 := str(shp.name)
+		var nm1 := Sea.rename_ship(shp, "  Möwe  ")
+		var nm2 := Sea.rename_ship(shp, "   ")
+		_ok(nm1 == "Möwe" and nm2 == "Möwe" and nm0 != "Möwe", "Schiff umbenennen: %s -> %s, leer bleibt %s" % [nm0, nm1, nm2])
+		Sea.ships.erase(shp)
+	else:
+		_ok(false, "Schiff anlegen für den Umbenennen-Test")
 	# Ausgeblendete Meldung: kein Ton (josh 2026-11-08)
 	var was_off: bool = Game.notify_off.get("ereignis", false)
 	Game.notify_off["ereignis"] = true
@@ -313,26 +335,6 @@ static func run(main, mode: String) -> void:
 				print("Abriss Baustelle: ", r, " ", before[r], " -> ", Game.amount(r, w))
 		_ok(back_ok and carrier.carry_n == 0, "Abriss einer Baustelle: geliefertes und getragenes Material kommt voll zurück (%s)" % str(spent))
 		w.kill_settler(carrier, "test", "old")
-	# Seemann vom Spieler: Verwalter, Automat, KI setzen ihn nicht um (josh 2026-11-12)
-	var sm = _mk(w, "Seebär", "frei")
-	JobDesk.assign(sm, "seemann", "spieler")
-	JobDesk.set_player_controlled(sm, false)  # auch ohne Spieler-Sperre
-	var r1 := JobDesk.assign(sm, "frei", "verwalter", -1.0, true)
-	var r2 := JobDesk.assign(sm, "bauer", "automat", -1.0, true)
-	var r3 := JobDesk.assign(sm, "bauer", "ki", 0.5, true)
-	_ok(not r1 and not r2 and not r3 and sm.job == "seemann", "Seemann: Verwalter, Automat und KI setzen ihn nicht um (%s)" % sm.job)
-	_ok(JobDesk.assign(sm, "fischer", "spieler") and sm.job == "fischer", "Seemann: der Spieler darf ihn umsetzen")
-	w.kill_settler(sm, "test", "old")
-	# Schiff umbenennen (josh 2026-11-12)
-	var shp: Dictionary = Sea._new_ship("boot", int(w.island_id))
-	if not shp.is_empty():
-		var nm0 := str(shp.name)
-		var nm1 := Sea.rename_ship(shp, "  Möwe  ")
-		var nm2 := Sea.rename_ship(shp, "   ")
-		_ok(nm1 == "Möwe" and nm2 == "Möwe" and nm0 != "Möwe", "Schiff umbenennen: %s -> %s, leer bleibt %s" % [nm0, nm1, nm2])
-		Sea.ships.erase(shp)
-	else:
-		_ok(false, "Schiff anlegen für den Umbenennen-Test")
 	# Schalter „nur Spieler“ (josh 2026-11-07 18:43)
 	_ok(Steward.IDLE_ORDER.find("steinmetz") == Steward.IDLE_ORDER.find("handwerker") + 1, "Steinmetz steht direkt nach Handwerker in der Reihe")
 	var pc = _mk(w, "Spielerfigur", "holzfaeller")

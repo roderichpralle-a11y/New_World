@@ -13,14 +13,13 @@
   "mehl": {"name": "Mehl", "icon": "mehl", "category": "material", "size": 1, "order": 9, "price": 0.2},
   "beeren": {"name": "Beeren", "icon": "beeren", "category": "food", "nutrition": 12, "vitamins": 22, "size": 1, "order": 10, "price": 0.1},
   "fisch": {"name": "Fisch", "icon": "fisch", "category": "food", "nutrition": 22, "vitamins": 6, "size": 1, "order": 11, "price": 0.15},
-  "weizen": {"name": "Getreide", "icon": "weizen", "category": "food", "nutrition": 10, "vitamins": 3, "size": 1, "order": 12, "price": 0.1},
-  "aepfel": {"name": "Äpfel", "icon": "aepfel", "category": "food", "nutrition": 28, "vitamins": 40, "size": 1, "order": 13, "price": 0.2},
+  "weizen": {"name": "Getreide", "icon": "weizen", "category": "food", "nutrition": 6, "vitamins": 3, "raw_food": true, "size": 1, "order": 12, "price": 0.1},
+  "aepfel": {"name": "Äpfel", "icon": "aepfel", "category": "food", "nutrition": 13, "vitamins": 40, "size": 1, "order": 13, "price": 0.2},
   "eier": {"name": "Eier", "icon": "eier", "category": "food", "nutrition": 20, "vitamins": 8, "size": 1, "order": 14, "price": 0.2},
-  "raeucherfisch": {"name": "Räucherfisch", "icon": "raeucherfisch", "category": "food", "nutrition": 34, "vitamins": 5, "size": 1, "order": 15, "price": 0.3},
-  "brot": {"name": "Brot", "icon": "brot", "category": "food", "nutrition": 84, "vitamins": 6, "size": 1, "order": 16, "price": 0.4},
+  "raeucherfisch": {"name": "Räucherfisch", "icon": "raeucherfisch", "category": "food", "nutrition": 43, "vitamins": 5, "size": 1, "order": 15, "price": 0.3},
+  "brot": {"name": "Brot", "icon": "brot", "category": "food", "nutrition": 50, "vitamins": 6, "size": 1, "order": 16, "price": 0.4},
   "felle": {"name": "Felle", "icon": "felle", "category": "material", "size": 2, "order": 9.2, "price": 0.5},
   "gold": {"name": "Gold", "icon": "gold", "category": "material", "size": 0, "order": 9.4, "price": 1},
-  "gewuerze": {"name": "Gewürze", "icon": "gewuerze", "category": "material", "size": 1, "order": 9.45, "price": 1.5},
   "boot": {"name": "Ruderboot", "icon": "boot", "category": "ship", "size": 0, "order": 9.6},
   "expedition": {"name": "Expeditionsschiff", "icon": "kogge", "category": "ship", "size": 0, "order": 9.605},
   "kogge": {"name": "Kogge", "icon": "kogge", "category": "ship", "size": 0, "order": 9.61},
@@ -39,5 +38,5 @@
   "strom": {"name": "Strom", "icon": "strom", "category": "material", "size": 0, "order": 9.74},
   "elektronik": {"name": "Elektronik", "icon": "elektronik", "category": "material", "size": 1, "order": 9.75, "price": 8},
   "droide": {"name": "Droide", "icon": "roboter", "category": "material", "size": 3, "order": 9.76},
-  "konserven": {"name": "Konserven", "icon": "konserven", "category": "food", "nutrition": 30, "vitamins": 8, "size": 1, "order": 19.5, "price": 0.6}
+  "konserven": {"name": "Konserven", "icon": "konserven", "category": "food", "nutrition": 70, "vitamins": 8, "size": 1, "order": 19.5, "price": 0.6}
 }

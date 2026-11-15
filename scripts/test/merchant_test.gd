@@ -1,11 +1,9 @@
 class_name MerchantTest
 extends RefCounted
-## Selbsttests für "Inselstärken, Gewürze und fremde Händler" (kein Autoload; Merchant.autotest_setup
+## Selbsttests für "Inselstärken und fremde Händler" (kein Autoload; Merchant.autotest_setup
 ## ruft sie auf). Ausgaben nur mit print, Ergebnis je Prüfung "OK" oder "FEHLER".
 ##   --biometest=1   Tabelle der Inselstärken, Arbeitszeit je Inselart, Planung des Siedlers,
 ##                   Steinbruch je ein Tag Heimat/Fels/Heimat (nur Info, schwankt)
-##   --spicetest=1   Generator (8 Sträucher, Rest unverändert), Kolonie auf einer Palmeninsel,
-##                   alter Spielstand (Sträucher kommen wieder, nur einmal), Sammler-Reihenfolge, Ernte
 ##   --tradetest2=1  Händler sofort auf der aktiven Insel: Lose, Kauf, Verkauf, Gründe, Speichern/Laden,
 ##                   Seehandel, alter Spielstand, dann Abfahrt, Ankündigung und nächster Besuch
 ##   --basictrade=1  einfache Waren (Holz, Stein, ...): je Besuch 2 Verkaufs- und 2 Ankaufslose zusätzlich,
@@ -87,66 +85,6 @@ static func biome_test(main) -> void:
 	w.biome = keep
 	var base := (float(counts[0]) + float(counts[2])) / 2.0
 	print("Inselstärken Info: Felseninsel brachte x%.2f so viel Stein ins Lager (nur der Arbeitsgang ist x1,5 so schnell; Wege, Pausen und die anderen Siedler schwanken)" % (float(counts[1]) / maxf(1.0, base)))
-
-
-# ---------------------------------------------------------------- Gewürze
-static func spice_test(main) -> void:
-	var bd: Dictionary = Data.islands["tropen"].duplicate()
-	bd["_dens"] = [["eberbau", 1]]
-	var bd0 := bd.duplicate()
-	bd0.erase("extra")
-	var g1 := IslandGen.generate(4242, 48, {"biome": bd})
-	var g0 := IslandGen.generate(4242, 48, {"biome": bd0})
-	var sp: Array = g1.nodes.filter(func(n): return n.type == "gewuerzstrauch")
-	var rest: Array = g1.nodes.filter(func(n): return n.type != "gewuerzstrauch")
-	var same: bool = rest.size() == g0.nodes.size()
-	for i in mini(rest.size(), g0.nodes.size()):
-		if rest[i].type != g0.nodes[i].type or rest[i].cell != g0.nodes[i].cell:
-			same = false
-	var grass := sp.filter(func(n): return g1.terrain[n.cell.y * 48 + n.cell.x] == 2).size()
-	print("Gewürze ", _okf(sp.size() == 8), " Generator: %d Sträucher (%d auf Gras) | " % [sp.size(), grass], _okf(same), " alle anderen Rohstoffe und Baue gleich")
-	var counts := []
-	for k in range(1, 21):
-		counts.append(IslandGen.generate(k * 7919, 44 + k % 9, {"biome": bd}).nodes.filter(func(n): return n.type == "gewuerzstrauch").size())
-	var others := 0
-	for bio in ["heimat", "wald", "berg"]:
-		var o: Dictionary = Data.islands[bio].duplicate()
-		o["_dens"] = []
-		others += IslandGen.generate(4242, 48, {"biome": o}).nodes.filter(func(n): return n.type == "gewuerzstrauch").size()
-	print("Gewürze ", _okf(counts.min() >= 7 and others == 0), " je Palmeninsel (20 Seeds): ", counts, " | andere Inselarten: ", others)
-	# Kolonie auf einer Palmeninsel
-	var m: Dictionary = Sea.make_island(Sea.islands.size())
-	m.biome = "tropen"
-	m.dens = [["eberbau", 1]]
-	Sea.islands.append(m)
-	var w = Sea.create_world_node(int(m.id))
-	w.build_colony(m)
-	m.state = "settled"
-	Sea.islands_changed.emit()
-	var bushes: int = w.nodes.filter(func(n): return n.type == "gewuerzstrauch").size()
-	print("Gewürze ", _okf(bushes == 8), " Kolonie %s: %d Sträucher" % [m.name, bushes])
-	var came: Array = Game.spawn_immigrants(w, 4, {"convert": false})
-	for i in mini(2, came.size()):
-		came[i].set_job("sammler")
-	w.stock = {}
-	var targets: Array = Data.jobs.sammler.targets
-	var hungry := IslandTraits.gather_order(targets, w)
-	Game.add_stock("kokos", 60, w)
-	var fed := IslandTraits.gather_order(targets, w)
-	print("Gewürze ", _okf(not "gewuerzstrauch" in hungry and fed[0] == "gewuerzstrauch"), " Sammler ohne Essen: ", hungry, " | mit 60 Kokos für 4 Siedler: ", fed)
-	# Alter Spielstand: Sträucher fehlen und kommen beim Laden wieder (nur einmal)
-	for n in w.nodes.duplicate():
-		if n.type == "gewuerzstrauch":
-			w.remove_node(n)
-	var gen := IslandGen.generate(int(m.seed), int(m.size), w._gen_opts(m))
-	var again1 := IslandTraits.patch_spice(w, gen)
-	var again2 := IslandTraits.patch_spice(w, gen)
-	print("Gewürze ", _okf(again1 >= 6 and again2 == 0), " alter Spielstand: %d nachgesetzt, beim zweiten Laden %d" % [again1, again2])
-	var t0 := Game.time_days
-	while Game.time_days < t0 + 2.0:
-		await _wait(main, 1.0)
-	var acts: Array = w.settlers.map(func(x): return "%s:%s:%s" % [x.display_name, x.job, x.activity])
-	print("Gewürze ", _okf(Game.amount("gewuerze", w) > 0), " nach 2 Tagen auf %s: %d Gewürze, Essen %d | %s" % [m.name, Game.amount("gewuerze", w), Game.total_food(w), acts])
 
 
 # ---------------------------------------------------------------- Händler
@@ -235,7 +173,7 @@ static func trade_test(main, mode: String) -> void:
 		and int(M.state.island) == int(before.island) and int(M.state.seq) == int(before.seq) \
 		and absf(float(M.state.until) - float(before.until)) < 0.001 and M.present()
 	print("Handel ", _okf(load_ok), " Speichern und Laden: Lose, Insel, Abfahrt gleich")
-	# 8 Seehandel: ein Los mehr, Abstand x0,7
+	# 8 Seehandel: ein Los mehr (ohne Gewürze gibt es früh nur vier seltene Waren, dann bleibt es bei 6), Abstand x0,7
 	var eff_keep: Dictionary = Game.effects.duplicate()
 	var keep2: Dictionary = M.state.duplicate(true)
 	var iv_n: float = M.next_interval(7)
@@ -245,14 +183,14 @@ static func trade_test(main, mode: String) -> void:
 	var iv_t: float = M.next_interval(7)
 	Game.effects = eff_keep
 	M.state = keep2
-	print("Handel ", _okf(n_sells == 7 and absf(iv_t / iv_n - 0.7) < 0.001), " Seehandel: %d Verkaufslose, Abstand %.2f statt %.2f Tage" % [n_sells, iv_t, iv_n])
+	print("Handel ", _okf(n_sells >= 6 and absf(iv_t / iv_n - 0.7) < 0.001), " Seehandel: %d Verkaufslose, Abstand %.2f statt %.2f Tage" % [n_sells, iv_t, iv_n])
 	# 9 alter Spielstand: erster Besuch rules_day + 2, Regelzeile
 	var keep3: Dictionary = M.state.duplicate(true)
 	var lines_keep: Array = Game.rules_lines.duplicate()
 	M._on_load({}, 0)
 	var old_ok: bool = absf(float(M.state.next) - (Game.rules_day + 2.0)) < 0.001 and int(M.state.island) == -1 \
 		and Game.rules_lines.size() == lines_keep.size() + 1 \
-		and Game.rules_lines[-1] == Loc.t("Jede Inselart hat Stärken. Palmeninseln haben Gewürze. Händler kommen an Häfen und handeln gegen Gold.")
+		and Game.rules_lines[-1] == Loc.t("Jede Inselart hat Stärken. Händler kommen an Häfen und handeln gegen Gold.")
 	print("Handel ", _okf(old_ok), " alter Spielstand: erster Besuch Tag %.2f (Regeln ab Tag %.2f), Regelzeile '%s'" % [float(M.state.next) + 1.0, Game.rules_day + 1.0, Game.rules_lines[-1] if not Game.rules_lines.is_empty() else ""])
 	Game.rules_lines = lines_keep
 	M.state = keep3

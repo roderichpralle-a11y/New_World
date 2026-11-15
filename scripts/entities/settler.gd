@@ -25,7 +25,11 @@ var hunger: float = 90.0
 var health: float = 100.0
 var skills: Dictionary = {}
 var skill_xp: Dictionary = {}
-var job: String = "frei"
+var job: String = "frei":
+	set(v):
+		if v != job:
+			job = v
+			World.people_rev += 1  # Merker über die Bewohner (z. B. wer Verwalter ist) gelten nicht mehr
 var home_id: int = 0
 var look: Dictionary = {}
 var carry_res: String = ""
@@ -196,6 +200,8 @@ func setup(p_world, data: Dictionary) -> void:
 	home_id = int(data.get("home", 0))
 	look = data.get("look", random_look(_rng))
 	carry_res = data.get("carry_res", "")
+	if carry_res != "" and not Data.resources.has(carry_res):
+		carry_res = ""  # Ware gibt es nicht mehr (Retired.scrub)
 	carry_n = int(data.get("carry_n", 0))
 	birth_cooldown_until = float(data.get("birth_cd", 0.0))
 	parents = data.get("parents", [])
@@ -302,20 +308,6 @@ func gain_xp(sk: String, amount: float = 1.0, quiet: bool = false) -> void:
 		Game.notify(tr("%s ist besser geworden: %s Stufe %d.") % [display_name, Data.skills[sk].name, int(skills[sk])], "sonne", "siedler")
 		world.float_text(position + Vector2(0, -30), tr("Stufe %d!") % int(skills[sk]), "")
 		Sound.play_on("stufe", world)
-
-
-func best_job() -> String:
-	var best := "frei"
-	var best_v := 1.5
-	var map := {"holz": "holzfaeller", "stein": "steinmetz", "nahrung": "sammler", "bauen": "baumeister",
-		"handwerk": "handwerker", "wissen": "forscher", "jagd": "jaeger"}
-	for sk in map:
-		if not Data.job_unlocked(map[sk]):
-			continue
-		if skill_level(sk) > best_v:
-			best_v = skill_level(sk)
-			best = map[sk]
-	return best
 
 
 var _outfit_job := "?"
@@ -620,6 +612,9 @@ func _think() -> void:
 		else:
 			_plan_wander(5, tr("Spielt"))
 		return
+	# 4b. Die Insel friert (kein Holz, keine Kohle): jeder Erwachsene fällt selbst Bäume (josh 2026-11-14)
+	if Seasons.cold.has(world) and _plan_firewood():
+		return
 	# 5. Freizeit: mit festem Arbeitstag Mittagspause nahe der Arbeit und Feierabend, sonst nach Erholung
 	if wd == "pause":
 		_plan_wander(3, tr("Macht Mittagspause"), cell)  # in der Nähe, damit er nach einer Stunde wieder dort ist
@@ -634,7 +629,33 @@ func _think() -> void:
 	if _plan_work():
 		return
 	_stat_kind = "idle"
-	_plan_wander(4, tr("Hat nichts zu tun"))
+	_plan_wander(4, _idle_text())
+
+
+## Warum ein Holzfäller steht (josh 2026-11-14): kein Baum mehr oder kein Platz, sonst der übliche Text.
+func _idle_text() -> String:
+	if job == "holzfaeller":
+		if Game.space_for("holz", world) <= 0:
+			return tr("Kein Platz für Holz im Lager")
+		if not world.nodes.any(func(n): return n.type == "baum" and n.is_available()):
+			var key := Game.day()
+			if int(world.get_meta("no_tree_note", -99)) < key - 2:  # höchstens alle 3 Tage je Insel
+				world.set_meta("no_tree_note", key)
+				Game.notify_at(world, tr("Alle Bäume sind gefällt. Die Holzfäller warten, bis Bäume nachwachsen (im Winter wächst nichts). Ein Förster kann neue Bäume pflanzen."), "holz", "lager")
+			return tr("Kein Baum mehr zu fällen")
+	return tr("Hat nichts zu tun")
+
+
+## Notholz: friert die Insel, fällt der Siedler den nächsten Baum und bringt das Holz zum Lager.
+func _plan_firewood() -> bool:
+	if not is_adult() or Game.is_night():
+		return false
+	_stat_kind = "other"
+	if not _plan_gather(["baum"]):
+		_stat_kind = "needs"
+		return false
+	activity = tr("Friert und holt Brennholz")
+	return true
 
 
 func abort_plan() -> void:
@@ -1058,11 +1079,12 @@ func _unstick() -> void:
 
 func _plan_wander(radius: int, text: String, at = null) -> void:
 	var anchor: Vector2i = cell
-	var st = world.nearest_storage(cell)
 	if at != null:
 		anchor = at
-	elif st:
-		anchor = st.cell
+	else:
+		var st = world.nearest_storage(cell)
+		if st:
+			anchor = st.cell
 	for i in 6:
 		var c := anchor + Vector2i(_rng.randi_range(-radius, radius), _rng.randi_range(-radius, radius))
 		if world.is_walkable(c):
@@ -1123,7 +1145,7 @@ func _plan_work() -> bool:
 			return _plan_free_gather()
 		_:
 			var targets: Array = Data.jobs.get(job, {}).get("targets", [])
-			targets = IslandTraits.gather_order(targets, world)  # Sammler: Gewürze zuerst, wenn genug Essen da ist
+			targets = IslandTraits.gather_order(targets, world)  # Hauptaufgabe der Insel: deren Fundstellen zuerst
 			if _plan_gather(targets):
 				return true
 			# Ist das eigene Lager voll, hilft der Siedler woanders aus
@@ -1195,15 +1217,14 @@ func _plan_gather(types: Array) -> bool:
 func _tool_for_node(t: String) -> String:
 	return {"baum": "axe", "fels": "pick", "busch": "basket", "fischgrund": "rod", "palme": "basket",
 		"pilzkreis": "basket", "erzader": "pick", "goldader": "pick", "beute": "spear", "wolfsbau": "shovel",
-		"eberbau": "shovel", "baerenhoehle": "pick", "gewuerzstrauch": "basket"}.get(t, "")
+		"eberbau": "shovel", "baerenhoehle": "pick"}.get(t, "")
 
 
 func _verb(t: String) -> String:
 	return {"baum": tr("Fällt einen Baum"), "fels": tr("Schlägt Steine"), "busch": tr("Pflückt Beeren"),
 		"fischgrund": tr("Angelt"), "palme": tr("Pflückt Kokosnüsse"), "pilzkreis": tr("Sammelt Pilze"),
 		"erzader": tr("Schlägt Erz"), "goldader": tr("Schürft Gold"), "beute": tr("Zerlegt die Beute"),
-		"wolfsbau": tr("Räumt den Bau aus"), "eberbau": tr("Räumt den Bau aus"), "baerenhoehle": tr("Räumt die Höhle aus"),
-		"gewuerzstrauch": tr("Erntet Gewürze")}.get(t, tr("Arbeitet"))
+		"wolfsbau": tr("Räumt den Bau aus"), "eberbau": tr("Räumt den Bau aus"), "baerenhoehle": tr("Räumt die Höhle aus")}.get(t, tr("Arbeitet"))
 
 
 func _do_harvest(node) -> void:
@@ -1323,7 +1344,7 @@ func _plan_sites(sites: Array) -> bool:
 	for site in sites:
 		var need: Dictionary = site.remaining_cost()
 		for res in need:
-			var n: int = min(min(int(need[res]), Game.amount(res, world)), carry_capacity() + 2)
+			var n: int = min(min(int(need[res]), Game.build_free(res, world)), carry_capacity() + 2)
 			if n <= 0:
 				continue
 			var st = world.nearest_storage(cell)
@@ -1352,7 +1373,7 @@ func _site_adjacent(site) -> bool:
 func _do_pickup(site, res: String, n: int) -> void:
 	if carry_n > 0:
 		_do_deliver()
-	var got := Game.take_stock(res, n, world)
+	var got := Game.take_stock(res, mini(n, Game.build_free(res, world)), world)
 	# Reservierung anpassen
 	for inc in _incoming:
 		if inc[0] == site and inc[1] == res:
@@ -1468,6 +1489,8 @@ func _do_produce(b) -> void:
 	gain_xp(p.get("skill", "handwerk"))
 	var outs: Dictionary = p.get("outputs", {})
 	var first := true
+	if b.def.has("deposit"):
+		world.take_ore(int(outs.get(str(b.def.deposit), 0)))  # endliches Erz der Insel (World.ore_left)
 	for res in outs:
 		var n := int(outs[res])
 		Admin.note_produced(res, n, world)  # Statistik
@@ -1490,6 +1513,11 @@ func _do_produce(b) -> void:
 			Game.add_stock(res, n, world)
 	world.spawn_effect("dust", b.position + Vector2(_rng.randf_range(-8, 8), -4))
 	Sound.play_at(String(b.def.get("sound", "hammer")), world, b.position)
+	# Inselware (buildings.json biome_extra): z. B. Steinkohle aus der Erzmine der Felseninsel (josh 2026-11-14)
+	var ex: Dictionary = b.def.get("biome_extra", {}).get(str(world.biome), {})
+	if not ex.is_empty() and Game.is_researched(str(ex.get("requires", ""))):
+		for res in ex.get("outputs", {}):
+			Admin.note_produced(res, Game.add_stock(res, int(ex.outputs[res]), world), world)
 	if carry_n > 0:
 		_plan_deliver_after()
 	else:
@@ -2075,7 +2103,11 @@ func _animate(delta: float) -> void:
 	_zzz.visible = sleeping and visible and (_body.rotation != 0 or _sied_kind != "")
 	if _zzz.visible:
 		_zzz.position.y = -30 + sin(_anim_t * 2.0) * 2.0
-	queue_redraw()
+	# _draw zeichnet nur den Auswahlpfeil: neu zeichnen, solange er gewählt ist, und einmal danach
+	var sel: bool = Game.selected == self
+	if sel or _was_selected:
+		queue_redraw()
+	_was_selected = sel
 
 
 ## Bewegung aus dem Siedler-Bogen wählen: Schlafen, Kämpfen, Gehen (mit Last oder Schubkarre), Lesen,
@@ -2145,6 +2177,9 @@ func pushes_cart() -> bool:
 	return carry_n > 0 and _moving and not sleeping and is_adult() and Game.is_researched("handkarren")
 
 
+var _was_selected := false
+
+
 func _draw() -> void:
 	if Game.selected == self:
 		var y := -32.0 + sin(_anim_t * 5.0) * 2.0
@@ -2155,11 +2190,18 @@ func _draw() -> void:
 
 
 # ------------------------------------------------------------------ Speichern
+static func _rounded(d: Dictionary) -> Dictionary:
+	var out := {}
+	for k in d:
+		out[k] = snappedf(float(d[k]), 0.01)
+	return out
+
+
 func serialize() -> Dictionary:
 	return {
-		"id": id, "name": display_name, "sex": sex, "age": snappedf(age, 0.001), "max_age": max_age,
+		"id": id, "name": display_name, "sex": sex, "age": snappedf(age, 0.001), "max_age": snappedf(max_age, 0.001),
 		"hunger": snappedf(hunger, 0.01), "health": snappedf(health, 0.01), "skills": skills,
-		"skill_xp": skill_xp, "job": job, "by_admin": by_admin, "job_by": job_by, "home": home_id, "look": look,
+		"skill_xp": _rounded(skill_xp), "job": job, "by_admin": by_admin, "job_by": job_by, "home": home_id, "look": look,
 		"carry_res": carry_res, "carry_n": carry_n, "birth_cd": birth_cooldown_until,
 		"parents": parents, "x": cell.x, "y": cell.y, "mind": mind.serialize(),
 		"busy": {"job": snappedf(float(busy.get("job", 0.0)), 0.001), "other": snappedf(float(busy.get("other", 0.0)), 0.001),

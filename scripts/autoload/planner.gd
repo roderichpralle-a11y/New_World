@@ -943,8 +943,8 @@ func _on_load(data: Dictionary, _old_rules: int) -> void:
 
 func autotest_setup(args: Dictionary, main) -> void:
 	if args.has("plannertest"):
-		await PlannerTest.run(main, str(args.plannertest))
+		await Game.test("planner_test").run(main, str(args.plannertest))
 	if args.has("plannermeasure"):
-		await PlannerTest.measure(main, str(args.plannermeasure))
+		await Game.test("planner_test").measure(main, str(args.plannermeasure))
 	if args.has("plannershot"):
-		PlannerTest.shot(main)
+		Game.test("planner_test").shot(main)

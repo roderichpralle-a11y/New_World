@@ -1,4 +1,4 @@
-extends "res://scripts/world/bot.gd"
+extends "res://scripts/test/bot.gd"
 ## Plan-Bot (josh 2026-10-31): spielt nach dem Useraktionsplan (/mnt/project-files/konzept/useraktionsplan/useraktionsplan.md)
 ## durch alle Zeitalter. Baut auf dem Spiel-Bot v2 auf (Steinzeit und Antike von Hand) und ergänzt:
 ## Pflicht- und Wahllisten der Forschung je Zeitalter, Bauliste je Zeitalter, Prüfungsgebäude, Verwaltung mit
@@ -97,7 +97,7 @@ func tick(_elapsed: float) -> void:
 	for m in Sea.settled_islands():
 		var id := int(m.id)
 		if id != 0 and not colonies.has(id):
-			var b = load("res://scripts/world/plan_bot.gd").new()
+			var b = load("res://scripts/test/plan_bot.gd").new()
 			b.setup_island(main, id)
 			colonies[id] = b
 			print("BOT: Kolonie %s wird mitgespielt" % m.name)

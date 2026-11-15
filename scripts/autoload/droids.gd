@@ -158,4 +158,4 @@ func _on_load(data: Dictionary, _old_rules: int) -> void:
 
 func autotest_setup(args: Dictionary, main) -> void:
 	if args.has("droidtest"):
-		await DroidTest.run(main, str(args.droidtest))
+		await Game.test("droid_test").run(main, str(args.droidtest))

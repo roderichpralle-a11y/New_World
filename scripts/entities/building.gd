@@ -7,7 +7,12 @@ var type: String
 var def: Dictionary
 var cell: Vector2i  # obere linke Zelle der Grundflaeche
 var size: Vector2i
-var complete: bool = false
+## Setter: fertig/Baustelle und Wiederaufbau ändern die gemerkten Auswahlen der Insel (World.build_rev)
+var complete: bool = false:
+	set(v):
+		if v != complete:
+			complete = v
+			_bump()
 var progress: float = 0.0
 var delivered: Dictionary = {}
 var incoming: Dictionary = {}  # von Baumeistern unterwegs
@@ -17,7 +22,11 @@ var reserved_by: int = 0
 var occupants: Array = []  # Siedler-IDs, die hier arbeiten (Produktion, Forschung)
 var paused: bool = false
 var adm := true  # Vertretung: seit josh 2026-11-08 immer an (kein Schalter mehr)
-var repair: bool = false  # nach einer Katastrophe zerstört: alle Erwachsenen bauen es zuerst wieder auf (josh 2026-11-01)
+var repair: bool = false:  # nach einer Katastrophe zerstört: alle Erwachsenen bauen es zuerst wieder auf (josh 2026-11-01)
+	set(v):
+		if v != repair:
+			repair = v
+			_bump()
 var ship_choice: String = "boot"  # Werft (alte Spielstände): Schiff, das früher immer wieder gebaut wurde
 var ship_queue: Array = []  # Werft: Bauaufträge der Reihe nach (josh 2026-10-17); leer = baut nichts
 var keep_storage := 0  # Lager im Ausbau (josh 2026-11-08): Stauraum des alten Lagers zählt weiter, bis der Ausbau fertig ist
@@ -359,7 +368,23 @@ func farm_task() -> String:
 func prod_def() -> Dictionary:
 	if def.get("ships", false):
 		return ship_recipe(next_ship())
-	return def.get("production", {})
+	var p: Dictionary = def.get("production", {})
+	# Ausweichrezept (buildings.json alt_inputs, josh 2026-11-14: Konserven auch aus Fleisch): fehlt eine Zutat
+	# des ersten Rezepts und liegt ein anderes vollständig bereit, arbeitet die Werkstatt mit dem.
+	if p.has("alt_inputs") and world != null and not _has_inputs(p.inputs):
+		for alt in p.alt_inputs:
+			if _has_inputs(alt):
+				var q: Dictionary = p.duplicate()
+				q["inputs"] = alt
+				return q
+	return p
+
+
+func _has_inputs(ins: Dictionary) -> bool:
+	for res in ins:
+		if Game.usable(res, world) < int(ins[res]):
+			return false
+	return true
 
 
 ## Inselstärke (buildings.json biome_bonus): so viel schneller arbeitet die Werkstatt auf dieser Insel.
@@ -415,6 +440,8 @@ func prod_blocker() -> String:
 		return tr("nicht fertig")
 	if paused:
 		return tr("angehalten")
+	if def.has("deposit") and world.ore_left == 0:
+		return tr("Auf dieser Insel liegt kein Erz mehr. Erz ohne Ende gibt es nur auf einer Felseninsel")
 	if def.get("ships", false):
 		var t := next_ship()
 		if t == "":
@@ -428,6 +455,9 @@ func prod_blocker() -> String:
 			return tr("Kein freier Liegeplatz für ein weiteres Schiff. Baue einen Hafen oder Steg")
 	for res in ({} if ship_wip != "" else p.get("inputs", {})):  # Schiff in Arbeit: Material ist schon genommen
 		if Game.usable(res, world) < int(p.inputs[res]):  # „Nicht verarbeiten“-Menge bleibt liegen (josh 2026-11-12)
+			if (res == "holz" or res == "kohle") and Extras.above_reserve(res, world) < int(p.inputs[res]) \
+					and Game.amount(res, world) >= int(p.inputs[res]):
+				return tr("%s liegt als Brennstoff für den Winter zurück") % Data.resource_name(res)
 			if Game.amount(res, world) >= int(p.inputs[res]):
 				return tr("%s: der Rest ist zurückgehalten") % Data.resource_name(res)
 			return tr("Es fehlt %s") % Data.resource_name(res)
@@ -545,6 +575,26 @@ func _draw_bar() -> void:
 var _smoke_t: float = 0.0
 
 
+func _ready() -> void:
+	set_process(_wants_process())  # erst hier: beim Einhängen schaltet Godot _process von selbst ein
+
+
+func _bump() -> void:
+	if world != null and is_instance_valid(world):
+		world.bump_rev()
+
+
+## Wege, Deiche, Zäune, Hecken und anderer Schmuck ohne Bewegung haben in _process nichts zu tun. Sie
+## bekommen keinen Aufruf je Bild mehr (auf großen Inseln sind das zwei Drittel aller Gebäude).
+func _wants_process() -> bool:
+	if not (def.has("tile") or def.has("decor")):
+		return true
+	if type == "lagerfeuer" or _light != null or def.has("anim") or def.has("defense") or def.has("farm") \
+			or def.has("production") or def.get("ships", false):
+		return true
+	return _sprite != null and Data.object_frames(str(def.get("sprite", ""))) > 1
+
+
 func _process(delta: float) -> void:
 	if world != null and not world.visible:
 		_hidden_process()  # unsichtbare Insel: nur rechnen, nicht zeichnen (Prüfbericht 2026-10-31)
@@ -631,9 +681,23 @@ func _defend(delta: float) -> void:
 
 
 func serialize() -> Dictionary:
-	return {
-		"id": id, "type": type, "x": cell.x, "y": cell.y, "complete": complete,
-		"progress": progress, "delivered": delivered,
-		"farm_state": farm_state, "farm_time": farm_time, "paused": paused, "ship": ship_choice, "adm": adm, "repair": repair,
-		"ship_queue": ship_queue, "ship_wip": ship_wip, "keep_storage": keep_storage,
-	}
+	# Nur was vom Standard abweicht (World.build_from_save liest alles andere mit Vorgabewert): ein Wegstück
+	# braucht so etwa 100 statt 230 Zeichen, bei 900 Gebäuden ist der Spielstand rund 100 KB kleiner.
+	var d := {"id": id, "type": type, "x": cell.x, "y": cell.y, "complete": complete,
+		"progress": snappedf(progress, 0.001), "delivered": delivered}
+	if farm_state != "fallow":
+		d["farm_state"] = farm_state
+	if farm_time != 0.0:
+		d["farm_time"] = snappedf(farm_time, 0.0001)
+	if paused:
+		d["paused"] = true
+	if repair:
+		d["repair"] = true
+	if keep_storage > 0:
+		d["keep_storage"] = keep_storage  # Lager im Ausbau (josh 2026-11-08)
+	if def.get("ships", false) or not ship_queue.is_empty() or ship_wip != "" or ship_choice != "boot":
+		# Werft: die Liste immer schreiben (ohne sie gilt der Stand als alt und die Werft baut ein Schiff)
+		d["ship"] = ship_choice
+		d["ship_queue"] = ship_queue
+		d["ship_wip"] = ship_wip
+	return d

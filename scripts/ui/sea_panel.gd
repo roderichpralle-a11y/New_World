@@ -487,9 +487,11 @@ func _fill_island() -> void:
 				state += tr(" (hier bist du)")
 		"discovered":
 			state = tr("Unbewohnt. Schicke Siedler hierher, um sie zu besiedeln. Ohne Hafen können nur Ruderboote landen.")
+		"empty":
+			state = tr("Verlassen: Hier lebt niemand mehr, aber die Gebäude und das Lager sind noch da. Schicke Siedler hierher, dann geht es weiter.")
 		"lost":
 			state = tr("Verloren. Niemand kann hier mehr leben.")
-	_details.add_child(_wrap(state, 13, UiTheme.BAD if m.state == "lost" else UiTheme.TEXT))
+	_details.add_child(_wrap(state, 13, UiTheme.BAD if m.state in ["lost", "empty"] else UiTheme.TEXT))
 	# Gefahren und Besonderheiten
 	var dangers := Sea.dangers(m)
 	var h := HBoxContainer.new()
@@ -510,6 +512,8 @@ func _fill_island() -> void:
 			hs.add_child(UiTheme.icon_rect(Data.res_icon(r), 16))
 			hs.add_child(UiTheme.label(Data.resource_name(r), 13))
 		_details.add_child(hs)
+	var ore_n: int = w.ore_left if w else int(Sea.biome_def(m).get("ore", -1))
+	_details.add_child(UiTheme.label(IslandTraits.ore_text(ore_n), 13))
 	IslandTraits.strength_row(_details, m)  # Inselstärken: Gebäude, die hier schneller arbeiten
 	TradePanel.sea_rows(self, m)  # fremder Händler hier oder angekündigt
 	if w and m.state == "settled":
@@ -532,7 +536,7 @@ func _fill_island() -> void:
 	var acts := HFlowContainer.new()
 	acts.add_theme_constant_override("h_separation", 6)
 	acts.add_theme_constant_override("v_separation", 6)
-	if m.state == "settled" and not here and w:
+	if m.state in ["settled", "empty"] and not here and w:
 		var go := UiTheme.button(tr("Ansehen"), "play", 38)
 		go.pressed.connect(func():
 			visible = false
@@ -936,7 +940,7 @@ func _fill_goods() -> void:
 			l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 			cell.add_child(l)
-			if Steward.routes_unlocked() and id != "essen":
+			if Steward.routes_unlocked() and Powers.on("waren") and id != "essen":  # Warenausgleich gibt es seit 2.0.81 nicht mehr
 				var cid := int(m.id)
 				var gid: String = id
 				cell.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -1019,7 +1023,7 @@ func _fill_goods() -> void:
 
 ## Mindest- und Höchststand einer Ware auf einer Insel (Steward.set_limits): der Verwalter fährt Waren nach.
 func _minmax_editor() -> void:
-	if not Steward.routes_unlocked():
+	if not Steward.routes_unlocked() or not Powers.on("waren"):
 		return
 	if _mm_island < 0 or _mm_good == "" or Sea.worlds.get(_mm_island) == null:
 		_details.add_child(_hint(tr("Tippe auf eine Zahl, um für die Ware auf dieser Insel einen Mindest- und Höchststand einzustellen. Der Verwalter fährt dann mit freien Schiffen Waren hin und her.")))

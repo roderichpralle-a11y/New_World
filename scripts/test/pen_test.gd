@@ -158,13 +158,6 @@ static func run(main) -> void:
 				if nn != null:
 					w.remove_node(nn)
 		var okp: bool = w.can_place("jagdhuette", o)
-		if not okp:
-			for yy in range(-1, 4):
-				var row := ""
-				for xx in range(-2, 5):
-					var q: Vector2i = o + Vector2i(xx, yy)
-					row += ("W" if w.is_water(q) else ("B" if w.building_at.has(q) else ("N" if w.node_at.has(q) else ("R" if w.roof_at.has(q) else ("x" if not w.is_walkable(q) else ".")))))
-				print("DBG ", row)
 		var lb = w.place_building("jagdhuette", o, true)
 		_ok(okp and lb != null and w.lodge_pen(lb) == pen, "Hütte %s: baubar %s, Gehege %d" % [spot[1], okp, w.lodge_pen(lb) if lb else -1])
 	# Raubtiere verhungern nie (josh 2026-11-12)

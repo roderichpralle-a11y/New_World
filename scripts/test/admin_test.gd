@@ -247,7 +247,7 @@ static func run(main) -> void:
 	var keep: Dictionary = Admin.orders.duplicate(true)
 	Admin._on_load(d, 9)
 	_ok(Admin.ordered("handwerker", "sh") and Admin.orders.keys() == keep.keys(), "Anordnungen bleiben gespeichert")
-	_ok(bool(saw.serialize().adm), "Vertretung steht im Gebäude")
+	_ok(saw.adm, "Vertretung ist im Gebäude immer an")
 	var old := Admin.orders.duplicate(true)
 	Admin._on_load({}, 0)
 	_ok(Admin.orders.is_empty(), "alter Spielstand: keine Anordnungen")

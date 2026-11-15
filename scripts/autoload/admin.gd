@@ -32,7 +32,6 @@ signal proposal(job: String, text: String)
 ## Die Leute eines Berufs hören unter Protest mit den Überstunden auf (text: übersetzter Grund, ProtestVideo).
 signal protest_started(job: String, text: String)
 
-const OFFICE := "verwaltung"
 const JOB := "verwalter"
 ## Werkstattart (production.job) -> Beruf
 const KIND_JOB := {"kueche": "koch", "handwerk": "handwerker", "stein": "steinmetz", "stall": "bauer"}
@@ -72,12 +71,25 @@ func _c(key: String, default) -> float:
 
 # ---------------------------------------------------------------- Abfragen
 ## Die fertige Verwaltung (auf irgendeiner Insel) oder null.
+## Gemerkt, bis sich auf irgendeiner Insel die Gebäude ändern (World.global_rev): die Abfrage läuft für jeden
+## Siedler mehrmals je Bild (Schicht, Überstunden, fester Arbeitstag) und ging jedes Mal alle Gebäude durch.
 func office():
+	if _office_rev == World.global_rev and (_office == null or is_instance_valid(_office)):
+		return _office
+	_office_rev = World.global_rev
+	_office = null
 	for w in Sea.all_worlds():
 		for b in w.buildings:
 			if b.def.get("office", false) and (b.complete or int(b.def.get("office_level", 1)) > 1):
-				return b  # eine Ausbau-Baustelle arbeitet mit der Stufe davor weiter
+				_office = b  # eine Ausbau-Baustelle arbeitet mit der Stufe davor weiter
+				return b
 	return null
+
+
+var _office = null
+var _office_rev := -1
+var _mgr = null
+var _mgr_key := Vector2i(-1, -1)
 
 
 ## Ausbaustufe der Verwaltung (josh 2026-10-29): 0 ohne fertige Verwaltung oder ohne Verwalter auf ihrer
@@ -120,8 +132,17 @@ func local_manager():
 	var w = admin_world()
 	if w == null:
 		return null
+	var key := Vector2i(World.global_rev, World.people_rev)
+	if _mgr_key == key:
+		if _mgr == null:
+			return null
+		if is_instance_valid(_mgr) and not _mgr.is_queued_for_deletion() and _mgr.job == JOB and _mgr.is_adult() and _mgr.world == w:
+			return _mgr
+	_mgr_key = key
+	_mgr = null
 	for s in w.settlers:
 		if s.job == JOB and s.is_adult():
+			_mgr = s
 			return s
 	return null
 
@@ -580,10 +601,6 @@ func add_log(text: String) -> void:
 		log_entries = log_entries.slice(log_entries.size() - LOG_MAX)
 
 
-func produced_in(y: int, w = null) -> Dictionary:
-	return produced.get(str(y), {}).get(_isl(w), {})
-
-
 ## Auslastung je Beruf auf der Insel w (null: alle Inseln): {job: [Leute, im Beruf %, hilft aus %, nichts zu tun %]},
 ## Anteile -1 solange zu wenig gemessen ist (Settler.busy_shares).
 func job_load(w = null) -> Dictionary:
@@ -683,18 +700,18 @@ func _on_load(data: Dictionary, old_rules: int) -> void:
 	changed.emit()
 
 
-## Selbsttest --admintest=1 (scripts/autoload/admin_test.gd).
+## Selbsttest --admintest=1 (scripts/test/admin_test.gd).
 func autotest_setup(args: Dictionary, main) -> void:
 	if args.has("admintest"):
-		await AdminTest.run(main)
+		await Game.test("admin_test").run(main)
 	if args.has("adminmeasure"):  # Ertrag: normal | ot | shift[,Tage]
-		await AdminTest.measure(main, str(args.adminmeasure))
+		await Game.test("admin_test").measure(main, str(args.adminmeasure))
 	if args.has("strolltest"):  # Spaziergang am Ufer (josh 2026-10-20)
-		await AdminTest.stroll(main)
+		await Game.test("admin_test").stroll(main)
 	if args.has("adminshot"):  # Bildschirmfoto: office | shifts | night | stats | workshop | proposal (mit --shot)
-		AdminTest.shot(main, str(args.adminshot))
+		Game.test("admin_test").shot(main, str(args.adminshot))
 
 
 ## Hilfetext (Menü > Hilfe), wie Extras.help_text.
 func help_text() -> String:
-	return "\n\n" + tr("[b]Verwaltung[/b]\nMit Gelehrsamkeit baust du eine Verwaltung (nur eine) und machst einen Siedler zum Verwalter (nur einer). Er arbeitet nur, wenn er auf der Insel der Verwaltung lebt, und alles gilt nur für diese Insel. Dann gilt in jeder Werkstatt die Vertretung: Fehlt die Fachkraft gerade (Pause, Schlaf, Essen), springt ein Siedler ein, der sonst nichts zu tun hat. Fehlen für einen Beruf Leute, meldet sich der Verwalter und schlägt Überstunden oder Schichtarbeit vor (in der Verwaltung an- und abzuschalten). Überstunden: die Arbeiter fangen 2 Stunden früher an, hören 2 Stunden später auf und machen keine Pausen; das bringt etwa anderthalbmal so viel. Nach einem Jahr am Stück hören sie unter Protest auf und ihre Laune sinkt. Schichtarbeit: die Werkstätten laufen rund um die Uhr (nachts brennt dort Licht), das bringt etwa doppelt so viel; Schichtarbeiter sind eine Laune-Stufe schlechter gelaunt. Solange nachts gearbeitet wird, vergeht die Nacht nicht schneller.")
+	return "\n\n" + tr("[b]Verwaltung[/b]\nMit Gelehrsamkeit baust du eine Verwaltung (nur eine) und machst einen Siedler zum Verwalter (nur einer). Er arbeitet nur, wenn er auf der Insel der Verwaltung lebt. Er teilt Berufe auf dieser Insel ein und auf jeder Insel, auf der wie dort eine Rundfunkanstalt steht. Dann gilt in jeder Werkstatt die Vertretung: Fehlt die Fachkraft gerade (Pause, Schlaf, Essen), springt ein Siedler ein, der sonst nichts zu tun hat. Überstunden und Schichtarbeit ordnest du selbst an (Fenster Verwalter, Reiter Arbeitszeit). Überstunden: die Arbeiter fangen 2 Stunden früher an, hören 2 Stunden später auf und machen keine Pausen; das bringt etwa anderthalbmal so viel. Nach einem Jahr am Stück hören sie unter Protest auf und ihre Laune sinkt. Schichtarbeit: die Werkstätten laufen rund um die Uhr (nachts brennt dort Licht), das bringt etwa doppelt so viel; Schichtarbeiter sind eine Laune-Stufe schlechter gelaunt. Solange nachts gearbeitet wird, vergeht die Nacht nicht schneller.")
