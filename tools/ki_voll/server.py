@@ -49,7 +49,7 @@ FEATURES = [
     "viele freie Betten", "hoher Anteil Kinder", "Nebeninsel hat genug Nahrung", "viele Forschungen wählbar", "spät im Spiel",
     "viele Waren an der Höchstmenge",
 ]
-ACT_X = ["davon stehen schon viele", "davon steht noch keins", "wird gerade gebraucht (Forschung oder Prüfung)", "die vorhandenen sind voll besetzt"]
+ACT_X = ["davon stehen schon viele", "davon steht noch keins", "liefert, was für eine Forschung oder die Prüfung fehlt (auch Vorstufen)", "die vorhandenen sind voll besetzt"]
 TECH_F = ["Grundneigung", "hohe Stufe", "teuer (viele Forschungspunkte)", "Kosten liegen im Lager", "es fehlen Waren für die Kosten",
           "liegt auf dem Weg zur Zukunftsstadt", "schaltet Gebäude frei", "schaltet Häuser oder Lager frei", "bringt Vorteile (Effekte)",
           "zählt für die nächste Prüfung", "gehört zur Seefahrt", "viele Forschungen bauen darauf auf"]
@@ -104,6 +104,25 @@ class App:
     # ------------------------------------------------------------ Training starten und stoppen
     def running(self):
         return self.proc is not None and self.proc.poll() is None
+
+    def next_stage(self):
+        """Okay für die nächste Stufe (josh 2026-11-15): Stufe hochzählen, Gewichte bleiben, Training starten."""
+        if self.running():
+            return "läuft noch"
+        p = os.path.join(self.p["lauf"], "zustand.json")
+        try:
+            s = json.load(open(p, encoding="utf-8"))
+        except Exception:
+            return "kein Zustand"
+        if not s.get("wartet"):
+            return "Ziel noch nicht geschafft"
+        s["stufe"] = int(s.get("stufe", 0)) + 1
+        s["wartet"] = False
+        tmp = p + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(s, f)
+        os.replace(tmp, p)
+        return self.start()
 
     def start(self):
         with self.lock:
@@ -345,6 +364,8 @@ def make_handler(app):
                 return self.js({"fehler": "nur von diesem Rechner"}, 403)
             if self.path == "/api/start":
                 return self.js({"ok": app.start()})
+            if self.path == "/api/weiter":
+                return self.js({"ok": app.next_stage()})
             if self.path == "/api/stop":
                 return self.js({"ok": app.stop()})
             if self.path.startswith("/api/zusehen"):

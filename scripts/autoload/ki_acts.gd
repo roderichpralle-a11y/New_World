@@ -231,6 +231,12 @@ static func _count_type(w, t: String) -> int:
 ## Die 4 Eingänge der Handlung selbst: [so viele stehen schon / 3, keins da, wird gerade gebraucht, Besetzung].
 static func extras(w, act: String) -> Array:
 	var ex := [0.0, 0.0, 0.0, 0.0]
+	if act == "haus" or act == "ausbau":  # die Prüfung verlangt ein besseres Haus
+		if not Exams.exam_def(Exams.passed).is_empty():
+			for e in Exams.status(Exams.passed):
+				if not e[3] and str(e[0].get("type", "")) == "houses":
+					ex[2] = 1.0
+		return ex
 	if not act.begins_with("bau:"):
 		return ex
 	var t := act.substr(4)
@@ -247,7 +253,7 @@ static func extras(w, act: String) -> Array:
 	ex[1] = 1.0 if cnt == 0 else 0.0
 	# gebraucht: stellt eine Ware her, die der Ziel-Forschung fehlt, oder die Prüfung verlangt dieses Gebäude
 	var d: Dictionary = Data.buildings[t]
-	var miss := KiBrain.research_missing()
+	var miss := KiBrain.needs()
 	for id in d.get("production", {}).get("outputs", {}):
 		if miss.has(id):
 			ex[2] = 1.0
@@ -794,14 +800,17 @@ static func do(w, act: String) -> String:
 				var b = _idle_shop(w)
 				txt = "reißt %s ab (steht still)" % b.def.name
 				w.demolish(b)
+				KiBrain.waste_today += 1
 			"abriss_haus":
 				var b = _empty_house(w)
 				txt = "reißt %s ab (leer)" % b.def.name
 				w.demolish(b)
+				KiBrain.waste_today += 1
 			"abriss_feld":
 				var b = _spare_field(w)
 				txt = "gibt ein Getreidefeld auf"
 				w.demolish(b)
+				KiBrain.waste_today += 1
 			"versetzen":
 				var m := _move_pick(w)
 				if not m.is_empty() and w.move_building(m[0], m[1]):

@@ -368,6 +368,50 @@ func research_missing() -> Dictionary:
 	return out
 
 
+## Was fehlt, um weiterzukommen (Training ganzes Spiel, josh 2026-11-15): Kosten ALLER wählbaren Forschungen,
+## die Waren der Zeitalter-Prüfung und die Vorstufen dazu (Lehm für Ziegel, Mehl für Brot). Fund im Training:
+## die KI sah nur die eine Ziel-Forschung und baute nie Lehmgrube oder Bäckerei. Im normalen Spiel (alte
+## Gewichte) bleibt es bei research_missing().
+var _needs_at := -1.0
+var _needs: Dictionary = {}
+
+
+func needs() -> Dictionary:
+	if not (train_all or unlock_list):
+		return research_missing()
+	if absf(Game.time_days - _needs_at) < 0.25:
+		return _needs
+	_needs_at = Game.time_days
+	var out := {}
+	var mw = Sea.main_world()
+	for t in Data.techs:
+		if t == "superintelligenz" or t in Game.research.paid or Game.tech_state(t) != "available":
+			continue
+		var cost: Dictionary = Data.techs[t].get("cost", {})
+		for id in cost:
+			var miss := int(cost[id]) - Game.amount(id, mw)
+			if miss > 0:
+				out[id] = maxi(int(out.get(id, 0)), miss)
+	if not Exams.exam_def(Exams.passed).is_empty():
+		for e in Exams.status(Exams.passed):
+			if not e[3] and str(e[0].get("type", "")) == "stock":
+				var id := str(e[0].get("what", ""))
+				out[id] = maxi(int(out.get(id, 0)), int(e[2]) - int(e[1]))
+	for _i in 3:  # Vorstufen: was die Hersteller der fehlenden Waren selbst brauchen und nicht im Lager liegt
+		for bt in Data.buildings:
+			var pr: Dictionary = Data.buildings[bt].get("production", {})
+			var hit := false
+			for o in pr.get("outputs", {}):
+				if out.has(o):
+					hit = true
+			if hit:
+				for inp in pr.get("inputs", {}):
+					if not out.has(inp) and Game.amount(inp, mw) < 10:
+						out[inp] = 10 - Game.amount(inp, mw)
+	_needs = out
+	return out
+
+
 ## Soll je Beruf für `n` umsetzbare Erwachsene (Baumeister nach Regel, Rest nach dem Netz).
 func targets(w, n: int) -> Dictionary:
 	var out := {}
@@ -561,7 +605,7 @@ func features(w) -> PackedFloat32Array:
 	x[39] = 1.0 if cur != "" else 0.0
 	if cur != "":
 		x[40] = clampf(Game.tech_progress(cur) / maxf(1.0, Game.tech_points(cur)), 0.0, 1.0)
-	var miss := research_missing()
+	var miss := needs()
 	x[41] = minf(float(miss.get("eisen", 0)) / 20.0, 3.0)
 	x[42] = minf(float(miss.get("werkzeug", 0)) / 20.0, 3.0)
 	x[43] = minf(float(miss.get("kohle", 0)) / 20.0, 3.0)
@@ -933,7 +977,7 @@ func note_processed(res: String, n: int, w = null) -> void:
 		var lim: int = Game.limit_of(res, w)
 		if (lim >= 0 and Game.amount(res, w) > lim) or Game.space_for(res, w) <= 0:
 			return
-	processed_today += float(n) * (NEEDED_PTS if research_missing().has(res) else PROCESSED_PTS)
+	processed_today += float(n) * (NEEDED_PTS if needs().has(res) else PROCESSED_PTS)
 
 
 ## Nachschub per Schiff (Sea.unload_goods/unload_some): Erz und Kohle.
@@ -954,6 +998,8 @@ func note_research_done() -> void:
 
 func score_start() -> void:
 	score_on = true
+	_needs_at = -1.0
+	waste_today = 0
 	score_log = []
 	score_total = 0.0
 	processed_today = 0.0
@@ -980,6 +1026,10 @@ var supply_today := 0.0
 var droid_today := 0.0
 var goal_today := 0.0
 var distress_today := 0.0
+## Verschwendung (josh 2026-11-15): jeder Abriss durch die KI kostet Punkte. Fund im Training: 241 Hühnerhöfe
+## gebaut und 220 wieder abgerissen.
+const WASTE_PTS := -20.0
+var waste_today := 0
 var work_today := 0.0
 var _age0 := 0
 var _sample_t := 0.0
@@ -1075,10 +1125,12 @@ func score_day() -> Dictionary:
 	r["sat"] = sat
 	r["mood"] = mood
 	r["dead"] = DEATH_PTS * deaths_today
+	r["waste"] = WASTE_PTS * waste_today
+	waste_today = 0
 	r["pop"] = heads
 	r["islands"] = ws.size()
 	r["total"] = float(r.food) + float(r.wood) + float(r.proc) + float(r.res) + sat + mood + float(r.dead) \
-		+ float(r.isl) + float(r.need) + float(r.work) + float(r.goal)
+		+ float(r.isl) + float(r.need) + float(r.work) + float(r.goal) + float(r.waste)
 	score_total += float(r.total)
 	score_log.append(r)
 	processed_today = 0.0

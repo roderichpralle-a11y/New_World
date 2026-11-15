@@ -19,8 +19,9 @@ Search", Mania, Guy, Recht 2018):
 Das ist eine Runde. Alle paar Runden gibt es eine Prüfung mit festen Würfeln; die besten Gewichte bleiben
 in lauf/best.json.
 
-Die Spiele werden mit der Zeit länger (start_tage, dann alle runden_je_stufe Runden mal wachstum), bis ein
-Spiel bis zur Zukunftsstadt reichen kann. Ein Spiel endet früher, wenn die Zukunftsstadt steht, alle tot
+Stufenlernen (josh 2026-11-15): jede Stufe hat ein Ziel (ein Zeitalter, zuletzt die Zukunftsstadt) und eine
+feste Spiellänge. Ist das Ziel in den Prüfungen geschafft, hält das Training an und wartet auf das Okay; die
+nächste Stufe lernt mit den bisherigen Gewichten weiter. Ein Spiel endet früher, wenn die Zukunftsstadt steht, alle tot
 sind oder sich stillstand_tage lang nichts mehr tut.
 
 Dateien in lauf/: zustand.json (alles zum Fortsetzen), status.json (für die Oberfläche), best.json
@@ -48,16 +49,19 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 
 DEFAULTS = {
     "arbeiter": 0,            # Spiele gleichzeitig; 0 = Anzahl der Prozessorkerne minus 1
-    "richtungen": 0,          # Zufallsrichtungen je Runde; 0 = so viele wie Arbeiter (mindestens 8)
+    "richtungen": 0,          # Zufallsrichtungen je Runde; 0 = so viele wie Arbeiter (mindestens 16)
     "rauschen": 0.3,          # wie stark die Gewichte zum Ausprobieren verändert werden
     "lernrate": 0.1,          # wie weit die Gewichte je Runde wandern
-    "start_tage": 36,         # Länge der ersten Spiele in Spieltagen (12 Tage = 1 Spieljahr)
-    "wachstum": 1.5,          # Faktor, um den die Spiele länger werden
-    "runden_je_stufe": 6,     # nach so vielen Runden werden die Spiele länger
-    "max_tage": 3000,         # längstes Spiel
+    # Stufenlernen (josh 2026-11-15): jede Stufe hat ein Ziel und eine feste Spiellänge in Spieltagen
+    # (12 Tage = 1 Spieljahr). Ist das Ziel geschafft, hält das Training an und wartet auf das Okay.
+    # "alter": mindestens dieses Zeitalter (0 = Steinzeit), "ziel": Zukunftsstadt gebaut.
+    "stufen": [
+        {"alter": 1, "tage": 80}, {"alter": 2, "tage": 180}, {"alter": 3, "tage": 300}, {"alter": 4, "tage": 450},
+        {"alter": 5, "tage": 600}, {"alter": 6, "tage": 800}, {"alter": 7, "tage": 1000}, {"ziel": True, "tage": 1400}],
+    "ziel_pruefungen": 2,     # das Ziel gilt, wenn es in so vielen Prüfungen nacheinander alle Prüfspiele schaffen
     "stillstand_tage": 40,    # Spiel endet, wenn so lange nichts Neues entsteht
     "pruefung_alle": 4,       # alle so viele Runden eine Prüfung
-    "pruefung_wuerfel": 2,    # Prüfspiele je Prüfung
+    "pruefung_wuerfel": 3,    # Prüfspiele je Prüfung
     "ereignisse": True,       # mit Ereignissen (harte Winter, Piraten ...)
     "runden": 100000,         # Ende des Trainings (praktisch: läuft, bis du stoppst)
     "saat": 7,
@@ -74,7 +78,7 @@ def load_config(path):
     if int(cfg["arbeiter"]) <= 0:
         cfg["arbeiter"] = max(1, (os.cpu_count() or 2) - 1)
     if int(cfg["richtungen"]) <= 0:
-        cfg["richtungen"] = max(8, int(cfg["arbeiter"]))
+        cfg["richtungen"] = max(16, int(cfg["arbeiter"]))
     return cfg
 
 
@@ -160,6 +164,8 @@ class Trainer:
         self.games_total = 0
         self.seen = [0] * (self.lay.F + self.lay.X)  # in wie vielen Spielen war dieser Eingang einmal nicht 0
         self.seen_games = 0
+        self.stage = 0       # Stufe (Index in cfg["stufen"])
+        self.waiting = False  # Ziel der Stufe geschafft: wartet auf das Okay
         self.load_state(a.init)
 
     # ------------------------------------------------------------ Spiel starten
@@ -252,6 +258,8 @@ class Trainer:
                 self.best = s.get("best", self.best)
                 self.secs_total = float(s.get("sek", 0.0))
                 self.games_total = int(s.get("spiele", 0))
+                self.stage = min(int(s.get("stufe", 0)), len(self.cfg["stufen"]) - 1)
+                self.waiting = bool(s.get("wartet", False))
                 if len(s.get("gesehen", [])) == len(self.seen):
                     self.seen = s["gesehen"]
                     self.seen_games = int(s.get("gesehen_spiele", 0))
@@ -271,12 +279,25 @@ class Trainer:
         write_json(os.path.join(self.lauf, "zustand.json"), {
             "runde": self.round, "vec": self.vec, "verlauf": self.history, "pruefungen": self.checks, "best": self.best,
             "sek": self.secs_total + (time.time() - self.t_start), "spiele": self.games_total,
-            "gesehen": self.seen, "gesehen_spiele": self.seen_games,
+            "gesehen": self.seen, "gesehen_spiele": self.seen_games, "stufe": self.stage, "wartet": self.waiting,
             "zufall": [st[0], list(st[1]), st[2]]})
 
     def days_for(self, rnd):
-        step = max(0, (rnd - 1) // int(self.cfg["runden_je_stufe"]))
-        return int(min(float(self.cfg["max_tage"]), float(self.cfg["start_tage"]) * float(self.cfg["wachstum"]) ** step))
+        return int(self.cfg["stufen"][self.stage]["tage"])
+
+    def stage_ok(self, game):
+        """Schafft dieses Prüfspiel das Ziel der Stufe?"""
+        st = self.cfg["stufen"][self.stage]
+        if st.get("ziel"):
+            return bool(game.get("ziel"))
+        return int(game.get("alter", 0)) >= int(st.get("alter", 0))
+
+    def stage_reached(self):
+        n = int(self.cfg["ziel_pruefungen"])
+        mine = [c for c in self.checks if c.get("stufe", -1) == self.stage]
+        if len(mine) < n:
+            return False
+        return all(self.stage_ok(g) for c in mine[-n:] for g in c["spiele"])
 
     def status(self):
         with self.lock:
@@ -293,7 +314,8 @@ class Trainer:
                 "verlauf": self.history[-400:], "pruefungen": self.checks, "best": self.best, "gewichte": self.lay.size,
                 "handlungen": len(self.lay.acts), "sek": self.secs_total + (time.time() - self.t_start),
                 "spiele": self.games_total, "einstellungen": self.cfg, "gestoppt": self.stop,
-                "gesehen": self.seen, "gesehen_spiele": self.seen_games}
+                "gesehen": self.seen, "gesehen_spiele": self.seen_games,
+                "stufe": self.stage, "wartet": self.waiting, "stufen": self.cfg["stufen"], "ziel_pruefungen": int(self.cfg["ziel_pruefungen"])}
 
     def status_loop(self):
         p = os.path.join(self.lauf, "status.json")
@@ -344,7 +366,7 @@ class Trainer:
             self.note_seen(r[1])
         mean = sum(r[0] for r in ok) / len(ok)
         per_day = sum(r[0] / max(1.0, float(r[1].get("day", days))) for r in ok) / len(ok)
-        rec = {"runde": self.round, "tage": days, "mittel": mean, "je_tag": per_day, "spiele": [self.summary(r[1]) for r in ok], "zeit": time.time()}
+        rec = {"runde": self.round, "tage": days, "mittel": mean, "je_tag": per_day, "spiele": [self.summary(r[1]) for r in ok], "zeit": time.time(), "stufe": self.stage}
         self.checks.append(rec)
         full = dict(ok[0][1])
         full["runde"] = self.round
@@ -419,17 +441,20 @@ class Trainer:
 
     def run(self):
         threading.Thread(target=self.status_loop, daemon=True).start()
-        if not self.checks:
-            self.check("start")
+        if not self.waiting and not any(c.get("stufe", -1) == self.stage for c in self.checks):
+            self.check("start")  # erste Prüfung der Stufe: zählt als neues Bestes (andere Spiellänge, andere Wertung)
             self.save_state()
-        while not self.stop and self.round < int(self.cfg["runden"]):
+        while not self.stop and not self.waiting and self.round < int(self.cfg["runden"]):
             if not self.one_round():
                 break
             if self.round % int(self.cfg["pruefung_alle"]) == 0 and not self.stop:
                 self.check("runde")
+                if self.stage_reached():
+                    self.waiting = True
+                    print("STUFE %d geschafft nach Runde %d: wartet auf das Okay" % (self.stage + 1, self.round), flush=True)
             if not self.stop:
                 self.save_state()
-        self.phase = "Angehalten"
+        self.phase = "Stufe %d geschafft, wartet auf dein Okay" % (self.stage + 1) if self.waiting else "Angehalten"
         write_json(os.path.join(self.lauf, "status.json"), self.status())
         shutil.rmtree(self.tmp, ignore_errors=True)
 

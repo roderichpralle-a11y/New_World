@@ -179,39 +179,27 @@ function chart(el,series,opt={}){
   el.innerHTML=`<svg viewBox="0 0 ${W} ${H}">${g}</svg><div class="legend">${series.map(s=>`<span><i style="background:${s.color}"></i>${s.name}</span>`).join('')}</div>`;
 }
 
+function stufeText(st,ages){return st.ziel?'Zukunftsstadt bauen':'Zeitalter '+(ages[st.alter]||('Stufe '+(st.alter+1)))+' erreichen'}
 function renderZiel(s,ch,nm){
-  const tot=nm.techs_total||71, need=Math.floor(tot/2)+1;
   const el=$('ziel'); if(!el)return;
-  if(!ch.length){el.innerHTML='<b>Ziel: mehr als 50 % der Forschungen ('+need+' von '+tot+') in den Prüfspielen.</b><div class="mute">Noch keine Prüfung.</div>';return}
-  const pct=c=>100*c.spiele.reduce((a,g)=>a+(g.forschungen||0),0)/c.spiele.length/tot;
-  const last=ch[ch.length-1], now=pct(last);
-  const rec=ch.slice(-5), games=rec.flatMap(c=>c.spiele), hit=games.filter(g=>(g.forschungen||0)>=need).length;
-  const share=100*hit/Math.max(1,games.length);
-  const ok=rec.length>=5&&hit===games.length;
-  let est='';
-  const pts=ch.slice(-10).map(c=>[c.runde,pct(c)]);
-  if(now>50&&ok) est='Ziel erreicht: in den letzten 5 Prüfungen schafften alle Prüfspiele mehr als 50 %.';
-  else if(pts.length<4) est='Schätzung: noch nicht möglich, es gibt erst '+pts.length+' Prüfungen.';
-  else{
-    const n=pts.length,mx=pts.reduce((a,p)=>a+p[0],0)/n,my=pts.reduce((a,p)=>a+p[1],0)/n;
-    let sxy=0,sxx=0;for(const p of pts){sxy+=(p[0]-mx)*(p[1]-my);sxx+=(p[0]-mx)**2}
-    const sl=sxx>0?sxy/sxx:0;
-    if(sl<=0.0001) est='Schätzung: noch nicht möglich, der Wert steigt in den letzten '+n+' Prüfungen nicht.';
-    else{
-      const rounds=Math.ceil((50-now)/sl)+5, perRound=s.sek/Math.max(1,s.runde);
-      est='Schätzung (keine Zusage): bei gleichem Tempo wie in den letzten '+n+' Prüfungen (+'+sl.toFixed(2)+' Prozentpunkte je Runde) etwa '+rounds+' weitere Runden, das sind rund '+dur(rounds*perRound)+'. Die Spiele werden mit der Zeit länger und langsamer, die Zeit ist daher eher zu knapp geschätzt.';
-    }
-  }
-  el.innerHTML='<b>Ziel: mehr als 50 % der Forschungen ('+need+' von '+tot+') in den Prüfspielen, verlässlich.</b>'+
-    '<div class="mute" style="margin:6px 0">Gemessen in den Prüfspielen mit festen Würfeln. Die Spiele sind derzeit '+fmt(last.tage)+' Tage lang. Ist das Spiel noch sehr kurz, ist das Ziel gar nicht erreichbar, weil die Zeit dafür fehlt.</div>'+
-    '<div>Letzte Prüfung (nach Runde '+last.runde+'): <b>'+now.toFixed(1)+' %</b> der Forschungen. In den letzten '+rec.length+' Prüfungen erreichten <b>'+share.toFixed(0)+' %</b> der Prüfspiele ('+hit+' von '+games.length+') mehr als 50 %.</div>'+
-    '<div class="mute" style="margin-top:6px">'+est+'</div>'+
-    '<div class="mute" style="margin-top:6px">Verlauf je Prüfung (Prozent): '+ch.slice(-12).map(c=>c.runde+': '+pct(c).toFixed(0)).join(' · ')+'</div>';
+  const sts=s.stufen||[], ages=nm.ages||[], k=s.stufe||0, st=sts[k];
+  if(!st){el.innerHTML='';return}
+  const need=s.ziel_pruefungen||2, mine=ch.filter(c=>c.stufe===k);
+  const ok=g=>st.ziel?!!g.ziel:(g.alter||0)>=st.alter;
+  const last=mine.slice(-need), games=last.flatMap(c=>c.spiele), hit=games.filter(ok).length;
+  const lastStage=k>=sts.length-1;
+  let h='<b>Stufe '+(k+1)+' von '+sts.length+': '+esc(stufeText(st,ages))+'</b> <span class="mute">(Spiele über '+fmt(st.tage)+' Tage = '+(st.tage/12).toFixed(1)+' Spieljahre)</span>';
+  h+='<div class="mute" style="margin:6px 0">Das Ziel gilt als geschafft, wenn in '+need+' Prüfungen nacheinander alle Prüfspiele es erreichen. Dann hält das Training an und wartet auf dein Okay. Die nächste Stufe lernt mit den bisherigen Gewichten weiter.</div>';
+  h+='<div>'+(mine.length?'Letzte '+last.length+' Prüfungen dieser Stufe: <b>'+hit+' von '+games.length+'</b> Prüfspielen schaffen das Ziel.':'Noch keine Prüfung in dieser Stufe.')+'</div>';
+  if(s.wartet) h+='<div style="margin-top:10px"><b>Geschafft.</b> '+(lastStage?'Das war die letzte Stufe: die KI baut die Zukunftsstadt.':'<button id="bweiter" class="pri">Okay, Stufe '+(k+2)+' starten: '+esc(stufeText(sts[k+1],ages))+'</button>')+'</div>';
+  h+='<div class="mute" style="margin-top:8px">Alle Stufen: '+sts.map((x,i)=>(i<k?'✓ ':i===k?'▶ ':'')+(i+1)+'. '+esc(stufeText(x,ages))).join(' · ')+'</div>';
+  el.innerHTML=h;
+  const b=$('bweiter'); if(b)b.onclick=async()=>{b.disabled=true;await fetch('/api/weiter',{method:'POST'});poll()};
 }
 function renderStatus(){
   const s=S; if(!s)return;
   $('pill').textContent=s.laeuft?'Training läuft':'angehalten'; $('pill').classList.toggle('on',!!s.laeuft);
-  $('bstart').disabled=!!s.laeuft; $('bstop').disabled=!s.laeuft;
+  $('bstart').disabled=!!s.laeuft||!!s.wartet; $('bstop').disabled=!s.laeuft;
   const v=s.verlauf||[], ch=s.pruefungen||[], nm=s.namen||{}, ages=nm.ages||[];
   const maxAge=Math.max(0,...v.map(r=>r.alter_max||0),...ch.flatMap(c=>c.spiele.map(g=>g.alter||0)));
   const maxTech=Math.max(0,...v.map(r=>r.forschungen_max||0),...ch.flatMap(c=>c.spiele.map(g=>g.forschungen||0)));
@@ -222,7 +210,7 @@ function renderStatus(){
     ['Zukunftsstadt gebaut',goals+' mal','das Ziel des Spiels'],['Gewichte',fmt(s.gewichte),fmt(s.handlungen)+' Handlungen']];
   $('cards').innerHTML=cards.map(c=>`<div class="card"><div class="k">${c[0]}</div><div class="v">${c[1]}</div><div class="s">${c[2]}</div></div>`).join('');
   renderZiel(s,ch,nm);
-  $('phase').textContent=s.laeuft?(s.phase||''):'Das Training ist angehalten. '+(s.runde?'Mit „Training starten“ geht es bei Runde '+(s.runde+1)+' weiter.':'Mit „Training starten“ beginnt es.');
+  $('phase').textContent=s.laeuft?(s.phase||''):s.wartet?'Das Ziel der Stufe ist geschafft. Das Training wartet oben auf dein Okay.':'Das Training ist angehalten. '+(s.runde?'Mit „Training starten“ geht es bei Runde '+(s.runde+1)+' weiter.':'Mit „Training starten“ beginnt es.');
   const run=s.laeuft?(s.laufend||[]):[];
   $('run').innerHTML=run.length?'<tr><th>Spiel</th><th>Art</th><th>Spieltag</th><th></th><th class="n">Siedler</th><th>Zeitalter</th><th class="n">Forschungen</th><th>forscht gerade</th><th class="n">Inseln</th><th class="n">Punkte</th><th class="n">läuft seit</th></tr>'+
     run.map(r=>`<tr><td>${r.platz+1}</td><td>${esc(r.art)}</td><td>${r.day??0} von ${r.tage}</td><td><div class="bar"><i style="width:${Math.min(100,100*(r.day||0)/r.tage)}%"></i></div></td><td class="n">${r.pop??'–'}</td><td>${esc(r.age||'–')}</td><td class="n">${r.techs??'–'}</td><td>${esc(r.research||'')}</td><td class="n">${r.islands??'–'}</td><td class="n">${fmt(r.score)}</td><td class="n">${dur(r.sek)}</td></tr>`).join(''):'';

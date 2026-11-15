@@ -387,7 +387,7 @@ Testhilfe `--v3build`.
   zusammen 61 % mehr Punkte als der Verwalter (`vs_verwalter`); nur auf Tag 312 gewinnt der Verwalter (61 540 zu 54 985,
   er hält am Ende 34–53 Siedler, die KIs 2–22). Protokolle /mnt/project-files/ki_berufe/training/p6 und
   vergleich_10jahre_2026-11-09.jsonl. josh-Karte „Ja, veröffentlichen“ (2026-11-10).
-- **Ganzes Spiel (josh 2026-11-15)**: `scripts/autoload/ki_acts.gd` (`KiActs`, statisch) hält alle Handlungen der KI: 35 feste
+- **Ganzes Spiel (josh 2026-11-15)**: `scripts/autoload/ki_acts.gd` (`KiActs`, statisch) hält alle Handlungen der KI: 35 feste Stufenlernen (tools/ki_voll/trainer.py `stufen`): Ziel je Stufe (Zeitalter, zuletzt Zukunftsstadt), feste Spiellänge, Halt und Okay im Reiter Status (`/api/weiter`), Gewichte bleiben. `KiBrain.needs()` (nur Training/volle Gewichte): fehlende Waren aller wählbaren Forschungen, der Prüfung und ihrer Vorstufen; `WASTE_PTS` -20 je Abriss durch die KI. GoalCard lässt Siedler ohne Beruf nur im echten Spiel (`goals.live`) warten.
   (Haus, Ausbau, Lager, Felder, Straßen, Schmuck, Bäume pflanzen, Gehege, Verwalter einsetzen, Abriss, Versetzen, Anhalten,
   Seemann, Fracht, Routen, Höchstmenge, Reserve, Nicht essen), `bau:<typ>` für jedes übrige baubare Gebäude und je Beruf
   `ot:`/`schicht:` (an, solange der Wert über 0 liegt). Gewichte in der Datei unter `"a": {Handlung: Zeile}` mit FEATURES (96)

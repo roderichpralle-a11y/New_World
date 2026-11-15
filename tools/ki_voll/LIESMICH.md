@@ -66,11 +66,13 @@ Handlung trifft (z. B. welches leere Haus abgerissen wird). Gelernt wird, **was*
 `lauf/einstellungen.json` (gilt ab dem nächsten Start des Trainings):
 
 - `arbeiter`: Spiele gleichzeitig. 0 = Zahl der Prozessorkerne minus 1.
-- `richtungen`: Zufallsrichtungen je Runde. 0 = so viele wie Arbeiter, mindestens 8. Mehr Richtungen lernen sicherer, aber langsamer.
-- `start_tage`, `wachstum`, `runden_je_stufe`, `max_tage`: wie die Spiele länger werden.
+- `richtungen`: Zufallsrichtungen je Runde. 0 = so viele wie Arbeiter, mindestens 16. Mehr Richtungen lernen sicherer, aber langsamer.
+- `stufen`: die Stufen des Lernens. Jede hat ein Ziel (`alter` = dieses Zeitalter erreichen, 1 = Antike; oder `ziel` = Zukunftsstadt) und eine Spiellänge `tage`. Schaffen in `ziel_pruefungen` Prüfungen nacheinander alle Prüfspiele das Ziel, hält das Training an. Im Reiter Status gibst du die nächste Stufe mit einem Knopf frei. Die Gewichte bleiben dabei erhalten.
 - `stillstand_tage`, `pruefung_alle`, `pruefung_wuerfel`, `rauschen`, `lernrate`.
 
 Neu anfangen: den Ordner `lauf` löschen (oder umbenennen).
+
+Mit einem alten Training weitermachen: den alten Ordner `lauf` in den neuen Ordner kopieren. Das Training beginnt dann in Stufe 1 mit den bisherigen Gewichten.
 
 ## Ergebnis ins Spiel bringen
 
