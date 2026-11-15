@@ -48,7 +48,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 
 DEFAULTS = {
     "arbeiter": 0,            # Spiele gleichzeitig; 0 = Anzahl der Prozessorkerne minus 1
-    "richtungen": 0,          # Zufallsrichtungen je Runde; 0 = so viele wie Arbeiter (mindestens 4)
+    "richtungen": 0,          # Zufallsrichtungen je Runde; 0 = so viele wie Arbeiter (mindestens 8)
     "rauschen": 0.3,          # wie stark die Gewichte zum Ausprobieren verändert werden
     "lernrate": 0.1,          # wie weit die Gewichte je Runde wandern
     "start_tage": 36,         # Länge der ersten Spiele in Spieltagen (12 Tage = 1 Spieljahr)
@@ -74,7 +74,7 @@ def load_config(path):
     if int(cfg["arbeiter"]) <= 0:
         cfg["arbeiter"] = max(1, (os.cpu_count() or 2) - 1)
     if int(cfg["richtungen"]) <= 0:
-        cfg["richtungen"] = max(4, int(cfg["arbeiter"]))
+        cfg["richtungen"] = max(8, int(cfg["arbeiter"]))
     return cfg
 
 
@@ -324,8 +324,9 @@ class Trainer:
         full["runde"] = self.round
         full["tage"] = days
         write_json(os.path.join(self.lauf, "pruefungen", "runde_%05d.json" % self.round), full)
-        # Bestes: die Punkte je Spieltag zählen, weil die Spiele mit der Zeit länger werden
-        if per_day > float(self.best.get("je_tag", -1e18)) or tag == "start":
+        # Bestes: verglichen wird nur bei gleicher Spiellänge (längere Spiele sind schwerer und bringen je Tag
+        # weniger Punkte). Wird das Spiel länger, zählt die erste Prüfung der neuen Länge als neues Bestes.
+        if tag == "start" or days > int(self.best.get("tage", 0)) or per_day > float(self.best.get("je_tag", -1e18)):
             self.best = {"mittel": mean, "je_tag": per_day, "runde": self.round, "tage": days}
             g = self.lay.to_game(self.vec)
             g.update({"runde": self.round, "tage": days, "punkte": mean, "method": "ARS, ganzes Spiel vom Anfang (tools/ki_voll)"})

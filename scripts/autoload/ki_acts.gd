@@ -509,28 +509,33 @@ static func _pen_plan(w) -> Dictionary:
 	for a in w.animals:
 		if not is_instance_valid(a) or a.dead or a.is_predator() or w.pen_of(a.cell) > 0:
 			continue
-		var mid: Vector2i = a.cell
-		var ring := []
-		var ok := true
-		for dy in range(-3, 4):
-			for dx in range(-3, 4):
-				var c := mid + Vector2i(dx, dy)
-				if not w.is_inside(c) or w.building_at.has(c):
-					ok = false
-					break
-				if maxi(absi(dx), absi(dy)) == 3:
-					if w.can_place("zaun", c):
-						ring.append(c)
-					elif w.animal_walkable(c):
-						ok = false  # offene Stelle, die sich nicht schließen lässt
-						break
-			if not ok:
-				break
-		if not ok or ring.size() < 8:
-			continue
-		for lc in [mid + Vector2i(-1, -5), mid + Vector2i(-1, 4), mid + Vector2i(4, -1), mid + Vector2i(-6, -1)]:
-			if w.can_place("jagdhuette", lc):
-				return {"ring": ring, "lodge": lc}
+		# das Tier muss innen stehen; die Mitte des Geheges darf bis zu 2 Felder daneben liegen
+		for oy in [0, -1, 1, -2, 2]:
+			for ox in [0, -1, 1, -2, 2]:
+				var p := _pen_at(w, a.cell + Vector2i(ox, oy))
+				if not p.is_empty():
+					return p
+	return {}
+
+
+## Gehege 7 x 7 um mid: der Rand wird Zaun (oder ist schon dicht), innen steht kein Gebäude.
+static func _pen_at(w, mid: Vector2i) -> Dictionary:
+	var ring := []
+	for dy in range(-3, 4):
+		for dx in range(-3, 4):
+			var c := mid + Vector2i(dx, dy)
+			if not w.is_inside(c) or w.building_at.has(c):
+				return {}
+			if maxi(absi(dx), absi(dy)) == 3:
+				if w.can_place("zaun", c):
+					ring.append(c)
+				elif w.animal_walkable(c):
+					return {}  # offene Stelle, die sich nicht schließen lässt
+	if ring.size() < 8:
+		return {}
+	for lc in [mid + Vector2i(-1, -5), mid + Vector2i(-1, 4), mid + Vector2i(4, -1), mid + Vector2i(-6, -1)]:
+		if w.can_place("jagdhuette", lc):
+			return {"ring": ring, "lodge": lc}
 	return {}
 
 
@@ -689,9 +694,9 @@ static func can(w, act: String) -> bool:
 			return Sea.ships_at(int(w.island_id)).any(func(sh): return sh.state == "dock" and Sea.crew_missing(sh) > 0) \
 				and KiBrain._adults(w).size() >= 6
 		"fracht_hin":
-			return not _other_settled(w).is_empty() and not _surplus_out(w).is_empty()
+			return not _surplus_out(w).is_empty() and _other_settled(w).any(func(o): return not Steward._free_ship(int(w.island_id), int(o.island_id)).is_empty())
 		"fracht_her":
-			return _other_settled(w).any(func(o): return not _raw_surplus(o).is_empty())
+			return _other_settled(w).any(func(o): return not _raw_surplus(o).is_empty() and not Steward._free_ship(int(o.island_id), int(w.island_id)).is_empty())
 		"route":
 			var o = _route_target(w)
 			return o != null and not _route_ship(w, o).is_empty()

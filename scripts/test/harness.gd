@@ -110,6 +110,42 @@ func _ki_train_setup(args: Dictionary) -> void:
 		KiBrain.train_all = true
 	KiBrain.set_on(not args.has("kioff"))
 	KiBrain.built_log = {}
+	if args.has("kiacttest"):  # Selbsttest aller Handlungen (josh 2026-11-15): jede auf jeder Insel einmal versuchen
+		KiBrain.max_sites = 99
+		for w in Sea.all_worlds():
+			if w.settlers.is_empty():
+				continue
+			var x := KiBrain.features(w)
+			for act in KiActs.names():
+				if act.begins_with("ot:") or act.begins_with("schicht:"):
+					continue
+				var ok: bool = KiActs.can(w, act)
+				print("KIACTTEST %s | %s | geht=%s | %s | %s" % [Sea.island_name(w), act, ok, KiActs.do(w, act) if ok else "", KiActs.extras(w, act)])
+			KiActs.settings_tick(w, x)
+			var tiere: Array = w.animals.filter(func(an): return not an.dead and not an.is_predator())
+			print("KIACTTEST %s Gehege: Zaun frei %s, Hütte frei %s, Hütten %d, Holz %d, friedliche Tiere %d, Plan %s" % [Sea.island_name(w),
+				Game.is_unlocked("zaun"), Game.is_unlocked("jagdhuette"), w.lodges().size(), Game.amount("holz", w), tiere.size(), KiActs._pen_plan(w).size()])
+			var ro = KiActs._route_target(w)
+			print("KIACTTEST %s Route: Ziel %s, Schiff %s, freie Schiffe %d" % [Sea.island_name(w), Sea.island_name(ro) if ro != null else "-",
+				not KiActs._route_ship(w, ro).is_empty() if ro != null else false, Sea.idle_ships(int(w.island_id)).size()])
+			if args.get("kiacttest") == "zwang":  # Gehege und Route erzwingen
+				Game.add_stock_over("holz", 200, w)
+				Game.add_stock_over("bretter", 20, w)
+				var pp := KiActs._pen_plan(w)
+				print("KIACTTEST %s gehege erzwungen: geht=%s %s" % [Sea.island_name(w), KiActs.can(w, "gehege"), KiActs.do(w, "gehege") if not pp.is_empty() else ""])
+				if not pp.is_empty():  # Zaun und Hütte sofort fertig: entsteht ein Gehege mit Tieren?
+					for b in w.buildings:
+						if not b.complete and b.type in ["zaun", "jagdhuette"]:
+							b.delivered = b.def.cost.duplicate()
+							b.add_work(9999.0)
+					w._pens_dirty = true
+					for lb in w.lodges():
+						print("KIACTTEST %s Hütte: Gehege %d, Tiere darin %d" % [Sea.island_name(w), w.lodge_pen(lb), w.pen_animals(w.lodge_pen(lb)).size()])
+				for sh in Sea.ships_at(int(w.island_id)):
+					if sh.state == "dock":
+						Sea.cancel_trip(sh)
+				print("KIACTTEST %s route erzwungen: geht=%s %s" % [Sea.island_name(w), KiActs.can(w, "route"), KiActs.do(w, "route") if KiActs.can(w, "route") else ""])
+		print("KIACTTEST Forschung: ", KiActs.pick_tech() if not KiBrain.tweights.is_empty() else "-")
 	if args.has("kibuildtest"):  # Selbsttest der Bau-Handlungen (josh 2026-11-11): jede einmal versuchen
 		KiBrain.max_sites = 99
 		for t in ["lager", "feld", "obstgarten", "strasse", "werft"]:

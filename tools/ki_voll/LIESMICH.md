@@ -53,7 +53,7 @@ Handlung trifft (z. B. welches leere Haus abgerissen wird). Gelernt wird, **was*
 `lauf/einstellungen.json` (gilt ab dem nächsten Start des Trainings):
 
 - `arbeiter`: Spiele gleichzeitig. 0 = Zahl der Prozessorkerne minus 1.
-- `richtungen`: Zufallsrichtungen je Runde. 0 = so viele wie Arbeiter. Mehr Richtungen lernen sicherer, aber langsamer.
+- `richtungen`: Zufallsrichtungen je Runde. 0 = so viele wie Arbeiter, mindestens 8. Mehr Richtungen lernen sicherer, aber langsamer.
 - `start_tage`, `wachstum`, `runden_je_stufe`, `max_tage`: wie die Spiele länger werden.
 - `stillstand_tage`, `pruefung_alle`, `pruefung_wuerfel`, `rauschen`, `lernrate`.
 
