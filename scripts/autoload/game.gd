@@ -157,7 +157,7 @@ func _detect_test_build() -> void:
 			var dst := src.replace("_v2", "_v2t")
 			if FileAccess.file_exists(src) and not FileAccess.file_exists(dst):
 				DirAccess.copy_absolute(src, dst)
-	elif "/v2/" in path or "/v21/" in path:  # Version 2 mit joshs neuen Bildern: eigener Spielstand (seit 2026-10-30 unter /v21/, gleicher wie /v2/)
+	elif "/v2/" in path or "/v21/" in path or "/v22/" in path:  # /v22/ = Version 2.2 (josh 2026-11-15), gleicher Spielstand  # Version 2 mit joshs neuen Bildern: eigener Spielstand (seit 2026-10-30 unter /v21/, gleicher wie /v2/)
 		build_tag = "v2"
 	elif "/neu/" in path:  # Umbau "Mehr Herausforderung": eigener Spielstand
 		build_tag = "neu"

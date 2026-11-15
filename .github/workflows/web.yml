@@ -8,7 +8,7 @@ name: Web-Version bauen und veröffentlichen
 # Version 2.0.0 mit joshs neuen Bildern -> /v21/ (seit josh 2026-10-30, vorher /v2/; Spielstand wie /v2/, Zweig claude/project-thread-9zqobi)
 on:
   push:
-    branches: [main, claude/entwicklungsbaum-x33t1h, claude/project-thread-m73c7d, claude/project-thread-9zqobi, claude/v21-test, claude/v3]
+    branches: [main, claude/entwicklungsbaum-x33t1h, claude/project-thread-m73c7d, claude/project-thread-9zqobi, claude/v21-test, claude/v22, claude/v3]
   workflow_dispatch:
 
 permissions:
@@ -36,10 +36,10 @@ jobs:
           if [ "${{ github.ref_name }}" = "claude/project-thread-9zqobi" ]; then
             n=$(( $(git rev-list --count --first-parent origin/main..HEAD) - 1 ))
           fi
-          if [ "${{ github.ref_name }}" = "claude/v21-test" ]; then
+          if [ "${{ github.ref_name }}" = "claude/v21-test" ] || [ "${{ github.ref_name }}" = "claude/v22" ]; then  # claude/v22 = veröffentlichte Version 2.2 unter /v22/ (josh 2026-11-15)
             n=$(( $(git rev-list --count --first-parent origin/main..HEAD) - 2 ))  # Testversion von V2 unter /v21test/ (josh 2026-10-31)
-            if grep -q '^config/version="2\.1\.' project.godot; then
-              n=$(sed -n 's/^config\/version="2\.1\.\([0-9]*\)"/\1/p' project.godot)  # 2.1.x: Nummer fest aus project.godot (josh 2026-11-08: alles in 2.1.1)
+            if grep -q '^config/version="2\.[1-9]\.' project.godot; then
+              n=$(sed -n 's/^config\/version="2\.[1-9]\.\([0-9]*\)"/\1/p' project.godot)  # 2.1.x: Nummer fest aus project.godot (josh 2026-11-15: 2.1.3 = gleicher Stand wie Version 3 ohne KI)
             fi
           fi
           if [ "${{ github.ref_name }}" = "claude/v3" ]; then
@@ -72,7 +72,7 @@ jobs:
           ./godot-bin --headless --export-release "Web" build/web/index.html
           test -f build/web/index.wasm
           # Testzweig: zusätzlich die Handy-Fassung ohne die PC-Bilder unter /v21test/handy/ (josh 2026-11-05, Speicher iPhone)
-          if [ "${{ github.ref_name }}" = "claude/v21-test" ] || [ "${{ github.ref_name }}" = "claude/v3" ]; then
+          if [ "${{ github.ref_name }}" = "claude/v21-test" ] || [ "${{ github.ref_name }}" = "claude/v22" ] || [ "${{ github.ref_name }}" = "claude/v3" ]; then
             mkdir -p build/web/handy
             ./godot-bin --headless --export-release "WebHandy" build/web/handy/index.html
             test -f build/web/handy/index.wasm
@@ -87,6 +87,6 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: build/web
-          destination_dir: ${{ github.ref_name == 'main' && '.' || (github.ref_name == 'claude/project-thread-m73c7d' && 'neu' || (github.ref_name == 'claude/project-thread-9zqobi' && 'v21' || (github.ref_name == 'claude/v21-test' && 'v21test2' || (github.ref_name == 'claude/v3' && 'v3' || 'test')))) }}
+          destination_dir: ${{ github.ref_name == 'main' && '.' || (github.ref_name == 'claude/project-thread-m73c7d' && 'neu' || (github.ref_name == 'claude/project-thread-9zqobi' && 'v21' || (github.ref_name == 'claude/v21-test' && 'v21test2' || (github.ref_name == 'claude/v22' && 'v22' || (github.ref_name == 'claude/v3' && 'v3' || 'test'))))) }}
           keep_files: true
           commit_message: Web-Version (${{ github.ref_name }})
