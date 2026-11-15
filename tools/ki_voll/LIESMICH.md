@@ -6,10 +6,20 @@ vom Start mit 2 Siedlern bis alles erforscht ist und die Zukunftsstadt steht.
 ## Starten
 
 1. Die zip-Datei auspacken (Doppelklick).
-2. Im Ordner `Insel-KI-Training` mit der **rechten Maustaste** auf `START.command` klicken und **Öffnen** wählen.
-   Beim ersten Mal fragt der Mac nach, weil die Datei aus dem Internet kommt: noch einmal **Öffnen**.
-   Falls das nicht geht: Programm „Terminal“ öffnen, `bash ` tippen (mit Leerzeichen), die Datei `START.command`
-   ins Fenster ziehen, Eingabetaste.
+2. Der Mac blockiert die Startdatei, weil sie aus dem Internet kommt und nicht von Apple geprüft ist.
+   So geht es trotzdem (Weg A ist der sicherste, B ist der Weg ohne Terminal):
+   - **Weg A, Terminal:** Programm „Terminal“ öffnen und diese zwei Zeilen eingeben, jeweils mit Eingabetaste
+     (der Pfad ist der Ordner, in den du die zip ausgepackt hast; am einfachsten tippst du `cd ` mit Leerzeichen
+     und ziehst den Ordner `Insel-KI-Training` ins Fenster):
+     ```
+     cd ~/Downloads/Insel-KI-Training
+     xattr -dr com.apple.quarantine . && bash START.command
+     ```
+     Die erste Zeile nimmt dem Ordner die Sperre ab, die zweite startet das Training. Das genügt, es ist nur dieser Ordner betroffen.
+   - **Weg B, Einstellungen:** `START.command` doppelklicken, die Meldung wegklicken, dann **Systemeinstellungen >
+     Datenschutz & Sicherheit** öffnen, ganz nach unten scrollen, bei der Meldung zu `START.command` auf
+     **Dennoch öffnen** klicken, Passwort eingeben. Danach noch einmal doppelklicken. Auf neuem macOS (ab 15) geht
+     Rechtsklick > Öffnen nicht mehr.
 3. Beim ersten Start lädt das Programm Godot (die Spiel-Engine, etwa 130 MB) und bereitet das Spiel vor.
    Das dauert ein paar Minuten und braucht Internet. Danach nicht mehr.
 4. Im Browser öffnet sich die Oberfläche: http://127.0.0.1:8765/
