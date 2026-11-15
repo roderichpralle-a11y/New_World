@@ -522,7 +522,8 @@ func _check() -> void:
 		_advance(g, false)
 		g = current()
 	var t := in_tutorial()
-	var idle: bool = t and g.get("idle", false)
+	# nur im echten Spiel (goals.live): in Selbsttests und im KI-Training wartet niemand auf das erste Lager
+	var idle: bool = t and g.get("idle", false) and Game.goals.get("live", false)
 	if Game.intro_idle != idle:
 		Game.intro_idle = idle
 	hud.apply_intro_ui()
