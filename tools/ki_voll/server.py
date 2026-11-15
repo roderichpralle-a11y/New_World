@@ -244,19 +244,33 @@ class App:
         F = int(names["features"])
         rows = []
 
-        def tops(row, labels, n=5):
-            idx = sorted(range(len(row)), key=lambda i: -abs(row[i]))[:n]
+        st = self.read("zustand.json", {}) or {}
+        seen = st.get("gesehen", [])
+        games = max(1, int(st.get("gesehen_spiele", 0)))
+
+        def frac(i):
+            """Anteil der Spiele, in denen dieser Eingang je vorkam. Unbekannt (altes Training): 1."""
+            return seen[i] / games if i < len(seen) and st.get("gesehen_spiele") else 1.0
+
+        def tops(row, labels, n=5, offset=0):
+            # nur Eingänge, die in mindestens 2 % der Spiele vorkamen: nur dort kann etwas gelernt worden sein
+            known = [i for i in range(len(row)) if frac(offset + i if offset >= 0 else i) >= 0.02]
+            idx = sorted(known, key=lambda i: -abs(row[i]))[:n]
+            return [{"was": labels[i] if i < len(labels) else "Eingang %d" % i, "w": round(row[i], 3), "oft": round(frac(i), 2)} for i in idx if abs(row[i]) > 1e-9]
+
+        def unseen(row, labels, n=3):
+            idx = sorted([i for i in range(len(row)) if frac(i) < 0.02], key=lambda i: -abs(row[i]))[:n]
             return [{"was": labels[i] if i < len(labels) else "Eingang %d" % i, "w": round(row[i], 3)} for i in idx if abs(row[i]) > 1e-9]
         for j, r in enumerate(g.get("w", [])):
             nm = names["job_names"][j] if j < len(names.get("job_names", [])) else names["jobs"][j]
-            rows.append({"gruppe": "Berufe", "name": "Beruf: " + nm, "staerke": norm(r), "einfluss": tops(r, FEATURES)})
+            rows.append({"gruppe": "Berufe", "name": "Beruf: " + nm, "staerke": norm(r), "einfluss": tops(r, FEATURES), "rauschen": unseen(r, FEATURES)})
         for k, r in g.get("a", {}).items():
             rows.append({"gruppe": GROUPS.get(group_of(k, names), ""), "name": act_label(k, names), "staerke": norm(r),
-                         "neigung": round(r[0], 3), "einfluss": tops(r, FEATURES[:F] + ACT_X)})
+                         "neigung": round(r[0], 3), "einfluss": tops(r, FEATURES[:F] + ACT_X), "rauschen": unseen(r, FEATURES[:F] + ACT_X)})
         t = g.get("t", [])
         if t:
-            rows.append({"gruppe": "Forschung", "name": "Welche Forschung als Nächstes", "staerke": norm(t), "einfluss": tops(t, TECH_F, 8)})
-        return {"zeilen": rows, "runde": g.get("runde"), "punkte": g.get("punkte")}
+            rows.append({"gruppe": "Forschung", "name": "Welche Forschung als Nächstes", "staerke": norm(t), "einfluss": [{"was": TECH_F[i], "w": round(t[i], 3), "oft": 1.0} for i in sorted(range(len(t)), key=lambda i: -abs(t[i]))[:8] if abs(t[i]) > 1e-9], "rauschen": []})
+        return {"zeilen": rows, "runde": g.get("runde"), "punkte": g.get("punkte"), "spiele": int(st.get("gesehen_spiele", 0))}
 
 
 def norm(r):

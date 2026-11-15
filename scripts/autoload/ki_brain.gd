@@ -61,6 +61,9 @@ var train_all := false
 var unlock_list := false    # Freischalt-Liste anwenden (Version 3 mit neuen Gewichten)
 var trace_log: Array = []   # [Tag, Insel, Text] der letzten Entscheidungen (Training: Verlauf in der Oberfläche)
 var goal_done := false      # Zukunftsstadt steht (Training: Spiel zu Ende)
+## Wie oft war ein Eingang nicht 0 (Training, josh 2026-11-15): Gewichte von Eingängen, die nie vorkamen, lernen nichts
+var feat_seen := PackedInt32Array()
+var act_seen := PackedInt32Array()
 var built_log: Dictionary = {}  # Handlung -> Anzahl (Training, Anzeige)
 var _bnext: Dictionary = {}     # Insel-ID -> Spieltag der nächsten Bau-Entscheidung
 var _last_build: Dictionary = {}  # Insel-ID -> Spieltag des letzten eigenen Baus
@@ -613,6 +616,13 @@ func features(w) -> PackedFloat32Array:
 	x[64] = minf(Extras.fuel(w) / maxf(1.0, need_full), 3.0)
 	x[65] = minf(maxf(0.0, Extras.fuel(w) - Extras.heat_reserve(w)) / 500.0, 3.0)
 	KiActs.more_features(w, x, n, adults.size(), beds)  # 66..95: Zeitalter, Prüfung, Droiden, Funk, Tiere, See, Waren
+	if score_on:
+		if feat_seen.size() != FEATURES:
+			feat_seen.resize(FEATURES)
+			feat_seen.fill(0)
+		for k in FEATURES:
+			if absf(x[k]) > 0.000001:
+				feat_seen[k] += 1
 	return x
 
 
@@ -676,8 +686,14 @@ func act_value(w, act: String, x: PackedFloat32Array) -> float:
 	for k in FEATURES:
 		v += float(row[k]) * x[k]
 	var ex := KiActs.extras(w, act)
+	if score_on:
+		if act_seen.size() != ACT_X:
+			act_seen.resize(ACT_X)
+			act_seen.fill(0)
 	for k in ACT_X:
 		v += float(row[FEATURES + k]) * float(ex[k])
+		if score_on and absf(float(ex[k])) > 0.000001:
+			act_seen[k] += 1
 	return v
 
 
@@ -952,6 +968,8 @@ func score_start() -> void:
 	goal_today = 0.0
 	goal_done = false
 	trace_log = []
+	feat_seen = PackedInt32Array()
+	act_seen = PackedInt32Array()
 	_age0 = Game.current_age()
 	_sample_t = Game.time_days
 	_score_t0 = Game.time_days

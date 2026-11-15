@@ -221,7 +221,8 @@ func _ki_train_finish(args: Dictionary) -> void:
 		"age": Game.current_age(), "age_name": Data.age_name(Game.current_age()), "age_days": Exams.days.duplicate(),
 		"techs": Game.research.done.duplicate(), "goal": KiBrain.goal_done, "over": Game.is_over, "stalled": _ki_stalled,
 		"day": Game.time_days, "islands": Sea.settled_islands().size(), "droids": Droids.count(),
-		"trace": KiBrain.trace_log.duplicate(), "types": _ki_types()}
+		"trace": KiBrain.trace_log.duplicate(), "types": _ki_types(),
+		"seen": Array(KiBrain.feat_seen), "seen_x": Array(KiBrain.act_seen)}
 	var out := str(args.get("kiout", ""))
 	if out != "":
 		var f := FileAccess.open(out, FileAccess.WRITE)

@@ -158,6 +158,8 @@ class Trainer:
         self.best = {"mittel": -1e18, "runde": 0}
         self.secs_total = 0.0
         self.games_total = 0
+        self.seen = [0] * (self.lay.F + self.lay.X)  # in wie vielen Spielen war dieser Eingang einmal nicht 0
+        self.seen_games = 0
         self.load_state(a.init)
 
     # ------------------------------------------------------------ Spiel starten
@@ -250,6 +252,9 @@ class Trainer:
                 self.best = s.get("best", self.best)
                 self.secs_total = float(s.get("sek", 0.0))
                 self.games_total = int(s.get("spiele", 0))
+                if len(s.get("gesehen", [])) == len(self.seen):
+                    self.seen = s["gesehen"]
+                    self.seen_games = int(s.get("gesehen_spiele", 0))
                 st = s.get("zufall")
                 if st:
                     self.rng.setstate((st[0], tuple(st[1]), st[2]))
@@ -266,6 +271,7 @@ class Trainer:
         write_json(os.path.join(self.lauf, "zustand.json"), {
             "runde": self.round, "vec": self.vec, "verlauf": self.history, "pruefungen": self.checks, "best": self.best,
             "sek": self.secs_total + (time.time() - self.t_start), "spiele": self.games_total,
+            "gesehen": self.seen, "gesehen_spiele": self.seen_games,
             "zufall": [st[0], list(st[1]), st[2]]})
 
     def days_for(self, rnd):
@@ -286,7 +292,8 @@ class Trainer:
                 "arbeiter": int(self.cfg["arbeiter"]), "richtungen": int(self.cfg["richtungen"]), "laufend": run,
                 "verlauf": self.history[-400:], "pruefungen": self.checks, "best": self.best, "gewichte": self.lay.size,
                 "handlungen": len(self.lay.acts), "sek": self.secs_total + (time.time() - self.t_start),
-                "spiele": self.games_total, "einstellungen": self.cfg, "gestoppt": self.stop}
+                "spiele": self.games_total, "einstellungen": self.cfg, "gestoppt": self.stop,
+                "gesehen": self.seen, "gesehen_spiele": self.seen_games}
 
     def status_loop(self):
         p = os.path.join(self.lauf, "status.json")
@@ -300,6 +307,23 @@ class Trainer:
             time.sleep(2.0)
 
     # ------------------------------------------------------------ Lernen
+    def note_seen(self, res):
+        """Zählt, welche Eingänge in diesem Spiel je vorkamen (nicht 0 waren)."""
+        s = (res.get("seen") or [])
+        x = (res.get("seen_x") or [])
+        if len(s) != self.lay.F:
+            return
+        for k in range(self.lay.F):
+            if s[k] > 0:
+                self.seen[k] += 1
+        for k in range(min(len(x), self.lay.X)):
+            if x[k] > 0:
+                self.seen[self.lay.F + k] += 1
+        self.seen_games += 1
+        # die Spiele selbst brauchen die langen Listen nicht mehr
+        res.pop("seen", None)
+        res.pop("seen_x", None)
+
     @staticmethod
     def summary(res):
         return {"punkte": round(res["score"]), "tag": round(float(res.get("day", 0))), "siedler": res.get("pop", 0),
@@ -316,6 +340,8 @@ class Trainer:
         ok = [r for r in rs if r[0] is not None]
         if not ok:
             return
+        for r in ok:
+            self.note_seen(r[1])
         mean = sum(r[0] for r in ok) / len(ok)
         per_day = sum(r[0] / max(1.0, float(r[1].get("day", days))) for r in ok) / len(ok)
         rec = {"runde": self.round, "tage": days, "mittel": mean, "je_tag": per_day, "spiele": [self.summary(r[1]) for r in ok], "zeit": time.time()}
@@ -357,6 +383,8 @@ class Trainer:
             if rp[0] is None or rm[0] is None:
                 continue
             pairs.append((max(rp[0], rm[0]), rp[0], rm[0], dirs[k]))
+            self.note_seen(rp[1])
+            self.note_seen(rm[1])
             sums += [self.summary(rp[1]), self.summary(rm[1])]
         if not pairs:
             print("Runde %d: kein Spiel kam zurück" % rnd, flush=True)

@@ -123,7 +123,7 @@ pre .l::before{content:attr(data-n);display:inline-block;width:52px;padding-righ
   <div class="box scroll"><table id="gcmp"></table></div>
 
   <h2>Wovon die Entscheidungen abhängen</h2>
-  <p class="mute small">Jede Entscheidung hat eine Zeile Zahlen (Gewichte). Ein grüner Eintrag heißt: die KI tut das eher, wenn das zutrifft. Ein roter: sie tut es dann seltener. Die Zahl zeigt, wie stark. Am Anfang sind alle Zahlen 0.</p>
+  <p class="mute small">Jede Entscheidung hat eine Zeile Zahlen (Gewichte). Ein grüner Eintrag heißt: die KI tut das eher, wenn das zutrifft. Ein roter: sie tut es dann seltener. Die Zahl zeigt, wie stark. Am Anfang sind alle Zahlen 0. Gezeigt werden nur Dinge, die in mindestens 2 % der Spiele vorkamen. Gewichte für Dinge, die nie vorkamen, können nichts gelernt haben, sie sind Zufallsrauschen und stehen grau darunter. Auch bei erlebten Dingen kann ein Wert noch zum Teil Zufall sein: je öfter erlebt, desto eher ist er gelernt.</p>
   <div>Gewichte: <select id="selw"><option value="aktuell">jetziger Stand</option><option value="best">bester Stand</option></select></div>
   <div id="weights"></div>
 </section>
@@ -248,7 +248,7 @@ async function loadWeights(){
   const mx=Math.max(1e-9,...g.zeilen.map(z=>z.staerke));
   $('weights').innerHTML=(g.runde!=null?`<p class="mute small">Stand nach Runde ${g.runde}.</p>`:'')+Object.entries(groups).map(([k,zs])=>`<details><summary>${esc(k)} (${zs.length})</summary><div><table><tr><th>Entscheidung</th><th>gelernt</th><th>stärkste Einflüsse</th></tr>${
     zs.sort((a,b)=>b.staerke-a.staerke).map(z=>`<tr><td>${esc(z.name)}</td><td><div class="bar"><i style="width:${100*z.staerke/mx}%"></i></div></td><td class="small">${
-      z.einfluss.length?z.einfluss.map(e=>`<span class="${e.w>0?'plus':'minus'}">${e.w>0?'eher':'seltener'}, wenn ${esc(e.was)} (${e.w>0?'+':''}${e.w})</span>`).join('<br>'):'<span class="mute">noch nichts gelernt</span>'}</td></tr>`).join('')}</table></div></details>`).join('');
+      (z.einfluss.length?z.einfluss.map(e=>`<span class="${e.w>0?'plus':'minus'}">${e.w>0?'eher':'seltener'}, wenn ${esc(e.was)} (${e.w>0?'+':''}${e.w})</span> <span class="mute">in ${Math.round((e.oft??1)*100)} % der Spiele erlebt</span>`).join('<br>'):'<span class="mute">noch nichts gelernt</span>')+(z.rauschen&&z.rauschen.length?'<br><span class="mute">Nur Rauschen, noch nie erlebt: '+z.rauschen.map(e=>esc(e.was)+' ('+e.w+')').join(', ')+'</span>':'')}</td></tr>`).join('')}</table></div></details>`).join('');
 }
 
 // ---------- Programmcode
