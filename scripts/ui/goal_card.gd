@@ -274,6 +274,7 @@ func begin_intro() -> void:
 		if s.is_adult():
 			s.set_job("frei")
 	Game.intro_idle = true
+	Game.goals["live"] = true  # echtes Spiel: die KI (Version 3) wartet bis zum Ende der ersten Schritte
 	_cur_id = ""
 	_tick = 0.0
 

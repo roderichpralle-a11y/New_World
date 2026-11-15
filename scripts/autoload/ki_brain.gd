@@ -127,6 +127,9 @@ func _process(_delta: float) -> void:
 		_score_tick()
 	if not on or weights.is_empty() or Game.time_days < _next:
 		return
+	# Neuer Spielstart (josh 2026-11-15): im echten Spiel (goals.live, nie im Training) entscheidet zuerst der Spieler
+	if Game.goals.get("live", false) and Quests.in_tutorial():
+		return
 	_next = Game.time_days + TICK_DAYS
 	for w in Sea.all_worlds():
 		if controls(w):
