@@ -97,10 +97,13 @@ Erklärung in `_start_doc`), Ablauf in `GoalCard`.
   hinein rastet ein, jeder andere freie Platz geht auch. `n_builder` und `n_gather`: Zeiger auf Siedler und dann auf
   die Berufswahl genau dieses Siedlers (`who` b/o, Meta `sid` am OptionButton der Siedlerliste, auch in der Liste
   „Frei“). `n_food_wait` bis Nahrung ankommt (Prüfart `food_in`), `n_food` erklärt die Nahrung, `n_store_done` wartet.
-- **Auswahl** (`n_choice`, Zustand `Game.goals.br {cur, i, done}`): Mehr Wohnraum (Hütte bauen, Wohnplätze erklärt,
-  2 neue Siedler), Sichere Versorgung (zwei Siedler für Nahrung, Prüfart `jobs_any`), Erste Verbesserung (Flechtkörbe
-  starten, Forscher einsetzen, Forschung erklärt). Reihenfolge frei; nach allen dreien `Extras.TUT_FINAL` (2 Siedler,
-  Hütte, Steinwerkzeuge, Schrift). Am Ende wie bisher 6 Siedler, 3 Hütten, Lagerhaus.
+- **Nach dem Lager ist Schluss** (josh 2026-11-16 vormittags): Schritte nur noch `n_store`, `n_builder`, `n_gather`,
+  `n_store_done`. Keine Auswahl mit drei Zweigen (`branches` gibt es nicht mehr), keine Geschenke und keine fertigen
+  Forschungen (`Extras.TUT_FINAL` leer). Stattdessen Tipps nach Bedarf als Hinweis-Fenster (`Hints.due`, `hints.json`,
+  nur in den ersten 10 Tagen, `START_DAYS`): `start_hut` nach 3 Tagen ohne zweites Wohnhaus (nur der Tipp),
+  `start_food` wenn die Nahrung auf 1 Tag fällt, `start_research` nach Tag 2 ohne begonnene Forschung. Test:
+  `--tutdone=1` („Tipp-Test OK“). Erstes Ziel danach ist `m_schrift`. Erlegte Tiere verderben nicht mehr
+  (`nodes.json` beute `decay_days` riesig).
 - **Knöpfe unten** sind von Beginn an alle da (josh 2026-11-16; `show`, `btn`, `pick`, `GoalCard.ui_on`,
   `Hud.apply_intro_ui` und `Hud.start_build` gibt es nicht mehr).
 - **Weitere Änderungen 2026-11-16**: Essen verdirbt nicht mehr (`seasons.json` `spoil_per_day` 0, Kühltechnik gibt

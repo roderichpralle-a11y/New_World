@@ -270,13 +270,16 @@ func _on_load(d: Dictionary, old_rules: int) -> void:
 ## Hütte und ein fertiges Lagerhaus nah am Lagerfeuer, dazu Steinwerkzeuge und Schrift erforscht.
 ## Mit den Belohnungen der Schritte (TUT_FINAL) sind es etwa 6 Siedler und 3 Hütten. Ruft GoalCard._advance einmal auf.
 # Das Lagerhaus baut der Spieler in der Einführung selbst (josh 2026-10-30), die Hütte bringt der Schritt t_hut_done
-const TUT_FINAL := {"settlers": 2, "buildings": ["huette"], "techs": ["steinwerkzeuge", "schrift"]}
+# josh 2026-11-16: nach dem Spielstart ist nichts mehr fertig erforscht oder geschenkt, TUT_FINAL ist leer.
+const TUT_FINAL := {}
 
 
 static func tutorial_reward(w) -> void:
 	if w == null or not is_instance_valid(w):
 		return
 	var got := tutorial_step_reward(w, TUT_FINAL)
+	if got == "":
+		return
 	Game.notify_at(w, Loc.t("Belohnung für die Einführung: %s.") % got, "person", "siedler")
 
 
@@ -537,19 +540,33 @@ func _tut_test() -> void:
 	var n: int = Data.goals.get("tutorial", []).size()
 	var before := [w.settlers.size(), w.buildings.filter(func(b): return b.type == "huette").size(), w.buildings.filter(func(b): return b.type == "lager").size()]
 	print("Einfuehrungs-Test: vorher Siedler %d, Huetten %d, Platz fuer Huette %s" % [before[0], before[1], hut_spot(w)])
-	# neuer Spielstart (josh 2026-11-15): letzter Schritt des letzten Zweigs (Forscher einsetzen), danach die Schlussbelohnung
+	# Spielstart (josh 2026-11-16): letzter Schritt ist das fertige Lager; danach gibt es keine Geschenke und keine
+	# fertigen Forschungen mehr, Tipps kommen nach Bedarf (Hints start_hut, start_food, start_research).
 	Game.goals.tut = n - 1
-	Game.goals["br"] = {"cur": "forschung", "i": Data.goals.branches.forschung.steps.size() - 1, "done": ["wohnen", "versorgung"]}
-	w.settlers[0].set_job("forscher")
+	var cell = free_spot(w, "lager")
+	if cell != null:
+		w.place_building("lager", cell, true)
 	await get_tree().create_timer(2.0, true, false, true).timeout
-	var after := [w.settlers.size(), w.buildings.filter(func(b): return b.type == "huette").size(), w.buildings.filter(func(b): return b.type == "lager" and b.complete).size()]
-	var c: bool = after[0] == before[0] + 2 and after[1] == before[1] + 1
-	print("Einfuehrungs-Test %s: nachher Siedler %d (+%d), Huetten %d (+%d), Lagerhaus +%d, tut=%d/%d" % [_ok(c), after[0], after[0] - before[0], after[1], after[1] - before[1], after[2] - before[2], int(Game.goals.tut), n])
-	var t_ok: bool = Game.is_researched("steinwerkzeuge") and Game.is_researched("schrift")
-	print("Einfuehrungs-Test %s: Steinwerkzeuge und Schrift erforscht" % _ok(t_ok))
-	for s in w.settlers.slice(before[0]):
-		var home = w.building_by_id(s.home_id)
-		print("   neu: %s (%s), Zuhause %s" % [s.display_name, s.sex, home.type if home else "-"])
+	var after := [w.settlers.size(), w.buildings.filter(func(b): return b.type == "huette").size()]
+	var c: bool = after[0] == before[0] and after[1] == before[1] and int(Game.goals.tut) == n and Game.research.done.is_empty()
+	print("Einfuehrungs-Test %s: nachher Siedler %d, Huetten %d, erforscht %s, tut=%d/%d" % [_ok(c), after[0], after[1], str(Game.research.done), int(Game.goals.tut), n])
+	var keep_t: float = Game.time_days
+	var d1: Array = Hints.due().filter(func(k): return k.begins_with("start_"))
+	Game.time_days = 2.1
+	var d2: Array = Hints.due().filter(func(k): return k.begins_with("start_"))
+	Game.time_days = 3.1
+	var d3: Array = Hints.due().filter(func(k): return k.begins_with("start_"))
+	var keep_stock: Dictionary = w.stock.duplicate()
+	for res in w.stock.keys():
+		if str(Data.resources.get(res, {}).get("category", "")) == "food":
+			w.stock[res] = 0
+	var d4: Array = Hints.due().filter(func(k): return k.begins_with("start_"))
+	w.stock = keep_stock
+	Game.time_days = 10.5
+	var d5: Array = Hints.due().filter(func(k): return k.begins_with("start_"))
+	Game.time_days = keep_t
+	var h_ok: bool = d1.is_empty() and d2 == ["start_research"] and "start_hut" in d3 and not "start_food" in d3 and "start_food" in d4 and d5.is_empty()
+	print("Tipp-Test %s: Tag 1 %s, nach Tag 2 %s, nach 3 Tagen %s, ohne Nahrung %s, nach 10 Tagen %s" % [_ok(h_ok), d1, d2, d3, d4, d5])
 
 
 ## --nametest=1: viele Neugeborene ohne doppelten Namen (auch mehr, als die Liste Namen hat), alter Spielstand

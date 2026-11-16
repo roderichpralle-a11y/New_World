@@ -1072,7 +1072,7 @@ func _autotest_tutorial() -> void:
 	if not gc.in_tutorial():
 		return
 	if g.get("choice", false):
-		for id in Data.goals.branches:
+		for id in Data.goals.get("branches", {}):
 			if not id in gc._br().done:
 				gc._choose(id)
 				return
