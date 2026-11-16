@@ -25,8 +25,9 @@ vom Start mit 2 Siedlern bis alles erforscht ist und die Zukunftsstadt steht.
 4. Im Browser öffnet sich die Oberfläche: http://127.0.0.1:8765/
    Das Training läuft sofort los. Das Terminal-Fenster muss offen bleiben.
 
-Beenden: in der Oberfläche „Anhalten“ drücken, dann das Terminal-Fenster schließen.
-Beim nächsten Start geht das Training dort weiter, wo es war (Ordner `lauf`).
+Die Oberfläche öffnet sich, das Training startet aber nicht von selbst. Oben wählst du die **Stufe** und wie viele **Durchgänge** laufen sollen und drückst **Start**. Nach so vielen Durchgängen hält das Training von selbst an. **Stopp** hält es sofort an; ein angefangener Durchgang wird beim nächsten Start wiederholt. Ein Durchgang ist eine Lernrunde: 32 Spiele vom Anfang, danach werden die Gewichte verbessert. Die Statusseite zeigt „Durchgang x von N“ und eine geschätzte Restzeit.
+
+Beenden: „Stopp“ drücken, dann das Terminal-Fenster schließen. Beim nächsten Start lernt die KI mit den bisherigen Gewichten weiter (Ordner `lauf`).
 
 Der Mac braucht Python 3. Fehlt es, sagt die Startdatei, was zu tun ist (`xcode-select --install`).
 
@@ -67,12 +68,12 @@ Handlung trifft (z. B. welches leere Haus abgerissen wird). Gelernt wird, **was*
 
 - `arbeiter`: Spiele gleichzeitig. 0 = Zahl der Prozessorkerne minus 1.
 - `richtungen`: Zufallsrichtungen je Runde. 0 = so viele wie Arbeiter, mindestens 16. Mehr Richtungen lernen sicherer, aber langsamer.
-- `stufen`: die Stufen des Lernens. Jede hat ein Ziel (`alter` = dieses Zeitalter erreichen, 1 = Antike; oder `ziel` = Zukunftsstadt) und eine Spiellänge `tage`. Erreichen `ziel_in_folge` (10) Prüfspiele in Folge das Ziel, hält das Training an. Ein Spiel endet, sobald das Ziel erreicht ist; jeder gesparte Tag bringt `tempo_punkte` (300) Punkte. Im Reiter Status gibst du die nächste Stufe mit einem Knopf frei. Die Gewichte bleiben dabei erhalten.
+- `stufen`: die Stufen des Lernens. Jede hat ein Ziel (`alter` = dieses Zeitalter erreichen, 1 = Antike; oder `ziel` = Zukunftsstadt) und eine Spiellänge `tage`. Erreichen `ziel_in_folge` (10) Prüfspiele in Folge das Ziel, zeigt die Statusseite die Stufe als geschafft. Ein Spiel endet, sobald das Ziel erreicht ist; jeder gesparte Tag bringt `tempo_punkte` (300) Punkte. Welche Stufe trainiert wird, wählst du oben in der Oberfläche. Die Gewichte bleiben beim Wechsel erhalten.
 - `stillstand_tage`, `pruefung_alle`, `pruefung_wuerfel`, `rauschen`, `lernrate`.
 
 Neu anfangen: den Ordner `lauf` löschen (oder umbenennen).
 
-Mit einem alten Training weitermachen: den alten Ordner `lauf` in den neuen Ordner kopieren. Das Training beginnt dann in Stufe 1 mit den bisherigen Gewichten.
+Mit einem alten Training weitermachen: den alten Ordner `lauf` in den neuen Ordner kopieren. Das Training lernt dann mit den bisherigen Gewichten weiter, in der Stufe, die du wählst.
 
 ## Ergebnis ins Spiel bringen
 

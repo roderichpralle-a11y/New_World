@@ -105,26 +105,7 @@ class App:
     def running(self):
         return self.proc is not None and self.proc.poll() is None
 
-    def next_stage(self):
-        """Okay für die nächste Stufe (josh 2026-11-15): Stufe hochzählen, Gewichte bleiben, Training starten."""
-        if self.running():
-            return "läuft noch"
-        p = os.path.join(self.p["lauf"], "zustand.json")
-        try:
-            s = json.load(open(p, encoding="utf-8"))
-        except Exception:
-            return "kein Zustand"
-        if not s.get("wartet"):
-            return "Ziel noch nicht geschafft"
-        s["stufe"] = int(s.get("stufe", 0)) + 1
-        s["wartet"] = False
-        tmp = p + ".tmp"
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(s, f)
-        os.replace(tmp, p)
-        return self.start()
-
-    def start(self):
+    def start(self, durchgaenge=10, stufe=0):
         with self.lock:
             if self.running():
                 return "läuft schon"
@@ -134,6 +115,9 @@ class App:
             cmd = [sys.executable, "-u", os.path.join(HERE, "trainer.py"), "--godot", self.a.godot, "--spiel", self.p["spiel"], "--lauf", self.p["lauf"]]
             if self.a.init:
                 cmd += ["--init", self.a.init]
+            cmd += ["--durchgaenge", str(max(1, int(durchgaenge))), "--stufe", str(max(0, int(stufe)))]
+            log.write("Durchgänge %d, Stufe %s\n" % (int(durchgaenge), stufe or "wie zuletzt"))
+            log.flush()
             self.proc = subprocess.Popen(cmd, stdout=log, stderr=subprocess.STDOUT)
             return "gestartet"
 
@@ -362,10 +346,14 @@ def make_handler(app):
         def do_POST(self):
             if self.headers.get("Origin") and "127.0.0.1" not in self.headers.get("Origin") and "localhost" not in self.headers.get("Origin"):
                 return self.js({"fehler": "nur von diesem Rechner"}, 403)
-            if self.path == "/api/start":
-                return self.js({"ok": app.start()})
-            if self.path == "/api/weiter":
-                return self.js({"ok": app.next_stage()})
+            if self.path.startswith("/api/start"):
+                q = parse_qs(urlparse(self.path).query)
+                try:
+                    n = int(q.get("durchgaenge", ["10"])[0])
+                    st = int(q.get("stufe", ["0"])[0])
+                except ValueError:
+                    return self.js({"fehler": "Zahl erwartet"}, 400)
+                return self.js({"ok": app.start(n, st)})
             if self.path == "/api/stop":
                 return self.js({"ok": app.stop()})
             if self.path.startswith("/api/zusehen"):

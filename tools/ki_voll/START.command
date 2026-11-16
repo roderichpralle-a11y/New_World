@@ -42,6 +42,6 @@ fi
 echo "Starte die Oberfläche. Sie öffnet sich gleich im Browser: http://127.0.0.1:8765/"
 # Der Mac soll während des Trainings nicht einschlafen (caffeinate gehört zu macOS)
 if command -v caffeinate >/dev/null 2>&1; then
-  exec caffeinate -i python3 training/server.py --godot "$GODOT" --start --open
+  exec caffeinate -i python3 training/server.py --godot "$GODOT" --open
 fi
-exec python3 training/server.py --godot "$GODOT" --start --open
+exec python3 training/server.py --godot "$GODOT" --open

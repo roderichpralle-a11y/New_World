@@ -20,8 +20,8 @@ Das ist eine Runde. Alle paar Runden gibt es eine Prüfung mit festen Würfeln; 
 in lauf/best.json.
 
 Stufenlernen (josh 2026-11-15): jede Stufe hat ein Ziel (ein Zeitalter, zuletzt die Zukunftsstadt) und eine
-feste Spiellänge. Ist das Ziel in den Prüfungen geschafft, hält das Training an und wartet auf das Okay; die
-nächste Stufe lernt mit den bisherigen Gewichten weiter. Ein Spiel endet früher, wenn die Zukunftsstadt steht, alle tot
+feste Spiellänge. josh wählt beim Start die Stufe und wie viele Durchgänge (Runden) laufen sollen
+(josh 2026-11-16); danach hält das Training an. Die Gewichte bleiben über alle Starts und Stufen erhalten. Ein Spiel endet früher, wenn die Zukunftsstadt steht, alle tot
 sind oder sich stillstand_tage lang nichts mehr tut.
 
 Dateien in lauf/: zustand.json (alles zum Fortsetzen), status.json (für die Oberfläche), best.json
@@ -53,7 +53,7 @@ DEFAULTS = {
     "rauschen": 0.3,          # wie stark die Gewichte zum Ausprobieren verändert werden
     "lernrate": 0.1,          # wie weit die Gewichte je Runde wandern
     # Stufenlernen (josh 2026-11-15): jede Stufe hat ein Ziel und eine feste Spiellänge in Spieltagen
-    # (12 Tage = 1 Spieljahr). Ist das Ziel geschafft, hält das Training an und wartet auf das Okay.
+    # (12 Tage = 1 Spieljahr). Welche Stufe trainiert wird, wählt josh beim Start (--stufe).
     # "alter": mindestens dieses Zeitalter (0 = Steinzeit), "ziel": Zukunftsstadt gebaut.
     "stufen": [
         {"alter": 1, "tage": 80}, {"alter": 2, "tage": 180}, {"alter": 3, "tage": 300}, {"alter": 4, "tage": 450},
@@ -167,8 +167,15 @@ class Trainer:
         self.seen = [0] * (self.lay.F + self.lay.X)  # in wie vielen Spielen war dieser Eingang einmal nicht 0
         self.seen_games = 0
         self.stage = 0       # Stufe (Index in cfg["stufen"])
-        self.waiting = False  # Ziel der Stufe geschafft: wartet auf das Okay
+        self.waiting = False  # alt (Stufe geschafft); wird nicht mehr benutzt
+        self.goal = 0         # so viele Durchgänge laufen in diesem Start (josh 2026-11-16)
+        self.start_round = 0
         self.load_state(a.init)
+        if a.stufe >= 1:
+            self.stage = min(a.stufe - 1, len(self.cfg["stufen"]) - 1)
+        self.waiting = False
+        self.start_round = self.round
+        self.goal = max(1, int(a.durchgaenge))
 
     # ------------------------------------------------------------ Spiel starten
     def env(self, slot):
@@ -324,7 +331,8 @@ class Trainer:
                 "handlungen": len(self.lay.acts), "sek": self.secs_total + (time.time() - self.t_start),
                 "spiele": self.games_total, "einstellungen": self.cfg, "gestoppt": self.stop,
                 "gesehen": self.seen, "gesehen_spiele": self.seen_games,
-                "stufe": self.stage, "wartet": self.waiting, "stufen": self.cfg["stufen"], "ziel_in_folge": int(self.cfg["ziel_in_folge"])}
+                "stufe": self.stage, "wartet": False, "stufen": self.cfg["stufen"],
+                "durchgaenge": self.goal, "durchgang": self.round - self.start_round, "erreicht": self.stage_reached(), "ziel_in_folge": int(self.cfg["ziel_in_folge"])}
 
     def status_loop(self):
         p = os.path.join(self.lauf, "status.json")
@@ -453,20 +461,22 @@ class Trainer:
 
     def run(self):
         threading.Thread(target=self.status_loop, daemon=True).start()
-        if not self.waiting and not any(c.get("stufe", -1) == self.stage for c in self.checks):
+        if not any(c.get("stufe", -1) == self.stage for c in self.checks):
             self.check("start")  # erste Prüfung der Stufe: zählt als neues Bestes (andere Spiellänge, andere Wertung)
             self.save_state()
-        while not self.stop and not self.waiting and self.round < int(self.cfg["runden"]):
+        end = self.start_round + self.goal
+        while not self.stop and self.round < end:
             if not self.one_round():
                 break
-            if self.round % int(self.cfg["pruefung_alle"]) == 0 and not self.stop:
+            last = self.round >= end
+            if (self.round % int(self.cfg["pruefung_alle"]) == 0 or last) and not self.stop:
                 self.check("runde")
                 if self.stage_reached():
-                    self.waiting = True
-                    print("STUFE %d geschafft nach Runde %d: wartet auf das Okay" % (self.stage + 1, self.round), flush=True)
+                    print("STUFE %d: Ziel %d mal in Folge erreicht (Runde %d)" % (self.stage + 1, int(self.cfg["ziel_in_folge"]), self.round), flush=True)
             if not self.stop:
                 self.save_state()
-        self.phase = "Stufe %d geschafft, wartet auf dein Okay" % (self.stage + 1) if self.waiting else "Angehalten"
+        done = self.round - self.start_round
+        self.phase = ("Fertig: %d von %d Durchgängen" % (done, self.goal)) if done >= self.goal else ("Angehalten nach %d von %d Durchgängen" % (done, self.goal))
         write_json(os.path.join(self.lauf, "status.json"), self.status())
         shutil.rmtree(self.tmp, ignore_errors=True)
 
@@ -487,6 +497,8 @@ def main():
     ap.add_argument("--spiel", default=os.path.join(HERE, "..", "spiel"), help="Ordner mit dem Spiel (project.godot)")
     ap.add_argument("--lauf", default=os.path.join(HERE, "..", "lauf"), help="Ordner für Zustand und Ergebnisse")
     ap.add_argument("--init", default="", help="Startgewichte (Datei wie best.json); ohne: alles 0")
+    ap.add_argument("--durchgaenge", type=int, default=10, help="so viele Durchgänge (Runden) laufen, dann hält das Training an")
+    ap.add_argument("--stufe", type=int, default=0, help="Stufe 1 bis 8 (0 = wie zuletzt)")
     a = ap.parse_args()
     t = Trainer(a)
     signal.signal(signal.SIGTERM, t.halt)

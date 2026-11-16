@@ -60,14 +60,20 @@ pre .l{display:block;padding:0 12px 0 0;white-space:pre}
 pre .l::before{content:attr(data-n);display:inline-block;width:52px;padding-right:12px;text-align:right;color:var(--com);user-select:none}
 .kw{color:var(--kw)}.st{color:var(--str)}.co{color:var(--com);font-style:italic}.nu{color:var(--num)}
 .hide{display:none}
+.ctl{display:flex;gap:6px;align-items:center;font-size:14px}
+.ctl select,.ctl input{font:inherit;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
+.ctl input{width:90px}
+.prog{height:10px;border-radius:5px;background:var(--line);overflow:hidden;margin:8px 0}.prog i{display:block;height:100%;background:var(--acc)}
 </style>
 </head>
 <body>
 <header>
   <h1>Insel-Siedler: KI-Training</h1>
   <span id="pill" class="pill">verbinde ...</span>
-  <button id="bstart" class="pri">Training starten</button>
-  <button id="bstop">Anhalten</button>
+  <label class="ctl">Stufe <select id="istufe"></select></label>
+  <label class="ctl">Durchgänge <input id="idurch" type="number" min="1" max="100000" value="10"></label>
+  <button id="bstart" class="pri">Start</button>
+  <button id="bstop">Stopp</button>
 </header>
 <nav id="nav">
   <button data-t="status" class="sel">Status</button>
@@ -82,7 +88,7 @@ pre .l::before{content:attr(data-n);display:inline-block;width:52px;padding-righ
   <h2>Was gerade läuft</h2>
   <div class="box"><div id="phase" class="mute">noch keine Daten</div><div class="scroll"><table id="run"></table></div></div>
   <h2>Verlauf des Trainings</h2>
-  <p class="mute small">Eine Runde = die Gewichte werden in mehrere Richtungen verändert, jede Fassung spielt ein ganzes Spiel vom Anfang. Die Spiele werden mit der Zeit länger, deshalb zeigt das erste Bild die Punkte je Spieltag.</p>
+  <p class="mute small">Eine Runde = die Gewichte werden in mehrere Richtungen verändert, jede Fassung spielt ein ganzes Spiel vom Anfang. Die Spiellänge hängt von der Stufe ab, deshalb zeigt das erste Bild die Punkte je Spieltag.</p>
   <div class="grid2">
     <div class="box"><h3>Punkte je Spieltag</h3><div id="c1"></div></div>
     <div class="box"><h3>Erforschte Forschungen je Spiel</h3><div id="c2"></div></div>
@@ -158,7 +164,19 @@ document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>{
   if(tab==='gelernt'){loadCheck(-1);loadWeights()}
   if(tab==='code')loadFiles();
 });
-$('bstart').onclick=async()=>{await fetch('/api/start',{method:'POST'});poll()};
+$('bstart').onclick=async()=>{
+  const n=Math.max(1,parseInt($('idurch').value||'0',10)||0), st=parseInt($('istufe').value||'0',10)||0;
+  $('idurch').value=n; try{localStorage.setItem('durch',n)}catch(e){}
+  $('bstart').disabled=true;await fetch('/api/start?durchgaenge='+n+'&stufe='+st,{method:'POST'});poll()};
+try{const d=localStorage.getItem('durch');if(d)$('idurch').value=d}catch(e){}
+const DEF_STUFEN=[{alter:1,tage:80},{alter:2,tage:180},{alter:3,tage:300},{alter:4,tage:450},{alter:5,tage:600},{alter:6,tage:800},{alter:7,tage:1000},{ziel:true,tage:1400}];
+let stufenKey='';
+function fillStufen(s,ages){
+  const sts=s.stufen||DEF_STUFEN, key=JSON.stringify(sts)+ages.length;
+  if(key===stufenKey)return; stufenKey=key;
+  $('istufe').innerHTML=sts.map((x,i)=>`<option value="${i+1}">${i+1}: ${esc(stufeText(x,ages))} (${x.tage} Tage)</option>`).join('');
+  $('istufe').value=String((s.stufe||0)+1);
+}
 $('bstop').onclick=async()=>{$('bstop').disabled=true;await fetch('/api/stop',{method:'POST'});poll()};
 
 // ---------- Linienbild als SVG: series=[{name,color,pts:[[x,y]]}]
@@ -190,18 +208,19 @@ function renderZiel(s,ch,nm){
   const lastG=games.slice(-need), fast=lastG.filter(g=>g.ziel_tag!=null).map(g=>g.ziel_tag);
   const lastStage=k>=sts.length-1;
   let h='<b>Stufe '+(k+1)+' von '+sts.length+': '+esc(stufeText(st,ages))+'</b> <span class="mute">(Spiele über '+fmt(st.tage)+' Tage = '+(st.tage/12).toFixed(1)+' Spieljahre)</span>';
-  h+='<div class="mute" style="margin:6px 0">Die Stufe ist geschafft, wenn '+need+' Prüfspiele in Folge das Ziel erreichen. Dann hält das Training an und wartet auf dein Okay. Die nächste Stufe lernt mit den bisherigen Gewichten weiter. Ein Spiel endet, sobald das Ziel erreicht ist. Jeder Tag, den es früher fertig ist, bringt Punkte: schneller ist besser.</div>';
+  h+='<div class="mute" style="margin:6px 0">Die Stufe gilt als geschafft, wenn '+need+' Prüfspiele in Folge das Ziel erreichen. Das Training läuft trotzdem so viele Durchgänge, wie du angegeben hast. Welche Stufe trainiert wird, wählst du oben. Die Gewichte bleiben beim Wechsel erhalten. Ein Spiel endet, sobald das Ziel erreicht ist. Jeder Tag, den es früher fertig ist, bringt Punkte: schneller ist besser.</div>';
   h+='<div>'+(games.length?'Ziel in Folge erreicht: <b>'+Math.min(hit,need)+' von '+need+'</b> Prüfspielen.'+(fast.length?' Erreicht im Mittel an Tag '+(fast.reduce((a,b)=>a+b,0)/fast.length).toFixed(0)+' (schnellstes: Tag '+Math.min(...fast).toFixed(0)+').':''):'Noch keine Prüfung in dieser Stufe.')+'</div>';
-  if(s.wartet) h+='<div style="margin-top:10px"><b>Geschafft.</b> '+(lastStage?'Das war die letzte Stufe: die KI baut die Zukunftsstadt.':'<button id="bweiter" class="pri">Okay, Stufe '+(k+2)+' starten: '+esc(stufeText(sts[k+1],ages))+'</button>')+'</div>';
-  h+='<div class="mute" style="margin-top:8px">Alle Stufen: '+sts.map((x,i)=>(i<k?'✓ ':i===k?'▶ ':'')+(i+1)+'. '+esc(stufeText(x,ages))).join(' · ')+'</div>';
+  if(hit>=need) h+='<div style="margin-top:8px"><b>Ziel dieser Stufe '+need+' mal in Folge erreicht.</b> Du kannst oben die nächste Stufe wählen.</div>';
+  h+='<div class="mute" style="margin-top:8px">Alle Stufen: '+sts.map((x,i)=>(i===k?'▶ ':'')+(i+1)+'. '+esc(stufeText(x,ages))).join(' · ')+'</div>';
   el.innerHTML=h;
-  const b=$('bweiter'); if(b)b.onclick=async()=>{b.disabled=true;await fetch('/api/weiter',{method:'POST'});poll()};
 }
 function renderStatus(){
   const s=S; if(!s)return;
   $('pill').textContent=s.laeuft?'Training läuft':'angehalten'; $('pill').classList.toggle('on',!!s.laeuft);
-  $('bstart').disabled=!!s.laeuft||!!s.wartet; $('bstop').disabled=!s.laeuft;
+  $('bstart').disabled=!!s.laeuft; $('bstop').disabled=!s.laeuft;
+  $('istufe').disabled=!!s.laeuft; $('idurch').disabled=!!s.laeuft;
   const v=s.verlauf||[], ch=s.pruefungen||[], nm=s.namen||{}, ages=nm.ages||[];
+  fillStufen(s,ages);
   const maxAge=Math.max(0,...v.map(r=>r.alter_max||0),...ch.flatMap(c=>c.spiele.map(g=>g.alter||0)));
   const maxTech=Math.max(0,...v.map(r=>r.forschungen_max||0),...ch.flatMap(c=>c.spiele.map(g=>g.forschungen||0)));
   const goals=v.reduce((a,r)=>a+(r.ziel||0),0);
@@ -211,7 +230,16 @@ function renderStatus(){
     ['Zukunftsstadt gebaut',goals+' mal','das Ziel des Spiels'],['Gewichte',fmt(s.gewichte),fmt(s.handlungen)+' Handlungen']];
   $('cards').innerHTML=cards.map(c=>`<div class="card"><div class="k">${c[0]}</div><div class="v">${c[1]}</div><div class="s">${c[2]}</div></div>`).join('');
   renderZiel(s,ch,nm);
-  $('phase').textContent=s.laeuft?(s.phase||''):s.wartet?'Das Ziel der Stufe ist geschafft. Das Training wartet oben auf dein Okay.':'Das Training ist angehalten. '+(s.runde?'Mit „Training starten“ geht es bei Runde '+(s.runde+1)+' weiter.':'Mit „Training starten“ beginnt es.');
+  // Durchgänge dieses Starts: Fortschritt und Restzeit (geschätzt aus der Dauer der letzten Durchgänge)
+  const n=s.durchgaenge||0, d=Math.min(n,s.durchgang||0);
+  let pt='';
+  if(n){
+    const recent=v.slice(-Math.max(1,Math.min(d,5))).map(r=>r.sek||0).filter(x=>x>0);
+    const per=recent.length?recent.reduce((a,b)=>a+b,0)/recent.length:0;
+    const left=Math.max(0,n-d);
+    pt='<div><b>Durchgang '+d+' von '+n+'</b>'+(s.laeuft&&left&&per?' · noch etwa '+dur(left*per*1.1)+' (geschätzt, ein Durchgang zuletzt '+dur(per)+')':'')+'</div><div class="prog"><i style="width:'+(100*d/n).toFixed(1)+'%"></i></div>';
+  }
+  $('phase').innerHTML=pt+esc(s.laeuft?(s.phase||''):(s.phase&&s.phase!=='Start'?s.phase+'. ':'')+'Stufe und Zahl der Durchgänge oben wählen, dann Start. Die KI lernt mit den bisherigen Gewichten weiter.');
   const run=s.laeuft?(s.laufend||[]):[];
   $('run').innerHTML=run.length?'<tr><th>Spiel</th><th>Art</th><th>Spieltag</th><th></th><th class="n">Siedler</th><th>Zeitalter</th><th class="n">Forschungen</th><th>forscht gerade</th><th class="n">Inseln</th><th class="n">Punkte</th><th class="n">läuft seit</th></tr>'+
     run.map(r=>`<tr><td>${r.platz+1}</td><td>${esc(r.art)}</td><td>${r.day??0} von ${r.tage}</td><td><div class="bar"><i style="width:${Math.min(100,100*(r.day||0)/r.tage)}%"></i></div></td><td class="n">${r.pop??'–'}</td><td>${esc(r.age||'–')}</td><td class="n">${r.techs??'–'}</td><td>${esc(r.research||'')}</td><td class="n">${r.islands??'–'}</td><td class="n">${fmt(r.score)}</td><td class="n">${dur(r.sek)}</td></tr>`).join(''):'';
