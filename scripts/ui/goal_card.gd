@@ -317,7 +317,7 @@ func _advance(g: Dictionary, silent: bool) -> void:
 	Sound.play("ziel")
 	if was_tut:
 		if not in_tutorial():
-			hud.toast(tr("Die ersten Schritte sind geschafft. Jetzt warten Ziele mit Belohnungen auf dich."), "ziel")
+			hud.toast(tr("Das Lager steht. Ab jetzt entscheidest du selbst. Ziele mit Belohnungen zeigen dir, was sich lohnt."), "ziel")
 			Extras.tutorial_reward(Game.world)  # 2 Siedler, Hütte, Lagerhaus und zwei Forschungen
 		if g.get("close_after", false):  # josh 2026-10-30: nach dem Baumeister das Menü Siedler schließen
 			for p in hud._panels():

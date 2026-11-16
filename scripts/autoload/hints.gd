@@ -6,6 +6,8 @@ extends Node
 ## - tier_<n>: die zweite Stufe eines Zeitalters, sobald ihre erste Forschung wählbar ist
 ## - tech_<id>: die Forschung ist fertig und schaltet ein Gebäude oder eine Funktion frei (reine
 ##   Verbesserungen wie Flechtkörbe haben keinen Eintrag und bekommen kein Fenster)
+## - start_<art>: Tipps nach Bedarf in den ersten 10 Tagen (josh 2026-11-16): hut (nach 3 Tagen keine zweite
+##   Hütte), food (Nahrung reicht nur noch 1 Tag), research (nach Tag 2 noch keine Forschung begonnen)
 ## - first_<art>: beim ersten Mal (winter, quests, event, pirates, merchant, exam, island, admin)
 ## Prüft jede Sekunde (echte Zeit), was gerade gilt; Neues kommt in die Warteschlange, Zeitalter zuerst.
 ## Die Hud zeigt das erste Fenster der Schlange (Hud._show_hint), das Spiel hält solange an.
@@ -20,7 +22,8 @@ extends Node
 
 signal queued
 
-const ORDER := ["age_", "tier_", "tech_", "first_"]
+const ORDER := ["age_", "tier_", "tech_", "start_", "first_"]
+const START_DAYS := 10.0  # so lange gibt es die Tipps start_hut, start_food und start_research
 
 var texts: Dictionary = {}
 var seen: Dictionary = {}  # Schlüssel -> true
@@ -160,6 +163,16 @@ func due() -> Array:
 		if st == "available" or st == "current" or st == "done":
 			out.append("tier_%d" % int(Data.techs[t].get("tier", 1)))
 	var w = Game.world
+	# Tipps nach Bedarf in den ersten 10 Tagen (josh 2026-11-16, statt Auswahl nach dem Spielstart)
+	var day := Game.time_days
+	if day <= START_DAYS and Sea.main_world() != null:
+		var mw = Sea.main_world()
+		if day >= 3.0 and mw.buildings.filter(func(b): return int(b.def.get("housing", 0)) > 0).size() < 2:
+			out.append("start_hut")
+		if not mw.settlers.is_empty() and Game.food_days(mw) <= 1.0:
+			out.append("start_food")
+		if day >= 2.0 and str(Game.research.current) == "" and Game.research.done.is_empty() and Game.research.paid.is_empty():
+			out.append("start_research")
 	if Seasons.season() >= 2 or Seasons.year() > 1:
 		out.append("first_winter")
 	if Seasons.year() > 1:  # nach einem Jahr: Meldungen im Menü an- und abschalten (josh 2026-10-22)

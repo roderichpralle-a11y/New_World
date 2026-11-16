@@ -2788,7 +2788,7 @@ func on_animal_killed(a: Animal, by) -> void:
 		var n := spawn_node("beute", c)
 		last_kill = n
 		n.amount = meat
-		n.regrow_at = Game.time_days + float(n.def.get("decay_days", 2.0))
+		n.regrow_at = Game.time_days + float(n.def.get("decay_days", 2.0))  # verdirbt nicht mehr (josh 2026-11-16: decay_days riesig)
 		n.refresh()
 	var f := Game.add_stock("felle", int(a.def.get("felle", 1)), self)
 	Admin.note_produced("felle", f, self)

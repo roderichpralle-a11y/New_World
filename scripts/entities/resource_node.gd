@@ -146,8 +146,9 @@ func _regrow_step() -> void:
 		var f := Seasons.decay() if def.has("decay_days") else Seasons.growth(type, world)
 		regrow_at += dt * (1.0 - f)
 	# Erlegte Tiere verderben nach ein paar Tagen
-	if def.has("decay_days") and Game.time_days >= regrow_at:
-		world.remove_node(self)
+	if def.has("decay_days"):
+		if regrow_at < Game.time_days + 1000.0:  # Beute aus alten Spielständen: verdirbt auch nicht mehr (josh 2026-11-16)
+			regrow_at = Game.time_days + float(def.decay_days)
 		return
 	if amount <= 0:
 		if Game.time_days >= regrow_at:

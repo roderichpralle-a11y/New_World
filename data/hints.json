@@ -237,6 +237,21 @@
   "text": "Deine Siedler können nichts mehr einlagern. Baue ein Lager: Bauen, Reiter Lager.",
   "icon": "kiste"
  },
+ "start_hut": {
+  "name": "Tipp: Baue eine weitere Hütte",
+  "text": "Kinder und neue Siedler kommen nur, wenn Wohnplätze frei sind.",
+  "icon": "haus"
+ },
+ "start_food": {
+  "name": "Die Nahrung wird knapp",
+  "text": "Oben in der Leiste steht in Klammern, für wie viele Tage die Nahrung noch reicht. Sorge für Nahrung, zum Beispiel mit einem weiteren Sammler oder Fischer.",
+  "icon": "beeren"
+ },
+ "start_research": {
+  "name": "Forschung",
+  "text": "Forschung bringt bessere Werkzeuge, neue Gebäude und neue Berufe. Tippe unten auf den Knopf Forschung und starte eine Forschung. Gib dann einem Siedler den Beruf Forscher, sonst geht sie nicht voran.",
+  "icon": "forschung"
+ },
  "first_year": {
   "name": "Meldungen nach Wunsch",
   "text": "Unter Menü > Meldungen schaltest du jede Art von Meldung an oder ab. Kleinigkeiten wie Tagesbeginn und neue Fertigkeiten sind von Beginn an aus.",

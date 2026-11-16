@@ -3809,8 +3809,6 @@ func _info_node(n: ResNode) -> void:
 		_den_destroy_rows(n)
 	else:
 		_info_box.add_child(UiTheme.label(tr("Wird bearbeitet von: %s") % who.get(n.type, "?"), 13))
-	if n.def.has("decay_days") and n.regrow_at >= 0.0:
-		_info_box.add_child(UiTheme.label(tr("Verdirbt in %d Std.") % max(1, int(ceil((n.regrow_at - Game.time_days) * 24.0))), 13))
 	Land.node_rows(self, n)  # Förster: Roden lassen
 
 
