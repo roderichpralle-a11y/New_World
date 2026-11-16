@@ -182,6 +182,34 @@ func _on_hover(p: Vector2) -> void:
 		world.move_placement(p)
 
 
+## Schummelcode nur in Version 3 (josh 2026-11-16): "sped" und zwei Ziffern tippen setzt das Tempo, z. B. sped20 =
+## 20-fach, sped05 = 5-fach, sped00 = Pause. Gilt bis zum nächsten Druck auf einen Tempo-Knopf. Auch im Fenster
+## "Spiel ansehen" des KI-Trainings (KiBrain.train_all).
+var _cheat := ""
+
+
+func _cheat_key(event: InputEventKey) -> void:
+	if not (KiBrain.v3 or KiBrain.get("train_all") == true):
+		return
+	var ch := ""
+	if event.keycode >= KEY_0 and event.keycode <= KEY_9:
+		ch = str(event.keycode - KEY_0)
+	elif event.keycode >= KEY_KP_0 and event.keycode <= KEY_KP_9:
+		ch = str(event.keycode - KEY_KP_0)
+	elif event.keycode >= KEY_A and event.keycode <= KEY_Z:
+		ch = char(event.keycode).to_lower()
+	else:
+		return
+	_cheat = (_cheat + ch).right(6)
+	if _cheat.length() == 6 and _cheat.begins_with("sped") and _cheat.substr(4).is_valid_int():
+		var n := int(_cheat.substr(4))
+		_cheat = ""
+		Game.cheat_speed(n)
+		Game.notify(tr("Tempo %d-fach") % n if n > 0 else tr("Pause"), "sonne")
+
+
 func _unhandled_key_input(event: InputEvent) -> void:
+	if event.is_pressed() and not event.is_echo() and event is InputEventKey:
+		_cheat_key(event)
 	if event.is_pressed() and event is InputEventKey and event.keycode == KEY_ESCAPE and world and world.is_placing():
 		world.cancel_placement()

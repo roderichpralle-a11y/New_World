@@ -126,6 +126,13 @@ func _ki_train_setup(args: Dictionary) -> void:
 		print("KIBUILDTEST Straßenfelder: %d, erstes %s" % [rc.size(), rc[0] if not rc.is_empty() else "-"])
 		var y = KiBrain._yard(world)
 		print("KIBUILDTEST Werft %s, Auftraege %s, wip '%s', Schiffe %d, frei %d, unbesiedelt %d" % [y != null, y.ship_queue if y else [], y.ship_wip if y else "", Sea.ships_of(int(world.island_id)).size(), Sea.idle_ships(int(world.island_id)).size(), KiBrain._unsettled().size()])
+	if args.has("cheattest"):  # Schummelcode "sped20" als Tastendrücke (main.gd _cheat_key)
+		for k in [KEY_S, KEY_P, KEY_E, KEY_D, KEY_2, KEY_0]:
+			var ev := InputEventKey.new()
+			ev.keycode = k
+			ev.pressed = true
+			main._unhandled_key_input(ev)
+		print("CHEATTEST Tempo ", Engine.time_scale, " speed ", Game.speed)
 	KiBrain.score_start()
 	print("KITRAIN Start Tag %.2f, Siedler %d, KI %s" % [Game.time_days, Game.population(), "an" if KiBrain.on else "aus"])
 

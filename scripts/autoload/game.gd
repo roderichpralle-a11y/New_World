@@ -257,6 +257,13 @@ func set_speed(s: int) -> void:
 	speed_changed.emit(speed)
 
 
+## Schummelcode "sped" + zwei Ziffern (nur Version 3, main.gd): beliebiges Tempo 0 bis 99, bis ein Tempo-Knopf gedrückt wird.
+func cheat_speed(n: int) -> void:
+	speed = clampi(n, 0, 99)
+	Engine.time_scale = float(speed)
+	speed_changed.emit(speed)
+
+
 var _ai_next := 0.0
 
 

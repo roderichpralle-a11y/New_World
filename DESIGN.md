@@ -2450,3 +2450,5 @@ Siedler, stirbt keiner mehr. `spare_settler` gibt Gesundheit und Sättigung 40, 
 bei Altersschwäche das Lebensende 3 Jahre hinaus; Meldung „überlebt knapp“ höchstens einmal am Tag. Beim Laden
 (`Game.after_load` -> `ensure_min_people`) bekommt ein Spielstand mit weniger als 2 Siedlern auf der Heimatinsel
 erwachsene Siedler dazu.
+
+- **Schummelcode Tempo (nur Version 3, josh 2026-11-16)**: „sped“ und zwei Ziffern tippen (`main.gd _cheat_key`, `Game.cheat_speed`) setzt das Tempo auf 0 bis 99, bis ein Tempo-Knopf gedrückt wird. Nur wenn `KiBrain.v3` (Pfad /v3/) oder im Trainingsfenster. Test `--cheattest=1`.
