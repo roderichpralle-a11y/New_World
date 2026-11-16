@@ -214,7 +214,7 @@ func sleep_time(s) -> bool:
 ## nicht schneller (Game._process, night_speedup), sonst brächte Nachtarbeit fast nichts und man sähe sie kaum.
 ## Wird höchstens alle 0,5 Sekunden neu gezählt.
 func night_work_now() -> bool:
-	var now := Time.get_ticks_msec()
+	var now := Game.clock_ms()
 	if now < _night_check_at:
 		return _night_cached
 	_night_check_at = now + 500

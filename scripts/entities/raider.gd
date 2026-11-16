@@ -35,7 +35,7 @@ func setup_raider(p_world, p_cell: Vector2i, p_landing: Vector2i, p_cap: int, p_
 	food = 1.0
 	hp = max_hp()
 	position = world.cell_to_pos(cell)
-	_rng.randomize()
+	Game.seed_rng(_rng)
 	_shadow = Sprite2D.new()
 	_shadow.texture = Data.object_tex("shadow")
 	_shadow.position = Vector2(0, 1)

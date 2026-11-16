@@ -1,4 +1,8 @@
 extends Node
+
+## Eigener Zufall für Töne (josh 2026-11-16): Töne dürfen die Würfel des Spiels nicht verbrauchen, sonst hinge
+## der Spielablauf davon ab, wann gerade ein Ton fällt (Töne sind an die echte Zeit gebunden).
+var _srng := RandomNumberGenerator.new()
 ## Musik, Meeresrauschen und Soundeffekte. Alles in Echtzeit, unabhaengig von der
 ## Spielgeschwindigkeit. Lautstaerken liegen in `user://settings.cfg`.
 ##
@@ -192,9 +196,9 @@ func play(name: String, db: float = 0.0, pitch_var: float = 0.0) -> void:
 	if p == null:
 		return
 	var list: Array = _streams[name]
-	p.stream = list[randi() % list.size()]
+	p.stream = list[_srng.randi() % list.size()]
 	p.volume_db = float(LEVEL.get(name, 0.0)) + db
-	p.pitch_scale = 1.0 + randf_range(-pitch_var, pitch_var) if pitch_var > 0.0 else 1.0
+	p.pitch_scale = 1.0 + _srng.randf_range(-pitch_var, pitch_var) if pitch_var > 0.0 else 1.0
 	p.play()
 
 
@@ -232,7 +236,7 @@ func _process(_delta: float) -> void:
 		play("morgen")
 	_was_night = night
 	# Nachts heult ab und zu ein Wolf auf der sichtbaren Insel
-	if night and not in_title and Game.speed > 0 and Game.world and is_instance_valid(Game.world) and randf() < 0.05:
+	if night and not in_title and Game.speed > 0 and Game.world and is_instance_valid(Game.world) and _srng.randf() < 0.05:
 		for a in Game.world.animals:
 			if a.type == "wolf":
 				play("heulen", -8.0, 0.08)
@@ -286,7 +290,7 @@ func _switch_ambient(a: String) -> void:
 	_amb_cur = a
 	_amb_a.stream = s
 	_amb_a.volume_db = -40.0
-	_amb_a.play(randf() * 10.0)
+	_amb_a.play(_srng.randf() * 10.0)
 	_fade(_amb_a, -17.0, 4.0, false)
 
 

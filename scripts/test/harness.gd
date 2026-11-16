@@ -90,10 +90,11 @@ func _autotest_move(wait: float) -> void:
 func _ki_train_setup(args: Dictionary) -> void:
 	Game.save_locked = true
 	var sd := int(args.get("kiseed", "1"))
-	seed(sd)
-	for w in Sea.all_worlds():
-		for s in w.settlers:
-			s.mind._rng.seed = hash(sd * 7919 + int(s.id))
+	if Game.det_seed == 0:  # sonst hat main.gd die Würfel schon vor dem Bau der Insel festgelegt
+		seed(sd)
+		for w in Sea.all_worlds():
+			for s in w.settlers:
+				s.mind._rng.seed = hash(sd * 7919 + int(s.id))
 	if args.has("kiw") and not KiBrain.set_weights_file(str(args.kiw)):
 		push_error("KI-Gewichte fehlen: " + str(args.kiw))
 	if args.has("kibuild"):  # Trainingshilfe: fertige Gebäude einsetzen (z. B. Schmelzofen), Liste mit Kommas
@@ -214,7 +215,7 @@ func _ki_train_finish(args: Dictionary) -> void:
 	var jobs := {}
 	for s in world.settlers:
 		jobs[s.job] = int(jobs.get(s.job, 0)) + 1
-	var res := {"score": KiBrain.score_total, "days": KiBrain.score_log, "jobs": jobs, "seed": int(args.get("kiseed", "1")),
+	var res := {"island_seed": Game.seed_value, "score": KiBrain.score_total, "days": KiBrain.score_log, "jobs": jobs, "seed": int(args.get("kiseed", "1")),
 		"research": Game.research.done.slice(maxi(0, Game.research.done.size() - 5)), "current": Game.research.current,
 		"produced": Admin.produced.duplicate(true), "eaten": Game.eaten.duplicate(true) if Game.eaten is Dictionary else {}, "stock": world.stock.duplicate(),
 		"built": KiBrain.built_log.duplicate(), "buildings": world.buildings.size(), "pop": Game.population(),

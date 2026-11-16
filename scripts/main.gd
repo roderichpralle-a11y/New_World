@@ -95,6 +95,9 @@ func _update_ui_scale() -> void:
 
 
 func _new_world() -> void:
+	var ua := _user_args()
+	if ua.has("kitrain") and ua.has("kiseed"):  # KI-Training: feste Würfel und feste Insel (josh 2026-11-16)
+		Game.set_det_seed(int(ua.kiseed))
 	var seed_value := randi() % 1000000
 	if _user_args().has("seed"):
 		seed_value = int(_user_args().seed)  # Testhilfe --seed=N: immer dieselbe Insel

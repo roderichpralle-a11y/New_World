@@ -103,6 +103,36 @@ var _last_day: int = 0
 var _rng := RandomNumberGenerator.new()
 
 
+## Feste Würfel für das KI-Training (josh 2026-11-16): ist det_seed gesetzt, bekommt jeder Zufallsgeber
+## (Welt, Siedler, Tiere, Kinder ...) der Reihe nach einen festen Startwert statt eines zufälligen. Zwei Spiele
+## mit denselben Gewichten und demselben det_seed laufen dann gleich. Im echten Spiel ist det_seed 0.
+var det_seed := 0
+var _det_n := 0
+
+
+func seed_rng(rng: RandomNumberGenerator) -> void:
+	if det_seed == 0:
+		rng.randomize()
+		return
+	_det_n += 1
+	rng.seed = hash([det_seed, _det_n])
+
+
+## Uhr in Millisekunden für kurze Zwischenspeicher, die das Spiel beeinflussen (Prüfung, Nachtarbeit). Im
+## Training zählt sie Bilder statt echter Zeit: sonst hinge der Ablauf davon ab, wie schnell der Rechner gerade ist.
+func clock_ms() -> int:
+	if det_seed == 0:
+		return Time.get_ticks_msec()
+	return int(Engine.get_process_frames() * 1000 / 60)
+
+
+func set_det_seed(sd: int) -> void:
+	det_seed = sd
+	_det_n = 0
+	seed(sd)
+	seed_rng(_rng)
+
+
 func _ready() -> void:
 	_rng.randomize()
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -1145,7 +1175,7 @@ func ensure_min_people() -> void:
 			c = b.cell + Vector2i(1, 2)
 			break
 	var rng := RandomNumberGenerator.new()
-	rng.randomize()
+	seed_rng(rng)
 	var added := []
 	while Sea.total_people() < World.MIN_ALIVE:
 		var sex := "f" if added.size() % 2 == 0 else "m"

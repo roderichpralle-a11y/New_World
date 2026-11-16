@@ -486,11 +486,11 @@ func take_inputs() -> bool:
 
 
 func mark_active(seconds: float) -> void:
-	active_until = Time.get_ticks_msec() / 1000.0 + seconds
+	active_until = Game.clock_ms() / 1000.0 + seconds
 
 
 func is_active() -> bool:
-	return Time.get_ticks_msec() / 1000.0 < active_until
+	return Game.clock_ms() / 1000.0 < active_until
 
 
 # ---------------------------------------------------------------- Darstellung

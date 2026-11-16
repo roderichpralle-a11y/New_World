@@ -25,7 +25,7 @@ var _check_t: float = 0.0
 
 func _init(p_settler, data: Dictionary) -> void:
 	s = p_settler
-	_rng.randomize()
+	Game.seed_rng(_rng)
 	var m: Dictionary = data.get("mind", {})
 	if m.is_empty():
 		# Alter Spielstand oder neuer Siedler ohne Vorgaben: Eigenschaften auswuerfeln,

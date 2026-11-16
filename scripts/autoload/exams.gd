@@ -209,7 +209,7 @@ func only_exam_left() -> bool:
 ## wartet auf sie, und entweder reichen die Forschungen des Zeitalters schon oder es gibt nichts anderes
 ## mehr zu erforschen. Zwischengespeichert (die Zielkarte fragt jedes Bild).
 func blocking() -> bool:
-	var now := Time.get_ticks_msec()
+	var now := Game.clock_ms()
 	if now - int(_block_cache[0]) < 400:
 		return bool(_block_cache[1])
 	var v := false
@@ -225,7 +225,7 @@ func blocking() -> bool:
 
 ## Pseudo-Ziel fuer die Zielkarte (GoalCard): id "exam_<i>", Fortschritt = erfuellte Bedingungen.
 func goal() -> Dictionary:
-	var now := Time.get_ticks_msec()
+	var now := Game.clock_ms()
 	if now - int(_goal_cache[0]) < 400 and str(_goal_cache[1].get("id", "")) == "exam_%d" % passed:
 		return _goal_cache[1]
 	var g := {"id": "exam_%d" % passed, "text": tr("Bestehe die Prüfung für das Zeitalter %s.") % Data.age_name(passed + 1),

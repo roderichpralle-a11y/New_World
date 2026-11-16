@@ -89,7 +89,7 @@ var sunk: Array = []
 
 
 func _ready() -> void:
-	_rng.randomize()
+	Game.seed_rng(_rng)
 	# 2.0.0: Bilder in vierfacher Auflösung, beim Herauszoomen weich verkleinert (Data.hd)
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 
@@ -1695,7 +1695,7 @@ func remove_droid(d) -> void:
 
 func spawn_child(mother, father) -> Settler:
 	var rng := RandomNumberGenerator.new()
-	rng.randomize()
+	Game.seed_rng(rng)
 	var sex := "f" if rng.randf() < 0.5 else "m"
 	var name := unique_name(sex, rng)
 	# Charakter und Begabungen teils von den Eltern; Faehigkeiten wachsen mit Spiel und Schule
@@ -1786,7 +1786,7 @@ static func fix_duplicate_names() -> int:
 ## talent (Faehigkeit mit sicherer Begabung), talent_val, skill (Stufe darin), hunger (Standard 40).
 func spawn_newcomer(sex: String, opts: Dictionary = {}) -> Settler:
 	var rng := RandomNumberGenerator.new()
-	rng.randomize()
+	Game.seed_rng(rng)
 	var best = beach_near(rng)
 	if best == null:
 		return null
