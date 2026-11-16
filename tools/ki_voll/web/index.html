@@ -68,7 +68,7 @@ pre .l::before{content:attr(data-n);display:inline-block;width:52px;padding-righ
 </head>
 <body>
 <header>
-  <h1>Insel-Siedler: KI-Training</h1>
+  <h1 id="titel">Insel-Siedler: KI-Training</h1>
   <span id="pill" class="pill">verbinde ...</span>
   <label class="ctl">Stufe <select id="istufe"></select></label>
   <label class="ctl">Durchgänge <input id="idurch" type="number" min="1" max="100000" value="10"></label>
@@ -85,6 +85,18 @@ pre .l::before{content:attr(data-n);display:inline-block;width:52px;padding-righ
 <section id="t-status">
   <div class="cards" id="cards"></div>
   <div class="box" id="ziel"></div>
+  <div class="box" id="netzbox"></div>
+  <div class="box">
+    <h3 style="margin-top:0">Gelerntes aus einem anderen Training übernehmen</h3>
+    <div class="mute small" style="margin-bottom:8px">Nenne den Ordner, in dem das bisherige Training liegt (zum Beispiel den Ordner „Insel-KI-Training“). Das Programm sucht dort selbst die Datei best.json mit dem besten Stand. Übernommen wird beim nächsten Start; das Zählen der Runden beginnt dann neu, der alte Stand dieses Trainings bleibt als Datei liegen. Der andere Ordner wird nicht verändert.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <input id="iordner" placeholder="/Users/josh/Downloads/Insel-KI-Training" style="flex:1 1 320px">
+      <button id="bordner">Ordner wählen …</button>
+      <button id="bimport" class="pri">Übernehmen</button>
+    </div>
+    <div id="impmsg" class="small" style="margin-top:8px"></div>
+    <div id="impinfo" class="small mute" style="margin-top:4px"></div>
+  </div>
   <h2>Was gerade läuft</h2>
   <div class="box"><div id="phase" class="mute">noch keine Daten</div><div class="scroll"><table id="run"></table></div></div>
   <h2>Verlauf des Trainings</h2>
@@ -177,6 +189,43 @@ function fillStufen(s,ages){
   $('istufe').innerHTML=sts.map((x,i)=>`<option value="${i+1}">${i+1}: ${esc(stufeText(x,ages))} (${x.tage} Tage)</option>`).join('');
   $('istufe').value=String((s.stufe||0)+1);
 }
+$('bordner').onclick=async()=>{
+  $('impmsg').textContent='Das Auswahlfenster öffnet sich (es kann hinter dem Browser liegen) ...';
+  const r=await (await fetch('/api/ordner',{method:'POST'})).json();
+  if(r.ordner){$('iordner').value=r.ordner;$('impmsg').textContent='Ordner gewählt. Jetzt „Übernehmen“ drücken.'}
+  else $('impmsg').textContent=r.fehler||'';
+};
+$('bimport').onclick=async()=>{
+  const r=await (await fetch('/api/import?ordner='+encodeURIComponent($('iordner').value),{method:'POST'})).json();
+  $('impmsg').innerHTML=r.ok?'<span class="plus"><b>Gefunden:</b> '+esc(r.datei)+(r.runde!=null?' (Stand nach Runde '+r.runde+(r.punkte!=null?', '+fmt(r.punkte)+' Punkte':'')+')':'')+'. Wird beim nächsten Start übernommen.</span>':'<span class="minus">'+esc(r.fehler||'Das hat nicht geklappt.')+'</span>';
+  try{localStorage.setItem('ordner',$('iordner').value)}catch(e){}
+  poll();
+};
+try{const o=localStorage.getItem('ordner');if(o)$('iordner').value=o}catch(e){}
+async function importWeg(){await fetch('/api/import_weg',{method:'POST'});$('impmsg').textContent='';poll()}
+function renderNetz(s){
+  const nz=s.netz||{}, on=!!(s.netz_an||nz.an), pl=s.netz_plan||[24,24];
+  $('titel').textContent=on?'Insel-Siedler: KI-Training mit neuronalem Netz':'Insel-Siedler: KI-Training';
+  document.title=$('titel').textContent;
+  $('netzbox').classList.toggle('hide',!on);
+  if(on){
+    const h1=nz.h1||pl[0], h2=nz.h2||pl[1];
+    let h='<b>Kleines neuronales Netz</b> <span class="mute">(96 Eingänge → '+h1+' → '+h2+' Zellen → eine Korrektur je Handlung und Beruf'+(nz.zahlen?', '+fmt(nz.zahlen)+' Zahlen':'')+')</span>';
+    h+='<div class="mute" style="margin:6px 0">Die bisherige Tabelle aus Gewichten bleibt und rechnet wie vorher. Das Netz legt zu jedem Wert eine Korrektur dazu. Anders als die Tabelle kann es Dinge verbinden, zum Beispiel „Winter <i>und</i> wenig Holz“. Am Anfang ist seine Korrektur 0: die KI spielt dann genau wie die Tabelle allein.</div>';
+    if(nz.an){
+      h+='<div>'+(nz.tabelle_lernt?'Die Tabelle war leer, deshalb lernen Tabelle und Netz zusammen.':'Gelernt wird nur das Netz. Die übernommene Tabelle bleibt stehen.')+' Ausschlag des Netzes: <b>'+(nz.ausschlag||0).toLocaleString('de-DE',{maximumFractionDigits:3})+'</b> <span class="mute">(0 = ändert noch nichts; die Zahl wächst, je mehr das Netz mitredet)</span></div>';
+    }
+    $('netzbox').innerHTML=h;
+  }
+  const w=s.import_wartet, im=s.import;
+  $('bimport').disabled=!!s.laeuft; $('bordner').disabled=!!s.laeuft;
+  let t='';
+  if(w) t+='<b>Wartet auf den nächsten Start:</b> '+esc(w.datei||'')+(w.runde!=null?' (Runde '+w.runde+')':'')+' <a href="#" onclick="importWeg();return false">doch nicht übernehmen</a><br>';
+  if(im) t+='Zuletzt übernommen: '+esc(im.datei||'')+(im.runde!=null?', Stand nach Runde '+im.runde:'')+', '+fmt(im.zahlen)+' Gewichte ungleich 0'+(im.netz?', mit Netz':'')+' ('+new Date((im.zeit||0)*1000).toLocaleString('de-DE')+').';
+  else if(!w) t+='Noch nichts übernommen'+(on?': ohne Import fängt die KI bei null an.':'.');
+  if(s.laeuft) t+=' Zum Übernehmen erst Stopp drücken.';
+  $('impinfo').innerHTML=t;
+}
 $('bstop').onclick=async()=>{$('bstop').disabled=true;await fetch('/api/stop',{method:'POST'});poll()};
 
 // ---------- Linienbild als SVG: series=[{name,color,pts:[[x,y]]}]
@@ -227,9 +276,11 @@ function renderStatus(){
   const cards=[['Runde',fmt(s.runde),'bisher gelernt'],['Spiellänge jetzt',fmt(s.tage)+' Tage','= '+(s.tage/12).toFixed(1)+' Spieljahre'],
     ['Spiele gespielt',fmt(s.spiele),'jedes vom Anfang'],['Laufzeit',dur(s.sek),s.arbeiter?s.arbeiter+' Spiele gleichzeitig':''],
     ['Weitestes Zeitalter',ages[maxAge]||'–','Stufe '+(maxAge+1)+' von '+(ages.length||8)],['Meiste Forschungen',maxTech+' von '+(nm.techs_total||'?'),'in einem Spiel'],
-    ['Zukunftsstadt gebaut',goals+' mal','das Ziel des Spiels'],['Gewichte',fmt(s.gewichte),fmt(s.handlungen)+' Handlungen']];
+    ['Zukunftsstadt gebaut',goals+' mal','das Ziel des Spiels'],
+    (s.netz&&s.netz.an)?['Zahlen, die lernen',fmt((s.netz.zahlen||0)+(s.netz.tabelle_lernt?s.gewichte:0)),s.netz.tabelle_lernt?'Netz und Tabelle':'Netz; Tabelle ('+fmt(s.gewichte)+') steht fest']:['Gewichte',fmt(s.gewichte),fmt(s.handlungen)+' Handlungen']];
   $('cards').innerHTML=cards.map(c=>`<div class="card"><div class="k">${c[0]}</div><div class="v">${c[1]}</div><div class="s">${c[2]}</div></div>`).join('');
   renderZiel(s,ch,nm);
+  renderNetz(s);
   // Durchgänge dieses Starts: Fortschritt und Restzeit (geschätzt aus der Dauer der letzten Durchgänge)
   const n=s.durchgaenge||0, d=Math.min(n,s.durchgang||0);
   let pt='';
@@ -239,7 +290,7 @@ function renderStatus(){
     const left=Math.max(0,n-d);
     pt='<div><b>Durchgang '+d+' von '+n+'</b>'+(s.laeuft&&left&&per?' · noch etwa '+dur(left*per*1.1)+' (geschätzt, ein Durchgang zuletzt '+dur(per)+')':'')+'</div><div class="prog"><i style="width:'+(100*d/n).toFixed(1)+'%"></i></div>';
   }
-  $('phase').innerHTML=pt+esc(s.laeuft?(s.phase||''):(s.phase&&s.phase!=='Start'?s.phase+'. ':'')+'Stufe und Zahl der Durchgänge oben wählen, dann Start. Die KI lernt mit den bisherigen Gewichten weiter.');
+  $('phase').innerHTML=pt+esc(s.laeuft?(s.phase||''):(s.phase&&s.phase!=='Start'?s.phase+'. ':'')+'Stufe und Zahl der Durchgänge oben wählen, dann Start. '+(s.import_wartet?'Beim Start wird das Gelernte aus dem genannten Ordner übernommen.':'Die KI lernt mit den bisherigen Gewichten weiter.'));
   const run=s.laeuft?(s.laufend||[]):[];
   $('run').innerHTML=run.length?'<tr><th>Spiel</th><th>Art</th><th>Spieltag</th><th></th><th class="n">Siedler</th><th>Zeitalter</th><th class="n">Forschungen</th><th>forscht gerade</th><th class="n">Inseln</th><th class="n">Punkte</th><th class="n">läuft seit</th></tr>'+
     run.map(r=>`<tr><td>${r.platz+1}</td><td>${esc(r.art)}</td><td>${r.day??0} von ${r.tage}</td><td><div class="bar"><i style="width:${Math.min(100,100*(r.day||0)/r.tage)}%"></i></div></td><td class="n">${r.pop??'–'}</td><td>${esc(r.age||'–')}</td><td class="n">${r.techs??'–'}</td><td>${esc(r.research||'')}</td><td class="n">${r.islands??'–'}</td><td class="n">${fmt(r.score)}</td><td class="n">${dur(r.sek)}</td></tr>`).join(''):'';
@@ -294,8 +345,8 @@ async function loadWeights(){
   const groups={};
   for(const z of g.zeilen)(groups[z.gruppe||'Sonstiges']=groups[z.gruppe||'Sonstiges']||[]).push(z);
   const mx=Math.max(1e-9,...g.zeilen.map(z=>z.staerke));
-  $('weights').innerHTML=(g.runde!=null?`<p class="mute small">Stand nach Runde ${g.runde}.</p>`:'')+Object.entries(groups).map(([k,zs])=>`<details><summary>${esc(k)} (${zs.length})</summary><div><table><tr><th>Entscheidung</th><th>gelernt</th><th>stärkste Einflüsse</th></tr>${
-    zs.sort((a,b)=>b.staerke-a.staerke).map(z=>`<tr><td>${esc(z.name)}</td><td><div class="bar"><i style="width:${100*z.staerke/mx}%"></i></div></td><td class="small">${
+  $('weights').innerHTML=(g.runde!=null?`<p class="mute small">Stand nach Runde ${g.runde}.</p>`:'')+(g.netz?'<p class="small">Hier steht die Tabelle. Was das Netz dazulegt, lässt sich nicht in einzelne Sätze fassen, weil es Eingänge miteinander verbindet. Die Spalte „Netz“ zeigt nur, bei welchen Entscheidungen es wie stark mitredet (0 = gar nicht).</p>':'')+Object.entries(groups).map(([k,zs])=>`<details><summary>${esc(k)} (${zs.length})</summary><div><table><tr><th>Entscheidung</th><th>gelernt</th>${g.netz?'<th class="n">Netz</th>':''}<th>stärkste Einflüsse</th></tr>${
+    zs.sort((a,b)=>b.staerke-a.staerke).map(z=>`<tr><td>${esc(z.name)}</td><td><div class="bar"><i style="width:${100*z.staerke/mx}%"></i></div></td>${g.netz?`<td class="n">${z.netz!=null?z.netz.toLocaleString('de-DE',{maximumFractionDigits:2}):'–'}</td>`:''}<td class="small">${
       (z.einfluss.length?z.einfluss.map(e=>`<span class="${e.w>0?'plus':'minus'}">${e.w>0?'eher':'seltener'}, wenn ${esc(e.was)} (${e.w>0?'+':''}${e.w})</span> <span class="mute">in ${Math.round((e.oft??1)*100)} % der Spiele erlebt</span>`).join('<br>'):'<span class="mute">noch nichts gelernt</span>')+(z.rauschen&&z.rauschen.length?'<br><span class="mute">Nur Rauschen, noch nie erlebt: '+z.rauschen.map(e=>esc(e.was)+' ('+e.w+')').join(', ')+'</span>':'')}</td></tr>`).join('')}</table></div></details>`).join('');
 }
 

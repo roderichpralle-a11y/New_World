@@ -137,10 +137,96 @@ func _load_weights(path: String) -> bool:
 		while tweights.size() < TECH_F:
 			tweights.append(0.0)
 	unlock_list = bool(d.get("full", false))
+	_load_net(d.get("netz"))
 	brain_score = int(d.get("score", 0))
 	brain_base = int(d.get("base", 0))
 	brain_vs = int(d.get("vs_verwalter", 0))
 	return true
+
+
+# ---------------------------------------------------------------- kleines neuronales Netz (josh 2026-11-16)
+## Zusatz zu den linearen Gewichten: FEATURES Eingänge -> h1 -> h2 (ReLU) -> eine Korrektur je Handlung und Beruf.
+## Die Korrektur wird zum linearen Wert addiert. Steht die letzte Schicht auf 0, spielt die KI genau wie ohne Netz;
+## so bleibt das bisher Gelernte erhalten. Datei: "netz" = {h1, h2, aus: [Namen], w1, b1, w2, b2, w3, b3}
+## (Berufe heißen in "aus" "job:<beruf>"). Gelernt wird mit tools/ki_voll (Einstellung netz).
+var net_on := false
+var _nh1 := 0
+var _nh2 := 0
+var _nout: Array = []
+var _nw1 := PackedFloat32Array()
+var _nb1 := PackedFloat32Array()
+var _nw2 := PackedFloat32Array()
+var _nb2 := PackedFloat32Array()
+var _nw3 := PackedFloat32Array()
+var _nb3 := PackedFloat32Array()
+var _ncache: Dictionary = {}  # Insel -> [Tag, {Name: Korrektur}]
+
+
+func _load_net(d) -> void:
+	net_on = false
+	_ncache = {}
+	if not d is Dictionary or not d.get("aus") is Array:
+		return
+	var h1 := int(d.get("h1", 0))
+	var h2 := int(d.get("h2", 0))
+	var n: int = (d.aus as Array).size()
+	var a1 := PackedFloat32Array(d.get("w1", []))
+	var a2 := PackedFloat32Array(d.get("w2", []))
+	var a3 := PackedFloat32Array(d.get("w3", []))
+	if h1 <= 0 or h2 <= 0 or a1.size() != h1 * FEATURES or a2.size() != h2 * h1 or a3.size() != n * h2:
+		push_warning("KI: Netz passt nicht zum Spiel, es wird nicht benutzt")
+		return
+	_nh1 = h1
+	_nh2 = h2
+	_nout = (d.aus as Array).map(func(x): return str(x))
+	_nw1 = a1
+	_nw2 = a2
+	_nw3 = a3
+	_nb1 = _pad_f(d.get("b1", []), h1)
+	_nb2 = _pad_f(d.get("b2", []), h2)
+	_nb3 = _pad_f(d.get("b3", []), n)
+	net_on = true
+
+
+func _pad_f(a, n: int) -> PackedFloat32Array:
+	var p := PackedFloat32Array(a if a is Array else [])
+	p.resize(n)
+	return p
+
+
+## Korrekturen des Netzes für diese Insel (je Viertelstunde Spielzeit einmal gerechnet).
+func net_corr(w, x: PackedFloat32Array) -> Dictionary:
+	if not net_on:
+		return {}
+	var iid := int(w.island_id)
+	var c: Array = _ncache.get(iid, [])
+	if c.size() == 2 and absf(Game.time_days - float(c[0])) < 0.01:
+		return c[1]
+	var h := PackedFloat32Array()
+	h.resize(_nh1)
+	for j in _nh1:
+		var s := _nb1[j]
+		var o := j * FEATURES
+		for k in FEATURES:
+			s += _nw1[o + k] * x[k]
+		h[j] = maxf(0.0, s)
+	var g := PackedFloat32Array()
+	g.resize(_nh2)
+	for j in _nh2:
+		var s := _nb2[j]
+		var o := j * _nh1
+		for k in _nh1:
+			s += _nw2[o + k] * h[k]
+		g[j] = maxf(0.0, s)
+	var out := {}
+	for j in _nout.size():
+		var s := _nb3[j]
+		var o := j * _nh2
+		for k in _nh2:
+			s += _nw3[o + k] * g[k]
+		out[_nout[j]] = s
+	_ncache[iid] = [Game.time_days, out]
+	return out
 
 
 ## Zeile einer Handlung auf FEATURES + ACT_X bringen (alte Zeilen haben nur die Eingänge der Insel).
@@ -423,11 +509,12 @@ func targets(w, n: int) -> Dictionary:
 	var rest := n - bm
 	var caps := capacities(w)
 	var x := features(w)
+	var nc := net_corr(w, x)
 	var logits := []
 	var best := -INF
 	for i in JOBS.size():
 		var row: Array = weights[i]
-		var z := 0.0
+		var z := float(nc.get("job:" + JOBS[i], 0.0))
 		for k in FEATURES:
 			z += float(row[k]) * x[k]
 		if i >= job_rows or int(caps[JOBS[i]]) <= 0:
@@ -727,7 +814,7 @@ func learn_build_tick(w) -> void:
 ## Wert einer Handlung: Gewichte mal (Eingänge der Insel + ACT_X Eingänge der Handlung).
 func act_value(w, act: String, x: PackedFloat32Array) -> float:
 	var row: Array = aweights[act]
-	var v := 0.0
+	var v := float(net_corr(w, x).get(act, 0.0))
 	for k in FEATURES:
 		v += float(row[k]) * x[k]
 	var ex := KiActs.extras(w, act)

@@ -132,6 +132,84 @@ class App:
                 self.proc.kill()
             return "gestoppt"
 
+    # ------------------------------------------------------------ Gelerntes übernehmen (josh 2026-11-16)
+    @staticmethod
+    def clean_path(text):
+        """Macht aus dem, was josh eintippt oder aus dem Finder zieht, einen Pfad."""
+        t = (text or "").strip().strip("'\"")
+        if t.startswith("file://"):
+            from urllib.parse import unquote
+            t = unquote(t[7:])
+        t = t.replace("\\ ", " ")  # das Terminal schreibt Leerzeichen als "\ "
+        return os.path.abspath(os.path.expanduser(t)) if t else ""
+
+    @staticmethod
+    def weights_ok(path):
+        try:
+            with open(path, encoding="utf-8") as f:
+                d = json.load(f)
+            return d if isinstance(d, dict) and (isinstance(d.get("a"), dict) or isinstance(d.get("w"), list)) else None
+        except Exception:
+            return None
+
+    def find_weights(self, folder):
+        """Sucht im Ordner die besten Gewichte: best.json, sonst aktuell.json; auch im Unterordner lauf und bis zu
+        drei Ordner tief. Eine Datei darf auch direkt genannt werden."""
+        if os.path.isfile(folder):
+            return folder if self.weights_ok(folder) else None
+        if not os.path.isdir(folder):
+            return None
+        for name in ("best.json", "aktuell.json"):
+            for sub in ("", "lauf"):
+                p = os.path.join(folder, sub, name)
+                if os.path.isfile(p) and self.weights_ok(p):
+                    return p
+        base = folder.rstrip(os.sep).count(os.sep)
+        for dp, dns, fns in os.walk(folder):
+            if dp.count(os.sep) - base >= 3:
+                dns[:] = []
+            dns[:] = [x for x in dns if x not in ("spiel", "godot", "pruefungen", ".git") and not x.startswith("pruefungen_")]
+            if "best.json" in fns and self.weights_ok(os.path.join(dp, "best.json")):
+                return os.path.join(dp, "best.json")
+        return None
+
+    def do_import(self, text):
+        if self.running():
+            return {"fehler": "Das Training läuft. Bitte erst Stopp drücken, dann übernehmen."}
+        folder = self.clean_path(text)
+        if not folder:
+            return {"fehler": "Bitte einen Ordner angeben."}
+        if not os.path.exists(folder):
+            return {"fehler": "Diesen Ordner gibt es nicht: " + folder}
+        p = self.find_weights(folder)
+        if not p:
+            return {"fehler": "In diesem Ordner liegt keine Datei best.json mit Gewichten: " + folder}
+        g = self.weights_ok(p)
+        tmp = os.path.join(self.p["lauf"], "import.json.tmp")
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump({"ordner": folder, "datei": p, "gewichte": g}, f, ensure_ascii=False)
+        os.replace(tmp, os.path.join(self.p["lauf"], "import.json"))
+        return {"ok": True, "datei": p, "runde": g.get("runde"), "punkte": g.get("punkte"), "netz": isinstance(g.get("netz"), dict)}
+
+    def drop_import(self):
+        try:
+            os.remove(os.path.join(self.p["lauf"], "import.json"))
+        except OSError:
+            pass
+        return {"ok": True}
+
+    def choose_folder(self):
+        """Öffnet auf dem Mac das Fenster zum Wählen eines Ordners."""
+        if sys.platform != "darwin":
+            return {"fehler": "Das Auswahlfenster gibt es nur auf dem Mac. Bitte den Ordner eintippen."}
+        try:
+            r = subprocess.run(["osascript", "-e", 'POSIX path of (choose folder with prompt "Ordner mit dem bisherigen Training wählen")'],
+                               capture_output=True, text=True, timeout=600)
+            path = r.stdout.strip()
+            return {"ordner": path} if path else {"abbruch": True}
+        except Exception as e:
+            return {"fehler": "Das Auswahlfenster ließ sich nicht öffnen (%s). Bitte den Ordner eintippen." % e}
+
     # ------------------------------------------------------------ Spiel ansehen
     def watch(self, which, seed, tempo):
         """Ein Spiel mit Fenster starten: die KI spielt vom Anfang, du siehst zu (Fenster schließen beendet es).
@@ -163,6 +241,12 @@ class App:
     def status(self):
         s = self.read("status.json", {}) or {}
         s["laeuft"] = self.running()
+        cfg = self.read("einstellungen.json", {}) or {}
+        s["netz_an"] = bool(cfg.get("netz", False))
+        s["netz_plan"] = [int(cfg.get("netz_h1", 24)), int(cfg.get("netz_h2", 24))]
+        w = self.read("import.json")
+        s["import_wartet"] = {"ordner": w.get("ordner"), "datei": w.get("datei"), "runde": (w.get("gewichte") or {}).get("runde"),
+                              "punkte": (w.get("gewichte") or {}).get("punkte")} if isinstance(w, dict) else None
         s["namen"] = {k: v for k, v in (self.read("namen.json", {}) or {}).items() if k in ("techs_total", "ages", "unlock")}
         try:
             with open(os.path.join(self.p["lauf"], "trainer.log"), encoding="utf-8", errors="replace") as f:
@@ -264,16 +348,22 @@ class App:
         def unseen(row, labels, n=3):
             idx = sorted([i for i in range(len(row)) if frac(i) < 0.02], key=lambda i: -abs(row[i]))[:n]
             return [{"was": labels[i] if i < len(labels) else "Eingang %d" % i, "w": round(row[i], 3)} for i in idx if abs(row[i]) > 1e-9]
+        nz = g.get("netz") if isinstance(g.get("netz"), dict) else None
+        nstr = {}
+        if nz:  # wie stark das Netz bei dieser Entscheidung mitredet: Größe ihrer Zeile in der letzten Schicht
+            h2 = int(nz.get("h2", 0))
+            for i, nm in enumerate(nz.get("aus", [])):
+                nstr[nm] = norm(list(nz.get("w3", [])[i * h2:(i + 1) * h2]) + list(nz.get("b3", [])[i:i + 1]))
         for j, r in enumerate(g.get("w", [])):
             nm = names["job_names"][j] if j < len(names.get("job_names", [])) else names["jobs"][j]
-            rows.append({"gruppe": "Berufe", "name": "Beruf: " + nm, "staerke": norm(r), "einfluss": tops(r, FEATURES), "rauschen": unseen(r, FEATURES)})
+            rows.append({"gruppe": "Berufe", "name": "Beruf: " + nm, "netz": nstr.get("job:" + names["jobs"][j]), "staerke": norm(r), "einfluss": tops(r, FEATURES), "rauschen": unseen(r, FEATURES)})
         for k, r in g.get("a", {}).items():
-            rows.append({"gruppe": GROUPS.get(group_of(k, names), ""), "name": act_label(k, names), "staerke": norm(r),
+            rows.append({"gruppe": GROUPS.get(group_of(k, names), ""), "name": act_label(k, names), "staerke": norm(r), "netz": nstr.get(k),
                          "neigung": round(r[0], 3), "einfluss": tops(r, FEATURES[:F] + ACT_X), "rauschen": unseen(r, FEATURES[:F] + ACT_X)})
         t = g.get("t", [])
         if t:
             rows.append({"gruppe": "Forschung", "name": "Welche Forschung als Nächstes", "staerke": norm(t), "einfluss": [{"was": TECH_F[i], "w": round(t[i], 3), "oft": 1.0} for i in sorted(range(len(t)), key=lambda i: -abs(t[i]))[:8] if abs(t[i]) > 1e-9], "rauschen": []})
-        return {"zeilen": rows, "runde": g.get("runde"), "punkte": g.get("punkte"), "spiele": int(st.get("gesehen_spiele", 0))}
+        return {"zeilen": rows, "runde": g.get("runde"), "punkte": g.get("punkte"), "spiele": int(st.get("gesehen_spiele", 0)), "netz": bool(nz)}
 
 
 def norm(r):
@@ -354,6 +444,13 @@ def make_handler(app):
                 except ValueError:
                     return self.js({"fehler": "Zahl erwartet"}, 400)
                 return self.js({"ok": app.start(n, st)})
+            if self.path.startswith("/api/import_weg"):
+                return self.js(app.drop_import())
+            if self.path.startswith("/api/import"):
+                q = parse_qs(urlparse(self.path).query)
+                return self.js(app.do_import(q.get("ordner", [""])[0]))
+            if self.path == "/api/ordner":
+                return self.js(app.choose_folder())
             if self.path == "/api/stop":
                 return self.js({"ok": app.stop()})
             if self.path.startswith("/api/zusehen"):

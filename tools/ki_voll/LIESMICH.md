@@ -86,3 +86,14 @@ Schick sie Claude im Projekt, dann kommt sie in Version 3.
 - `spiel/`: das Spiel (Godot-Projekt, Version 3) mit der erweiterten KI (`scripts/autoload/ki_brain.gd`, `ki_acts.gd`).
 - `lauf/`: Zustand und Ergebnisse des Trainings.
 - `godot/`: entsteht beim ersten Start.
+
+## Kleines neuronales Netz und Import (2026-11-16)
+
+Das Paket **Insel-KI-Netz** ist dasselbe Training mit eingeschaltetem neuronalen Netz (in `lauf/einstellungen.json`: `"netz": true`).
+
+- Die bisherige Tabelle aus Gewichten bleibt und rechnet wie vorher. Dazu kommt ein Netz mit zwei verdeckten Schichten (96 Eingänge, 24 Zellen, 24 Zellen, eine Korrektur je Handlung und Beruf, 5.528 Zahlen). Die Korrektur wird zum Wert der Tabelle addiert.
+- Am Anfang ist die Korrektur 0. Die KI spielt dann genau wie die Tabelle allein, das Gelernte geht also nicht verloren.
+- Gelernt wird mit demselben Verfahren, aber nur das Netz. Die übernommene Tabelle bleibt stehen (`"lerne_linear": true` lässt beide lernen). Ohne Import ist die Tabelle leer, dann lernen Tabelle und Netz zusammen.
+- **Import:** Auf der Seite Status im Kasten „Gelerntes aus einem anderen Training übernehmen“ den Ordner des bisherigen Trainings nennen (eintippen, aus dem Finder ins Feld ziehen oder „Ordner wählen“). Das Programm sucht dort `best.json` (auch im Unterordner `lauf`). Übernommen wird beim nächsten Start. Das Zählen der Runden beginnt neu; der alte Stand bleibt als `zustand_vor_import_<Zeit>.json` liegen. Der andere Ordner wird nicht verändert.
+- Der Import geht in beiden Paketen. Ein Stand mit Netz lässt sich später genauso in einen anderen Ordner übernehmen.
+- Beide Pakete benutzen dieselbe Adresse im Browser, deshalb immer nur eines zur selben Zeit starten.

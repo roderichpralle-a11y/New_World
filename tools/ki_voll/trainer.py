@@ -24,6 +24,13 @@ feste Spiellänge. josh wählt beim Start die Stufe und wie viele Durchgänge (R
 (josh 2026-11-16); danach hält das Training an. Die Gewichte bleiben über alle Starts und Stufen erhalten. Ein Spiel endet früher, wenn die Zukunftsstadt steht, alle tot
 sind oder sich stillstand_tage lang nichts mehr tut.
 
+Kleines neuronales Netz (josh 2026-11-16, Einstellung "netz": true): zu den Gewichten kommt ein Netz mit zwei
+verdeckten Schichten (Eingänge -> netz_h1 -> netz_h2 -> eine Korrektur je Handlung und Beruf). Die Korrektur
+wird zum Wert der Tabelle addiert. Am Anfang ist die letzte Schicht 0: die KI spielt genau wie die Tabelle.
+Gelernt wird dann nur das Netz (gleiches Verfahren), die Tabelle bleibt stehen, solange sie nicht leer ist
+("lerne_linear": true lässt beide lernen). Import: liegt in lauf/ eine Datei import.json (die Oberfläche legt
+sie an, wenn josh einen Ordner nennt), übernimmt der nächste Start deren Gewichte und beginnt neu zu zählen.
+
 Dateien in lauf/: zustand.json (alles zum Fortsetzen), status.json (für die Oberfläche), best.json
 (beste Gewichte, so liest sie das Spiel), verlauf.jsonl (eine Zeile je Runde), pruefungen/ (ganze
 Prüfspiele mit allen Entscheidungen der KI).
@@ -66,6 +73,13 @@ DEFAULTS = {
     "ereignisse": True,       # mit Ereignissen (harte Winter, Piraten ...)
     "runden": 100000,         # Ende des Trainings (praktisch: läuft, bis du stoppst)
     "saat": 7,
+    # kleines neuronales Netz (josh 2026-11-16)
+    "netz": False,            # true: zusätzlich zur Tabelle lernt ein kleines Netz
+    "netz_h1": 24,            # Zellen der ersten verdeckten Schicht
+    "netz_h2": 24,            # Zellen der zweiten verdeckten Schicht
+    "netz_rauschen": 0.1,     # wie stark das Netz zum Ausprobieren verändert wird
+    "netz_lernrate": 0.03,    # wie weit das Netz je Runde wandert
+    "lerne_linear": False,    # false: mit Netz bleibt die Tabelle stehen (außer sie ist noch leer)
 }
 
 
@@ -102,6 +116,38 @@ class Layout:
         self.X = int(names["act_x"])
         self.T = int(names["tech_f"])
         self.size = len(self.jobs) * self.F + len(self.acts) * (self.F + self.X) + self.T
+        self.outs = list(self.acts) + ["job:" + j for j in self.jobs]  # Ausgänge des Netzes
+
+    # ---- kleines neuronales Netz: flache Liste = w1, b1, w2, b2, w3, b3
+    def net_size(self, h1, h2):
+        return h1 * self.F + h1 + h2 * h1 + h2 + len(self.outs) * h2 + len(self.outs)
+
+    def net_new(self, h1, h2, rng):
+        """Erste und zweite Schicht zufällig klein, letzte Schicht 0: das Netz ändert am Anfang nichts."""
+        s1, s2 = 1.0 / math.sqrt(self.F), 1.0 / math.sqrt(h1)
+        n = len(self.outs)
+        return ([rng.gauss(0.0, s1) for _ in range(h1 * self.F)] + [0.0] * h1 +
+                [rng.gauss(0.0, s2) for _ in range(h2 * h1)] + [0.0] * h2 + [0.0] * (n * h2 + n))
+
+    def net_to_game(self, net, h1, h2):
+        n = len(self.outs)
+        cut = [h1 * self.F, h1, h2 * h1, h2, n * h2, n]
+        parts = []
+        i = 0
+        for c in cut:
+            parts.append(net[i:i + c])
+            i += c
+        return {"h1": h1, "h2": h2, "aus": self.outs, "w1": parts[0], "b1": parts[1], "w2": parts[2], "b2": parts[3],
+                "w3": parts[4], "b3": parts[5]}
+
+    def net_from_game(self, d, h1, h2):
+        """Netz aus einer Gewichtsdatei, wenn es genau passt (gleiche Größe, gleiche Ausgänge). Sonst None."""
+        if not isinstance(d, dict) or int(d.get("h1", 0)) != h1 or int(d.get("h2", 0)) != h2 or list(d.get("aus", [])) != self.outs:
+            return None
+        net = []
+        for k in ("w1", "b1", "w2", "b2", "w3", "b3"):
+            net += list(d.get(k, []))
+        return net if len(net) == self.net_size(h1, h2) else None
 
     def to_game(self, vec):
         """Flache Zahlenliste -> Gewichtsdatei, wie sie ki_brain.gd liest."""
@@ -170,7 +216,19 @@ class Trainer:
         self.waiting = False  # alt (Stufe geschafft); wird nicht mehr benutzt
         self.goal = 0         # so viele Durchgänge laufen in diesem Start (josh 2026-11-16)
         self.start_round = 0
+        self.net_on = bool(self.cfg["netz"])
+        self.h1 = max(1, int(self.cfg["netz_h1"]))
+        self.h2 = max(1, int(self.cfg["netz_h2"]))
+        self.net = []         # Zahlen des Netzes (leer = kein Netz)
+        self.imp = None       # woher die Gewichte übernommen wurden
+        self.lin_free = False  # die Tabelle war beim ersten Start leer: sie lernt neben dem Netz mit
         self.load_state(a.init)
+        self.take_import()
+        if self.net_on and len(self.net) != self.lay.net_size(self.h1, self.h2):
+            self.net = self.lay.net_new(self.h1, self.h2, self.rng)
+        # die Tabelle lernt mit, wenn kein Netz da ist, wenn es so eingestellt ist oder wenn sie noch leer ist
+        # (nichts importiert und noch keine Runde gelernt)
+        self.learn_lin = (not self.net_on) or bool(self.cfg["lerne_linear"]) or not any(self.vec) or bool(self.lin_free)
         if a.stufe >= 1:
             self.stage = min(a.stufe - 1, len(self.cfg["stufen"]) - 1)
         self.waiting = False
@@ -205,7 +263,7 @@ class Trainer:
             if os.path.exists(p):
                 os.remove(p)
         with open(wpath, "w") as f:
-            json.dump(self.lay.to_game(vec), f)
+            json.dump(self.game(vec), f)
         cmd = [self.godot, "--headless", "--fixed-fps", "60", "--path", self.spiel, "--", "--autotest=999999", "--scale=10",
                "--kitrain=1", "--kifull=1", "--kiw=" + wpath, "--kidays=%d" % days, "--kiseed=%d" % seed,
                "--kistall=%d" % int(self.cfg["stillstand_tage"]), "--kiprog=" + prog, "--kiout=" + out]
@@ -245,6 +303,51 @@ class Trainer:
                 self.running.pop(slot, None)
                 self.games_total += 1
 
+    def game(self, pair):
+        """(Tabelle, Netz) -> Gewichtsdatei für das Spiel."""
+        g = self.lay.to_game(pair[0])
+        if self.net_on and pair[1]:
+            g["netz"] = self.lay.net_to_game(pair[1], self.h1, self.h2)
+        return g
+
+    def take_import(self):
+        """Liegt lauf/import.json da (von der Oberfläche), werden deren Gewichte übernommen. Das Zählen beginnt neu;
+        der alte Stand bleibt als zustand_vor_import_<Zeit>.json liegen."""
+        p = os.path.join(self.lauf, "import.json")
+        if not os.path.exists(p):
+            return
+        try:
+            d = json.load(open(p, encoding="utf-8"))
+            g = d.get("gewichte", d)
+            vec = self.lay.from_game(g)
+        except Exception as e:
+            print("Import nicht lesbar:", e, flush=True)
+            os.replace(p, os.path.join(self.lauf, "import_fehler.json"))
+            return
+        stamp = time.strftime("%Y%m%d_%H%M%S")
+        old = os.path.join(self.lauf, "zustand.json")
+        if os.path.exists(old):
+            shutil.move(old, os.path.join(self.lauf, "zustand_vor_import_%s.json" % stamp))
+        pr = os.path.join(self.lauf, "pruefungen")
+        if os.path.isdir(pr) and os.listdir(pr):
+            shutil.move(pr, os.path.join(self.lauf, "pruefungen_vor_import_%s" % stamp))
+            os.makedirs(pr, exist_ok=True)
+        self.vec = vec
+        net = self.lay.net_from_game(g.get("netz"), self.h1, self.h2) if self.net_on else None
+        self.net = net or []
+        self.round = 0
+        self.lin_free = False
+        self.history = []
+        self.checks = []
+        self.best = {"mittel": -1e18, "runde": 0}
+        self.seen = [0] * (self.lay.F + self.lay.X)
+        self.seen_games = 0
+        self.imp = {"ordner": d.get("ordner", ""), "datei": d.get("datei", ""), "runde": g.get("runde"), "punkte": g.get("punkte"),
+                    "zeit": time.time(), "netz": bool(net), "zahlen": sum(1 for x in vec if x)}
+        os.replace(p, os.path.join(self.lauf, "import_erledigt.json"))
+        print("IMPORT: Gewichte aus %s übernommen (%d Zahlen ungleich 0%s)" % (
+            d.get("datei", p), self.imp["zahlen"], ", mit Netz" if net else ""), flush=True)
+
     def play(self, jobs, kind):
         """Viele Spiele gleichzeitig: jobs = [(Gewichte, Tage, Würfel)]."""
         slots = list(range(int(self.cfg["arbeiter"])))
@@ -281,6 +384,9 @@ class Trainer:
                 if len(s.get("gesehen", [])) == len(self.seen):
                     self.seen = s["gesehen"]
                     self.seen_games = int(s.get("gesehen_spiele", 0))
+                self.net = s.get("netz", []) or []
+                self.imp = s.get("import")
+                self.lin_free = bool(s.get("tabelle_frei", False))
                 st = s.get("zufall")
                 if st:
                     self.rng.setstate((st[0], tuple(st[1]), st[2]))
@@ -298,6 +404,7 @@ class Trainer:
             "runde": self.round, "vec": self.vec, "verlauf": self.history, "pruefungen": self.checks, "best": self.best,
             "sek": self.secs_total + (time.time() - self.t_start), "spiele": self.games_total,
             "gesehen": self.seen, "gesehen_spiele": self.seen_games, "stufe": self.stage, "wartet": self.waiting,
+            "netz": self.net, "import": self.imp, "tabelle_frei": self.learn_lin and self.net_on,
             "zufall": [st[0], list(st[1]), st[2]]})
 
     def days_for(self, rnd):
@@ -332,7 +439,18 @@ class Trainer:
                 "spiele": self.games_total, "einstellungen": self.cfg, "gestoppt": self.stop,
                 "gesehen": self.seen, "gesehen_spiele": self.seen_games,
                 "stufe": self.stage, "wartet": False, "stufen": self.cfg["stufen"],
+                "netz": {"an": self.net_on, "h1": self.h1, "h2": self.h2, "zahlen": len(self.net) if self.net_on else 0,
+                         "tabelle_lernt": self.learn_lin, "ausschlag": self.net_reach()},
+                "import": self.imp,
                 "durchgaenge": self.goal, "durchgang": self.round - self.start_round, "erreicht": self.stage_reached(), "ziel_in_folge": int(self.cfg["ziel_in_folge"])}
+
+    def net_reach(self):
+        """Wie viel das Netz schon gelernt hat: mittlere Größe der Zahlen der letzten Schicht (am Anfang 0)."""
+        if not (self.net_on and self.net):
+            return 0.0
+        n = len(self.lay.outs)
+        last = self.net[-(n * self.h2 + n):]
+        return round(math.sqrt(sum(x * x for x in last) / len(last)), 4)
 
     def status_loop(self):
         p = os.path.join(self.lauf, "status.json")
@@ -378,7 +496,7 @@ class Trainer:
         nw = int(self.cfg["pruefung_wuerfel"])
         base = 900000 + nw * ((self.round // max(1, int(self.cfg["pruefung_alle"]))) % 2)
         seeds = [base + i for i in range(nw)]
-        rs = self.play([(self.vec, days, s) for s in seeds], "Prüfung")
+        rs = self.play([((self.vec, self.net), days, s) for s in seeds], "Prüfung")
         ok = [r for r in rs if r[0] is not None]
         if not ok:
             return
@@ -396,10 +514,10 @@ class Trainer:
         # weniger Punkte). Wird das Spiel länger, zählt die erste Prüfung der neuen Länge als neues Bestes.
         if tag == "start" or days > int(self.best.get("tage", 0)) or per_day > float(self.best.get("je_tag", -1e18)):
             self.best = {"mittel": mean, "je_tag": per_day, "runde": self.round, "tage": days}
-            g = self.lay.to_game(self.vec)
-            g.update({"runde": self.round, "tage": days, "punkte": mean, "method": "ARS, ganzes Spiel vom Anfang (tools/ki_voll)"})
+            g = self.game((self.vec, self.net))
+            g.update({"runde": self.round, "tage": days, "punkte": mean, "method": "ARS, ganzes Spiel vom Anfang (tools/ki_voll)" + (", mit kleinem neuronalen Netz" if self.net_on else "")})
             write_json(os.path.join(self.lauf, "best.json"), g)
-        write_json(os.path.join(self.lauf, "aktuell.json"), self.lay.to_game(self.vec))
+        write_json(os.path.join(self.lauf, "aktuell.json"), self.game((self.vec, self.net)))
         print("PRUEFUNG Runde %d (%d Tage): %.0f Punkte, %s" % (self.round, days, mean, rec["spiele"]), flush=True)
 
     def one_round(self):
@@ -409,12 +527,19 @@ class Trainer:
         sigma = float(self.cfg["rauschen"])
         self.phase = "Runde %d: %d Spiele über %d Tage" % (rnd, 2 * n, days)
         t0 = time.time()
-        dirs = [[self.rng.gauss(0.0, 1.0) for _ in range(self.lay.size)] for _ in range(n)]
+        # eine Richtung = (Teil für die Tabelle, Teil für das Netz); ein Teil, der nicht lernt, bleibt leer
+        nsig = float(self.cfg["netz_rauschen"])
+        net = self.net if self.net_on else []
+        dirs = [([self.rng.gauss(0.0, 1.0) for _ in range(self.lay.size)] if self.learn_lin else [],
+                 [self.rng.gauss(0.0, 1.0) for _ in range(len(net))]) for _ in range(n)]
+
+        def moved(base, d, s):
+            return [v + s * x for v, x in zip(base, d)] if d else base
         jobs = []
         for k, d in enumerate(dirs):
             seed = rnd * 1000 + k
-            jobs.append(([v + sigma * x for v, x in zip(self.vec, d)], days, seed))
-            jobs.append(([v - sigma * x for v, x in zip(self.vec, d)], days, seed))
+            jobs.append(((moved(self.vec, d[0], sigma), moved(net, d[1], nsig)), days, seed))
+            jobs.append(((moved(self.vec, d[0], -sigma), moved(net, d[1], -nsig)), days, seed))
         rs = self.play(jobs, "Runde %d" % rnd)
         if self.stop:
             return False
@@ -437,13 +562,21 @@ class Trainer:
         allr = [p[1] for p in top] + [p[2] for p in top]
         mu = sum(allr) / len(allr)
         sd = math.sqrt(sum((x - mu) ** 2 for x in allr) / len(allr)) or 1.0
-        step = [0.0] * self.lay.size
-        for _, rp, rm, d in top:
-            c = rp - rm
-            for i in range(self.lay.size):
-                step[i] += c * d[i]
-        f = float(self.cfg["lernrate"]) / (len(top) * sd)
-        self.vec = [v + f * s for v, s in zip(self.vec, step)]
+        for part, rate in ((0, float(self.cfg["lernrate"])), (1, float(self.cfg["netz_lernrate"]))):
+            size = len(top[0][3][part])
+            if not size:
+                continue
+            step = [0.0] * size
+            for _, rp, rm, d in top:
+                c = rp - rm
+                dd = d[part]
+                for i in range(size):
+                    step[i] += c * dd[i]
+            f = rate / (len(top) * sd)
+            if part == 0:
+                self.vec = [v + f * s for v, s in zip(self.vec, step)]
+            else:
+                self.net = [v + f * s for v, s in zip(self.net, step)]
         self.round = rnd
         scores = [p[1] for p in pairs] + [p[2] for p in pairs]
         rec = {"runde": rnd, "tage": days, "mittel": sum(scores) / len(scores), "bestes": max(scores), "schlechtestes": min(scores),
