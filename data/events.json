@@ -18,7 +18,7 @@
   "types": {
     "duerre": {"name": "Dürre", "icon": "sonne", "weights": [0, 3, 0, 0], "hot_mult": 2.0, "reward": true,
       "text": "Bis zum Ende des Sommers wachsen Felder, Obstgärten, Beeren und Pilze viel langsamer.",
-      "hint": "Legt Vorräte an.", "counter": {"tech": "bewaesserung"},
+      "hint": "Lege Vorräte an.", "counter": {"tech": "bewaesserung"},
       "desc": "Die Dürre ist da! Felder, Obstgärten, Beeren und Pilze wachsen bis zum Ende des Sommers viel langsamer.",
       "factor": 0.4, "factor_irrigated": 0.7, "growth_types": ["feld", "obstgarten", "busch", "pilzkreis"], "needs": ["feld", "obstgarten"], "min_days": 1.5},
     "ratten": {"name": "Ratten", "icon": "ratte", "weights": [1.5, 1.5, 4, 3],
@@ -29,7 +29,7 @@
       "min_goods": 20, "share": [0.25, 0.1, 0.25, 0.5], "store": "grosslager", "store_mult": 0.5, "sick": [1, 0.6], "sick_illness": "ruhr"},
     "brand": {"name": "Brand", "icon": "feuer", "weights": [0.3, 3, 1, 1], "hot_mult": 2.0,
       "text": "Ein Feuer wird Gebäude zerstören. Der Neuaufbau kostet 70 % des Baupreises.",
-      "hint": "Haltet Holz, Bretter und Stein bereit, dann stehen die Gebäude schnell wieder.",
+      "hint": "Halte Holz, Bretter und Stein bereit, dann stehen die Gebäude schnell wieder.",
       "desc": "Feuer!", "min_targets": 3},
     "seuche": {"name": "Seuche", "icon": "spritze", "weights": [1, 0.5, 2, 3], "min_settlers": 8, "reward": true, "no_hard_winter": true,
       "text": "Zwei Tage lang werden viel mehr Siedler krank.",

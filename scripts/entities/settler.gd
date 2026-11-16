@@ -305,7 +305,7 @@ func gain_xp(sk: String, amount: float = 1.0, quiet: bool = false) -> void:
 		skills[sk] = skill_level(sk) + 1.0
 		if quiet:
 			return
-		Game.notify(tr("%s ist besser geworden: %s Stufe %d.") % [display_name, Data.skills[sk].name, int(skills[sk])], "sonne", "siedler")
+		Game.notify(tr("%s ist besser geworden: %s Stufe %d.") % [display_name, Data.skills[sk].name, int(skills[sk])], "sonne", "klein")
 		world.float_text(position + Vector2(0, -30), tr("Stufe %d!") % int(skills[sk]), "")
 		Sound.play_on("stufe", world)
 

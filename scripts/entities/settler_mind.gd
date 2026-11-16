@@ -329,7 +329,7 @@ func _recover() -> void:
 	sick = ""
 	sick_left = 0.0
 	if (ill.get("bed", false) or ill.has("deadly")) and s.world and s.world.settlers.has(s):
-		Game.notify_at(s.world, tr("%s ist wieder gesund (%s überstanden).") % [s.display_name, name], "herz", "gesundheit")
+		Game.notify_at(s.world, tr("%s ist wieder gesund (%s überstanden).") % [s.display_name, name], "herz", "klein")
 
 
 func illness_name() -> String:

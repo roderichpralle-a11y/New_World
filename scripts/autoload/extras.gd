@@ -34,7 +34,7 @@ func _ready() -> void:
 ## Abschnitt der Spielanleitung (hud.gd hängt ihn an).
 const HELP := """[b]Kohle, Kälte und Vorräte[/b]
 Im Herbst und Winter heizen die Siedler. Liegt Kohle im Lager, verbrennen sie zuerst die Kohle (1 Kohle heizt wie 2 Holz), Holz erst, wenn die Kohle alle ist. Ab dem Sommer legen sie Brennholz für den Winter zurück: Werkstätten und Baustellen bekommen Holz und Kohle nur, was darüber liegt. Fehlt beides, frieren sie und fällen selbst Bäume: nach etwa einem Tag Kälte sinkt die Gesundheit, und sie können erfrieren, Kinder und Alte zuerst. Eine Meldung warnt, sobald der Brennstoff ausgeht. Auf Palmeninseln erfriert niemand.
-Die Siedler essen zuerst haltbares Essen wie Brot, Räucherfisch, Kokosnüsse und Konserven, frisches Essen und rohes Getreide erst, wenn nichts Haltbares mehr da ist. Nur wer zu wenig Vitamine hat, greift trotzdem zu Obst und Beeren."""
+Die Siedler essen ohne feste Reihenfolge, was im Lager liegt, rohes Getreide nur in der Not. Wer zu wenig Vitamine hat, greift zu Obst und Beeren. Im Lagerfenster legst du je Nahrung fest, wie viel nicht gegessen wird."""
 
 
 static func help_text() -> String:
@@ -213,7 +213,7 @@ func _process(_delta: float) -> void:
 			s.health -= dmg * k * days
 			if not _hurt_noted.has(w):
 				_hurt_noted[w] = true
-				Game.notify_at(w, tr("Die ersten Siedler erfrieren! Bringt sofort Holz oder Kohle ins Lager."), "abriss", "gesundheit")
+				Game.notify_at(w, tr("Die ersten Siedler erfrieren! Sorge sofort für Holz oder Kohle im Lager."), "abriss", "gesundheit")
 				Sound.play_on("fehler", w)
 			if s.health <= 0.0:
 				w.kill_settler(s, tr("erfroren"), "freeze")
@@ -258,9 +258,9 @@ func _on_load(d: Dictionary, old_rules: int) -> void:
 				exposure[int(str(k))] = float(f[k])
 	if old_rules < 1:
 		Game.rules_lines.append(tr("Im Herbst und Winter wird zuerst Kohle verheizt, dann Holz. Fehlt beides, können Siedler erfrieren."))
-		Game.rules_lines.append(tr("Die Siedler essen zuerst haltbares Essen wie Brot und Räucherfisch, frisches erst danach (außer wenn ihnen Vitamine fehlen)."))
+		Game.rules_lines.append(tr("Die Siedler essen ohne feste Reihenfolge, was im Lager liegt, rohes Getreide nur in der Not."))
 	if old_rules < 3:
-		Game.rules_lines.append(tr("Ab Bergbau gibt es Schweinestall und Kuhstall. Bauern machen dort aus Getreide Fleisch und Milch, die gut satt machen, aber verderben."))
+		Game.rules_lines.append(tr("Ab Bergbau gibt es Schweinestall und Kuhstall. Bauern machen dort aus Getreide Fleisch und Milch, die gut satt machen."))
 	if old_rules < 4:
 		Game.rules_lines.append(tr("Der Verwalter entscheidet für die Insel der Verwaltung und für Inseln, auf denen wie dort eine Rundfunkanstalt steht. Geforscht wird nur auf der Hauptinsel, die Kosten kommen aus ihrem Lager."))
 

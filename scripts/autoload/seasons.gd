@@ -127,7 +127,7 @@ func effects_text(s: int = -1) -> String:
 		SUMMER:
 			if summer_type() == "heiss":  # das Verderben nennt dann climate_text (heißer Sommer)
 				return tr("Lange Tage, Beeren reifen, Getreide wächst am besten.")
-			return tr("Lange Tage, Beeren reifen, Getreide wächst am besten. Frische Nahrung verdirbt schneller.")
+			return tr("Lange Tage, Beeren reifen, Getreide wächst am besten.")
 		AUTUMN:
 			return tr("Pilzzeit, alles andere wächst langsamer. Keine Aussaat mehr, Stürme bremsen Schiffe, Häuser brauchen etwas Holz.")
 		_:
@@ -290,9 +290,9 @@ func _on_new_day() -> void:
 	if season() == AUTUMN and day_in_season() == int(season_days()):
 		var wt := winter_type()
 		if wt == "normal":
-			Game.notify(tr("Morgen beginnt der Winter! %s Legt auch haltbare Vorräte an.") % Extras.need_text(winter_wood_need()), "holz")
+			Game.notify(tr("Morgen beginnt der Winter! %s Lege auch Vorräte an Nahrung an.") % Extras.need_text(winter_wood_need()), "holz")
 		else:
-			Game.notify(tr("Morgen beginnt der Winter (%s)! %s Legt auch haltbare Vorräte an.") % [type_name("w", wt), Extras.need_text(winter_wood_need())], "holz")
+			Game.notify(tr("Morgen beginnt der Winter (%s)! %s Lege auch Vorräte an Nahrung an.") % [type_name("w", wt), Extras.need_text(winter_wood_need())], "holz")
 
 
 ## Heizen: jeder Siedler braucht im Herbst etwas, im Winter viel Holz (Kohle zuerst, Extras.burn_fuel).
@@ -377,7 +377,7 @@ func _frost() -> void:
 				node.regrow_at = Game.time_days + float(node.def.get("regrow_days", 1.0))
 				node.refresh()
 		if n > 0:
-			Game.notify_at(w, tr("Der Frost hat %d %s vernichtet. Sät im Frühling früh genug!") % [n, tr("Feld") if n == 1 else tr("Felder")], "weizen")
+			Game.notify_at(w, tr("Der Frost hat %d %s vernichtet. Lass im Frühling früh genug säen.") % [n, tr("Feld") if n == 1 else tr("Felder")], "weizen")
 
 
 # ---------------------------------------------------------------- Wetter (Schnee, Laub)

@@ -123,7 +123,8 @@ func _player(bus: String) -> AudioStreamPlayer:
 
 
 func _on_node_added(n: Node) -> void:
-	if n is BaseButton and not n.has_meta("silent"):
+	if n is BaseButton and not n.has_meta("silent") and not n.has_meta("snd"):
+		n.set_meta("snd", true)  # wiederverwendete Zeilen (Siedlerliste) kommen mehrmals in den Baum
 		n.pressed.connect(_on_button.bind(n))
 
 

@@ -2,7 +2,7 @@
  "_info": "Hinweis-Fenster (josh 2026-10-17, Texte aus dem Dokument 'Hinweis-Fenster: Ereignisse und Texte'). Schlüssel: age_<Zeitalter 0-7>, tier_<Stufe>, tech_<Forschung>, first_<Ereignis>. Je Eintrag name (Überschrift), text, optional icon. Siehe scripts/autoload/hints.gd.",
  "age_0": {
   "name": "Die Steinzeit",
-  "text": "Sammelt Beeren, fällt Holz und baut Hütten, damit Kinder kommen. Im Winter braucht jeder Siedler etwa 1 Holz am Tag."
+  "text": "Sammle Beeren, fälle Holz und baue Hütten, damit Kinder kommen. Im Winter braucht jeder Siedler etwa 1 Holz am Tag."
  },
  "age_1": {
   "name": "Du hast die Antike erreicht",
@@ -10,11 +10,11 @@
  },
  "age_2": {
   "name": "Du hast das Mittelalter erreicht",
-  "text": "Schiffe, Wachtürme und Jäger sind jetzt möglich. Mit Schiffen entdeckt ihr neue Inseln."
+  "text": "Schiffe, Wachtürme und Jäger sind jetzt möglich. Mit Schiffen entdeckst du neue Inseln."
  },
  "age_3": {
   "name": "Du hast die Renaissance erreicht",
-  "text": "Forscher brauchen jetzt Papier statt Tontafeln. Baut eine Papiermühle."
+  "text": "Forscher brauchen jetzt Papier statt Tontafeln. Baue eine Papiermühle."
  },
  "age_4": {
   "name": "Du hast die Industrialisierung erreicht",
@@ -90,7 +90,7 @@
  },
  "tech_raeuchern": {
   "name": "Neu: Räucherei",
-  "text": "Geräucherter Fisch macht länger satt und verdirbt langsamer. Ein Koch arbeitet hier."
+  "text": "Geräucherter Fisch macht viel satter als frischer. Ein Koch arbeitet hier."
  },
  "tech_steinbruch": {
   "name": "Neu: Steinbruch",
@@ -142,7 +142,7 @@
  },
  "tech_schiffsbau": {
   "name": "Neu: Werft, Anlegesteg, Seemann",
-  "text": "In der Werft baut ihr Boote, jedes braucht Seeleute. Unter Inseln sucht ein Boot neue Inseln."
+  "text": "Die Werft baut Boote, jedes braucht Seeleute. Unter Inseln schickst du ein Boot auf die Suche nach neuen Inseln."
  },
  "tech_waffenkunde": {
   "name": "Neu: Wachturm und Jäger",
@@ -186,7 +186,7 @@
  },
  "tech_konservendose": {
   "name": "Neu: Konservenfabrik",
-  "text": "Dosenfisch macht satt und verdirbt nie."
+  "text": "Konserven aus Fisch oder Fleisch machen von allem am sattesten."
  },
  "tech_fabrik": {
   "name": "Neu: Fabrik",
@@ -239,12 +239,12 @@
  },
  "first_year": {
   "name": "Meldungen nach Wunsch",
-  "text": "Unter Menü > Meldungen schaltest du jede Art von Meldung an oder ab.",
+  "text": "Unter Menü > Meldungen schaltest du jede Art von Meldung an oder ab. Kleinigkeiten wie Tagesbeginn und neue Fertigkeiten sind von Beginn an aus.",
   "icon": "glocke"
  },
  "first_winter": {
   "name": "Der Winter kommt",
-  "text": "Im Winter wächst nichts, und die Siedler heizen. Lege Holz und haltbares Essen zurück."
+  "text": "Im Winter wächst nichts, und die Siedler heizen. Lege Holz und Nahrung zurück."
  },
  "first_quests": {
   "name": "Aufträge",

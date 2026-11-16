@@ -14,7 +14,6 @@ var _hint: Label
 var _bar: ProgressBar
 var _skip: Button
 var _next: Button  # Weiter bei Erklaer-Schritten der Einfuehrung
-var _act: Button  # Knopf eines Schritts im neuen Spielstart ("btn": Lager bauen, Baumeister einsetzen)
 var _choices: VBoxContainer  # Auswahl der nächsten Schritte (Wohnraum, Versorgung, Verbesserung)
 var bubble: bool = false  # Karte steht als Sprechblase neben dem Ziel des Zeigers (hud._layout laesst sie dann in Ruhe)
 var _home_idx: int = -1
@@ -88,13 +87,6 @@ func setup(p_hud) -> void:
 		Game.player_action.emit("next", _cur_id)
 		_tick = 0.0)  # gleich weiter, nicht erst nach der naechsten Pruefung
 	v.add_child(_next)
-	_act = UiTheme.button("", "", 44)
-	_act.name = "IntroAct"
-	_act.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_act.add_theme_font_size_override("font_size", 16)
-	_act.visible = false
-	_act.pressed.connect(_do_act)
-	v.add_child(_act)
 	_choices = VBoxContainer.new()
 	_choices.add_theme_constant_override("separation", 4)
 	_choices.visible = false
@@ -198,22 +190,6 @@ func _fmt(text: String) -> String:
 	return text.replace("{b}", b.display_name if b else "?").replace("{o}", o.display_name if o else "?")
 
 
-## Knopf auf der Karte: Platzierung öffnen oder einem Siedler einen Beruf geben.
-func _do_act() -> void:
-	var g := current()
-	var btn: Dictionary = g.get("btn", {})
-	Sound.play("klick")
-	match str(btn.get("do", "")):
-		"place":
-			hud.start_build(str(btn.what), g.get("spots", false))
-		"job":
-			var s = _who(str(btn.get("who", "b")))
-			if s != null:
-				JobDesk.assign(s, str(btn.what), "spieler")
-				Game.player_action.emit("job", str(btn.what))
-	_tick = 0.0
-
-
 func _choose(id: String) -> void:
 	var br := _br()
 	br.cur = id
@@ -245,26 +221,6 @@ func _fill_choices() -> void:
 		var d := UiTheme.label(str(bs[id].desc), 12)
 		d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_choices.add_child(d)
-
-
-## Knöpfe der unteren Leiste, die der Spielstart schon eingeführt hat ("show" aller bisherigen Schritte).
-func ui_on(key: String) -> bool:
-	if not in_tutorial():
-		return true
-	var tut: Array = Data.goals.get("tutorial", [])
-	var t := int(Game.goals.get("tut", 0))
-	for i in range(0, mini(t, tut.size() - 1) + 1):
-		if key in tut[i].get("show", []):
-			return true
-	var br := _br()
-	var bs: Dictionary = Data.goals.get("branches", {})
-	for id in bs:
-		var steps: Array = bs[id].steps
-		var upto := steps.size() if id in br.done else (int(br.i) + 1 if id == str(br.cur) else 0)
-		for i in mini(upto, steps.size()):
-			if key in steps[i].get("show", []):
-				return true
-	return false
 
 
 ## Neues Spiel (nicht in Selbsttests): die beiden Start-Siedler warten ohne Beruf, bis der Spieler entscheidet.
@@ -361,7 +317,7 @@ func _advance(g: Dictionary, silent: bool) -> void:
 	Sound.play("ziel")
 	if was_tut:
 		if not in_tutorial():
-			hud.toast(tr("Die ersten Schritte sind geschafft! Jetzt warten Ziele mit Belohnungen auf dich."), "ziel")
+			hud.toast(tr("Die ersten Schritte sind geschafft. Jetzt warten Ziele mit Belohnungen auf dich."), "ziel")
 			Extras.tutorial_reward(Game.world)  # 2 Siedler, Hütte, Lagerhaus und zwei Forschungen
 		if g.get("close_after", false):  # josh 2026-10-30: nach dem Baumeister das Menü Siedler schließen
 			for p in hud._panels():
@@ -465,8 +421,7 @@ func _skip_tutorial() -> void:
 	_cur_id = ""
 	Sound.play("ziel")
 	Extras.tutorial_reward(Game.world)
-	hud.toast(tr("Erste Schritte übersprungen und als gelernt gezählt. Jetzt warten Ziele mit Belohnungen auf dich. Die Spielanleitung findest du im Menü."), "ziel")
-	hud.apply_intro_ui()
+	hud.toast(tr("Erste Schritte übersprungen. Jetzt warten Ziele mit Belohnungen auf dich. Die Spielanleitung steht im Menü."), "ziel")
 	if not parts.is_empty():
 		hud.toast(tr("Belohnung: %s.") % ", ".join(parts), "ziel")
 
@@ -526,7 +481,6 @@ func _check() -> void:
 	var idle: bool = t and g.get("idle", false) and Game.goals.get("live", false)
 	if Game.intro_idle != idle:
 		Game.intro_idle = idle
-	hud.apply_intro_ui()
 	var choice: bool = t and g.get("choice", false)
 	var key: String = str(g.id) + ("|%d" % _br().done.size() if choice else "")
 	if key != _cur_id:
@@ -537,16 +491,8 @@ func _check() -> void:
 		if choice:
 			if not _br().done.is_empty():
 				_text.text = tr("Gut gemacht. Was kommt jetzt?")
-			_hint.text = tr("Wenn alles geschafft ist: %s.") % Extras.tutorial_reward_text(Extras.TUT_FINAL)
 			_fill_choices()
 		_choices.visible = choice
-		var btn: Dictionary = g.get("btn", {}) if t else {}
-		_act.visible = not btn.is_empty()
-		_act.text = _fmt(str(btn.get("text", "")))
-		if t and not choice:  # was der Schritt bringt
-			var rw: Dictionary = g.get("reward", {})
-			if not rw.is_empty():
-				_hint.text += ("\n" if _hint.text != "" else "") + tr("Belohnung: %s.") % Extras.tutorial_reward_text(rw)
 		# In der Einfuehrung ist die Erklaerung immer offen
 		_hint.visible = t and _hint.text != ""
 		_skip.visible = t
@@ -560,10 +506,6 @@ func _check() -> void:
 		if _hint.visible:
 			_relayout()
 	var wt := tier1_warning(t) if not t or g.get("warn", false) else ""
-	if t and _act.visible:  # während der Platzierung ist der Knopf weg
-		var placing: bool = Game.world.is_placing()
-		if _act.disabled != placing:
-			_act.disabled = placing
 	if wt != _warn.text:
 		_warn.text = wt
 		_warn.visible = wt != ""
@@ -804,8 +746,14 @@ func _pointer_target(g: Dictionary):
 			# Berufswahl der ersten Erwachsenenzeile im Menü Siedler, sonst der Knopf Siedler
 			if hud._settler_panel.visible:
 				var obs: Array = hud._settler_list.find_children("*", "OptionButton", true, false)
+				obs.append_array(hud._settler_list_free.find_children("*", "OptionButton", true, false))
 				if obs.is_empty():
 					return null
+				if g.has("who"):  # der Beruf genau dieses Start-Siedlers
+					var ws = _who(str(g.who))
+					for ob in obs:
+						if ws != null and int(ob.get_meta("sid", -1)) == ws.id:
+							return ob
 				if pt == "job_food":  # jemand, der noch nicht für Nahrung sorgt
 					var food := [Data.jobs.sammler.name, Data.jobs.fischer.name]
 					for ob in obs:
