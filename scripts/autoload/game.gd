@@ -273,7 +273,7 @@ func _process(delta: float) -> void:
 			_last_day = day()
 			day_started.emit(_last_day)
 			prune_lineage()
-			notify(tr("Tag %d beginnt.") % _last_day, "sonne")
+			notify(tr("Tag %d beginnt.") % _last_day, "sonne", "klein")
 		# KI-Steuerung (KI-Zentrum): freie Siedler auf fehlende Berufe verteilen
 		if time_days >= _ai_next:
 			_ai_next = time_days + 0.25
@@ -673,7 +673,10 @@ const NOTIFY_CATS := {"tag": "Tag und Jahreszeit", "siedler": "Siedler und Nachw
 	"gesundheit": "Krankheiten", "tod": "Todesfälle und verlorene Inseln", "bauen": "Bauen",
 	"lager": "Lager, Vorräte und Winter", "forschung": "Forschung und Zeitalter", "see": "Seefahrt",
 	"tiere": "Tiere und Jagd", "ereignis": "Ereignisse und Händler", "ki": "KI-Steuerung",
-	"ziel": "Meldungen zu Aufträgen", "verwaltung": "Verwaltung und Arbeitszeit"}
+	"ziel": "Meldungen zu Aufträgen", "verwaltung": "Verwaltung und Arbeitszeit",
+	"klein": "Kleinigkeiten (Tagesbeginn, Fertigkeiten, Genesung)"}
+## Von Beginn an aus (josh 2026-11-16: die häufigsten, unwichtigsten Meldungen); der Spieler kann sie einschalten
+const NOTIFY_DEFAULT_OFF := ["klein"]
 ## Art einer Meldung nach ihrem Symbol, wenn der Aufruf keine Art nennt
 const NOTIFY_ICON_CAT := {"": "tag", "sonne": "tag", "herz": "siedler", "person": "siedler",
 	"abriss": "tod", "hammer": "bauen", "haus": "lager", "holz": "lager", "weizen": "lager",
@@ -681,7 +684,7 @@ const NOTIFY_ICON_CAT := {"": "tag", "sonne": "tag", "herz": "siedler", "person"
 	"schild": "tiere", "fleisch": "tiere", "ki": "ki", "ereignis": "ereignis", "haendler": "ereignis",
 	"feuer": "ereignis", "ratte": "ereignis", "ziel": "ziel"}
 var _last_note: Array = [-1, false]  # [Bild, stumm] der letzten Meldung (note_sound)
-var notify_off: Dictionary = {}  # Art -> true, wenn abgeschaltet (user://settings.cfg [notify])
+var notify_off: Dictionary = {"klein": true}  # Art -> true, wenn abgeschaltet (user://settings.cfg [notify])
 var goal_card_on: bool = true
 var quest_row_on: bool = true  # Aufträge auf der Zielkarte (josh 2026-10-30: „dauerhaft ausblenden“)
 var hints_on: bool = true  # Hinweis-Fenster bei Neuem (Hints), sonst nur als Meldung
@@ -752,7 +755,7 @@ func _load_notify_settings() -> void:
 	if cf.load("user://settings.cfg") != OK:
 		return
 	for c in NOTIFY_CATS:
-		notify_off[c] = not bool(cf.get_value("notify", c, true))
+		notify_off[c] = not bool(cf.get_value("notify", c, not c in NOTIFY_DEFAULT_OFF))
 	goal_card_on = bool(cf.get_value("notify", "goal_card", true))
 	quest_row_on = bool(cf.get_value("notify", "quest_row", true))
 	hints_on = bool(cf.get_value("notify", "hints", true))

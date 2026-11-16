@@ -435,40 +435,6 @@ func _build_bottom() -> void:
 	menu_btn = mb
 
 
-## Neuer Spielstart (josh 2026-11-15): die Knöpfe Bauen, Forschung und Siedler kommen erst, wenn der Spieler
-## sie braucht (GoalCard.ui_on); nach den ersten Schritten sind alle da. Das Menü ist immer da.
-func apply_intro_ui() -> void:
-	var changed := false
-	for e in [[_build_btn, "bauen"], [_research_btn, "forschung"], [settler_btn, "siedler"]]:
-		var on: bool = goal_card.ui_on(e[1])
-		if e[0] != null and e[0].visible != on:
-			e[0].visible = on
-			changed = true
-	if changed:
-		_layout()
-
-
-## Platzierung eines Gebäudes direkt öffnen (Knopf auf der Zielkarte, z. B. „Lager bauen“). false: Material fehlt.
-func start_build(tp: String, spots: bool = false) -> bool:
-	var miss := []
-	var fr := _build_free()
-	for res in Data.buildings[tp].cost:
-		var n := int(Data.buildings[tp].cost[res]) - int(fr.get(res, 0))
-		if n > 0:
-			miss.append("%d %s" % [n, Data.resource_name(res)])
-	if not miss.is_empty():
-		toast(tr("Fehlt auf dieser Insel: %s") % ", ".join(miss), "hammer")
-		return false
-	for p in _panels():
-		p.visible = false
-	Game.select(null)
-	world.start_placement(tp, camera.position)
-	if spots:
-		world.show_spots(tp)
-	Game.player_action.emit("place_open", tp)
-	return true
-
-
 ## Verwalter-Knopf (josh 2026-10-19): ab der Forschung der Verwaltung; öffnet das Fenster der Verwaltung.
 func _update_admin_button() -> void:
 	if _admin_btn == null:
@@ -924,6 +890,10 @@ func _fill_build_list() -> void:
 			_build_panel.visible = false
 			Game.select(null)
 			world.start_placement(tp, camera.position)
+			# Neuer Spielstart: beim ersten Lager leuchten einige gute Plätze
+			var gstep: Dictionary = goal_card.current() if goal_card.in_tutorial() else {}
+			if gstep.get("spots", false) and str(gstep.get("check", {}).get("what", "")) == tp:
+				world.show_spots(tp)
 			Game.player_action.emit("place", tp))
 		_build_list.add_child(box)
 	for b in locked_rows:
@@ -1891,7 +1861,7 @@ func _refresh_settler_list() -> void:
 	_settler_list_free.visible = _settler_show_free
 	_settler_pad.custom_minimum_size.y = _bottom.get_parent().size.y + 12.0
 	if n_job == 0:
-		_settler_list.add_child(UiTheme.label(tr("Niemand passt zu dieser Auswahl.") if not pool.is_empty() else tr("Auf dieser Insel lebt niemand."), 14))
+		_settler_list.add_child(UiTheme.label((tr("Noch hat niemand einen Beruf.") if not list.is_empty() else tr("Niemand passt zu dieser Auswahl.")) if not pool.is_empty() else tr("Auf dieser Insel lebt niemand."), 14))
 	if list.size() - n_job == 0:
 		_settler_list_free.add_child(UiTheme.label(tr("Alle haben einen Beruf."), 14, DIM))
 	var narrow := _settler_narrow
@@ -1977,6 +1947,7 @@ func _refresh_settler_list() -> void:
 				var sel := ids.find(s.job)
 				if sel >= 0:
 					ob.set_item_text(sel, s.job_label(true))  # „Bauer (Verwalter)“, josh 2026-10-28
+			ob.set_meta("sid", s.id)  # Zeiger des Spielstarts: Beruf genau dieses Siedlers
 			ob.get_popup().about_to_popup.connect(func(): Game.player_action.emit("job_list", ""))
 			ob.item_selected.connect(func(i):
 				JobDesk.assign(sref, ids[i], "spieler")  # Vergabestelle: Automatik überstimmt das eine Weile nicht
@@ -3095,7 +3066,7 @@ Oben links steht immer das nächste Ziel. Tippe darauf für eine Erklärung. Jed
 Lautstärke von Musik und Geräuschen stellst du im Menü ein.
 
 [b]Siedler[/b]
-Jeder Siedler hat eigene Fähigkeiten. Gib ihnen im Infofenster einen Beruf, der zu ihren Stärken passt. Mit Übung werden sie besser. Freie Siedler helfen dort, wo es nötig ist.
+Jeder Siedler hat eigene Fähigkeiten. Gib ihnen im Menü Siedler oder im Infofenster einen Beruf, der zu ihren Stärken passt. Mit Übung werden sie besser. Freie Siedler helfen dort, wo es nötig ist.
 
 [b]Charakter[/b]
 Jeder Siedler ist anders: klug oder einfältig, robust oder kränklich, fleißig oder gemütlich, Frohnatur oder Griesgram. Dazu hat jeder Begabungen (im Infofenster mit + markiert): darin lernt er schneller. Starke Begabungen sind Talente und tragen einen Stern: darin arbeitet er auch schneller. Ein Stern am Beruf heißt, dass der Beruf zum Talent passt. Kluge lernen und forschen schneller. Kinder erben einen Teil ihres Charakters von den Eltern und lernen in der Schule viel, vor allem in ihren Begabungen.
@@ -3129,7 +3100,7 @@ Glas, Papier, Stahl, Maschinen, Strom und Elektronik entstehen in neuen Werkstä
 Sägegrube, Mühle, Bäckerei, Ziegelei und Co. verwandeln Rohstoffe in bessere Waren. Köche arbeiten in Mühle, Bäckerei und Räucherei, Bauern auf den Feldern und bei den Tieren, Handwerker in den Werkstätten, Steinmetze in Steinbruch, Lehmgrube und Mine. Tippe oben auf die Vorräte, um alle Waren zu sehen.
 
 [b]Lager[/b]
-Jedes Lager hat Stauraum: das Lagerfeuer 200, ein Lagerhaus 400, ein Großes Lager 1000. Große Waren brauchen mehr Raum als kleine, ein Brett 3, Holz und Stein 2, Beeren 1. Tippe oben auf die Vorräte oder im Lager auf "Lager einstellen" und lege mit − und + fest, wie viel von jeder Ware gelagert wird. Diese Menge ist dann für die Ware reserviert. Waren auf "frei" teilen sich den restlichen Raum. Ist für eine Ware kein Platz mehr, sammeln die Siedler sie nicht mehr. Hast du zu viel von einer Ware, kannst du den Überschuss wegwerfen; er ist dann verloren.
+Jedes Lager hat Stauraum: das Lagerfeuer 200, ein Lagerhaus 400, ein Großes Lager 1000, ein Hochregallager 5000. Große Waren brauchen mehr Raum als kleine, ein Brett 3, Holz und Stein 2, Beeren 1. Tippe oben auf die Vorräte oder im Lager auf "Lager einstellen" und lege mit − und + fest, wie viel von jeder Ware gelagert wird. Diese Menge ist dann für die Ware reserviert. Waren auf "frei" teilen sich den restlichen Raum. Ist für eine Ware kein Platz mehr, sammeln die Siedler sie nicht mehr. Hast du zu viel von einer Ware, kannst du den Überschuss wegwerfen; er ist dann verloren.
 
 [b]Abwechslung[/b]
 Gibt es mindestens drei Sorten Nahrung im Lager, kommen öfter Kinder zur Welt.
@@ -3141,13 +3112,13 @@ Jede Insel hat ihr eigenes Lager. Waren kommen nur mit Schiffen auf eine andere 
 Über den Knopf Inseln öffnest du das Inselfenster. "Schiff hierher schicken" bringt Siedler und Waren zu einer Insel, "Entdeckungsreise" schickt ein Schiff auf Erkundung. Unter "Schiffe" schickst du ein Schiff einmal los: zu einer Insel fahren, Waren laden und zu einer anderen Insel bringen, danach ist es frei. Oder du legst eine Route von A nach B fest, mit Zwischenhalten zum Dazuladen oder Tauschen; die fährt das Schiff immer wieder.
 
 [b]Neue Inseln[/b]
-Palmeninseln haben Kokosnüsse und viel Fisch, Waldinseln Pilze und Holz, Felseninseln Erz und Gold. Gold brauchst du für die höchsten Forschungen. Je weiter draußen, desto mehr wilde Tiere.
+Palmeninseln haben Kokosnüsse und viel Fisch, Waldinseln Pilze und Holz, Felseninseln Erz, Steinkohle und Gold. Auf der Heimatinsel ist das Erz begrenzt. Gold brauchst du für die höchsten Forschungen. Je weiter draußen, desto mehr wilde Tiere.
 
 [b]Wilde Tiere[/b]
 Wölfe, Wildschweine und Bären leben in Bauten und Höhlen. Siedler fliehen vor ihnen in Häuser, nachts sind Wölfe besonders gefährlich. Mit Waffenkunde werden Siedler zu Jägern und du kannst Wachtürme bauen. Jäger bringen Fleisch und Felle und räumen die Bauten aus, damit keine Tiere mehr nachkommen.
 
-[b]Achtung[/b]
-Stirbt auf einer Insel der letzte Siedler, ist diese Insel für immer verloren. Erst wenn alle Inseln verloren sind, ist das Spiel vorbei. Die Welt ist endlos: Es gibt immer noch eine Insel zu entdecken."""
+[b]Verlassene Inseln[/b]
+Stirbt auf einer Insel der letzte Siedler, ist sie verlassen. Gebäude und Lager bleiben stehen, und mit einem Schiff voll Siedler geht es dort weiter. Das Spiel ist erst vorbei, wenn nirgends mehr jemand lebt."""
 
 
 func _build_help_panel() -> void:
@@ -3300,28 +3271,6 @@ func _rebuild_info() -> void:
 
 func _info_settler(s: Settler) -> void:
 	_info_head(s.display_name)
-	# Neuer Spielstart (josh 2026-11-15): beim ersten Antippen nur wenige, verständliche Möglichkeiten
-	var picks: Array = goal_card.current().get("pick", []) if goal_card != null and goal_card.in_tutorial() else []
-	if not picks.is_empty() and s.is_adult():
-		var q := UiTheme.label(tr("Was soll %s tun?") % s.display_name, 15, UiTheme.TEXT, true)
-		q.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		_info_box.add_child(q)
-		for pk in picks:
-			var jid: String = pk.job
-			var b := UiTheme.button(str(pk.text), "", 48)
-			b.name = "Pick_" + jid
-			b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			b.add_theme_font_size_override("font_size", 16)
-			b.pressed.connect(func():
-				JobDesk.assign(s, jid, "spieler")
-				Game.player_action.emit("job", jid)
-				Sound.play("klick")
-				Game.select(null))  # Fenster zu: man sieht, wie der Siedler losgeht
-			_info_box.add_child(b)
-			var dl := UiTheme.label(Data.jobs[jid].desc, 12, DIM)
-			dl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			_info_box.add_child(dl)
-		return
 	var sex := tr("Frau") if s.sex == "f" else tr("Mann")
 	if not s.is_adult():
 		sex = tr("Mädchen") if s.sex == "f" else tr("Junge")

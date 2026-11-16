@@ -1085,7 +1085,7 @@ func _autotest_tutorial() -> void:
 					world.move_placement(world.cell_to_pos(cc))
 					print("   platziert: ", world.confirm_placement())
 		"n_builder":
-			gc._do_act()
+			JobDesk.assign(gc._who("b"), "baumeister", "spieler")
 		"n_gather":
 			gc._who("o").set_job("sammler")
 		"v_jobs":
@@ -1141,12 +1141,16 @@ func _tut_click_run(dir: String) -> void:
 			fails += 1
 			break
 		var popup_ob: OptionButton = null
-		for ob in hud._settler_list.find_children("*", "OptionButton", true, false):
+		for ob in hud._settler_list.find_children("*", "OptionButton", true, false) + hud._settler_list_free.find_children("*", "OptionButton", true, false):
 			if ob.get_popup().visible:
 				popup_ob = ob
 		if popup_ob:
 			# Berufsliste offen: den gewünschten Beruf antippen
-			var wj: String = "fischer" if g.id == "v_jobs" else str(g.get("check", {}).get("what", "baumeister"))
+			var wv = g.get("check", {}).get("what", "baumeister")
+			var wj: String = "fischer" if g.id == "v_jobs" else str(wv[0] if wv is Array else wv)
+			if g.has("who") and int(popup_ob.get_meta("sid", -1)) != gc._who(str(g.who)).id:
+				print("FEHLER: Berufsliste des falschen Siedlers offen")
+				fails += 1
 			var want: String = Data.jobs.get(wj, {}).get("name", "")
 			for i in popup_ob.item_count:
 				if popup_ob.get_item_text(i) == want:
@@ -1154,13 +1158,6 @@ func _tut_click_run(dir: String) -> void:
 					popup_ob.select(i)
 					popup_ob.item_selected.emit(i)
 					print("   Beruf gewählt: ", want)
-			continue
-		var picks: Array = hud._info_box.find_children("Pick_*", "Button", true, false) if hud._info_panel.visible else []
-		if not picks.is_empty():
-			if dir != "":
-				get_viewport().get_texture().get_image().save_png("%s/schritt_%02d_%s_auswahl.png" % [dir, shot, g.id])
-			print("   Auswahl: ", picks.map(func(b): return b.text))
-			_click(picks[0].get_global_rect().get_center())
 			continue
 		if world.is_placing():
 			if dir != "" and tries <= 2:
@@ -1176,16 +1173,8 @@ func _tut_click_run(dir: String) -> void:
 			print("   Wahl: ", cb.map(func(b): return b.text))
 			_click(cb[0].get_global_rect().get_center())
 			continue
-		if gc._act.visible and gc._act.is_visible_in_tree() and not gc._act.disabled:
-			print("   Knopf: ", gc._act.text)
-			_click(gc._act.get_global_rect().get_center())
-			continue
 		if gc._next.visible and gc._next.is_visible_in_tree():
 			_click(gc._next.get_global_rect().get_center())
-			continue
-		if g.id == "n_gather":
-			var who = gc._who("o")
-			_click(who.get_global_transform_with_canvas().origin - Vector2(0, 8.0 * camera.zoom.y))
 			continue
 		var ptr: Control = gc._pointer
 		if ptr.visible:
@@ -1194,6 +1183,8 @@ func _tut_click_run(dir: String) -> void:
 			print("   Pfeil auf ", hit.name if hit else "Karte", " (", hit.get_class() if hit else "", ") bei ", tip)
 			_click(tip)
 			continue
+		if tries % 8 == 0 and not g.id in waits:
+			print("   nichts zu tun: Siedlerfenster ", hud._settler_panel.visible, ", Berufsknöpfe ", hud._settler_list.find_children("*", "OptionButton", true, false).size(), ", Auswahl ", Game.selected != null)
 	Engine.time_scale = 1.0
 	await get_tree().create_timer(1.5, true, false, true).timeout
 	await RenderingServer.frame_post_draw

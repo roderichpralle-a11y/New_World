@@ -210,7 +210,7 @@ func _leave(say: bool) -> void:
 	if w != null:
 		w.sync_ships()
 		if say:
-			Game.notify(tr("%s ist weitergesegelt. Der nächste Händler kommt in ein paar Tagen.") % who, "haendler", "ereignis")
+			Game.notify(tr("%s ist weitergesegelt. Der nächste Händler kommt in ein paar Tagen.") % who, "haendler", "klein")
 	changed.emit()
 
 

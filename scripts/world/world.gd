@@ -2277,9 +2277,9 @@ func confirm_placement() -> bool:
 		Game.notify(tr("Baustelle angelegt. Es fehlt noch Material."), "hammer")
 	if b.def.get("builder", "") == "foerster":
 		if not settlers.any(func(s): return s.is_adult() and s.job == "foerster"):
-			Game.notify(tr("Tipp: Mache einen Siedler zum Förster, damit gepflanzt wird."), "axt")
+			Game.notify(tr("Tipp: Gib einem Siedler den Beruf Förster, damit gepflanzt wird."), "axt")
 	elif not settlers.any(func(s): return s.is_adult() and (s.job == "baumeister" or s.job == "frei")):
-		Game.notify(tr("Tipp: Mache einen Siedler zum Baumeister, damit gebaut wird."), "hammer")
+		Game.notify(tr("Tipp: Gib einem Siedler den Beruf Baumeister, damit gebaut wird."), "hammer")
 	if b.def.get("repeat", false):
 		_update_ghost()  # Straßen, Deiche, Setzlinge, Felder, Obstgärten: gleich den nächsten setzen
 		return true

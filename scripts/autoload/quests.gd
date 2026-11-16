@@ -101,7 +101,7 @@ func tick() -> void:
 			return
 	if now >= next:
 		if make_offers():
-			Game.notify(tr("Neue Aufträge: Wähle einen von drei aus, aufrufen unter „Menü - Aufträge“."), "ziel", "ziel")
+			Game.notify(tr("Neue Aufträge: Wähle unter Menü > Aufträge einen von drei aus."), "ziel", "ziel")
 			# Das Tempo bleibt, wie es ist (josh 2026-10-18; früher zurück auf normal)
 		else:
 			next = now + 0.25

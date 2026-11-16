@@ -1,35 +1,35 @@
 {
   "_doc": "Einführung (tutorial) und Ziele (milestones, danach endlos erzeugt). close_after: nach dem Schritt alle Fenster schließen. check.type: selected_settler, jobs_any (what = Liste von Berufen, n Siedler), food_in (Nahrung kam ins Lager), choice, action (kind next = Knopf Weiter, place = Hammer eines Gebäudes, job_list = Berufsliste geöffnet; or_job: auch erfüllt, wenn es den Beruf schon gibt), no_panel (kein Fenster offen), tech_started (what), building (n, any = auch Baustellen), housing, pop, techs (all: true = der ganze Baum), tier, tech, variety, islands_found, islands_settled, kills, births, speed, stock, job (what, n: so viele Siedler mit diesem Beruf). point: build, research, settlers, speed, settler, info.",
-  "_start_doc": "Neuer Spielstart (josh 2026-11-15, goals.tv 9): kleine spielbare Lage statt Erklärung der Oberfläche. btn: Knopf auf der Karte (do place = Platzierung von what öffnen, do job = Beruf what an Siedler who geben). {b} = Name des Baumeisters (sonst erster Mann), {o} = der andere Start-Siedler. idle: freie Siedler warten. spots: gute Bauplätze leuchten. pick: beim Antippen eines Siedlers nur diese Berufe als große Knöpfe. show: Knöpfe der unteren Leiste, die ab diesem Schritt da sind (bauen, forschung, siedler). Letzter Schritt choice: der Spieler wählt nacheinander die Zweige aus branches (name, desc, steps).",
+  "_start_doc": "Neuer Spielstart (josh 2026-11-15, überarbeitet 2026-11-16, goals.tv 9): kleine spielbare Lage statt Erklärung der Oberfläche; alles wird wie im richtigen Spiel bedient (Baumenü, Menü Siedler). {b} = Name des Baumeisters (sonst erster Mann), {o} = der andere Start-Siedler. idle: freie Siedler warten. spots: gute Bauplätze leuchten beim Setzen. who: der Zeiger zeigt im Menü Siedler auf den Beruf dieses Siedlers (b oder o). Letzter Schritt choice: der Spieler wählt nacheinander die Zweige aus branches (name, desc, steps).",
   "tutorial": [
-    {"id": "n_store", "idle": true, "spots": true, "text": "Baue euer erstes Lager.", "hint": "Helle Flächen passen gut. Den Platz bestimmst du.", "btn": {"text": "Lager bauen", "do": "place", "what": "lager"}, "reward": {"beeren": 30, "stein": 12}, "check": {"type": "building", "what": "lager", "n": 1, "any": true}},
-    {"id": "n_builder", "idle": true, "text": "Der Bauplatz steht. Jetzt braucht er einen Baumeister.", "btn": {"text": "{b} als Baumeister einsetzen", "do": "job", "what": "baumeister", "who": "b"}, "reward": {"holz": 20}, "point": "who_b", "check": {"type": "job", "what": "baumeister", "n": 1}},
-    {"id": "n_gather", "idle": true, "text": "Während {b} baut, kann {o} Nahrung sammeln.", "hint": "Tippe {o} an.", "point": "who_o", "pick": [{"job": "sammler", "text": "Beeren sammeln"}, {"job": "fischer", "text": "Fischen gehen"}], "check": {"type": "jobs_any", "what": ["sammler", "fischer"], "n": 1}},
-    {"id": "n_food_wait", "text": "{o} läuft los und bringt Nahrung zurück.", "hint": "Das geschieht, weil du es entschieden hast.", "check": {"type": "food_in"}},
+    {"id": "n_store", "idle": true, "spots": true, "text": "Baue euer erstes Lager.", "hint": "Tippe unten auf Bauen, dann beim Lagerhaus auf den Hammer. Helle Flächen sind gute Plätze.", "reward": {"beeren": 30, "stein": 12}, "point": "build", "check": {"type": "building", "what": "lager", "n": 1, "any": true}},
+    {"id": "n_builder", "idle": true, "close_after": true, "text": "Gib {b} den Beruf Baumeister.", "hint": "Tippe unten auf Siedler und dann auf den Beruf von {b}. Nur ein Baumeister baut das Lager.", "reward": {"holz": 20}, "point": "job", "who": "b", "check": {"type": "job", "what": "baumeister", "n": 1}},
+    {"id": "n_gather", "idle": true, "close_after": true, "text": "Gib {o} den Beruf Sammler.", "hint": "Sammler pflücken Beeren. Davon leben beide.", "point": "job", "who": "o", "check": {"type": "jobs_any", "what": ["sammler", "fischer"], "n": 1}},
+    {"id": "n_food_wait", "text": "{o} holt jetzt Nahrung und bringt sie zum Lagerfeuer.", "check": {"type": "food_in"}},
     {"id": "n_food", "text": "Das ist eure Nahrung.", "hint": "In Klammern steht, wie viele Tage sie reicht.", "point": "top_food", "check": {"type": "action", "kind": "next"}},
-    {"id": "n_store_done", "show": ["siedler"], "text": "Warte, bis das Lager steht.", "hint": "Mit den Pfeilen oben rechts vergeht die Zeit schneller.", "check": {"type": "building", "what": "lager", "n": 1}},
-    {"id": "n_choice", "show": ["siedler", "bauen"], "choice": true, "text": "Das Lager steht. Was möchtest du als Nächstes?", "check": {"type": "choice"}}
+    {"id": "n_store_done", "text": "Warte, bis das Lager steht.", "hint": "Mit den Pfeilen oben rechts vergeht die Zeit schneller.", "point": "speeds", "check": {"type": "building", "what": "lager", "n": 1}},
+    {"id": "n_choice", "choice": true, "text": "Das Lager steht. Was kommt als Nächstes?", "check": {"type": "choice"}}
   ],
   "branches": {
-    "wohnen": {"name": "Mehr Wohnraum", "desc": "Eine Hütte bauen. Neue Siedler ziehen ein.", "steps": [
-      {"id": "w_place", "show": ["bauen"], "text": "Baue eine zweite Hütte.", "hint": "Tippe unten auf Bauen und bei der Hütte auf den Hammer.", "gift": {"holz": 16}, "point": "build", "check": {"type": "building", "what": "huette", "n": 2, "any": true}},
+    "wohnen": {"name": "Mehr Wohnraum", "desc": "Eine Hütte bauen, neue Siedler ziehen ein.", "steps": [
+      {"id": "w_place", "text": "Baue eine zweite Hütte.", "hint": "Tippe unten auf Bauen und bei der Hütte auf den Hammer. Das Holz dafür bekommst du geschenkt.", "gift": {"holz": 16}, "point": "build", "check": {"type": "building", "what": "huette", "n": 2, "any": true}},
       {"id": "w_pop", "text": "Das sind eure Siedler und Wohnplätze.", "hint": "Kinder und neue Siedler kommen nur, wenn Wohnplätze frei sind.", "point": "top_pop", "check": {"type": "action", "kind": "next"}},
-      {"id": "w_done", "warn": true, "text": "Warte, bis die Hütte steht.", "hint": "Gebaut wird nur, wenn jemand Baumeister ist.", "reward": {"settlers": 2}, "check": {"type": "building", "what": "huette", "n": 2}}
+      {"id": "w_done", "warn": true, "text": "Warte, bis die Hütte steht.", "reward": {"settlers": 2}, "check": {"type": "building", "what": "huette", "n": 2}}
     ]},
-    "versorgung": {"name": "Sichere Versorgung", "desc": "Zwei Siedler sorgen für Nahrung.", "steps": [
-      {"id": "v_jobs", "close_after": true, "show": ["siedler"], "text": "Lass zwei Siedler für Nahrung sorgen.", "hint": "Tippe unten auf Siedler und dann auf einen Beruf. Fisch gibt es das ganze Jahr.", "reward": {"fisch": 15, "holz": 10}, "point": "job_food", "check": {"type": "jobs_any", "what": ["sammler", "fischer"], "n": 2}}
+    "versorgung": {"name": "Sichere Versorgung", "desc": "Ein zweiter Siedler sorgt für Nahrung.", "steps": [
+      {"id": "v_jobs", "close_after": true, "text": "Gib einem zweiten Siedler den Beruf Sammler oder Fischer.", "hint": "Tippe unten auf Siedler und dann auf einen Beruf. Fisch gibt es das ganze Jahr.", "reward": {"fisch": 15, "holz": 10}, "point": "job_food", "check": {"type": "jobs_any", "what": ["sammler", "fischer"], "n": 2}}
     ]},
-    "forschung": {"name": "Erste Verbesserung", "desc": "Flechtkörbe erforschen. Sammler tragen mehr.", "steps": [
-      {"id": "f_start", "show": ["forschung"], "text": "Forschung bringt neue Werkzeuge und Gebäude.", "hint": "Tippe unten auf Forschung und starte Flechtkörbe. Das Holz dafür schenke ich dir.", "gift": {"holz": 12}, "point": "tech_btn", "check": {"type": "tech_started", "what": "flechtkoerbe"}},
-      {"id": "f_researcher", "close_after": true, "show": ["forschung", "siedler"], "text": "Mache einen Siedler zum Forscher.", "hint": "Ohne Forscher geht die Forschung kaum voran.", "reward": {"techs": ["flechtkoerbe"]}, "point": "job", "check": {"type": "job", "what": "forscher", "n": 1}}
+    "forschung": {"name": "Erste Verbesserung", "desc": "Flechtkörbe erforschen, Sammler tragen mehr.", "steps": [
+      {"id": "f_start", "text": "Starte die Forschung Flechtkörbe.", "hint": "Tippe unten auf Forschung und bei Flechtkörbe auf den Knopf rechts. Das Holz dafür bekommst du geschenkt.", "gift": {"holz": 12}, "point": "tech_btn", "check": {"type": "tech_started", "what": "flechtkoerbe"}},
+      {"id": "f_researcher", "close_after": true, "text": "Gib einem Siedler den Beruf Forscher.", "hint": "Ohne Forscher geht die Forschung kaum voran.", "reward": {"techs": ["flechtkoerbe"]}, "point": "job", "check": {"type": "job", "what": "forscher", "n": 1}}
     ]}
   },
   "milestones": [
-    {"id": "m_fischer", "text": "Mache einen Siedler zum Fischer.", "hint": "Fisch macht sehr satt und gibt es das ganze Jahr.", "check": {"type": "job", "what": "fischer", "n": 1}, "reward": {"holz": 10}},
+    {"id": "m_fischer", "text": "Gib einem Siedler den Beruf Fischer.", "hint": "Fisch macht sehr satt und gibt es das ganze Jahr.", "check": {"type": "job", "what": "fischer", "n": 1}, "reward": {"holz": 10}},
     {"id": "m_schreib", "text": "Baue eine Schreibstube.", "hint": "Bauen, Reiter Wissen. Dort forschen Forscher doppelt so schnell.", "check": {"type": "building", "what": "schreibstube", "n": 1}, "reward": {"stein": 8}},
     {"id": "m_gartenbau", "text": "Erforsche Gartenbau.", "hint": "Geforscht wird nur mit einem Forscher.", "check": {"type": "tech", "what": "gartenbau"}, "reward": {"holz": 10}},
     {"id": "m_feld", "text": "Baue ein Getreidefeld.", "hint": "Bauen, Reiter Nahrung. Danach braucht es einen Bauern.", "check": {"type": "building", "what": "feld", "n": 1}, "reward": {"beeren": 15}},
-    {"id": "m_bauer", "text": "Mache einen Siedler zum Bauern.", "hint": "Ohne Bauer wächst auf dem Feld nichts.", "check": {"type": "job", "what": "bauer", "n": 1}, "reward": {"holz": 10}},
+    {"id": "m_bauer", "text": "Gib einem Siedler den Beruf Bauer.", "hint": "Ohne Bauer wächst auf dem Feld nichts.", "check": {"type": "job", "what": "bauer", "n": 1}, "reward": {"holz": 10}},
     {"id": "m_holzbearb", "text": "Erforsche Holzbearbeitung.", "hint": "Braucht Steinwerkzeuge und einen Forscher.", "check": {"type": "tech", "what": "holzbearbeitung"}, "reward": {"stein": 8}},
     {"id": "m_saege", "text": "Baue eine Sägegrube.", "hint": "Dort sägt ein Handwerker Bretter für bessere Häuser.", "check": {"type": "building", "what": "saegegrube", "n": 1}, "reward": {"holz": 15}},
     {"id": "m_hut4", "text": "Baue eine vierte Hütte.", "hint": "Jede Hütte bringt 2 Wohnplätze für Kinder.", "check": {"type": "building", "what": "huette", "n": 4}, "reward": {"beeren": 10}},
@@ -56,10 +56,10 @@
   ],
   "quests": {
     "_doc": "Aufträge mit Wahl (Quests, scripts/autoload/quests.gd). Zeiten in Spieltagen. templates: id -> {w (Gewicht der Belohnung 1-3), days (Frist nach dem Annehmen), text, pick (false = nur als Ersatz)}. Belohnung Waren: goods_budget mal w mal (1 + Zeitalter) Goldwert, Menge = Budget / price (höchstens goods_space der Lagerkapazität aller Inseln für diese Ware). Forschungspunkte: w mal Forschung je Tag (mindestens research_min_per_w mal w). Einwanderer: w2 = 1, w3 = 2 mit Begabung aus talents. Segen (boons): key = Wirkung, v = Zuschlag, cap = Obergrenze. Bauplan: ein Gebäude ohne die Forschung.",
-    "start_delay": 0.25,
+    "start_delay": 1.0,
     "offer_count": 3,
     "offer_days": 1.0,
-    "cooldown": 0.5,
+    "cooldown": 3.0,
     "reroll_days": 1.0,
     "check_days": 0.05,
     "goods_budget": 25,

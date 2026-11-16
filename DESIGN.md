@@ -91,18 +91,23 @@ Erklärung in `_start_doc`), Ablauf in `GoalCard`.
 - **Start** (`main._on_new_game` -> `GoalCard.begin_intro`, `GameCamera.intro_zoom`): Kamera 1,35-fach näher, Lena und
   Jonas ohne Beruf; solange ein Schritt `idle` hat, warten Freie (`Game.intro_idle`, `Settler._plan_work`). Nicht in
   Selbsttests (dort behalten beide ihre Berufe), außer mit `--intro=1`. Keine Hinweis-Fenster vor dem Ende (`Hints`).
-- **Schritte**: `n_store` Knopf „Lager bauen“ auf der Karte (`btn`, `Hud.start_build`) öffnet sofort die Platzierung;
-  helle Flächen (`World.show_spots`/`good_spots`, `SpotLayer`) zeigen bis zu 4 gute Plätze, ein Tipp hinein rastet ein,
-  jeder andere freie Platz geht auch. `n_builder` Knopf „Jonas als Baumeister einsetzen“. `n_gather` Lena antippen:
-  das Infofenster zeigt nur „Beeren sammeln“ und „Fischen gehen“ (`pick`, `Hud._info_settler`). `n_food_wait` bis
-  Nahrung ankommt (Prüfart `food_in`), `n_food` erklärt die Nahrung, `n_store_done` wartet aufs Lager.
+- **Schritte** (josh 2026-11-16: alles wie im richtigen Spiel bedienen, kein Bestätigen auf der Karte): `n_store`
+  Zeiger auf Bauen, Reiter Lager, Hammer beim Lagerhaus; danach zeigen helle Flächen (`World.show_spots`/`good_spots`,
+  `SpotLayer`, ausgelöst im Hammer-Knopf des Baumenüs, wenn der Schritt `spots` hat) bis zu 4 gute Plätze, ein Tipp
+  hinein rastet ein, jeder andere freie Platz geht auch. `n_builder` und `n_gather`: Zeiger auf Siedler und dann auf
+  die Berufswahl genau dieses Siedlers (`who` b/o, Meta `sid` am OptionButton der Siedlerliste, auch in der Liste
+  „Frei“). `n_food_wait` bis Nahrung ankommt (Prüfart `food_in`), `n_food` erklärt die Nahrung, `n_store_done` wartet.
 - **Auswahl** (`n_choice`, Zustand `Game.goals.br {cur, i, done}`): Mehr Wohnraum (Hütte bauen, Wohnplätze erklärt,
   2 neue Siedler), Sichere Versorgung (zwei Siedler für Nahrung, Prüfart `jobs_any`), Erste Verbesserung (Flechtkörbe
   starten, Forscher einsetzen, Forschung erklärt). Reihenfolge frei; nach allen dreien `Extras.TUT_FINAL` (2 Siedler,
   Hütte, Steinwerkzeuge, Schrift). Am Ende wie bisher 6 Siedler, 3 Hütten, Lagerhaus.
-- **Knöpfe unten** kommen schrittweise (`show` je Schritt, `GoalCard.ui_on`, `Hud.apply_intro_ui`): anfangs nur das
-  Menü, Siedler ab dem Warten aufs Lager, Bauen ab der Auswahl, Forschung mit der ersten Verbesserung.
-- „Überspringen“ gibt alle offenen Belohnungen (auch der Zweige) und zeigt alle Knöpfe.
+- **Knöpfe unten** sind von Beginn an alle da (josh 2026-11-16; `show`, `btn`, `pick`, `GoalCard.ui_on`,
+  `Hud.apply_intro_ui` und `Hud.start_build` gibt es nicht mehr).
+- **Weitere Änderungen 2026-11-16**: Essen verdirbt nicht mehr (`seasons.json` `spoil_per_day` 0, Kühltechnik gibt
+  stattdessen 10 % weniger Hunger); Meldungsart `klein` (Tagesbeginn, Fertigkeit gestiegen, wieder gesund, Händler
+  weitergesegelt) ist von Beginn an aus (`Game.NOTIFY_DEFAULT_OFF`); Aufträge halb so oft (`quests.cooldown` 3 Tage,
+  `start_delay` 1); Stahl-Symbol ist ein blauer Träger (`tools/art_v2/stahl_symbol.py`).
+- „Überspringen“ gibt alle offenen Belohnungen (auch der Zweige).
 - Alte Spielstände mitten in der alten Einführung beginnen den neuen Start (Erledigtes geht von selbst weiter).
 - Tests: `--tuttest=1 --intro=1` (ohne Klicks), `xvfb-run godot --rendering-driver opengl3 --resolution 402x874 --
   --autotest=999 --tutclick=1 --intro=1 --shotdir=DIR` (nur Klicks, „EINFUEHRUNG FERTIG, Fehler: 0“), `--tutdone=1`.
