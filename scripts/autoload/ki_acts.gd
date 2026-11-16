@@ -236,8 +236,6 @@ static func wanted(w, act: String) -> bool:
 	if act.begins_with("bau:"):
 		var t := act.substr(4)
 		var d: Dictionary = Data.buildings[t]
-		if recently_gone(w, t):
-			return false
 		if not (d.has("production") or d.has("research")):
 			# Schule: eine je 8 Kinder; Hafen, Wachturm, Denkmal, Funk und Ähnliches: eins je Art und Insel
 			var have := _count_type(w, t)
@@ -262,8 +260,6 @@ static func wanted(w, act: String) -> bool:
 		"abriss_werkstatt", "abriss_haus", "abriss_feld":
 			return true
 		"haus":
-			if recently_gone(w, "haus"):
-				return false
 			var beds := 0
 			for b in w.buildings:
 				if is_instance_valid(b):
@@ -275,7 +271,7 @@ static func wanted(w, act: String) -> bool:
 					return false
 			return float(Game.used_volume(w)) >= 0.7 * float(Game.storage_volume(w))
 		"feld":
-			return not recently_gone(w, "feld") and _count_where(w, func(b): return b.type == "feld") < 4 * maxi(1, adults)
+			return _count_where(w, func(b): return b.type == "feld") < 4 * maxi(1, adults)
 		"obstgarten":
 			return _count_where(w, func(b): return b.type == "obstgarten") < 2 * maxi(1, adults)
 		"schmuck":
@@ -283,8 +279,8 @@ static func wanted(w, act: String) -> bool:
 	return true
 
 
-## Bauen und gleich wieder abreißen (josh 2026-11-16): die KI reißt nur ab, was mindestens KEEP_DAYS steht, und
-## baut 30 Tage lang nichts von der Art neu, die sie gerade abgerissen hat.
+## Bauen und gleich wieder abreißen (josh 2026-11-16): die KI reißt nur ab, was mindestens KEEP_DAYS steht.
+## Eine Neubau-Sperre nach dem Abriss gibt es nicht (josh: ein neues kann schon früher nötig sein).
 const UNDO := {"nicht_essen_weg": "nicht_essen", "nicht_essen": "nicht_essen_weg", "reserve_weg": "reserve", "reserve": "reserve_weg",
 	"limit_frei": "limit", "limit": "limit_frei", "weiter": "pause", "pause": "weiter", "route_weg": "route", "route": "route_weg",
 	"abriss_feld": "feld", "abriss_haus": "haus"}
@@ -297,23 +293,10 @@ static func note_done(w, act: String) -> void:
 
 
 const KEEP_DAYS := 12.0
-const GONE_DAYS := 30.0
-static var _gone: Dictionary = {}  # "Insel|Art" -> Tag des Abrisses
 
 
 static func young(b) -> bool:
 	return b.has_meta("ki_day") and Game.time_days - float(b.get_meta("ki_day")) < KEEP_DAYS
-
-
-static func recently_gone(w, kind: String) -> bool:
-	var k := "%d|%s" % [int(w.island_id), kind]
-	return _gone.has(k) and Game.time_days - float(_gone[k]) < GONE_DAYS and Game.time_days >= float(_gone[k])
-
-
-static func note_gone(w, b) -> void:
-	var kind: String = "haus" if int(b.def.get("housing", 0)) > 0 else str(b.def.get("base", b.type))
-	_gone["%d|%s" % [int(w.island_id), kind]] = Game.time_days
-	_gone["%d|%s" % [int(w.island_id), b.type]] = Game.time_days
 
 
 static func _count_where(w, f: Callable) -> int:
@@ -896,19 +879,16 @@ static func do(w, act: String) -> String:
 			"abriss_werkstatt":
 				var b = _idle_shop(w)
 				txt = "reißt %s ab (steht still)" % b.def.name
-				note_gone(w, b)
 				w.demolish(b)
 				KiBrain.waste_today += 1
 			"abriss_haus":
 				var b = _empty_house(w)
 				txt = "reißt %s ab (leer)" % b.def.name
-				note_gone(w, b)
 				w.demolish(b)
 				KiBrain.waste_today += 1
 			"abriss_feld":
 				var b = _spare_field(w)
 				txt = "gibt ein Getreidefeld auf"
-				note_gone(w, b)
 				w.demolish(b)
 				KiBrain.waste_today += 1
 			"versetzen":
