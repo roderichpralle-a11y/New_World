@@ -58,10 +58,11 @@ DEFAULTS = {
     "stufen": [
         {"alter": 1, "tage": 80}, {"alter": 2, "tage": 180}, {"alter": 3, "tage": 300}, {"alter": 4, "tage": 450},
         {"alter": 5, "tage": 600}, {"alter": 6, "tage": 800}, {"alter": 7, "tage": 1000}, {"ziel": True, "tage": 1400}],
-    "ziel_pruefungen": 2,     # das Ziel gilt, wenn es in so vielen Prüfungen nacheinander alle Prüfspiele schaffen
+    "ziel_in_folge": 10,      # die Stufe ist geschafft, wenn so viele Prüfspiele in Folge das Ziel erreichen (josh 2026-11-16)
+    "tempo_punkte": 300,      # Punkte je Spieltag, den ein Spiel das Ziel der Stufe früher erreicht (schneller ist besser)
     "stillstand_tage": 40,    # Spiel endet, wenn so lange nichts Neues entsteht
     "pruefung_alle": 4,       # alle so viele Runden eine Prüfung
-    "pruefung_wuerfel": 3,    # Prüfspiele je Prüfung
+    "pruefung_wuerfel": 5,    # Prüfspiele je Prüfung (mindestens 5)
     "ereignisse": True,       # mit Ereignissen (harte Winter, Piraten ...)
     "runden": 100000,         # Ende des Trainings (praktisch: läuft, bis du stoppst)
     "saat": 7,
@@ -77,6 +78,7 @@ def load_config(path):
             print("einstellungen.json nicht lesbar:", e, file=sys.stderr)
     if int(cfg["arbeiter"]) <= 0:
         cfg["arbeiter"] = max(1, (os.cpu_count() or 2) - 1)
+    cfg["pruefung_wuerfel"] = max(5, int(cfg["pruefung_wuerfel"]))
     if int(cfg["richtungen"]) <= 0:
         cfg["richtungen"] = max(16, int(cfg["arbeiter"]))
     return cfg
@@ -200,6 +202,9 @@ class Trainer:
         cmd = [self.godot, "--headless", "--fixed-fps", "60", "--path", self.spiel, "--", "--autotest=999999", "--scale=10",
                "--kitrain=1", "--kifull=1", "--kiw=" + wpath, "--kidays=%d" % days, "--kiseed=%d" % seed,
                "--kistall=%d" % int(self.cfg["stillstand_tage"]), "--kiprog=" + prog, "--kiout=" + out]
+        st = self.cfg["stufen"][self.stage]
+        if not st.get("ziel"):
+            cmd.append("--kigoalage=%d" % int(st.get("alter", 0)))  # das Spiel endet, sobald das Ziel der Stufe erreicht ist
         if not self.cfg["ereignisse"]:
             cmd.append("--noevents=1")
         timeout = min(6 * 3600, 120 + days * 25)
@@ -212,6 +217,12 @@ class Trainer:
             p.wait(timeout=timeout)
             with open(out, encoding="utf-8") as f:
                 res = json.load(f)
+            # schneller ist besser: jeder Spieltag, den das Ziel früher erreicht ist, bringt Punkte
+            res["score_spiel"] = float(res["score"])
+            if self.stage_ok({"alter": res.get("age", 0), "ziel": res.get("goal", False)}):
+                left = max(0.0, float(days) - float(res.get("day", days)))
+                res["score"] = float(res["score"]) + float(self.cfg["tempo_punkte"]) * left
+                res["ziel_tag"] = round(float(res.get("day", days)), 1)
             return float(res["score"]), res
         except Exception as e:
             if not self.stop:
@@ -293,11 +304,9 @@ class Trainer:
         return int(game.get("alter", 0)) >= int(st.get("alter", 0))
 
     def stage_reached(self):
-        n = int(self.cfg["ziel_pruefungen"])
-        mine = [c for c in self.checks if c.get("stufe", -1) == self.stage]
-        if len(mine) < n:
-            return False
-        return all(self.stage_ok(g) for c in mine[-n:] for g in c["spiele"])
+        n = int(self.cfg["ziel_in_folge"])
+        games = [g for c in self.checks if c.get("stufe", -1) == self.stage for g in c["spiele"]]
+        return len(games) >= n and all(self.stage_ok(g) for g in games[-n:])
 
     def status(self):
         with self.lock:
@@ -315,7 +324,7 @@ class Trainer:
                 "handlungen": len(self.lay.acts), "sek": self.secs_total + (time.time() - self.t_start),
                 "spiele": self.games_total, "einstellungen": self.cfg, "gestoppt": self.stop,
                 "gesehen": self.seen, "gesehen_spiele": self.seen_games,
-                "stufe": self.stage, "wartet": self.waiting, "stufen": self.cfg["stufen"], "ziel_pruefungen": int(self.cfg["ziel_pruefungen"])}
+                "stufe": self.stage, "wartet": self.waiting, "stufen": self.cfg["stufen"], "ziel_in_folge": int(self.cfg["ziel_in_folge"])}
 
     def status_loop(self):
         p = os.path.join(self.lauf, "status.json")
@@ -351,13 +360,16 @@ class Trainer:
         return {"punkte": round(res["score"]), "tag": round(float(res.get("day", 0))), "siedler": res.get("pop", 0),
                 "zeitalter": res.get("age_name", ""), "alter": res.get("age", 0), "forschungen": len(res.get("techs", [])),
                 "inseln": res.get("islands", 1), "droiden": res.get("droids", 0), "ziel": bool(res.get("goal", False)),
-                "stillstand": bool(res.get("stalled", False)), "ende": bool(res.get("over", False))}
+                "stillstand": bool(res.get("stalled", False)), "ende": bool(res.get("over", False)), "ziel_tag": res.get("ziel_tag")}
 
     def check(self, tag):
         """Prüfung: die jetzigen Gewichte spielen mit festen Würfeln. Das erste Prüfspiel wird ganz gespeichert."""
         self.phase = "Prüfung nach Runde %d" % self.round
         days = self.days_for(max(1, self.round))
-        seeds = [900000 + i for i in range(int(self.cfg["pruefung_wuerfel"]))]
+        # zwei Sätze fester Würfel im Wechsel: "10 in Folge" sind so 10 verschiedene Spiele
+        nw = int(self.cfg["pruefung_wuerfel"])
+        base = 900000 + nw * ((self.round // max(1, int(self.cfg["pruefung_alle"]))) % 2)
+        seeds = [base + i for i in range(nw)]
         rs = self.play([(self.vec, days, s) for s in seeds], "Prüfung")
         ok = [r for r in rs if r[0] is not None]
         if not ok:
@@ -365,7 +377,7 @@ class Trainer:
         for r in ok:
             self.note_seen(r[1])
         mean = sum(r[0] for r in ok) / len(ok)
-        per_day = sum(r[0] / max(1.0, float(r[1].get("day", days))) for r in ok) / len(ok)
+        per_day = mean / max(1.0, float(days))  # mit Tempo-Punkten, auf die Länge der Stufe bezogen
         rec = {"runde": self.round, "tage": days, "mittel": mean, "je_tag": per_day, "spiele": [self.summary(r[1]) for r in ok], "zeit": time.time(), "stufe": self.stage}
         self.checks.append(rec)
         full = dict(ok[0][1])

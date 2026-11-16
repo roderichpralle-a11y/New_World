@@ -718,6 +718,7 @@ func learn_build_tick(w) -> void:
 		var res := act_build(w, act)
 		if res != "":
 			built_log[act] = int(built_log.get(act, 0)) + 1
+			KiActs.note_done(w, act)
 			_last_build[iid] = Game.time_days
 			note(w, res)
 			done += 1
@@ -817,6 +818,8 @@ func _colonists(w) -> Array:
 
 
 func can_act(w, act: String) -> bool:
+	if (train_all or unlock_list) and not KiActs.wanted(w, act):
+		return false
 	if not act in BUILD_ACTS:
 		return KiActs.can(w, act)
 	var site_acts := ["haus", "ausbau", "lager", "feld", "obstgarten", "strasse", "werft"]
@@ -854,6 +857,7 @@ func _place(w, type: String):
 	var b = w.place_building(type, c, false)
 	if b != null:
 		b.set_meta("ki_site", true)
+		b.set_meta("ki_day", Game.time_days)
 	return b
 
 

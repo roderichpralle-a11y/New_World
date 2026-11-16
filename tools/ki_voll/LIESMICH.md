@@ -67,7 +67,7 @@ Handlung trifft (z. B. welches leere Haus abgerissen wird). Gelernt wird, **was*
 
 - `arbeiter`: Spiele gleichzeitig. 0 = Zahl der Prozessorkerne minus 1.
 - `richtungen`: Zufallsrichtungen je Runde. 0 = so viele wie Arbeiter, mindestens 16. Mehr Richtungen lernen sicherer, aber langsamer.
-- `stufen`: die Stufen des Lernens. Jede hat ein Ziel (`alter` = dieses Zeitalter erreichen, 1 = Antike; oder `ziel` = Zukunftsstadt) und eine Spiellänge `tage`. Schaffen in `ziel_pruefungen` Prüfungen nacheinander alle Prüfspiele das Ziel, hält das Training an. Im Reiter Status gibst du die nächste Stufe mit einem Knopf frei. Die Gewichte bleiben dabei erhalten.
+- `stufen`: die Stufen des Lernens. Jede hat ein Ziel (`alter` = dieses Zeitalter erreichen, 1 = Antike; oder `ziel` = Zukunftsstadt) und eine Spiellänge `tage`. Erreichen `ziel_in_folge` (10) Prüfspiele in Folge das Ziel, hält das Training an. Ein Spiel endet, sobald das Ziel erreicht ist; jeder gesparte Tag bringt `tempo_punkte` (300) Punkte. Im Reiter Status gibst du die nächste Stufe mit einem Knopf frei. Die Gewichte bleiben dabei erhalten.
 - `stillstand_tage`, `pruefung_alle`, `pruefung_wuerfel`, `rauschen`, `lernrate`.
 
 Neu anfangen: den Ordner `lauf` löschen (oder umbenennen).

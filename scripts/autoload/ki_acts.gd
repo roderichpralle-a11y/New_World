@@ -228,6 +228,102 @@ static func _count_type(w, t: String) -> int:
 	return c
 
 
+## Wird noch eins gebraucht? (josh 2026-11-16: die KI baute Gebäude, die niemand braucht, z. B. 241 Hühnerhöfe und
+## 274 Felder bei 2 Siedlern.) Kein weiteres Gebäude einer Art, solange ein vorhandenes davon unfertig, angehalten,
+## blockiert oder nicht voll besetzt ist; kein Haus bei 4 freien Betten; kein Lager unter 70 % Füllung; Felder und
+## Obstgärten nur, so viele die Erwachsenen bestellen können; Schmuck höchstens einer je 4 Siedler.
+static func wanted(w, act: String) -> bool:
+	if act.begins_with("bau:"):
+		var t := act.substr(4)
+		var d: Dictionary = Data.buildings[t]
+		if recently_gone(w, t):
+			return false
+		if not (d.has("production") or d.has("research")):
+			# Schule: eine je 8 Kinder; Hafen, Wachturm, Denkmal, Funk und Ähnliches: eins je Art und Insel
+			var have := _count_type(w, t)
+			if d.has("school"):
+				var kids: int = w.settlers.filter(func(s): return not s.is_adult()).size()
+				return have * int(d.school.get("slots", 8)) < kids
+			return have == 0 or d.get("repeat", false)
+		for b in w.buildings:
+			if not is_instance_valid(b) or not (b.type == t or str(b.def.get("base", "")) == t):
+				continue
+			if not b.complete or b.paused or b.occupants.size() < b.slots():
+				return false
+			if b.def.has("production") and b.prod_blocker() != "":
+				return false
+		return true
+	var adults: int = KiBrain._adults(w).size()
+	if UNDO.has(act):  # nicht gleich wieder zurücknehmen, was eben erst eingestellt wurde
+		var k := "%d|%s" % [int(w.island_id), UNDO[act]]
+		if _did.has(k) and Game.time_days >= float(_did[k]) and Game.time_days - float(_did[k]) < UNDO_DAYS:
+			return false
+	match act:
+		"abriss_werkstatt", "abriss_haus", "abriss_feld":
+			return true
+		"haus":
+			if recently_gone(w, "haus"):
+				return false
+			var beds := 0
+			for b in w.buildings:
+				if is_instance_valid(b):
+					beds += int(b.def.get("housing", 0))  # auch Baustellen: die Betten kommen
+			return beds - w.settlers.size() < 4
+		"lager":
+			for b in w.buildings:
+				if is_instance_valid(b) and not b.complete and int(b.def.get("storage", 0)) > 0:
+					return false
+			return float(Game.used_volume(w)) >= 0.7 * float(Game.storage_volume(w))
+		"feld":
+			return not recently_gone(w, "feld") and _count_where(w, func(b): return b.type == "feld") < 4 * maxi(1, adults)
+		"obstgarten":
+			return _count_where(w, func(b): return b.type == "obstgarten") < 2 * maxi(1, adults)
+		"schmuck":
+			return _count_where(w, func(b): return b.def.has("decor") and not b.def.has("tile")) < 1 + w.settlers.size() / 4
+	return true
+
+
+## Bauen und gleich wieder abreißen (josh 2026-11-16): die KI reißt nur ab, was mindestens KEEP_DAYS steht, und
+## baut 30 Tage lang nichts von der Art neu, die sie gerade abgerissen hat.
+const UNDO := {"nicht_essen_weg": "nicht_essen", "nicht_essen": "nicht_essen_weg", "reserve_weg": "reserve", "reserve": "reserve_weg",
+	"limit_frei": "limit", "limit": "limit_frei", "weiter": "pause", "pause": "weiter", "route_weg": "route", "route": "route_weg",
+	"abriss_feld": "feld", "abriss_haus": "haus"}
+const UNDO_DAYS := 10.0
+static var _did: Dictionary = {}  # "Insel|Handlung" -> Tag
+
+
+static func note_done(w, act: String) -> void:
+	_did["%d|%s" % [int(w.island_id), act]] = Game.time_days
+
+
+const KEEP_DAYS := 12.0
+const GONE_DAYS := 30.0
+static var _gone: Dictionary = {}  # "Insel|Art" -> Tag des Abrisses
+
+
+static func young(b) -> bool:
+	return b.has_meta("ki_day") and Game.time_days - float(b.get_meta("ki_day")) < KEEP_DAYS
+
+
+static func recently_gone(w, kind: String) -> bool:
+	var k := "%d|%s" % [int(w.island_id), kind]
+	return _gone.has(k) and Game.time_days - float(_gone[k]) < GONE_DAYS and Game.time_days >= float(_gone[k])
+
+
+static func note_gone(w, b) -> void:
+	var kind: String = "haus" if int(b.def.get("housing", 0)) > 0 else str(b.def.get("base", b.type))
+	_gone["%d|%s" % [int(w.island_id), kind]] = Game.time_days
+	_gone["%d|%s" % [int(w.island_id), b.type]] = Game.time_days
+
+
+static func _count_where(w, f: Callable) -> int:
+	var c := 0
+	for b in w.buildings:
+		if is_instance_valid(b) and f.call(b):
+			c += 1
+	return c
+
+
 ## Die 4 Eingänge der Handlung selbst: [so viele stehen schon / 3, keins da, wird gerade gebraucht, Besetzung].
 static func extras(w, act: String) -> Array:
 	var ex := [0.0, 0.0, 0.0, 0.0]
@@ -391,6 +487,7 @@ static func _place(w, type: String):
 	var b = w.place_building(type, c, false)
 	if b != null:
 		b.set_meta("ki_site", true)
+		b.set_meta("ki_day", Game.time_days)
 	return b
 
 
@@ -435,7 +532,7 @@ static func _idle_shop(w):
 	var best = null
 	var best_n := 0
 	for b in w.buildings:
-		if not _free(b) or not b.complete or not b.def.has("production") or b.def.get("ships", false):
+		if not _free(b) or not b.complete or not b.def.has("production") or b.def.get("ships", false) or young(b):
 			continue
 		if not b.occupants.is_empty() or not (b.paused or b.prod_blocker() != ""):
 			continue
@@ -453,7 +550,7 @@ static func _empty_house(w):
 			beds += int(b.def.get("housing", 0))
 	var best = null
 	for b in w.buildings:
-		if _free(b) and b.complete and int(b.def.get("housing", 0)) > 0 and b.residents().is_empty():
+		if _free(b) and b.complete and int(b.def.get("housing", 0)) > 0 and b.residents().is_empty() and not young(b):
 			if beds - int(b.def.housing) >= w.settlers.size() + 2 and (best == null or int(b.def.housing) < int(best.def.housing)):
 				best = b
 	return best
@@ -799,16 +896,19 @@ static func do(w, act: String) -> String:
 			"abriss_werkstatt":
 				var b = _idle_shop(w)
 				txt = "reißt %s ab (steht still)" % b.def.name
+				note_gone(w, b)
 				w.demolish(b)
 				KiBrain.waste_today += 1
 			"abriss_haus":
 				var b = _empty_house(w)
 				txt = "reißt %s ab (leer)" % b.def.name
+				note_gone(w, b)
 				w.demolish(b)
 				KiBrain.waste_today += 1
 			"abriss_feld":
 				var b = _spare_field(w)
 				txt = "gibt ein Getreidefeld auf"
+				note_gone(w, b)
 				w.demolish(b)
 				KiBrain.waste_today += 1
 			"versetzen":

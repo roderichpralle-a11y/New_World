@@ -637,7 +637,8 @@ func _maybe_autotest() -> void:
 			_ki_train_auto()
 		if args.has("kitrain"):
 			_ki_progress(args)
-		if args.has("kitrain") and not args.has("kiwatch") and (KiBrain.score_log.size() >= int(args.get("kidays", "3")) or Game.is_over or KiBrain.goal_done or _ki_stalled):
+		if args.has("kitrain") and not args.has("kiwatch") and (KiBrain.score_log.size() >= int(args.get("kidays", "3")) or Game.is_over or KiBrain.goal_done or _ki_stalled \
+				or (args.has("kigoalage") and Game.current_age() >= int(args.kigoalage))):
 			_ki_train_finish(args)
 			break
 		if args.has("foodsim"):

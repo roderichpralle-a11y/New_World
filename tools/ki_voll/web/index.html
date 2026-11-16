@@ -184,13 +184,14 @@ function renderZiel(s,ch,nm){
   const el=$('ziel'); if(!el)return;
   const sts=s.stufen||[], ages=nm.ages||[], k=s.stufe||0, st=sts[k];
   if(!st){el.innerHTML='';return}
-  const need=s.ziel_pruefungen||2, mine=ch.filter(c=>c.stufe===k);
+  const need=s.ziel_in_folge||10, mine=ch.filter(c=>c.stufe===k);
   const ok=g=>st.ziel?!!g.ziel:(g.alter||0)>=st.alter;
-  const last=mine.slice(-need), games=last.flatMap(c=>c.spiele), hit=games.filter(ok).length;
+  const games=mine.flatMap(c=>c.spiele); let hit=0; for(let i=games.length-1;i>=0&&ok(games[i]);i--)hit++;
+  const lastG=games.slice(-need), fast=lastG.filter(g=>g.ziel_tag!=null).map(g=>g.ziel_tag);
   const lastStage=k>=sts.length-1;
   let h='<b>Stufe '+(k+1)+' von '+sts.length+': '+esc(stufeText(st,ages))+'</b> <span class="mute">(Spiele über '+fmt(st.tage)+' Tage = '+(st.tage/12).toFixed(1)+' Spieljahre)</span>';
-  h+='<div class="mute" style="margin:6px 0">Das Ziel gilt als geschafft, wenn in '+need+' Prüfungen nacheinander alle Prüfspiele es erreichen. Dann hält das Training an und wartet auf dein Okay. Die nächste Stufe lernt mit den bisherigen Gewichten weiter.</div>';
-  h+='<div>'+(mine.length?'Letzte '+last.length+' Prüfungen dieser Stufe: <b>'+hit+' von '+games.length+'</b> Prüfspielen schaffen das Ziel.':'Noch keine Prüfung in dieser Stufe.')+'</div>';
+  h+='<div class="mute" style="margin:6px 0">Die Stufe ist geschafft, wenn '+need+' Prüfspiele in Folge das Ziel erreichen. Dann hält das Training an und wartet auf dein Okay. Die nächste Stufe lernt mit den bisherigen Gewichten weiter. Ein Spiel endet, sobald das Ziel erreicht ist. Jeder Tag, den es früher fertig ist, bringt Punkte: schneller ist besser.</div>';
+  h+='<div>'+(games.length?'Ziel in Folge erreicht: <b>'+Math.min(hit,need)+' von '+need+'</b> Prüfspielen.'+(fast.length?' Erreicht im Mittel an Tag '+(fast.reduce((a,b)=>a+b,0)/fast.length).toFixed(0)+' (schnellstes: Tag '+Math.min(...fast).toFixed(0)+').':''):'Noch keine Prüfung in dieser Stufe.')+'</div>';
   if(s.wartet) h+='<div style="margin-top:10px"><b>Geschafft.</b> '+(lastStage?'Das war die letzte Stufe: die KI baut die Zukunftsstadt.':'<button id="bweiter" class="pri">Okay, Stufe '+(k+2)+' starten: '+esc(stufeText(sts[k+1],ages))+'</button>')+'</div>';
   h+='<div class="mute" style="margin-top:8px">Alle Stufen: '+sts.map((x,i)=>(i<k?'✓ ':i===k?'▶ ':'')+(i+1)+'. '+esc(stufeText(x,ages))).join(' · ')+'</div>';
   el.innerHTML=h;
