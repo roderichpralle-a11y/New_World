@@ -3,381 +3,1135 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Insel-Siedler: KI-Training</title>
+<title>Insel-KI-Training</title>
+<!-- Gestaltung: Standard-Format (josh 2026-11-17), CSS der Vorlage unverändert, darunter nur das Raster dieser App. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&amp;display=swap">
 <style>
-:root{--bg:#f4f1ea;--card:#fffdf8;--ink:#23201b;--mute:#6f685c;--line:#ddd5c5;--acc:#2f6f5e;--acc2:#b0652a;--bad:#a23b2e;--good:#2f7d46;--code:#fbf8f1;--kw:#8a3d7a;--str:#2f6f5e;--com:#8a8272;--num:#b0652a}
-@media (prefers-color-scheme: dark){:root{--bg:#181a1b;--card:#212425;--ink:#e9e6df;--mute:#9a968c;--line:#35393b;--acc:#6fc3ab;--acc2:#e0a064;--bad:#e07a6c;--good:#7fce94;--code:#1b1d1e;--kw:#d59bd0;--str:#8fd1bd;--com:#7d7a72;--num:#e0a064}}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif}
-header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--card);position:sticky;top:0;z-index:5}
-h1{font-size:18px;margin:0;flex:1 1 220px}
-h2{font-size:16px;margin:26px 0 10px}
-h3{font-size:14px;margin:16px 0 6px}
-button{font:inherit;padding:7px 14px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
-button.pri{background:var(--acc);color:#fff;border-color:var(--acc)}
-@media (prefers-color-scheme: dark){button.pri{color:#10201b}}
-button:disabled{opacity:.45;cursor:default}
-.pill{padding:4px 10px;border-radius:99px;font-size:13px;border:1px solid var(--line)}
-.pill.on{background:var(--good);color:#fff;border-color:var(--good)}
-nav{display:flex;gap:4px;padding:0 20px;background:var(--card);border-bottom:1px solid var(--line);overflow-x:auto}
-nav button{border:0;border-bottom:3px solid transparent;border-radius:0;background:none;padding:10px 12px;white-space:nowrap}
-nav button.sel{border-bottom-color:var(--acc);font-weight:600}
-main{padding:8px 20px 60px;max-width:1280px;margin:0 auto}
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:14px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
-.card .k{font-size:12px;color:var(--mute)}
-.card .v{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums}
-.card .s{font-size:12px;color:var(--mute)}
-.box{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-top:10px}
-.scroll{overflow-x:auto}
-table{border-collapse:collapse;width:100%;font-size:14px}
-th,td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--line);vertical-align:top}
-th{font-size:12px;color:var(--mute);font-weight:600;white-space:nowrap}
-td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
-.bar{height:8px;border-radius:4px;background:var(--line);min-width:90px;overflow:hidden}
-.bar i{display:block;height:100%;background:var(--acc)}
-.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:10px}
-.mute{color:var(--mute)}
-.small{font-size:13px}
-svg{width:100%;height:auto;display:block}
-.legend{display:flex;gap:14px;font-size:12px;color:var(--mute);flex-wrap:wrap}
-.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px}
-select,input{font:inherit;padding:5px 8px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
-details{border:1px solid var(--line);border-radius:10px;background:var(--card);margin-top:8px}
-details>summary{padding:8px 12px;cursor:pointer;font-weight:600}
-details>div{padding:0 12px 12px}
-.plus{color:var(--good)}.minus{color:var(--bad)}
-.code{display:grid;grid-template-columns:280px minmax(0,1fr);gap:12px;margin-top:14px}
-@media (max-width:820px){.code{grid-template-columns:1fr}}
-.flist{max-height:78vh;overflow:auto}
-.flist a{display:block;padding:7px 10px;border-radius:8px;color:inherit;text-decoration:none;cursor:pointer}
-.flist a.sel{background:var(--acc);color:#fff}
-@media (prefers-color-scheme: dark){.flist a.sel{color:#10201b}}
-.flist a small{display:block;color:var(--mute);font-size:12px}
-.flist a.sel small{color:inherit;opacity:.85}
-pre{margin:0;background:var(--code);border:1px solid var(--line);border-radius:10px;padding:10px 0;overflow:auto;max-height:78vh;font:12.5px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;tab-size:4}
-pre .l{display:block;padding:0 12px 0 0;white-space:pre}
-pre .l::before{content:attr(data-n);display:inline-block;width:52px;padding-right:12px;text-align:right;color:var(--com);user-select:none}
-.kw{color:var(--kw)}.st{color:var(--str)}.co{color:var(--com);font-style:italic}.nu{color:var(--num)}
-.hide{display:none}
-.ctl{display:flex;gap:6px;align-items:center;font-size:14px}
-.ctl select,.ctl input{font:inherit;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
-.ctl input{width:90px}
-.prog{height:10px;border-radius:5px;background:var(--line);overflow:hidden;margin:8px 0}.prog i{display:block;height:100%;background:var(--acc)}
+body{margin:0}
+*,*::before,*::after{box-sizing:border-box}
+
+/* ---------- Farben: Tag ---------- */
+.app.tag{
+  --rahmen:#12264F; --rahmen-2:#0D1D3F;
+  --kopf:linear-gradient(100deg,#1B3F8B 0%,#12264F 36%,#1A1530 56%,#5E0E1C 79%,#A3192A 100%);
+  --seite:linear-gradient(170deg,#1B3F8B 0%,#12264F 36%,#1A1530 56%,#5E0E1C 79%,#A3192A 100%);
+  --unten:linear-gradient(100deg,#12264F 0%,#1A1530 42%,#5E0E1C 100%);
+  --statusbg:linear-gradient(90deg,#3A0A14 0%,#4E0C18 60%,#6E0F1B 100%);
+  --gold-hell:#F3DA92; --gold:#C9A13B; --gold-dunkel:#5C4514;
+  --rand-gold:#B8994F;
+  --feld:#BCCBE6; --feld-verlauf:linear-gradient(to bottom right,#B3C6E8 0%,#C1C2E0 50%,#DCBAC6 100%);
+  --panel:rgba(255,255,255,.7); --panel-voll:#EEF2F9; --panel-rand:#D3DAE6;
+  --eingabe:#FFFFFF; --label-bg:#E9EEF6; --linie:#D8DFEA;
+  --text:#1A2233; --text-2:#4B566E; --titel:#12264F;
+  --chip-b:#E3EAF7; --chip-b-tx:#1B3F8B; --chip-r:#F8E5E7; --chip-r-tx:#8E1422;
+  --aktiv-bg:#F8E5E7; --ok:#2E7D4F;
+  --stahl:linear-gradient(180deg,#FFFFFF 0%,#EDF0F5 55%,#DCE2EB 100%);
+  --stahl-tx:#1A2233; --stahl-schatten:0 1px 0 rgba(255,255,255,.9);
+  --track:#E4E9F2;
+  --fokus:#1B3F8B; --fokus-flaeche:#1B3F8B;
+  --mulde-hell:#FFFFFF; --mulde-dunkel:#D3DAE6;
+}
+/* ---------- Farben: Nacht ---------- */
+.app.nacht{
+  --rahmen:#0B1630; --rahmen-2:#07102A;
+  --kopf:linear-gradient(100deg,#173570 0%,#0D1B3B 38%,#140F24 58%,#4A0B16 80%,#861425 100%);
+  --seite:linear-gradient(170deg,#173570 0%,#0D1B3B 38%,#140F24 58%,#4A0B16 80%,#861425 100%);
+  --unten:linear-gradient(100deg,#0D1B3B 0%,#140F24 42%,#4A0B16 100%);
+  --statusbg:linear-gradient(90deg,#24060D 0%,#330812 60%,#4A0B16 100%);
+  --gold-hell:#F3DC98; --gold:#D9B45A; --gold-dunkel:#4A370F;
+  --rand-gold:#8F7536;
+  --feld:#111827; --feld-verlauf:linear-gradient(to bottom right,#111B31 0%,#15152A 55%,#211321 100%);
+  --panel:#192235; --panel-voll:#192235; --panel-rand:#2A3550;
+  --eingabe:#101827; --label-bg:#1E2840; --linie:#2A3550;
+  --text:#E6E9EF; --text-2:#A3AEC3; --titel:#F2EAD6;
+  --chip-b:#1E3360; --chip-b-tx:#C4D4F6; --chip-r:#4A1A24; --chip-r-tx:#F7CBD1;
+  --aktiv-bg:#3A1620; --ok:#62C48F;
+  --stahl:linear-gradient(180deg,#3B4864 0%,#2B3651 55%,#222B42 100%);
+  --stahl-tx:#EEF1F6; --stahl-schatten:0 1px 0 rgba(0,0,0,.4);
+  --track:#141C2C;
+  --fokus:#F3DA92; --fokus-flaeche:#F3DA92;
+  --mulde-hell:#2C3754; --mulde-dunkel:#111929;
+}
+
+/* ---------- Grundgerüst ---------- */
+.app{display:flex;flex-direction:column;background:var(--feld);color:var(--text);
+  font-family:'Barlow',system-ui,sans-serif;font-size:calc(1.0625rem * var(--s));line-height:1.5;overflow:hidden}
+:where(.app) :where(button,input,select,textarea){font:inherit;color:inherit}
+.disp{font-family:'Barlow',system-ui,sans-serif}
+.ic{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+
+/* ---------- Kopfleiste ---------- */
+.kopf{position:relative;z-index:20;background:var(--kopf);display:grid;
+  grid-template-columns:96px minmax(0,1fr);grid-template-rows:56px 42px;color:#FFF4DC}
+.logo-zelle{grid-row:1 / span 2;display:flex;align-items:center;justify-content:center}
+.logo{width:66px;height:79px;display:block;filter:drop-shadow(0 3px 3px rgba(0,0,0,.45))}
+.titelzeile{display:flex;align-items:center;gap:16px;padding:0 16px 0 4px;min-width:0}
+.appname{margin:0;padding:2px 0 4px;font-size:calc(1.75rem * var(--s));font-weight:700;line-height:1.25;letter-spacing:0;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1 1 auto;text-shadow:0 2px 0 rgba(0,0,0,.35)}
+.titel-rechts{display:flex;align-items:center;gap:14px;flex:none}
+.stufe{display:inline-flex;align-items:center;height:28px;padding:0 12px;border-radius:14px;font-size:calc(0.875rem * var(--s));font-weight:600;
+  background:rgba(7,16,42,.45);border:1.5px solid var(--gold);color:#FFF4DC}
+.menuezeile{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 16px 0 2px;
+  background:rgba(4,10,28,.32);border-top-left-radius:10px;min-width:0}
+.menue{display:flex;align-items:center;gap:2px}
+.menue-gruppe{position:relative}
+.menue-knopf{height:32px;padding:0 12px;border:0;border-radius:6px;background:transparent;color:#EFE7D2;
+  font-weight:500;font-size:calc(1rem * var(--s));cursor:pointer}
+.menue-knopf:hover{background:rgba(255,255,255,.1)}
+.menue-knopf.offen{background:rgba(243,218,146,.2);color:#FFF4DC;box-shadow:inset 0 0 0 1.5px rgba(243,218,146,.55)}
+.befehle{display:flex;align-items:center;gap:10px}
+.mobil-knoepfe{display:none;align-items:center;gap:8px}
+
+/* Aufklappmenü */
+.liste{position:absolute;top:calc(100% + 8px);left:0;width:300px;padding:6px;border-radius:9px;
+  background:var(--panel-voll);border:1.5px solid var(--gold);color:var(--text);
+  box-shadow:0 14px 30px rgba(0,0,0,.45);z-index:60}
+.liste-eintrag{display:flex;align-items:center;justify-content:space-between;width:100%;height:36px;padding:0 10px;
+  border:0;border-radius:6px;background:transparent;cursor:pointer;font-size:calc(1rem * var(--s));text-align:left}
+.liste-eintrag:hover,.liste-eintrag.hervor{background:var(--aktiv-bg);color:var(--chip-r-tx)}
+.kuerzel{color:var(--text-2);font-size:calc(0.8438rem * var(--s));font-variant-numeric:tabular-nums}
+.liste-eintrag.hervor .kuerzel{color:inherit}
+.liste-trenner{height:1px;margin:5px 8px;background:var(--linie)}
+
+/* Messingschiene */
+.schiene{height:5px;flex:none;position:relative;z-index:10;
+  background:linear-gradient(180deg,#F6DE97 0%,#C9A13B 50%,#6E5418 100%);box-shadow:0 2px 5px rgba(0,0,0,.3)}
+
+/* ---------- 3D-Buttons (Emaille mit Messingfassung) ---------- */
+.knopf{position:relative;display:inline-flex;align-items:center;gap:10px;height:48px;padding:0 16px;
+  border:2px solid transparent;border-radius:7px;cursor:pointer;color:#FFF6E6;
+  font-family:'Barlow',system-ui,sans-serif;font-weight:600;font-size:calc(1.0625rem * var(--s));letter-spacing:.01em;line-height:1.1;
+  text-shadow:0 1px 0 rgba(0,0,0,.35);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.35),inset 0 -2px 0 rgba(0,0,0,.2),0 3px 0 var(--gold-dunkel),0 5px 9px rgba(0,0,0,.28);
+  transition:transform .08s ease,box-shadow .08s ease,filter .12s ease}
+.knopf::before{content:"";position:absolute;left:4px;right:4px;top:2px;height:44%;border-radius:4px 4px 12px 12px;
+  background:linear-gradient(180deg,rgba(255,255,255,.26),rgba(255,255,255,0));pointer-events:none}
+.knopf:hover{filter:brightness(1.07)}
+.knopf:active{transform:translateY(2px);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.25),inset 0 -1px 0 rgba(0,0,0,.2),0 1px 0 var(--gold-dunkel),0 2px 3px rgba(0,0,0,.25)}
+.app :focus-visible{outline:3px solid var(--fokus);outline-offset:3px}
+.kopf,.aktionen,.status{--fokus:#F3DA92}
+.liste{--fokus:var(--fokus-flaeche)}
+.knopf.rot{background:linear-gradient(180deg,#D43C49 0%,#A3192A 52%,#86111F 100%) padding-box,
+  linear-gradient(180deg,#F6DE97 0%,#C9A13B 45%,#6E5418 100%) border-box}
+.knopf.blau{background:linear-gradient(180deg,#3766C6 0%,#1B3F8B 52%,#132E69 100%) padding-box,
+  linear-gradient(180deg,#F6DE97 0%,#C9A13B 45%,#6E5418 100%) border-box}
+.knopf.stahl{background:var(--stahl) padding-box,linear-gradient(180deg,#F6DE97 0%,#C9A13B 45%,#6E5418 100%) border-box;
+  color:var(--stahl-tx);text-shadow:var(--stahl-schatten)}
+.knopf.stahl::before{opacity:.5}
+.knopf.klein{height:34px;padding:0 12px;gap:7px;font-size:calc(0.9375rem * var(--s));border-radius:6px}
+.knopf.klein .ic{width:17px;height:17px}
+.knopf.symbol{width:44px;height:44px;padding:0;justify-content:center}
+
+/* Nachtmodus-Schalter */
+.schalter{position:relative;width:60px;height:30px;padding:0;border-radius:15px;cursor:pointer;flex:none;
+  border:2px solid transparent;
+  background:linear-gradient(180deg,#0A1430,#14244A) padding-box,linear-gradient(180deg,#F6DE97,#C9A13B 45%,#6E5418) border-box;
+  box-shadow:inset 0 2px 4px rgba(0,0,0,.5)}
+.schalter .ic{position:absolute;top:50%;width:14px;height:14px;margin-top:-7px;color:#F3DA92;opacity:.75}
+.schalter .sonne{left:7px}.schalter .mond{right:7px}
+.schalter-knauf{position:absolute;top:2px;left:2px;width:22px;height:22px;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,#FFFFFF 0%,#F3DA92 35%,#B08A2E 100%);
+  box-shadow:0 2px 3px rgba(0,0,0,.5);transition:left .15s ease}
+.schalter.an .schalter-knauf{left:32px}
+
+/* ---------- Rumpf ---------- */
+.rumpf{position:relative;flex:1 1 auto;display:flex;min-height:0}
+.aktionen{flex:none;width:calc(224px * var(--s));display:flex;flex-direction:column;gap:14px;padding:20px 16px;
+  background:var(--seite);
+  border-right:2px solid var(--gold);box-shadow:inset -6px 0 10px -6px rgba(0,0,0,.5)}
+.aktionen .knopf{width:100%;justify-content:flex-start;white-space:nowrap}
+.arbeitsfeld{flex:1 1 auto;min-width:0;overflow:auto;padding:16px 24px 16px;background:var(--feld-verlauf)}
+.raster{display:grid;grid-template-columns:minmax(0,1fr) 380px;grid-template-areas:"lektion plan" "lektion notiz";
+  gap:18px 24px;align-items:start;max-width:1240px}
+
+/* Panels */
+.panel{background:var(--panel);border:1.5px solid var(--rand-gold);border-radius:12px}
+.panel-kopf{padding:14px 20px 12px;border-bottom:1px solid var(--linie)}
+.panel-titel{margin:0;font-size:calc(1.375rem * var(--s));font-weight:700;line-height:1.2;color:var(--titel);letter-spacing:0}
+.meta{margin:4px 0 0;font-size:calc(0.9062rem * var(--s));font-weight:500;color:var(--text-2)}
+.panel-inhalt{padding:16px 20px 18px}
+
+/* Lektion */
+.lektion{grid-area:lektion}
+.lektion .panel-kopf{padding:16px 26px 12px}
+.lektion .panel-inhalt{padding:18px 26px 14px}
+.lektion-titel{margin:0;font-size:calc(1.875rem * var(--s));font-weight:700;line-height:1.2;color:var(--titel);letter-spacing:-.01em}
+.fliess{max-width:70ch;margin:0 0 10px;font-size:calc(1.125rem * var(--s));line-height:1.55}
+.beispiel{margin:14px 0 20px;border:1.5px solid var(--rand-gold);border-radius:10px;overflow:hidden}
+.beispiel-kopf{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:9px 14px;
+  background:var(--label-bg);border-bottom:1px solid var(--linie);font-size:calc(0.875rem * var(--s));font-weight:600;color:var(--text-2)}
+.beispiel-kopf strong{color:var(--text);font-variant-numeric:tabular-nums;white-space:nowrap}
+.tokens{display:flex;flex-wrap:wrap;gap:8px;padding:12px 14px;background:var(--eingabe)}
+.token{display:inline-flex;align-items:center;height:34px;padding:0 12px;border-radius:17px;font-size:calc(1.0625rem * var(--s));font-weight:600}
+.token.b{background:var(--chip-b);color:var(--chip-b-tx)}
+.token.r{background:var(--chip-r);color:var(--chip-r-tx)}
+.abschnitt-titel{margin:0 0 6px;font-size:calc(1.375rem * var(--s));font-weight:700;line-height:1.2;color:var(--titel)}
+.frage{margin:0 0 10px;font-size:calc(1.125rem * var(--s));max-width:70ch}
+
+/* Zusammenhängende Blöcke (Auswahl + Formular) */
+.block{border:1.5px solid var(--rand-gold);border-radius:10px;overflow:hidden;background:var(--eingabe)}
+.wahl{display:flex;align-items:center;gap:12px;min-height:46px;padding:8px 14px;cursor:pointer;font-size:calc(1.0625rem * var(--s))}
+.wahl + .wahl{border-top:1px solid var(--linie)}
+.wahl:hover{background:var(--label-bg)}
+.wahl.gewaehlt{background:var(--aktiv-bg);color:var(--chip-r-tx);font-weight:600}
+.wahl input{appearance:none;-webkit-appearance:none;margin:0;width:26px;height:26px;flex:none;border-radius:50%;
+  border:2px solid transparent;cursor:pointer;
+  background:var(--glanz) padding-box,var(--stahl) padding-box,var(--fassung) border-box;
+  box-shadow:inset 0 -2px 0 rgba(0,0,0,.16),0 2px 0 var(--gold-dunkel),0 3px 5px rgba(0,0,0,.28)}
+.wahl input:checked{background:radial-gradient(circle at 50% 50%,#FFF6E6 0 3.6px,rgba(255,246,230,0) 4.4px) padding-box,
+  var(--glanz) padding-box,linear-gradient(180deg,#D43C49 0%,#A3192A 55%,#86111F 100%) padding-box,var(--fassung) border-box}
+.wahl input:focus-visible{outline:3px solid var(--fokus);outline-offset:2px}
+.knopfreihe{display:flex;flex-wrap:wrap;gap:14px;margin-top:18px;align-items:center}
+.ergebnis{display:flex;align-items:center;gap:8px;margin:12px 0 0;font-weight:600;color:var(--ok)}
+
+.feldzeile{display:grid;grid-template-columns:104px minmax(0,1fr)}
+.feldzeile + .feldzeile{border-top:1px solid var(--linie)}
+.feldzeile label{display:flex;align-items:center;padding:0 12px;background:var(--label-bg);border-right:1px solid var(--linie);
+  font-size:calc(0.9062rem * var(--s));font-weight:600;color:var(--text-2)}
+.feldzeile.hoch label{align-items:flex-start;padding-top:12px}
+.feldzeile input,.feldzeile select,.feldzeile textarea{width:100%;min-height:46px;border:0;border-radius:0;padding:10px 12px;
+  background:var(--eingabe);font-size:calc(1.0625rem * var(--s))}
+.feldzeile select{appearance:none;-webkit-appearance:none;cursor:pointer;
+  background-image:linear-gradient(45deg,transparent 50%,var(--gold) 50%),linear-gradient(135deg,var(--gold) 50%,transparent 50%);
+  background-position:calc(100% - 20px) 50%,calc(100% - 14px) 50%;background-size:6px 6px;background-repeat:no-repeat}
+.feldzeile textarea{resize:vertical;line-height:1.5;min-height:calc(4 * 1.5em + 20px);display:block}
+.feldzeile:focus-within{outline:3px solid var(--fokus);outline-offset:-3px;position:relative;z-index:1}
+.feldzeile input:focus-visible,.feldzeile select:focus-visible,.feldzeile textarea:focus-visible{outline:0}
+.notiz{grid-area:notiz}
+
+/* Kursplan */
+.plan{grid-area:plan}
+.fortschritt{display:flex;justify-content:space-between;align-items:baseline;font-size:calc(0.875rem * var(--s));font-weight:600;color:var(--text-2);margin-bottom:7px}
+.fortschritt strong{color:var(--text);font-variant-numeric:tabular-nums}
+.leiste{height:14px;border-radius:7px;border:1.5px solid var(--gold);background:var(--track);overflow:hidden;
+  box-shadow:inset 0 1px 3px rgba(0,0,0,.25)}
+.leiste-fuellung{height:100%;width:25%;border-radius:0 6px 6px 0;
+  background:linear-gradient(90deg,#1B3F8B 0%,#12264F 48%,#5E0E1C 78%,#A3192A 100%);box-shadow:inset 0 1px 0 rgba(255,255,255,.3)}
+.lektionen{list-style:none;margin:12px 0 0;padding:0}
+.lektionen li{display:flex;align-items:center;gap:12px;min-height:33px;padding:1px 8px;border-radius:8px;font-size:calc(1rem * var(--s))}
+.lektionen li.aktiv{background:var(--aktiv-bg);color:var(--chip-r-tx);font-weight:600}
+.lektionen li.fertig{color:var(--text-2)}
+.nr,.wahl input{--glanz:radial-gradient(ellipse 72% 46% at 50% 16%,rgba(255,255,255,.55),rgba(255,255,255,0) 72%);
+  --fassung:linear-gradient(180deg,#F6DE97 0%,#C9A13B 45%,#6E5418 100%)}
+.nr{width:30px;height:30px;flex:none;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;
+  border:2px solid transparent;font-weight:700;font-size:calc(0.8125rem * var(--s));font-variant-numeric:tabular-nums;line-height:1;
+  background:var(--glanz) padding-box,var(--stahl) padding-box,var(--fassung) border-box;
+  color:var(--stahl-tx);text-shadow:var(--stahl-schatten);
+  box-shadow:inset 0 -2px 0 rgba(0,0,0,.16),0 2px 0 var(--gold-dunkel),0 3px 5px rgba(0,0,0,.28)}
+.fertig .nr{background:var(--glanz) padding-box,linear-gradient(180deg,#3766C6 0%,#1B3F8B 55%,#132E69 100%) padding-box,var(--fassung) border-box;
+  color:#F3DA92;text-shadow:0 1px 0 rgba(0,0,0,.4)}
+.fertig .nr .ic{width:15px;height:15px;stroke-width:3}
+.aktiv .nr{background:var(--glanz) padding-box,linear-gradient(180deg,#D43C49 0%,#A3192A 55%,#86111F 100%) padding-box,var(--fassung) border-box;
+  color:#FFF6E6;text-shadow:0 1px 0 rgba(0,0,0,.4)}
+
+/* ---------- Statusleiste ---------- */
+.status{flex:none;display:flex;align-items:stretch;min-height:30px;padding:0 6px;background:var(--statusbg);
+  border-top:2px solid var(--gold);color:#E2E6EE;font-size:calc(0.875rem * var(--s));font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden}
+.seg{display:inline-flex;align-items:center;gap:6px;padding:0 12px}
+.seg + .seg{border-left:1px solid rgba(217,180,90,.4)}
+.seg .ic{width:14px;height:14px;stroke-width:2.4}
+.seg.ok .ic{color:#7FD3A5}
+.seg.frisch{background:rgba(127,211,165,.18);color:#FFFFFF}
+.punkt{width:8px;height:8px;border-radius:50%;background:#62C48F;box-shadow:0 0 0 2px rgba(98,196,143,.25)}
+.seg.rechts{margin-left:auto;border-left:1px solid rgba(217,180,90,.35)}
+
+/* Scrollbalken in Messing */
+.app *{scrollbar-width:thin;scrollbar-color:var(--gold) var(--track)}
+.app ::-webkit-scrollbar{width:12px;height:12px}
+.app ::-webkit-scrollbar-track{background:var(--track)}
+.app ::-webkit-scrollbar-thumb{border-radius:8px;border:3px solid var(--track);
+  background:linear-gradient(90deg,#8A6A1F,#D9B45A 50%,#8A6A1F)}
+
+/* ---------- Menü-Blatt (Handy) ---------- */
+.blatt{position:absolute;inset:0;z-index:40;overflow:auto;background:var(--panel-voll);padding:8px 16px 20px;
+  border-bottom:2px solid var(--gold)}
+.blatt-zeile{display:flex;align-items:center;justify-content:space-between;min-height:56px;border-bottom:1px solid var(--linie);
+  font-weight:600;font-size:calc(1.0625rem * var(--s))}
+.blatt-befehle{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:14px 0;border-bottom:1px solid var(--linie)}
+.blatt-befehle .knopf{justify-content:center;height:46px}
+.blatt-gruppe{display:flex;align-items:center;justify-content:space-between;width:100%;min-height:54px;padding:0 4px;
+  border:0;border-bottom:1px solid var(--linie);background:transparent;cursor:pointer;color:var(--titel);
+  font-family:'Barlow',system-ui,sans-serif;font-size:calc(1.125rem * var(--s));font-weight:600;text-align:left}
+.blatt-gruppe .ic{color:var(--gold)}
+.blatt-unter{padding:4px 0 8px 10px;border-bottom:1px solid var(--linie)}
+.blatt-unter .liste-eintrag{height:44px;font-size:calc(1rem * var(--s))}
+
+/* ---------- Handy ---------- */
+@media (max-width:760px){
+  .kopf{grid-template-columns:56px minmax(0,1fr);grid-template-rows:64px}
+  .logo-zelle{grid-row:1}
+  .logo{width:40px;height:48px}
+  .titelzeile{padding:0 10px 0 2px;gap:10px}
+  .appname{font-size:calc(1.25rem * var(--s))}
+  .menuezeile,.titel-rechts{display:none}
+  .mobil-knoepfe{display:flex}
+  .rumpf{flex-direction:column}
+  .aktionen{order:2;width:auto;flex-direction:row;gap:8px;padding:10px 10px 12px;border-right:0;border-top:2px solid var(--gold);background:var(--unten);
+    box-shadow:inset 0 6px 10px -6px rgba(0,0,0,.5)}
+  .aktionen .knopf{flex:1 1 0;min-width:0;height:auto;min-height:66px;flex-direction:column;justify-content:center;gap:5px;padding:8px 2px;
+    font-size:calc(0.7812rem * var(--s));letter-spacing:0;line-height:1.15;text-align:center;white-space:normal}
+  .aktionen .knopf .ic{width:22px;height:22px}
+  .arbeitsfeld{flex:1 1 auto;min-height:0;padding:14px 12px 18px}
+  .raster{grid-template-columns:minmax(0,1fr);grid-template-areas:"lektion" "notiz" "plan";gap:14px}
+  .lektion .panel-kopf{padding:16px 16px 12px}
+  .lektion .panel-inhalt{padding:16px}
+  .lektion-titel{font-size:calc(1.5rem * var(--s))}
+  .fliess,.frage{font-size:calc(1.0312rem * var(--s))}
+  .seg.breit{display:none}
+  .status{min-height:28px}
+}
+@media (min-width:761px) and (max-width:1180px){
+  .raster{grid-template-columns:minmax(0,1fr);grid-template-areas:"lektion" "plan" "notiz"}
+}
+
+/* Wappen */
+.lg-schatten{fill:#3E2E0C;stroke:#3E2E0C;stroke-width:6;stroke-linejoin:round}
+.lg-b{fill:#1B3F8B}.lg-r{fill:#A3192A}
+.lg-glanz{fill:#FFFFFF;opacity:.16}
+.lg-naht{fill:none;stroke:#D9B45A;stroke-width:1.3;opacity:.9}
+.lg-link{fill:none;stroke:#FFF4DC;stroke-width:2.6;stroke-linecap:round}
+.lg-k{fill:#FFF4DC;stroke:#0D1D3F;stroke-width:1.3}
+.lg-kz{fill:#F3DA92;stroke:#5C4514;stroke-width:1.5}
+.lg-gold{fill:none;stroke:#D9B45A;stroke-width:3;stroke-linejoin:round}
+.ergebnis.falsch{color:var(--chip-r-tx)}
+
+.panel-kopf.zeile{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.panel-kopf.zeile .meta{margin:0}
+
+/* Haken in Menüeinträgen */
+.mit-haken{display:inline-flex;align-items:center;gap:8px}
+.haken-platz{display:inline-flex;width:18px;justify-content:center}
+.haken-platz .ic{width:16px;height:16px;stroke-width:2.6;visibility:hidden}
+.haken-platz.sichtbar .ic{visibility:visible}
+
+/* Zweiteiliger Schalter (Schriftgröße) */
+.wahlschalter{display:inline-flex;border-radius:8px;overflow:hidden;
+  border:2px solid transparent;background:linear-gradient(var(--label-bg),var(--label-bg)) padding-box,linear-gradient(180deg,#F6DE97,#C9A13B 45%,#6E5418) border-box}
+.ws-knopf{min-height:40px;padding:0 16px;border:0;background:transparent;cursor:pointer;font-weight:600;font-size:calc(0.9375rem * var(--s));color:var(--text)}
+.ws-knopf + .ws-knopf{border-left:1px solid var(--linie)}
+.ws-knopf.an{background:linear-gradient(180deg,#3766C6 0%,#1B3F8B 55%,#132E69 100%);color:#FFF6E6;box-shadow:inset 0 1px 0 rgba(255,255,255,.3)}
+
+/* Schriftgröße: Normal / Groß */
+.app{--s:1}
+.app.gross{--s:1.15}
+
+/* ---------- Seitenrahmen der Vorlage ---------- */
+html,body{height:100%}
+.app{height:100vh;height:100dvh}
+[hidden]{display:none!important}
+@media print{
+  .kopf,.schiene,.aktionen,.status{display:none}
+  .app{height:auto;overflow:visible;background:#fff;color:#000}
+  .arbeitsfeld{overflow:visible;background:none}
+  .panel{background:#fff;border-color:#999}
+}
+
+
+/* ================= Insel-KI-Training: Layout dieser App (nur Raster und Bausteine, Farben aus den Variablen) ================= */
+.raster{grid-template-areas:none}
+.raster.zwei{grid-template-columns:minmax(0,1fr) 380px}
+.raster.code{grid-template-columns:300px minmax(0,1fr)}
+.raster.eins{grid-template-columns:minmax(0,1fr)}
+.spalte{display:flex;flex-direction:column;gap:18px;min-width:0}
+.seitenkopf{margin:2px 0 14px}
+.seitentitel{margin:0;font-size:calc(1.875rem * var(--s));font-weight:700;line-height:1.2;color:var(--titel);letter-spacing:-.01em}
+.seitenkopf .meta{font-size:calc(0.9062rem * var(--s))}
+.aktionen .trenner{height:1px;margin:2px 4px;background:rgba(243,218,146,.45);flex:none}
+.aktionen .leisten-titel{margin:4px 2px -6px;font-size:calc(0.8438rem * var(--s));font-weight:600;color:#EFE7D2}
+.knopfreihe.eng{margin-top:12px;gap:10px}
+.knopf:disabled{filter:grayscale(.55) brightness(.92);opacity:.6;cursor:default;transform:none}
+.punkt.aus{background:var(--gold);box-shadow:0 0 0 2px rgba(201,161,59,.25)}
+
+/* Werte als zusammenhängender Block (wie Formularblock, ohne Eingabe) */
+.feldzeile.breit{grid-template-columns:150px minmax(0,1fr)}
+.feldzeile select{padding-right:34px}
+.nur-schmal{display:none}
+.feldzeile .wert{display:flex;align-items:center;flex-wrap:wrap;gap:4px 10px;min-height:42px;padding:8px 12px;background:var(--eingabe);
+  font-size:calc(1rem * var(--s));font-variant-numeric:tabular-nums}
+.feldzeile .wert strong{font-weight:700;color:var(--titel)}
+.feldzeile .wert .neben{color:var(--text-2);font-size:calc(0.9062rem * var(--s))}
+.feldzeile input[type=number]{font-variant-numeric:tabular-nums}
+
+/* Tabellen in einem Block */
+.tabelle-block{border:1.5px solid var(--rand-gold);border-radius:10px;overflow:auto;background:var(--eingabe)}
+.tabelle-block.hoch{max-height:440px}
+table.tab{border-collapse:collapse;width:100%;font-size:calc(0.9375rem * var(--s))}
+.tab th,.tab td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--linie);vertical-align:top}
+.tab th{position:sticky;top:0;background:var(--label-bg);color:var(--text-2);font-weight:600;font-size:calc(0.8438rem * var(--s));white-space:nowrap}
+.tab tr:last-child td{border-bottom:0}
+.tab td.n,.tab th.n{text-align:right;font-variant-numeric:tabular-nums}
+.tab tr.aktiv td{background:var(--aktiv-bg);color:var(--chip-r-tx);font-weight:600}
+.tab .neben{color:var(--text-2)}
+.mini-leiste{height:10px;min-width:90px;border-radius:5px;border:1px solid var(--gold);background:var(--track);overflow:hidden}
+.mini-leiste i{display:block;height:100%;background:linear-gradient(90deg,#1B3F8B 0%,#12264F 48%,#5E0E1C 78%,#A3192A 100%)}
+
+/* Diagramme */
+.diagramme{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.diagramm{border:1.5px solid var(--rand-gold);border-radius:10px;overflow:hidden;background:var(--eingabe)}
+.diagramm-kopf{padding:8px 12px;background:var(--label-bg);border-bottom:1px solid var(--linie);font-size:calc(0.875rem * var(--s));font-weight:600;color:var(--text-2)}
+.diagramm-inhalt{padding:8px 10px 8px}
+.diagramm svg{width:100%;height:auto;display:block}
+.legende{display:flex;flex-wrap:wrap;gap:14px;margin-top:4px;font-size:calc(0.8438rem * var(--s));color:var(--text-2)}
+.legende i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+
+/* Texte */
+.hinweis{margin:0 0 12px;max-width:70ch;font-size:calc(0.9062rem * var(--s));color:var(--text-2)}
+.lese{margin:0 0 10px;max-width:70ch;font-size:calc(1rem * var(--s))}
+.plus{color:var(--ok)}.minus{color:var(--chip-r-tx)}
+.meldung{margin:10px 0 0;font-weight:600;font-size:calc(0.9375rem * var(--s))}
+.meldung.ok{color:var(--ok)}.meldung.falsch{color:var(--chip-r-tx)}
+.phase{margin:10px 0 0;color:var(--text-2);font-size:calc(0.9375rem * var(--s))}
+.phase strong{color:var(--text)}
+.tokens.rahmen{border:1.5px solid var(--rand-gold);border-radius:10px}
+.lektionen li .neben{margin-left:auto;white-space:nowrap;padding-left:8px;font-size:calc(0.8438rem * var(--s));color:var(--text-2);font-weight:500;font-variant-numeric:tabular-nums}
+.lektionen li.aktiv .neben{color:inherit}
+
+/* Aufklappbare Gruppen im Inhalt */
+details.gruppe{border:1.5px solid var(--rand-gold);border-radius:10px;background:var(--eingabe);overflow:hidden}
+details.gruppe + details.gruppe{margin-top:10px}
+details.gruppe > summary{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:46px;padding:0 14px;cursor:pointer;
+  list-style:none;font-weight:600;color:var(--titel);background:var(--label-bg)}
+details.gruppe > summary::-webkit-details-marker{display:none}
+details.gruppe > summary .ic{color:var(--gold);transition:transform .12s ease}
+details.gruppe[open] > summary .ic{transform:rotate(90deg)}
+details.gruppe[open] > summary{border-bottom:1px solid var(--linie)}
+details.gruppe > .gruppe-inhalt{padding:0}
+details.gruppe .tab th{position:static}
+
+/* Programmcode */
+.dateiliste{max-height:calc(100dvh - 300px);overflow:auto;padding:6px}
+.dateiliste .liste-eintrag{height:auto;min-height:40px;padding:6px 10px;display:block;text-align:left}
+.dateiliste .liste-eintrag small{display:block;color:var(--text-2);font-size:calc(0.8125rem * var(--s));line-height:1.35}
+.dateiliste .liste-eintrag.hervor small{color:inherit}
+.dateiliste .zwischen{margin:10px 10px 4px;font-size:calc(0.8438rem * var(--s));font-weight:600;color:var(--text-2)}
+pre.quelltext{margin:0;background:var(--eingabe);border:1.5px solid var(--rand-gold);border-radius:10px;padding:10px 0;overflow:auto;
+  max-height:calc(100dvh - 300px);font:calc(0.8125rem * var(--s))/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;tab-size:4;color:var(--text)}
+pre.quelltext .l{display:block;padding:0 12px 0 0;white-space:pre}
+pre.quelltext .l::before{content:attr(data-n);display:inline-block;width:52px;padding-right:12px;text-align:right;color:var(--text-2);user-select:none}
+pre.protokoll{margin:0;padding:10px 12px;max-height:300px;overflow:auto;white-space:pre-wrap;background:var(--eingabe);
+  font:calc(0.8125rem * var(--s))/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--text)}
+.kw{color:var(--chip-r-tx)}.st{color:var(--chip-b-tx)}.co{color:var(--text-2);font-style:italic}.nu{color:var(--chip-r-tx)}
+
+/* Ansichten */
+.ansicht[hidden]{display:none!important}
+
+@media (max-width:1180px){
+  .raster.zwei,.raster.code{grid-template-columns:minmax(0,1fr)}
+  .dateiliste{max-height:260px}
+}
+@media (max-width:760px){
+  .raster.zwei,.raster.code,.raster.eins{grid-template-columns:minmax(0,1fr);grid-template-areas:none}
+  .nur-breit{display:none!important}
+  .nur-schmal{display:inline}
+  .aktionen .trenner,.aktionen .leisten-titel{display:none}
+  .seitentitel{font-size:calc(1.5rem * var(--s))}
+  .diagramme{grid-template-columns:minmax(0,1fr)}
+  .feldzeile.breit{grid-template-columns:118px minmax(0,1fr)}
+  .panel-inhalt{padding:14px 14px 16px}
+  .panel-kopf{padding:12px 14px 10px}
+}
+@media print{
+  .ansicht[hidden]{display:none!important}
+  .tabelle-block,.dateiliste,pre.quelltext{max-height:none;overflow:visible}
+}
 </style>
 </head>
 <body>
-<header>
-  <h1 id="titel">Insel-Siedler: KI-Training</h1>
-  <span id="pill" class="pill">verbinde ...</span>
-  <label class="ctl">Stufe <select id="istufe"></select></label>
-  <label class="ctl">Durchgänge <input id="idurch" type="number" min="1" max="100000" value="10"></label>
-  <button id="bstart" class="pri">Start</button>
-  <button id="bstop">Stopp</button>
-</header>
-<nav id="nav">
-  <button data-t="status" class="sel">Status</button>
-  <button data-t="gelernt">Was die KI gelernt hat</button>
-  <button data-t="code">Programmcode</button>
-  <button data-t="frei">Freischalt-Liste</button>
+<div class="app tag">
+<header class="kopf">
+<div class="logo-zelle"><svg class="logo" viewBox="0 0 64 76" role="img" aria-label="Wappen Insel-KI-Training"><path class="lg-schatten" d="M32 3 L59 11 V38 C59 55 47 66.5 32 73 C17 66.5 5 55 5 38 V11 Z"/><path class="lg-b" d="M32 3 L5 11 V38 C5 55 17 66.5 32 73 Z"/><path class="lg-r" d="M32 3 L59 11 V38 C59 55 47 66.5 32 73 Z"/><path class="lg-glanz" d="M32 6.5 L56 13.6 V23 C45 19.5 19 19.5 8 23 V13.6 Z"/><path class="lg-naht" d="M32 5v67"/><path class="lg-kz" d="M14 53 C20 45.5 44 45.5 50 53 Z"/><path class="lg-link" d="M32 48 C32.5 40 31 33 28.5 27.5"/><path class="lg-link" d="M28.5 27.5 C23 24.5 17.5 26 14.5 30.5M28.5 27.5 C27 21.5 21.5 19 17 20.5M28.5 27.5 C33 22.5 39.5 22 43.5 25M28.5 27.5 C34 27 39 30 40.5 35"/><circle class="lg-k" cx="45" cy="16.5" r="3.6"/><path class="lg-link" d="M19 59 C23.5 57 27.5 61 32 59 C36.5 57 40.5 61 45 59"/><path class="lg-gold" d="M32 3 L59 11 V38 C59 55 47 66.5 32 73 C17 66.5 5 55 5 38 V11 Z"/></svg></div>
+<div class="titelzeile">
+<h1 class="appname disp" id="titel">Insel-KI-Training</h1>
+<div class="titel-rechts">
+<span class="stufe" id="chip">verbinde …</span>
+<button class="schalter" type="button" aria-label="Nachtmodus" aria-pressed="false" data-aktion="toggleNacht"><svg class="ic sonne" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5V5M12 19v2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M2.5 12H5M19 12h2.5M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8"/></svg><svg class="ic mond" viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 14.5A8 8 0 1 1 9.5 4.5a6.3 6.3 0 0 0 10 10z"/></svg><span class="schalter-knauf"></span></button>
+</div>
+<div class="mobil-knoepfe">
+<button class="knopf blau symbol" type="button" aria-label="Aktualisieren" data-aktion="aktualisieren"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4.5v4h-4"/></svg></button>
+<button class="knopf blau symbol" type="button" aria-label="Menü" aria-expanded="false" data-aktion="toggleBlatt"><svg data-wenn="blattZu" class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg><svg data-wenn="blattOffen" hidden class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+</div>
+</div>
+<div class="menuezeile">
+<nav class="menue" aria-label="Hauptmenü">
+<div class="menue-gruppe">
+<button class="menue-knopf" type="button" aria-expanded="false" data-aktion="menue:training">Training</button>
+<div data-wenn="menue:training" hidden class="liste" role="menu" aria-label="Training">
+<button class="liste-eintrag" type="button" role="menuitem" data-aktion="start"><span>Training starten</span><span class="kuerzel">Strg+Enter</span></button>
+<button class="liste-eintrag" type="button" role="menuitem" data-aktion="stopp"><span>Training anhalten</span><span class="kuerzel"></span></button>
+<div class="liste-trenner"></div>
+<button class="liste-eintrag" type="button" role="menuitem" data-aktion="zuImport"><span>Gelerntes übernehmen …</span><span class="kuerzel"></span></button>
+<button class="liste-eintrag" type="button" role="menuitem" data-aktion="zuZusehen"><span>Spiel live ansehen …</span><span class="kuerzel"></span></button>
+</div>
+</div>
+<div class="menue-gruppe">
+<button class="menue-knopf" type="button" aria-expanded="false" data-aktion="menue:ansicht">Ansicht</button>
+<div data-wenn="menue:ansicht" hidden class="liste" role="menu" aria-label="Ansicht">
+<button class="liste-eintrag" type="button" role="menuitemradio" data-aktion="zeige:status"><span class="mit-haken"><span class="haken-platz"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>Status</span><span class="kuerzel">Strg+1</span></button>
+<button class="liste-eintrag" type="button" role="menuitemradio" data-aktion="zeige:gelernt"><span class="mit-haken"><span class="haken-platz"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>Was die KI gelernt hat</span><span class="kuerzel">Strg+2</span></button>
+<button class="liste-eintrag" type="button" role="menuitemradio" data-aktion="zeige:code"><span class="mit-haken"><span class="haken-platz"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>Programmcode</span><span class="kuerzel">Strg+3</span></button>
+<button class="liste-eintrag" type="button" role="menuitemradio" data-aktion="zeige:frei"><span class="mit-haken"><span class="haken-platz"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>Freischalt-Liste</span><span class="kuerzel">Strg+4</span></button>
+<div class="liste-trenner"></div>
+<button class="liste-eintrag" type="button" role="menuitemradio" data-aktion="setNormal"><span class="mit-haken"><span class="haken-platz"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>Normale Schrift</span><span class="kuerzel"></span></button>
+<button class="liste-eintrag" type="button" role="menuitemradio" data-aktion="setGross"><span class="mit-haken"><span class="haken-platz"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>Große Schrift</span><span class="kuerzel"></span></button>
+<div class="liste-trenner"></div>
+<button class="liste-eintrag" type="button" role="menuitemcheckbox" data-aktion="toggleNachtMenue"><span class="mit-haken"><span class="haken-platz"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>Nachtmodus</span><span class="kuerzel"></span></button>
+</div>
+</div>
+<div class="menue-gruppe">
+<button class="menue-knopf" type="button" aria-expanded="false" data-aktion="menue:hilfe">Hilfe</button>
+<div data-wenn="menue:hilfe" hidden class="liste" role="menu" aria-label="Hilfe">
+<button class="liste-eintrag" type="button" role="menuitem" data-aktion="anleitung"><span>Anleitung lesen</span><span class="kuerzel"></span></button>
+<button class="liste-eintrag" type="button" role="menuitem" data-aktion="einstellungen"><span>Einstellungen ansehen</span><span class="kuerzel"></span></button>
+<div class="liste-trenner"></div>
+<button class="liste-eintrag" type="button" role="menuitem" data-aktion="protokoll"><span>Protokoll des Trainings</span><span class="kuerzel"></span></button>
+</div>
+</div>
 </nav>
-<main>
-<section id="t-status">
-  <div class="cards" id="cards"></div>
-  <div class="box" id="ziel"></div>
-  <div class="box" id="netzbox"></div>
-  <div class="box">
-    <h3 style="margin-top:0">Gelerntes aus einem anderen Training übernehmen</h3>
-    <div class="mute small" style="margin-bottom:8px">Nenne den Ordner, in dem das bisherige Training liegt (zum Beispiel den Ordner „Insel-KI-Training“). Das Programm sucht dort selbst die Datei best.json mit dem besten Stand. Übernommen wird beim nächsten Start; das Zählen der Runden beginnt dann neu, der alte Stand dieses Trainings bleibt als Datei liegen. Der andere Ordner wird nicht verändert.</div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-      <input id="iordner" placeholder="/Users/josh/Downloads/Insel-KI-Training" style="flex:1 1 320px">
-      <button id="bordner">Ordner wählen …</button>
-      <button id="bimport" class="pri">Übernehmen</button>
-    </div>
-    <div id="impmsg" class="small" style="margin-top:8px"></div>
-    <div id="impinfo" class="small mute" style="margin-top:4px"></div>
-  </div>
-  <h2>Was gerade läuft</h2>
-  <div class="box"><div id="phase" class="mute">noch keine Daten</div><div class="scroll"><table id="run"></table></div></div>
-  <h2>Verlauf des Trainings</h2>
-  <p class="mute small">Eine Runde = die Gewichte werden in mehrere Richtungen verändert, jede Fassung spielt ein ganzes Spiel vom Anfang. Die Spiellänge hängt von der Stufe ab, deshalb zeigt das erste Bild die Punkte je Spieltag.</p>
-  <div class="grid2">
-    <div class="box"><h3>Punkte je Spieltag</h3><div id="c1"></div></div>
-    <div class="box"><h3>Erforschte Forschungen je Spiel</h3><div id="c2"></div></div>
-    <div class="box"><h3>Siedler am Ende des Spiels</h3><div id="c3"></div></div>
-    <div class="box"><h3>Länge der Spiele in Spieltagen</h3><div id="c4"></div></div>
-  </div>
-  <h2>Prüfungen</h2>
-  <p class="mute small">Alle paar Runden spielen die jetzigen Gewichte mit festen Würfeln. Daran sieht man den echten Fortschritt.</p>
-  <div class="box scroll"><table id="checks"></table></div>
-  <details><summary>Protokoll des Trainingsprogramms</summary><div><pre id="log" style="padding:10px 12px;max-height:300px"></pre></div></details>
+<div class="befehle">
+<button class="knopf blau klein" type="button" data-aktion="aktualisieren"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4.5v4h-4"/></svg>Aktualisieren</button>
+<button class="knopf blau klein" type="button" data-aktion="drucken"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 9V3h10v6"/><path d="M7 18H5a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M7 14h10v7H7z"/></svg>Drucken</button>
+</div>
+</div>
+</header>
+<div class="schiene"></div>
+<div class="rumpf">
+<nav class="aktionen" aria-label="Aktionen">
+<button class="knopf rot" type="button" id="bstart" data-aktion="start"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg>Starten</button>
+<button class="knopf rot nur-breit" type="button" id="bstop" data-aktion="stopp"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg>Anhalten</button>
+<button class="knopf rot nur-breit" type="button" data-aktion="zuImport"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 7.5V18a1.5 1.5 0 0 0 1.5 1.5h14a1.5 1.5 0 0 0 1.5-1.5V9a1.5 1.5 0 0 0-1.5-1.5h-7l-2-3H5a1.5 1.5 0 0 0-1.5 1.5z"/><path d="M12 10.5v6M9.5 14l2.5 2.5 2.5-2.5"/></svg>Übernehmen</button>
+<button class="knopf rot nur-breit" type="button" data-aktion="zuZusehen"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></svg>Zusehen</button>
+<div class="trenner"></div>
+<p class="leisten-titel">Ansicht</p>
+<button class="knopf stahl" type="button" data-aktion="zeige:status" data-ansicht="status"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19.5h16"/><path d="M6.5 16v-4M11 16V8M15.5 16v-6M20 16V5"/></svg>Status</button>
+<button class="knopf stahl" type="button" data-aktion="zeige:gelernt" data-ansicht="gelernt"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.3 1.1 2.2h5c0-.9.4-1.6 1.1-2.2A6 6 0 0 0 12 3z"/></svg>Gelernt</button>
+<button class="knopf stahl" type="button" data-aktion="zeige:code" data-ansicht="code"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 7 3.5 12l5 5M15.5 7l5 5-5 5M13.5 4.5l-3 15"/></svg>Code</button>
+<button class="knopf stahl" type="button" data-aktion="zeige:frei" data-ansicht="frei"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="10" rx="1.5"/><path d="M8 10.5V7a4 4 0 0 1 7.6-1.7"/><path d="M12 14.5v2.5"/></svg><span class="nur-breit">Freischalten</span><span class="nur-schmal">Freigabe</span></button>
+</nav>
+<main class="arbeitsfeld" id="feld">
+
+<!-- ================= Status ================= -->
+<section class="ansicht" data-ansicht-inhalt="status">
+<div class="seitenkopf"><p class="meta" id="s-meta" style="margin:0 0 4px">Stufe – · Runde –</p><h2 class="seitentitel disp">Stand des Trainings</h2></div>
+<div class="raster zwei">
+<div class="spalte">
+<section class="panel" aria-labelledby="t-lauf">
+<div class="panel-kopf zeile"><h3 class="panel-titel disp" id="t-lauf">Was gerade läuft</h3><p class="meta" id="lauf-meta"></p></div>
+<div class="panel-inhalt">
+<div class="fortschritt"><span id="durch-text">Noch kein Durchgang gestartet</span><strong id="durch-proz">0 %</strong></div>
+<div class="leiste" role="progressbar" aria-label="Durchgänge dieses Starts" aria-valuemin="0" aria-valuemax="100" id="durch-leiste"><div class="leiste-fuellung" id="durch-fuell" style="width:0%"></div></div>
+<p class="phase" id="phase">noch keine Daten</p>
+<div class="tabelle-block" id="run-block" style="margin-top:14px" hidden><table class="tab" id="run"></table></div>
+</div>
+</section>
+<section class="panel" aria-labelledby="t-verlauf">
+<div class="panel-kopf zeile"><h3 class="panel-titel disp" id="t-verlauf">Verlauf des Trainings</h3><p class="meta">eine Runde = viele Spiele vom Anfang</p></div>
+<div class="panel-inhalt">
+<p class="hinweis">In jeder Runde werden die Gewichte in mehrere Richtungen verändert, und jede Fassung spielt ein ganzes Spiel vom Anfang. Die Spiellänge hängt von der Stufe ab, deshalb zeigt das erste Bild die Punkte je Spieltag.</p>
+<div class="diagramme">
+<div class="diagramm"><div class="diagramm-kopf">Punkte je Spieltag</div><div class="diagramm-inhalt" id="c1"></div></div>
+<div class="diagramm"><div class="diagramm-kopf">Erforschte Forschungen je Spiel</div><div class="diagramm-inhalt" id="c2"></div></div>
+<div class="diagramm"><div class="diagramm-kopf">Siedler am Ende des Spiels</div><div class="diagramm-inhalt" id="c3"></div></div>
+<div class="diagramm"><div class="diagramm-kopf">Länge der Spiele in Spieltagen</div><div class="diagramm-inhalt" id="c4"></div></div>
+</div>
+</div>
+</section>
+<section class="panel" aria-labelledby="t-pruef">
+<div class="panel-kopf zeile"><h3 class="panel-titel disp" id="t-pruef">Prüfungen</h3><p class="meta">feste Würfel, echter Fortschritt</p></div>
+<div class="panel-inhalt">
+<p class="hinweis">Alle paar Runden spielen die jetzigen Gewichte mit festen Würfeln. Die Zeile mit Stern ist der beste Stand.</p>
+<div class="tabelle-block hoch"><table class="tab" id="checks"></table></div>
+<details class="gruppe" id="log-box" style="margin-top:14px"><summary>Protokoll des Trainingsprogramms<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></summary><div class="gruppe-inhalt"><pre class="protokoll" id="log"></pre></div></details>
+</div>
+</section>
+</div>
+<div class="spalte">
+<section class="panel" aria-labelledby="t-start">
+<div class="panel-kopf"><h3 class="panel-titel disp" id="t-start">Training starten</h3></div>
+<div class="panel-inhalt">
+<div class="block">
+<div class="feldzeile"><label for="istufe">Stufe</label><select id="istufe"></select></div>
+<div class="feldzeile"><label for="idurch">Durchgänge</label><input id="idurch" type="number" min="1" max="100000" value="10" inputmode="numeric"></div>
+</div>
+<div class="knopfreihe eng">
+<button class="knopf rot" type="button" data-aktion="start" id="bstart2"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg>Starten</button>
+<button class="knopf stahl" type="button" data-aktion="stopp" id="bstop2"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg>Anhalten</button>
+</div>
+<p class="meldung" id="startmsg" hidden></p>
+</div>
+</section>
+<section class="panel" aria-labelledby="t-stufen">
+<div class="panel-kopf zeile"><h3 class="panel-titel disp" id="t-stufen">Stufen</h3><p class="meta" id="stufen-meta"></p></div>
+<div class="panel-inhalt">
+<div class="fortschritt"><span id="folge-text">Ziel in Folge erreicht</span><strong id="folge-zahl">0 von 10</strong></div>
+<div class="leiste" role="progressbar" aria-label="Ziel in Folge erreicht" aria-valuemin="0" aria-valuemax="100"><div class="leiste-fuellung" id="folge-fuell" style="width:0%"></div></div>
+<p class="phase" id="ziel-text"></p>
+<ol class="lektionen" id="stufen"></ol>
+</div>
+</section>
+<section class="panel" aria-labelledby="t-zahlen">
+<div class="panel-kopf"><h3 class="panel-titel disp" id="t-zahlen">Kennzahlen</h3></div>
+<div class="panel-inhalt"><div class="block" id="cards"></div></div>
+</section>
+<section class="panel" aria-labelledby="t-netz" id="netzpanel" hidden>
+<div class="panel-kopf zeile"><h3 class="panel-titel disp" id="t-netz">Neuronales Netz</h3><p class="meta" id="netz-meta"></p></div>
+<div class="panel-inhalt" id="netzbox"></div>
+</section>
+<section class="panel" aria-labelledby="t-import" id="importpanel">
+<div class="panel-kopf"><h3 class="panel-titel disp" id="t-import">Gelerntes übernehmen</h3></div>
+<div class="panel-inhalt">
+<p class="hinweis">Nenne den Ordner, in dem ein bisheriges Training liegt. Das Programm sucht dort selbst die Datei best.json. Übernommen wird beim nächsten Start; die Runden zählen dann neu. Der andere Ordner wird nicht verändert.</p>
+<div class="block"><div class="feldzeile"><label for="iordner">Ordner</label><input id="iordner" placeholder="/Volumes/Extern/…/Insel-KI-Training"></div></div>
+<div class="knopfreihe eng">
+<button class="knopf rot" type="button" data-aktion="importieren" id="bimport"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Übernehmen</button>
+<button class="knopf stahl" type="button" data-aktion="ordnerWaehlen" id="bordner"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 7.5V18a1.5 1.5 0 0 0 1.5 1.5h14a1.5 1.5 0 0 0 1.5-1.5V9a1.5 1.5 0 0 0-1.5-1.5h-7l-2-3H5a1.5 1.5 0 0 0-1.5 1.5z"/></svg>Ordner wählen</button>
+</div>
+<p class="meldung" id="impmsg" hidden></p>
+<p class="phase" id="impinfo"></p>
+</div>
+</section>
+</div>
+</div>
 </section>
 
-<section id="t-gelernt" class="hide">
-  <h2>Ein Prüfspiel ansehen</h2>
-  <p class="mute small">Hier siehst du ein ganzes Spiel, das die KI allein gespielt hat: was sie erreicht hat und jede ihrer Entscheidungen.</p>
-  <div>Prüfung nach Runde <select id="selr"></select></div>
-  <div class="cards" id="gcards"></div>
-  <div class="grid2">
-    <div class="box"><h3>Siedler über die Spieltage</h3><div id="g1"></div></div>
-    <div class="box"><h3>Punkte je Spieltag</h3><div id="g2"></div></div>
-  </div>
-  <div class="grid2">
-    <div class="box"><h3>Zeitalter und Forschung</h3><div id="gage"></div></div>
-    <div class="box"><h3>Was die KI in diesem Spiel getan hat</h3><div class="scroll"><table id="gacts"></table></div></div>
-  </div>
-  <div class="box"><h3>Gebäude am Ende</h3><div id="gtypes" class="small"></div></div>
-  <h3>Alle Entscheidungen der Reihe nach</h3>
-  <input id="gfilter" placeholder="Suchen, z. B. Haus oder Forschung" style="width:min(360px,100%)">
-  <div class="box scroll" style="max-height:420px;overflow:auto"><table id="gtrace"></table></div>
-
-  <h2>Ein Spiel live ansehen</h2>
-  <p class="mute small">Öffnet das Spiel in einem eigenen Fenster. Die KI spielt dort vom Anfang mit den gewählten Gewichten, du siehst ihr zu: wo sie baut, wie die Siedler arbeiten, wann sie forscht. Das Fenster schließen beendet das Spiel. Deine eigenen Spielstände bleiben unberührt. Es läuft neben dem Training und braucht einen Kern.</p>
-  <div class="box">Gewichte: <select id="wsel"><option value="best">bester Stand</option><option value="aktuell">jetziger Stand</option></select>
-   Tempo: <select id="wtempo"><option value="1">normal</option><option value="3" selected>3-fach</option><option value="8">8-fach</option><option value="20">20-fach</option></select>
-   Würfel: <input id="wseed" value="900000" size="8">
-   <button id="bwatch" class="pri">Spiel ansehen</button> <span id="wmsg" class="mute small"></span></div>
-
-  <h2>Fortschritt über die Prüfungen</h2>
-  <div class="box scroll"><table id="gcmp"></table></div>
-
-  <h2>Wovon die Entscheidungen abhängen</h2>
-  <p class="mute small">Jede Entscheidung hat eine Zeile Zahlen (Gewichte). Ein grüner Eintrag heißt: die KI tut das eher, wenn das zutrifft. Ein roter: sie tut es dann seltener. Die Zahl zeigt, wie stark. Am Anfang sind alle Zahlen 0. Gezeigt werden nur Dinge, die in mindestens 2 % der Spiele vorkamen. Gewichte für Dinge, die nie vorkamen, können nichts gelernt haben, sie sind Zufallsrauschen und stehen grau darunter. Auch bei erlebten Dingen kann ein Wert noch zum Teil Zufall sein: je öfter erlebt, desto eher ist er gelernt.</p>
-  <div>Gewichte: <select id="selw"><option value="aktuell">jetziger Stand</option><option value="best">bester Stand</option></select></div>
-  <div id="weights"></div>
+<!-- ================= Gelernt ================= -->
+<section class="ansicht" data-ansicht-inhalt="gelernt" hidden>
+<div class="seitenkopf"><p class="meta" style="margin:0 0 4px">Prüfspiele, Entscheidungen und Gewichte</p><h2 class="seitentitel disp">Was die KI gelernt hat</h2></div>
+<div class="raster zwei">
+<div class="spalte">
+<section class="panel" aria-labelledby="t-spiel">
+<div class="panel-kopf zeile"><h3 class="panel-titel disp" id="t-spiel">Ein Prüfspiel</h3><p class="meta">die KI spielt allein vom Anfang</p></div>
+<div class="panel-inhalt">
+<div class="block"><div class="feldzeile breit"><label for="selr">Prüfung nach Runde</label><select id="selr"></select></div></div>
+<div class="block" id="gcards" style="margin-top:14px"></div>
+<div class="diagramme" style="margin-top:14px">
+<div class="diagramm"><div class="diagramm-kopf">Siedler über die Spieltage</div><div class="diagramm-inhalt" id="g1"></div></div>
+<div class="diagramm"><div class="diagramm-kopf">Punkte je Spieltag</div><div class="diagramm-inhalt" id="g2"></div></div>
+</div>
+<h4 class="abschnitt-titel disp" style="margin-top:18px">Was die KI in diesem Spiel getan hat</h4>
+<div class="tabelle-block hoch"><table class="tab" id="gacts"></table></div>
+<h4 class="abschnitt-titel disp" style="margin-top:18px">Alle Entscheidungen der Reihe nach</h4>
+<div class="block"><div class="feldzeile"><label for="gfilter">Suchen</label><input id="gfilter" placeholder="zum Beispiel Haus oder Forschung"></div></div>
+<div class="tabelle-block hoch" style="margin-top:10px"><table class="tab" id="gtrace"></table></div>
+</div>
+</section>
+<section class="panel" aria-labelledby="t-gew">
+<div class="panel-kopf zeile"><h3 class="panel-titel disp" id="t-gew">Wovon die Entscheidungen abhängen</h3><p class="meta" id="gew-meta"></p></div>
+<div class="panel-inhalt">
+<p class="hinweis">Jede Entscheidung hat eine Zeile Zahlen (Gewichte). Grün heißt: die KI tut es eher, wenn das zutrifft. Rot heißt: dann seltener. Gezeigt werden nur Dinge, die in mindestens 2 % der Spiele vorkamen. Was nie vorkam, kann nichts gelernt haben; es steht als Rauschen darunter.</p>
+<div class="block" style="margin-bottom:14px"><div class="feldzeile"><label for="selw">Gewichte</label><select id="selw"><option value="aktuell">jetziger Stand</option><option value="best">bester Stand</option></select></div></div>
+<div id="weights"></div>
+</div>
+</section>
+</div>
+<div class="spalte">
+<section class="panel" aria-labelledby="t-zeit">
+<div class="panel-kopf"><h3 class="panel-titel disp" id="t-zeit">Zeitalter und Forschung</h3></div>
+<div class="panel-inhalt" id="gage"></div>
+</section>
+<section class="panel" aria-labelledby="t-gebaeude">
+<div class="panel-kopf"><h3 class="panel-titel disp" id="t-gebaeude">Gebäude am Ende</h3></div>
+<div class="panel-inhalt"><div class="tokens rahmen" id="gtypes"></div></div>
+</section>
+<section class="panel" aria-labelledby="t-zusehen" id="zusehpanel">
+<div class="panel-kopf"><h3 class="panel-titel disp" id="t-zusehen">Spiel live ansehen</h3></div>
+<div class="panel-inhalt">
+<p class="hinweis">Öffnet das Spiel in einem eigenen Fenster. Die KI spielt vom Anfang, du siehst zu. Fenster schließen beendet das Spiel. Deine Spielstände bleiben unberührt.</p>
+<div class="block">
+<div class="feldzeile"><label for="wsel">Gewichte</label><select id="wsel"><option value="best">bester Stand</option><option value="aktuell">jetziger Stand</option></select></div>
+<div class="feldzeile"><label for="wtempo">Tempo</label><select id="wtempo"><option value="1">normal</option><option value="3" selected>3-fach</option><option value="8">8-fach</option><option value="20">20-fach</option></select></div>
+<div class="feldzeile"><label for="wseed">Würfel</label><input id="wseed" value="900000" inputmode="numeric"></div>
+</div>
+<div class="knopfreihe eng"><button class="knopf rot" type="button" data-aktion="zusehen" id="bwatch"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></svg>Spiel ansehen</button></div>
+<p class="meldung ok" id="wmsg" hidden></p>
+</div>
+</section>
+<section class="panel" aria-labelledby="t-cmp">
+<div class="panel-kopf"><h3 class="panel-titel disp" id="t-cmp">Fortschritt über die Prüfungen</h3></div>
+<div class="panel-inhalt"><div class="tabelle-block hoch"><table class="tab" id="gcmp"></table></div></div>
+</section>
+</div>
+</div>
 </section>
 
-<section id="t-code" class="hide">
-  <div class="code">
-    <div class="box flist" id="flist"></div>
-    <div><div id="ftitle" class="mute small" style="margin-bottom:6px"></div><pre id="fview"></pre></div>
-  </div>
+<!-- ================= Programmcode ================= -->
+<section class="ansicht" data-ansicht-inhalt="code" hidden>
+<div class="seitenkopf"><p class="meta" style="margin:0 0 4px">Training und KI im Spiel</p><h2 class="seitentitel disp">Programmcode</h2></div>
+<div class="raster code">
+<section class="panel" aria-labelledby="t-dateien">
+<div class="panel-kopf"><h3 class="panel-titel disp" id="t-dateien">Dateien</h3></div>
+<div class="dateiliste" id="flist"></div>
+</section>
+<section class="panel" aria-labelledby="ftitle">
+<div class="panel-kopf zeile"><h3 class="panel-titel disp" id="ftitle">Datei</h3><p class="meta" id="fmeta"></p></div>
+<div class="panel-inhalt"><pre class="quelltext" id="fview"></pre></div>
+</section>
+</div>
 </section>
 
-<section id="t-frei" class="hide">
-  <h2>Freischalt-Liste</h2>
-  <p>Im Spiel steuert am Anfang der Verwalter. Mit jedem dieser Gebäude übernimmt die KI eine weitere Gruppe von Entscheidungen. Im Training ist alles freigeschaltet: dort steuert die KI das ganze Spiel allein, vom Start bis zur Zukunftsstadt.</p>
-  <div class="box scroll"><table id="unlock"></table></div>
-  <p class="mute small">Siedler mit „Steuerung: Spieler“ und Gebäude mit „Steuerung: nur Spieler“ verändert die KI nie. Die Liste steht im Code in ki_acts.gd (UNLOCK).</p>
+<!-- ================= Freischalt-Liste ================= -->
+<section class="ansicht" data-ansicht-inhalt="frei" hidden>
+<div class="seitenkopf"><p class="meta" style="margin:0 0 4px">Welches Gebäude der KI welche Entscheidungen gibt</p><h2 class="seitentitel disp">Freischalt-Liste</h2></div>
+<div class="raster eins">
+<section class="panel" aria-labelledby="t-frei">
+<div class="panel-kopf"><h3 class="panel-titel disp" id="t-frei">Gebäude und Entscheidungen</h3></div>
+<div class="panel-inhalt">
+<p class="lese">Im Spiel steuert am Anfang der Verwalter. Mit jedem dieser Gebäude übernimmt die KI eine weitere Gruppe von Entscheidungen. Im Training ist alles freigeschaltet: dort steuert die KI das ganze Spiel allein, vom Start bis zur Zukunftsstadt.</p>
+<div class="tabelle-block"><table class="tab" id="unlock"></table></div>
+<p class="hinweis" style="margin-top:12px">Siedler mit „Steuerung: Spieler“ und Gebäude mit „Steuerung: nur Spieler“ verändert die KI nie. Die Liste steht im Code in ki_acts.gd (UNLOCK).</p>
+</div>
+</section>
+</div>
 </section>
 </main>
+
+<div data-wenn="blattOffen" hidden class="blatt" role="dialog" aria-label="Menü">
+<div class="blatt-zeile"><span>Schriftgröße</span><div class="wahlschalter" role="radiogroup" aria-label="Schriftgröße"><button class="ws-knopf" type="button" role="radio" data-aktion="setNormal">Normal</button><button class="ws-knopf" type="button" role="radio" data-aktion="setGross">Groß</button></div></div>
+<div class="blatt-zeile"><span>Nachtmodus</span><button class="schalter" type="button" aria-label="Nachtmodus" aria-pressed="false" data-aktion="toggleNacht"><svg class="ic sonne" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5V5M12 19v2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M2.5 12H5M19 12h2.5M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8"/></svg><svg class="ic mond" viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 14.5A8 8 0 1 1 9.5 4.5a6.3 6.3 0 0 0 10 10z"/></svg><span class="schalter-knauf"></span></button></div>
+<div class="blatt-befehle">
+<button class="knopf blau" type="button" data-aktion="aktualisieren"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4.5v4h-4"/></svg>Aktualisieren</button>
+<button class="knopf blau" type="button" data-aktion="drucken"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 9V3h10v6"/><path d="M7 18H5a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M7 14h10v7H7z"/></svg>Drucken</button>
+</div>
+<button class="blatt-gruppe" type="button" data-aktion="blatt:training" aria-expanded="false">Training<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+<div class="blatt-unter" data-wenn="blatt:training" hidden>
+<button class="liste-eintrag" type="button" data-aktion="start"><span>Training starten</span></button>
+<button class="liste-eintrag" type="button" data-aktion="stopp"><span>Training anhalten</span></button>
+<button class="liste-eintrag" type="button" data-aktion="zuImport"><span>Gelerntes übernehmen …</span></button>
+<button class="liste-eintrag" type="button" data-aktion="zuZusehen"><span>Spiel live ansehen …</span></button>
+</div>
+<button class="blatt-gruppe" type="button" data-aktion="blatt:ansicht" aria-expanded="false">Ansicht<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+<div class="blatt-unter" data-wenn="blatt:ansicht" hidden>
+<button class="liste-eintrag" type="button" data-aktion="zeige:status"><span>Status</span></button>
+<button class="liste-eintrag" type="button" data-aktion="zeige:gelernt"><span>Was die KI gelernt hat</span></button>
+<button class="liste-eintrag" type="button" data-aktion="zeige:code"><span>Programmcode</span></button>
+<button class="liste-eintrag" type="button" data-aktion="zeige:frei"><span>Freischalt-Liste</span></button>
+</div>
+<button class="blatt-gruppe" type="button" data-aktion="blatt:hilfe" aria-expanded="false">Hilfe<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+<div class="blatt-unter" data-wenn="blatt:hilfe" hidden>
+<button class="liste-eintrag" type="button" data-aktion="anleitung"><span>Anleitung lesen</span></button>
+<button class="liste-eintrag" type="button" data-aktion="einstellungen"><span>Einstellungen ansehen</span></button>
+<button class="liste-eintrag" type="button" data-aktion="protokoll"><span>Protokoll des Trainings</span></button>
+</div>
+</div>
+</div>
+<footer class="status">
+<span class="seg ok" id="seg-ok"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Gespeichert <span data-wert="zeit">–</span></span>
+<span class="seg"><span class="punkt aus" id="seg-punkt"></span><span id="seg-lauf">verbinde …</span></span>
+<span class="seg" id="seg-stufe">Stufe –</span>
+<span class="seg breit" id="seg-durch">Durchgang –</span>
+<span class="seg rechts breit" id="seg-rechts">Runde –</span>
+</footer>
+</div>
 <script>
-const $=id=>document.getElementById(id);
-const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
-const fmt=n=>n==null||isNaN(n)?'–':Math.round(n).toLocaleString('de-DE');
-const dur=s=>{s=Math.round(s||0);const h=Math.floor(s/3600),m=Math.floor(s%3600/60);return h?h+' h '+m+' min':m+' min'};
-const get=async u=>(await fetch(u)).json();
-let S=null, tab='status', curFile='';
+(function () {
+  'use strict';
+  var app = document.querySelector('.app');
+  var $ = function (id) { return document.getElementById(id); };
+  function alle(sel) { return Array.prototype.slice.call(app.querySelectorAll(sel)); }
+  function zeige(name, an) { alle('[data-wenn="' + name + '"]').forEach(function (e) { e.hidden = !an; }); }
+  var speicher = {
+    lies: function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    schreib: function (k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+  };
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+  var fmt = function (n) { return n == null || isNaN(n) ? '–' : Math.round(n).toLocaleString('de-DE'); };
+  var dez = function (n, k) { return n == null || isNaN(n) ? '–' : Number(n).toLocaleString('de-DE', { maximumFractionDigits: k == null ? 1 : k }); };
+  var dur = function (s) { s = Math.round(s || 0); var h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60); return h ? h + ' h ' + m + ' min' : m + ' min'; };
+  var uhr = function (t) { var d = new Date(t * 1000); return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); };
+  var get = function (u) { return fetch(u).then(function (r) { return r.json(); }); };
+  var post = function (u) { return fetch(u, { method: 'POST' }).then(function (r) { return r.json(); }); };
+  var HAKEN = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+  var PFEIL = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
 
-document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>{
-  tab=b.dataset.t;
-  document.querySelectorAll('#nav button').forEach(x=>x.classList.toggle('sel',x===b));
-  for(const t of ['status','gelernt','code','frei']) $('t-'+t).classList.toggle('hide',t!==tab);
-  if(tab==='gelernt'){loadCheck(-1);loadWeights()}
-  if(tab==='code')loadFiles();
-});
-$('bstart').onclick=async()=>{
-  const n=Math.max(1,parseInt($('idurch').value||'0',10)||0), st=parseInt($('istufe').value||'0',10)||0;
-  $('idurch').value=n; try{localStorage.setItem('durch',n)}catch(e){}
-  $('bstart').disabled=true;await fetch('/api/start?durchgaenge='+n+'&stufe='+st,{method:'POST'});poll()};
-try{const d=localStorage.getItem('durch');if(d)$('idurch').value=d}catch(e){}
-const DEF_STUFEN=[{alter:1,tage:80},{alter:2,tage:180},{alter:3,tage:300},{alter:4,tage:450},{alter:5,tage:600},{alter:6,tage:800},{alter:7,tage:1000},{ziel:true,tage:1400}];
-let stufenKey='';
-function fillStufen(s,ages){
-  const sts=s.stufen||DEF_STUFEN, key=JSON.stringify(sts)+ages.length;
-  if(key===stufenKey)return; stufenKey=key;
-  $('istufe').innerHTML=sts.map((x,i)=>`<option value="${i+1}">${i+1}: ${esc(stufeText(x,ages))} (${x.tage} Tage)</option>`).join('');
-  $('istufe').value=String((s.stufe||0)+1);
-}
-$('bordner').onclick=async()=>{
-  $('impmsg').textContent='Das Auswahlfenster öffnet sich (es kann hinter dem Browser liegen) ...';
-  const r=await (await fetch('/api/ordner',{method:'POST'})).json();
-  if(r.ordner){$('iordner').value=r.ordner;$('impmsg').textContent='Ordner gewählt. Jetzt „Übernehmen“ drücken.'}
-  else $('impmsg').textContent=r.fehler||'';
-};
-$('bimport').onclick=async()=>{
-  const r=await (await fetch('/api/import?ordner='+encodeURIComponent($('iordner').value),{method:'POST'})).json();
-  $('impmsg').innerHTML=r.ok?'<span class="plus"><b>Gefunden:</b> '+esc(r.datei)+(r.runde!=null?' (Stand nach Runde '+r.runde+(r.punkte!=null?', '+fmt(r.punkte)+' Punkte':'')+')':'')+'. Wird beim nächsten Start übernommen.</span>':'<span class="minus">'+esc(r.fehler||'Das hat nicht geklappt.')+'</span>';
-  try{localStorage.setItem('ordner',$('iordner').value)}catch(e){}
-  poll();
-};
-try{const o=localStorage.getItem('ordner');if(o)$('iordner').value=o}catch(e){}
-async function importWeg(){await fetch('/api/import_weg',{method:'POST'});$('impmsg').textContent='';poll()}
-function renderNetz(s){
-  const nz=s.netz||{}, on=!!(s.netz_an||nz.an), pl=s.netz_plan||[24,24];
-  $('titel').textContent=on?'Insel-Siedler: KI-Training mit neuronalem Netz':'Insel-Siedler: KI-Training';
-  document.title=$('titel').textContent;
-  $('netzbox').classList.toggle('hide',!on);
-  if(on){
-    const h1=nz.h1||pl[0], h2=nz.h2||pl[1];
-    let h='<b>Kleines neuronales Netz</b> <span class="mute">(96 Eingänge → '+h1+' → '+h2+' Zellen → eine Korrektur je Handlung und Beruf'+(nz.zahlen?', '+fmt(nz.zahlen)+' Zahlen':'')+')</span>';
-    h+='<div class="mute" style="margin:6px 0">Die bisherige Tabelle aus Gewichten bleibt und rechnet wie vorher. Das Netz legt zu jedem Wert eine Korrektur dazu. Anders als die Tabelle kann es Dinge verbinden, zum Beispiel „Winter <i>und</i> wenig Holz“. Am Anfang ist seine Korrektur 0: die KI spielt dann genau wie die Tabelle allein.</div>';
-    if(nz.an){
-      h+='<div>'+(nz.tabelle_lernt?'Die Tabelle war leer, deshalb lernen Tabelle und Netz zusammen.':'Gelernt wird nur das Netz. Die übernommene Tabelle bleibt stehen.')+' Ausschlag des Netzes: <b>'+(nz.ausschlag||0).toLocaleString('de-DE',{maximumFractionDigits:3})+'</b> <span class="mute">(0 = ändert noch nichts; die Zahl wächst, je mehr das Netz mitredet)</span></div>';
+  /* ---------------- Zustand der Oberfläche (Vorlage Standard-Format) ---------------- */
+  var gemerktNacht = speicher.lies('sf-nacht');
+  var ANSICHTEN = ['status', 'gelernt', 'code', 'frei'];
+  var zustand = {
+    nacht: gemerktNacht !== null ? gemerktNacht === '1' : (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches),
+    gross: speicher.lies('sf-schrift') === 'gross',
+    menue: null, blatt: false, blattGruppe: 'ansicht',
+    ansicht: ANSICHTEN.indexOf(speicher.lies('ki-ansicht')) >= 0 ? speicher.lies('ki-ansicht') : 'status'
+  };
+
+  function anwenden() {
+    var z = zustand;
+    app.classList.toggle('nacht', z.nacht);
+    app.classList.toggle('tag', !z.nacht);
+    app.classList.toggle('gross', z.gross);
+    alle('.schalter').forEach(function (s) { s.classList.toggle('an', z.nacht); s.setAttribute('aria-pressed', String(z.nacht)); });
+    haken('setNormal', !z.gross); haken('setGross', z.gross); haken('toggleNachtMenue', z.nacht);
+    ANSICHTEN.forEach(function (a) { haken('zeige:' + a, z.ansicht === a); });
+    alle('.ws-knopf[data-aktion="setNormal"]').forEach(function (b) { b.classList.toggle('an', !z.gross); b.setAttribute('aria-checked', String(!z.gross)); });
+    alle('.ws-knopf[data-aktion="setGross"]').forEach(function (b) { b.classList.toggle('an', z.gross); b.setAttribute('aria-checked', String(z.gross)); });
+    ['training', 'ansicht', 'hilfe'].forEach(function (m) {
+      zeige('menue:' + m, z.menue === m);
+      alle('[data-aktion="menue:' + m + '"]').forEach(function (b) { b.classList.toggle('offen', z.menue === m); b.setAttribute('aria-expanded', String(z.menue === m)); });
+      zeige('blatt:' + m, z.blattGruppe === m);
+      alle('[data-aktion="blatt:' + m + '"]').forEach(function (b) {
+        b.setAttribute('aria-expanded', String(z.blattGruppe === m));
+        b.querySelector('.ic').innerHTML = z.blattGruppe === m ? '<path d="M6 9l6 6 6-6"/>' : '<path d="M9 6l6 6-6 6"/>';
+      });
+    });
+    zeige('blattOffen', z.blatt); zeige('blattZu', !z.blatt);
+    alle('[data-aktion="toggleBlatt"]').forEach(function (b) { b.setAttribute('aria-expanded', String(z.blatt)); });
+    alle('[data-ansicht-inhalt]').forEach(function (s) { s.hidden = s.getAttribute('data-ansicht-inhalt') !== z.ansicht; });
+    alle('.aktionen [data-ansicht]').forEach(function (b) {
+      var an = b.getAttribute('data-ansicht') === z.ansicht;
+      b.classList.toggle('rot', an); b.classList.toggle('stahl', !an);
+      if (an) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
+    });
+  }
+  function haken(aktion, an) {
+    alle('.liste [data-aktion="' + aktion + '"] .haken-platz').forEach(function (h) { h.classList.toggle('sichtbar', an); });
+    alle('.liste [data-aktion="' + aktion + '"]').forEach(function (b) { b.setAttribute('aria-checked', String(an)); });
+  }
+
+  function wechsle(a) {
+    zustand.ansicht = a; zustand.menue = null; zustand.blatt = false;
+    speicher.schreib('ki-ansicht', a);
+    anwenden();
+    $('feld').scrollTop = 0;
+    if (a === 'gelernt') { loadCheck(-1); loadWeights(); }
+    if (a === 'code') loadFiles();
+  }
+  function hinZu(id) {
+    zustand.menue = null; zustand.blatt = false;
+    var ziel = $(id), a = ziel.closest('[data-ansicht-inhalt]').getAttribute('data-ansicht-inhalt');
+    if (zustand.ansicht !== a) wechsle(a); else anwenden();
+    setTimeout(function () { ziel.scrollIntoView({ block: 'start', behavior: 'smooth' }); var f = ziel.querySelector('input,select,button'); if (f) f.focus({ preventScroll: true }); }, 30);
+  }
+  function melde(el, text, ok) { el.hidden = !text; el.textContent = text || ''; el.classList.toggle('ok', !!ok); el.classList.toggle('falsch', !ok); }
+
+  var aktionen = {
+    toggleNacht: function () { zustand.nacht = !zustand.nacht; speicher.schreib('sf-nacht', zustand.nacht ? '1' : '0'); },
+    toggleNachtMenue: function () { aktionen.toggleNacht(); zustand.menue = null; },
+    setNormal: function () { zustand.gross = false; zustand.menue = null; speicher.schreib('sf-schrift', 'normal'); },
+    setGross: function () { zustand.gross = true; zustand.menue = null; speicher.schreib('sf-schrift', 'gross'); },
+    toggleBlatt: function () { zustand.blatt = !zustand.blatt; zustand.menue = null; },
+    aktualisieren: function () {
+      zustand.menue = null; zustand.blatt = false; poll();
+      if (zustand.ansicht === 'gelernt') { loadCheck(+($('selr').value || -1)); loadWeights(); }
+      if (zustand.ansicht === 'code') { FILES = null; loadFiles(); }
+    },
+    drucken: function () { zustand.menue = null; zustand.blatt = false; anwenden(); setTimeout(function () { window.print(); }, 50); },
+    start: function () {
+      zustand.menue = null; zustand.blatt = false;
+      if (S && S.laeuft) return;
+      var n = Math.max(1, parseInt($('idurch').value || '0', 10) || 0), st = parseInt($('istufe').value || '0', 10) || 0;
+      $('idurch').value = n; speicher.schreib('durch', String(n));
+      sperre(true, true);
+      post('/api/start?durchgaenge=' + n + '&stufe=' + st).then(function (r) {
+        melde($('startmsg'), r.ok === 'gestartet' ? 'Training gestartet: Stufe ' + st + ', ' + n + ' Durchgänge.' : (r.ok || r.fehler || ''), r.ok === 'gestartet');
+        poll();
+      }).catch(function () { melde($('startmsg'), 'Keine Verbindung zum Trainingsprogramm. Läuft das Fenster mit START.command noch?', false); });
+    },
+    stopp: function () {
+      zustand.menue = null; zustand.blatt = false;
+      if (!(S && S.laeuft)) return;
+      sperre(true, false);
+      post('/api/stop').then(function (r) { melde($('startmsg'), r.ok === 'gestoppt' ? 'Training angehalten. Die angefangene Runde wird beim nächsten Start wiederholt.' : (r.ok || ''), true); poll(); });
+    },
+    zuImport: function () { hinZu('importpanel'); },
+    zuZusehen: function () { hinZu('zusehpanel'); },
+    importieren: function () {
+      speicher.schreib('ordner', $('iordner').value);
+      post('/api/import?ordner=' + encodeURIComponent($('iordner').value)).then(function (r) {
+        if (r.ok) melde($('impmsg'), 'Gefunden: ' + r.datei + (r.runde != null ? ' (Stand nach Runde ' + r.runde + (r.punkte != null ? ', ' + fmt(r.punkte) + ' Punkte' : '') + ')' : '') + '. Wird beim nächsten Start übernommen.', true);
+        else melde($('impmsg'), r.fehler || 'Das hat nicht geklappt.', false);
+        poll();
+      });
+    },
+    importWeg: function () { post('/api/import_weg').then(function () { melde($('impmsg'), '', true); poll(); }); },
+    ordnerWaehlen: function () {
+      melde($('impmsg'), 'Das Auswahlfenster öffnet sich (es kann hinter dem Browser liegen) …', true);
+      post('/api/ordner').then(function (r) {
+        if (r.ordner) { $('iordner').value = r.ordner; melde($('impmsg'), 'Ordner gewählt. Jetzt „Übernehmen“ drücken.', true); }
+        else melde($('impmsg'), r.fehler || '', false);
+      });
+    },
+    zusehen: function () {
+      post('/api/zusehen?welche=' + $('wsel').value + '&tempo=' + $('wtempo').value + '&saat=' + encodeURIComponent($('wseed').value)).then(function (r) {
+        var ok = r.ok === 'gestartet';
+        melde($('wmsg'), ok ? 'Das Fenster öffnet sich gleich (beim ersten Mal nach ein paar Sekunden).' : (r.ok || r.fehler || ''), ok);
+      });
+    },
+    anleitung: function () { wechsle('code'); openFile('LIESMICH.md'); },
+    einstellungen: function () { wechsle('code'); openFile('lauf/einstellungen.json'); },
+    protokoll: function () { wechsle('status'); $('log-box').open = true; setTimeout(function () { $('log-box').scrollIntoView({ block: 'start', behavior: 'smooth' }); }, 30); }
+  };
+
+  app.addEventListener('click', function (e) {
+    var el = e.target.closest('[data-aktion]');
+    if (!el || el.tagName === 'INPUT' || el.disabled) return;
+    if (el.tagName === 'A') e.preventDefault();
+    var a = el.getAttribute('data-aktion');
+    if (a.indexOf('menue:') === 0) { var m = a.slice(6); zustand.menue = zustand.menue === m ? null : m; anwenden(); return; }
+    if (a.indexOf('blatt:') === 0) { var g = a.slice(6); zustand.blattGruppe = zustand.blattGruppe === g ? null : g; anwenden(); return; }
+    if (a.indexOf('zeige:') === 0) { wechsle(a.slice(6)); return; }
+    var f = aktionen[a];
+    if (f) { f(); anwenden(); }
+  });
+  document.addEventListener('click', function (e) {
+    if (zustand.menue && !e.target.closest('.menue-gruppe')) { zustand.menue = null; anwenden(); }
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && (zustand.menue || zustand.blatt)) { zustand.menue = null; zustand.blatt = false; anwenden(); }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); aktionen.start(); anwenden(); }
+    if ((e.ctrlKey || e.metaKey) && /^[1-4]$/.test(e.key)) { e.preventDefault(); wechsle(ANSICHTEN[+e.key - 1]); }
+  });
+  $('iordner').addEventListener('keydown', function (e) { if (e.key === 'Enter') aktionen.importieren(); });
+
+  /* ---------------- Daten des Trainings ---------------- */
+  var S = null, FILES = null, curFile = '', CH = null, stufenKey = '';
+  var DEF_STUFEN = [{ alter: 1, tage: 80 }, { alter: 2, tage: 180 }, { alter: 3, tage: 300 }, { alter: 4, tage: 450 }, { alter: 5, tage: 600 }, { alter: 6, tage: 800 }, { alter: 7, tage: 1000 }, { ziel: true, tage: 1400 }];
+  var d0 = speicher.lies('durch'); if (d0) $('idurch').value = d0;
+  var o0 = speicher.lies('ordner'); if (o0) $('iordner').value = o0;
+
+  function stufeText(st, ages) { return st.ziel ? 'Zukunftsstadt bauen' : (ages[st.alter] || ('Zeitalter ' + (st.alter + 1))) + ' erreichen'; }
+  function sperre(laeuft, warten) {
+    ['bstart', 'bstart2'].forEach(function (id) { $(id).disabled = !!laeuft; });
+    ['bstop', 'bstop2'].forEach(function (id) { $(id).disabled = !laeuft || (warten === false); });
+    ['istufe', 'idurch', 'bimport', 'bordner'].forEach(function (id) { $(id).disabled = !!laeuft; });
+  }
+  function zeilen(paare, breit) {
+    return paare.map(function (p) {
+      return '<div class="feldzeile' + (breit ? ' breit' : '') + '"><label>' + p[0] + '</label><div class="wert"><strong>' + p[1] + '</strong>' + (p[2] ? '<span class="neben">' + p[2] + '</span>' : '') + '</div></div>';
+    }).join('');
+  }
+
+  /* Linienbild als SVG: series=[{name,farbe,pts:[[x,y]],dots}] */
+  function chart(el, series, opt) {
+    opt = opt || {};
+    var W = 380, H = 220, L = 46, R = 10, T = 12, B = 26;
+    var all = [].concat.apply([], series.map(function (s) { return s.pts; }));
+    if (!all.length) { el.innerHTML = '<p class="hinweis" style="margin:8px 4px">noch keine Daten</p>'; return; }
+    var xs = all.map(function (p) { return p[0]; }), ys = all.map(function (p) { return p[1]; });
+    var x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs), y0 = Math.min.apply(null, [0].concat(ys)), y1 = Math.max.apply(null, ys);
+    if (x1 === x0) x1 = x0 + 1; if (y1 === y0) y1 = y0 + 1;
+    var X = function (x) { return L + (x - x0) / (x1 - x0) * (W - L - R); }, Y = function (y) { return T + (1 - (y - y0) / (y1 - y0)) * (H - T - B); };
+    var g = '';
+    for (var i = 0; i <= 4; i++) {
+      var v = y0 + (y1 - y0) * i / 4, y = Y(v);
+      g += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y + '" y2="' + y + '" stroke="var(--linie)"/><text x="' + (L - 6) + '" y="' + (y + 4) + '" text-anchor="end" font-size="14" fill="var(--text-2)">' + ((y1 - y0) < 8 ? dez(v) : fmt(v)) + '</text>';
     }
-    $('netzbox').innerHTML=h;
+    g += '<text x="' + L + '" y="' + (H - 7) + '" font-size="14" fill="var(--text-2)">' + (opt.xl || 'Runde') + ' ' + fmt(x0) + '</text><text x="' + (W - R) + '" y="' + (H - 7) + '" text-anchor="end" font-size="14" fill="var(--text-2)">' + fmt(x1) + '</text>';
+    series.forEach(function (s) {
+      if (s.dots) g += s.pts.map(function (p) { return '<circle cx="' + X(p[0]) + '" cy="' + Y(p[1]) + '" r="4" fill="' + s.farbe + '" stroke="var(--eingabe)" stroke-width="1.5"/>'; }).join('');
+      else g += '<polyline fill="none" stroke="' + s.farbe + '" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round" points="' + s.pts.map(function (p) { return X(p[0]).toFixed(1) + ',' + Y(p[1]).toFixed(1); }).join(' ') + '"/>';
+    });
+    el.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Diagramm">' + g + '</svg><div class="legende">' + series.map(function (s) { return '<span><i style="background:' + s.farbe + '"></i>' + s.name + '</span>'; }).join('') + '</div>';
   }
-  const w=s.import_wartet, im=s.import;
-  $('bimport').disabled=!!s.laeuft; $('bordner').disabled=!!s.laeuft;
-  let t='';
-  if(w) t+='<b>Wartet auf den nächsten Start:</b> '+esc(w.datei||'')+(w.runde!=null?' (Runde '+w.runde+')':'')+' <a href="#" onclick="importWeg();return false">doch nicht übernehmen</a><br>';
-  if(im) t+='Zuletzt übernommen: '+esc(im.datei||'')+(im.runde!=null?', Stand nach Runde '+im.runde:'')+', '+fmt(im.zahlen)+' Gewichte ungleich 0'+(im.netz?', mit Netz':'')+' ('+new Date((im.zeit||0)*1000).toLocaleString('de-DE')+').';
-  else if(!w) t+='Noch nichts übernommen'+(on?': ohne Import fängt die KI bei null an.':'.');
-  if(s.laeuft) t+=' Zum Übernehmen erst Stopp drücken.';
-  $('impinfo').innerHTML=t;
-}
-$('bstop').onclick=async()=>{$('bstop').disabled=true;await fetch('/api/stop',{method:'POST'});poll()};
+  var BLAU = 'var(--chip-b-tx)', ROT = 'var(--chip-r-tx)';
 
-// ---------- Linienbild als SVG: series=[{name,color,pts:[[x,y]]}]
-function chart(el,series,opt={}){
-  const W=560,H=200,L=52,R=10,T=10,B=24;
-  const all=series.flatMap(s=>s.pts);
-  if(!all.length){el.innerHTML='<div class="mute small">noch keine Daten</div>';return}
-  let x0=Math.min(...all.map(p=>p[0])),x1=Math.max(...all.map(p=>p[0])),y0=Math.min(0,...all.map(p=>p[1])),y1=Math.max(...all.map(p=>p[1]));
-  if(x1===x0)x1=x0+1; if(y1===y0)y1=y0+1;
-  const X=x=>L+(x-x0)/(x1-x0)*(W-L-R),Y=y=>T+(1-(y-y0)/(y1-y0))*(H-T-B);
-  let g='';
-  for(let i=0;i<=4;i++){const v=y0+(y1-y0)*i/4,y=Y(v);g+=`<line x1="${L}" x2="${W-R}" y1="${y}" y2="${y}" stroke="var(--line)"/><text x="${L-6}" y="${y+4}" text-anchor="end" font-size="11" fill="var(--mute)">${(y1-y0)<8?v.toLocaleString('de-DE',{maximumFractionDigits:1}):fmt(v)}</text>`}
-  g+=`<text x="${L}" y="${H-6}" font-size="11" fill="var(--mute)">${opt.xl||'Runde'} ${fmt(x0)}</text><text x="${W-R}" y="${H-6}" text-anchor="end" font-size="11" fill="var(--mute)">${fmt(x1)}</text>`;
-  for(const s of series){
-    if(s.dots){g+=s.pts.map(p=>`<circle cx="${X(p[0])}" cy="${Y(p[1])}" r="3.5" fill="${s.color}"/>`).join('')}
-    else g+=`<polyline fill="none" stroke="${s.color}" stroke-width="2" points="${s.pts.map(p=>X(p[0]).toFixed(1)+','+Y(p[1]).toFixed(1)).join(' ')}"/>`;
+  function fillStufen(s, ages) {
+    var sts = s.stufen || DEF_STUFEN, key = JSON.stringify(sts) + ages.length;
+    if (key === stufenKey) return; stufenKey = key;
+    $('istufe').innerHTML = sts.map(function (x, i) { return '<option value="' + (i + 1) + '">' + (i + 1) + ': ' + esc(stufeText(x, ages)) + ' (' + x.tage + ' Tage)</option>'; }).join('');
+    $('istufe').value = String((s.stufe || 0) + 1);
   }
-  el.innerHTML=`<svg viewBox="0 0 ${W} ${H}">${g}</svg><div class="legend">${series.map(s=>`<span><i style="background:${s.color}"></i>${s.name}</span>`).join('')}</div>`;
-}
 
-function stufeText(st,ages){return st.ziel?'Zukunftsstadt bauen':'Zeitalter '+(ages[st.alter]||('Stufe '+(st.alter+1)))+' erreichen'}
-function renderZiel(s,ch,nm){
-  const el=$('ziel'); if(!el)return;
-  const sts=s.stufen||[], ages=nm.ages||[], k=s.stufe||0, st=sts[k];
-  if(!st){el.innerHTML='';return}
-  const need=s.ziel_in_folge||10, mine=ch.filter(c=>c.stufe===k);
-  const ok=g=>st.ziel?!!g.ziel:(g.alter||0)>=st.alter;
-  const games=mine.flatMap(c=>c.spiele); let hit=0; for(let i=games.length-1;i>=0&&ok(games[i]);i--)hit++;
-  const lastG=games.slice(-need), fast=lastG.filter(g=>g.ziel_tag!=null).map(g=>g.ziel_tag);
-  const lastStage=k>=sts.length-1;
-  let h='<b>Stufe '+(k+1)+' von '+sts.length+': '+esc(stufeText(st,ages))+'</b> <span class="mute">(Spiele über '+fmt(st.tage)+' Tage = '+(st.tage/12).toFixed(1)+' Spieljahre)</span>';
-  h+='<div class="mute" style="margin:6px 0">Die Stufe gilt als geschafft, wenn '+need+' Prüfspiele in Folge das Ziel erreichen. Das Training läuft trotzdem so viele Durchgänge, wie du angegeben hast. Welche Stufe trainiert wird, wählst du oben. Die Gewichte bleiben beim Wechsel erhalten. Ein Spiel endet, sobald das Ziel erreicht ist. Jeder Tag, den es früher fertig ist, bringt Punkte: schneller ist besser.</div>';
-  h+='<div>'+(games.length?'Ziel in Folge erreicht: <b>'+Math.min(hit,need)+' von '+need+'</b> Prüfspielen.'+(fast.length?' Erreicht im Mittel an Tag '+(fast.reduce((a,b)=>a+b,0)/fast.length).toFixed(0)+' (schnellstes: Tag '+Math.min(...fast).toFixed(0)+').':''):'Noch keine Prüfung in dieser Stufe.')+'</div>';
-  if(hit>=need) h+='<div style="margin-top:8px"><b>Ziel dieser Stufe '+need+' mal in Folge erreicht.</b> Du kannst oben die nächste Stufe wählen.</div>';
-  h+='<div class="mute" style="margin-top:8px">Alle Stufen: '+sts.map((x,i)=>(i===k?'▶ ':'')+(i+1)+'. '+esc(stufeText(x,ages))).join(' · ')+'</div>';
-  el.innerHTML=h;
-}
-function renderStatus(){
-  const s=S; if(!s)return;
-  $('pill').textContent=s.laeuft?'Training läuft':'angehalten'; $('pill').classList.toggle('on',!!s.laeuft);
-  $('bstart').disabled=!!s.laeuft; $('bstop').disabled=!s.laeuft;
-  $('istufe').disabled=!!s.laeuft; $('idurch').disabled=!!s.laeuft;
-  const v=s.verlauf||[], ch=s.pruefungen||[], nm=s.namen||{}, ages=nm.ages||[];
-  fillStufen(s,ages);
-  const maxAge=Math.max(0,...v.map(r=>r.alter_max||0),...ch.flatMap(c=>c.spiele.map(g=>g.alter||0)));
-  const maxTech=Math.max(0,...v.map(r=>r.forschungen_max||0),...ch.flatMap(c=>c.spiele.map(g=>g.forschungen||0)));
-  const goals=v.reduce((a,r)=>a+(r.ziel||0),0);
-  const cards=[['Runde',fmt(s.runde),'bisher gelernt'],['Spiellänge jetzt',fmt(s.tage)+' Tage','= '+(s.tage/12).toFixed(1)+' Spieljahre'],
-    ['Spiele gespielt',fmt(s.spiele),'jedes vom Anfang'],['Laufzeit',dur(s.sek),s.arbeiter?s.arbeiter+' Spiele gleichzeitig':''],
-    ['Weitestes Zeitalter',ages[maxAge]||'–','Stufe '+(maxAge+1)+' von '+(ages.length||8)],['Meiste Forschungen',maxTech+' von '+(nm.techs_total||'?'),'in einem Spiel'],
-    ['Zukunftsstadt gebaut',goals+' mal','das Ziel des Spiels'],
-    (s.netz&&s.netz.an)?['Zahlen, die lernen',fmt((s.netz.zahlen||0)+(s.netz.tabelle_lernt?s.gewichte:0)),s.netz.tabelle_lernt?'Netz und Tabelle':'Netz; Tabelle ('+fmt(s.gewichte)+') steht fest']:['Gewichte',fmt(s.gewichte),fmt(s.handlungen)+' Handlungen']];
-  $('cards').innerHTML=cards.map(c=>`<div class="card"><div class="k">${c[0]}</div><div class="v">${c[1]}</div><div class="s">${c[2]}</div></div>`).join('');
-  renderZiel(s,ch,nm);
-  renderNetz(s);
-  // Durchgänge dieses Starts: Fortschritt und Restzeit (geschätzt aus der Dauer der letzten Durchgänge)
-  const n=s.durchgaenge||0, d=Math.min(n,s.durchgang||0);
-  let pt='';
-  if(n){
-    const recent=v.slice(-Math.max(1,Math.min(d,5))).map(r=>r.sek||0).filter(x=>x>0);
-    const per=recent.length?recent.reduce((a,b)=>a+b,0)/recent.length:0;
-    const left=Math.max(0,n-d);
-    pt='<div><b>Durchgang '+d+' von '+n+'</b>'+(s.laeuft&&left&&per?' · noch etwa '+dur(left*per*1.1)+' (geschätzt, ein Durchgang zuletzt '+dur(per)+')':'')+'</div><div class="prog"><i style="width:'+(100*d/n).toFixed(1)+'%"></i></div>';
+  function renderStufen(s, ch, nm) {
+    var sts = s.stufen || DEF_STUFEN, ages = nm.ages || [], k = s.stufe || 0, st = sts[k] || sts[0];
+    var need = s.ziel_in_folge || 10, mine = ch.filter(function (c) { return c.stufe === k; });
+    var ok = function (g) { return st.ziel ? !!g.ziel : (g.alter || 0) >= st.alter; };
+    var games = [].concat.apply([], mine.map(function (c) { return c.spiele; })), hit = 0;
+    for (var i = games.length - 1; i >= 0 && ok(games[i]); i--) hit++;
+    var last = games.slice(-need), fast = last.filter(function (g) { return g.ziel_tag != null; }).map(function (g) { return g.ziel_tag; });
+    $('stufen-meta').textContent = 'Stufe ' + (k + 1) + ' von ' + sts.length;
+    $('folge-zahl').textContent = Math.min(hit, need) + ' von ' + need;
+    $('folge-fuell').style.width = (100 * Math.min(hit, need) / need) + '%';
+    $('ziel-text').innerHTML = !games.length ? 'Noch keine Prüfung in dieser Stufe.' :
+      (hit >= need ? '<strong>Ziel dieser Stufe ' + need + ' mal in Folge erreicht.</strong> Du kannst die nächste Stufe wählen. ' : '') +
+      (fast.length ? 'Erreicht im Mittel an Tag ' + Math.round(fast.reduce(function (a, b) { return a + b; }, 0) / fast.length) + ', am schnellsten an Tag ' + Math.round(Math.min.apply(null, fast)) + '.' : 'In den letzten Prüfspielen noch nicht erreicht.') +
+      ' Ein Spiel endet, sobald das Ziel erreicht ist; jeder gesparte Tag bringt Punkte.';
+    $('stufen').innerHTML = sts.map(function (x, i) {
+      var cls = i < k ? 'fertig' : i === k ? 'aktiv' : '';
+      return '<li class="' + cls + '"' + (i === k ? ' aria-current="step"' : '') + '><span class="nr">' + (i < k ? HAKEN : (i + 1)) + '</span>' + esc(stufeText(x, ages)) + '<span class="neben">' + fmt(x.tage) + ' Tage</span></li>';
+    }).join('');
   }
-  $('phase').innerHTML=pt+esc(s.laeuft?(s.phase||''):(s.phase&&s.phase!=='Start'?s.phase+'. ':'')+'Stufe und Zahl der Durchgänge oben wählen, dann Start. '+(s.import_wartet?'Beim Start wird das Gelernte aus dem genannten Ordner übernommen.':'Die KI lernt mit den bisherigen Gewichten weiter.'));
-  const run=s.laeuft?(s.laufend||[]):[];
-  $('run').innerHTML=run.length?'<tr><th>Spiel</th><th>Art</th><th>Spieltag</th><th></th><th class="n">Siedler</th><th>Zeitalter</th><th class="n">Forschungen</th><th>forscht gerade</th><th class="n">Inseln</th><th class="n">Punkte</th><th class="n">läuft seit</th></tr>'+
-    run.map(r=>`<tr><td>${r.platz+1}</td><td>${esc(r.art)}</td><td>${r.day??0} von ${r.tage}</td><td><div class="bar"><i style="width:${Math.min(100,100*(r.day||0)/r.tage)}%"></i></div></td><td class="n">${r.pop??'–'}</td><td>${esc(r.age||'–')}</td><td class="n">${r.techs??'–'}</td><td>${esc(r.research||'')}</td><td class="n">${r.islands??'–'}</td><td class="n">${fmt(r.score)}</td><td class="n">${dur(r.sek)}</td></tr>`).join(''):'';
-  chart($('c1'),[{name:'Mittel der Runde',color:'var(--acc)',pts:v.map(r=>[r.runde,r.mittel/Math.max(1,r.tag||r.tage)])},{name:'Prüfung',color:'var(--acc2)',dots:true,pts:ch.map(c=>[c.runde,c.je_tag])}]);
-  chart($('c2'),[{name:'Mittel',color:'var(--acc)',pts:v.map(r=>[r.runde,r.forschungen])},{name:'bestes Spiel',color:'var(--acc2)',pts:v.map(r=>[r.runde,r.forschungen_max])}]);
-  chart($('c3'),[{name:'Mittel',color:'var(--acc)',pts:v.map(r=>[r.runde,r.siedler])},{name:'bestes Spiel',color:'var(--acc2)',pts:v.map(r=>[r.runde,r.siedler_max])}]);
-  chart($('c4'),[{name:'geplant',color:'var(--acc)',pts:v.map(r=>[r.runde,r.tage])},{name:'erreicht (Mittel)',color:'var(--acc2)',pts:v.map(r=>[r.runde,r.tag])}]);
-  $('checks').innerHTML='<tr><th class="n">nach Runde</th><th class="n">Spieltage</th><th class="n">Punkte</th><th class="n">je Tag</th><th class="n">Siedler</th><th>Zeitalter</th><th class="n">Forschungen</th><th class="n">Inseln</th><th>Ende</th></tr>'+
-    ch.slice().reverse().map(c=>{const g=c.spiele[0];return `<tr><td class="n">${c.runde}${s.best&&s.best.runde===c.runde?' ★':''}</td><td class="n">${g.tag}</td><td class="n">${fmt(c.mittel)}</td><td class="n">${c.je_tag.toFixed(1)}</td><td class="n">${g.siedler}</td><td>${esc(g.zeitalter)}</td><td class="n">${g.forschungen}</td><td class="n">${g.inseln}</td><td>${g.ziel?'Zukunftsstadt':g.stillstand?'Stillstand':g.ende?'alle tot':'Zeit um'}</td></tr>`}).join('');
-  $('log').textContent=s.log||'';
-  const un=nm.unlock||[];
-  $('unlock').innerHTML='<tr><th>Gebäude</th><th>Die KI übernimmt</th></tr>'+un.map(u=>`<tr><td><b>${esc(u[0])}</b></td><td>${esc(u[1])}</td></tr>`).join('');
-}
-async function poll(){try{S=await get('/api/status');renderStatus()}catch(e){$('pill').textContent='keine Verbindung';$('pill').classList.remove('on')}}
-setInterval(poll,3000);poll();
 
-// ---------- Gelernt
-let CH=null;
-async function loadCheck(r){
-  const c=await get('/api/pruefung?runde='+r);
-  if(c.leer){$('gcards').innerHTML='<div class="mute">Noch keine Prüfung. Die erste kommt gleich nach dem Start.</div>';return}
-  CH=c;
-  $('selr').innerHTML=c.alle_runden.map(x=>`<option ${x===c.runde?'selected':''}>${x}</option>`).join('');
-  const d=c.days||[];
-  const cards=[['Punkte',fmt(c.score),'in '+Math.round(c.day)+' Spieltagen'],['Siedler am Ende',c.pop,''],['Zeitalter',esc(c.age_name),''],
-    ['Forschungen',c.techs.length,''],['Inseln',c.islands,'besiedelt'],['Droiden',c.droids,''],['Ende',c.goal?'Zukunftsstadt':c.stalled?'Stillstand':c.over?'alle tot':'Zeit um','']];
-  $('gcards').innerHTML=cards.map(k=>`<div class="card"><div class="k">${k[0]}</div><div class="v">${k[1]}</div><div class="s">${k[2]}</div></div>`).join('');
-  chart($('g1'),[{name:'Siedler',color:'var(--acc)',pts:d.map(x=>[x.day,x.pop])}],{xl:'Tag'});
-  chart($('g2'),[{name:'Punkte am Tag',color:'var(--acc)',pts:d.map(x=>[x.day,x.total])}],{xl:'Tag'});
-  const ages=(S&&S.namen&&S.namen.ages)||[];
-  $('gage').innerHTML=(c.age_days.length?'<p>'+c.age_days.map((t,i)=>`<b>${esc(ages[i+1]||'Zeitalter '+(i+2))}</b> erreicht an Tag ${Math.round(t)}`).join('<br>')+'</p>':'<p class="mute">Noch kein neues Zeitalter erreicht.</p>')+
-    '<p class="small"><b>Erforscht, der Reihe nach:</b> '+(c.forschung.map(esc).join(', ')||'nichts')+'</p>';
-  $('gacts').innerHTML='<tr><th>Handlung</th><th>Gruppe</th><th class="n">wie oft</th></tr>'+(c.handlungen.map(h=>`<tr><td>${esc(h.name)}</td><td class="mute">${esc(h.gruppe)}</td><td class="n">${h.anzahl}</td></tr>`).join('')||'<tr><td colspan="3" class="mute">nichts</td></tr>');
-  $('gtypes').innerHTML=Object.entries(c.types||{}).sort((a,b)=>b[1]-a[1]).map(([k,n])=>`${n} × ${esc(k)}`).join(' · ')||'–';
-  renderTrace();
-  const ch=(S&&S.pruefungen)||[];
-  $('gcmp').innerHTML='<tr><th class="n">nach Runde</th><th class="n">Spieltage</th><th class="n">Punkte je Tag</th><th class="n">Siedler</th><th>Zeitalter</th><th class="n">Forschungen</th><th class="n">Inseln</th><th class="n">Droiden</th></tr>'+
-    ch.map(k=>{const g=k.spiele[0];return `<tr><td class="n">${k.runde}</td><td class="n">${g.tag}</td><td class="n">${k.je_tag.toFixed(1)}</td><td class="n">${g.siedler}</td><td>${esc(g.zeitalter)}</td><td class="n">${g.forschungen}</td><td class="n">${g.inseln}</td><td class="n">${g.droiden}</td></tr>`}).join('');
-}
-function renderTrace(){
-  if(!CH)return; const f=$('gfilter').value.toLowerCase();
-  const rows=(CH.trace||[]).filter(t=>!f||String(t[2]).toLowerCase().includes(f));
-  $('gtrace').innerHTML='<tr><th class="n">Tag</th><th>Insel</th><th>Entscheidung</th></tr>'+rows.slice(0,1500).map(t=>`<tr><td class="n">${Number(t[0]).toFixed(1)}</td><td class="mute">${esc(t[1])}</td><td>${esc(t[2])}</td></tr>`).join('')+(rows.length>1500?`<tr><td colspan="3" class="mute">... und ${rows.length-1500} weitere</td></tr>`:'');
-}
-$('gfilter').oninput=renderTrace;
-$('selr').onchange=()=>loadCheck($('selr').value);
-$('bwatch').onclick=async()=>{const r=await (await fetch('/api/zusehen?welche='+$('wsel').value+'&tempo='+$('wtempo').value+'&saat='+encodeURIComponent($('wseed').value),{method:'POST'})).json();$('wmsg').textContent=r.ok==='gestartet'?'Das Fenster öffnet sich gleich (beim ersten Mal ein paar Sekunden).':r.ok};
-$('selw').onchange=loadWeights;
-async function loadWeights(){
-  const g=await get('/api/gelernt?welche='+$('selw').value);
-  if(!g.zeilen.length){$('weights').innerHTML='<p class="mute">Noch keine Gewichte gespeichert.</p>';return}
-  const groups={};
-  for(const z of g.zeilen)(groups[z.gruppe||'Sonstiges']=groups[z.gruppe||'Sonstiges']||[]).push(z);
-  const mx=Math.max(1e-9,...g.zeilen.map(z=>z.staerke));
-  $('weights').innerHTML=(g.runde!=null?`<p class="mute small">Stand nach Runde ${g.runde}.</p>`:'')+(g.netz?'<p class="small">Hier steht die Tabelle. Was das Netz dazulegt, lässt sich nicht in einzelne Sätze fassen, weil es Eingänge miteinander verbindet. Die Spalte „Netz“ zeigt nur, bei welchen Entscheidungen es wie stark mitredet (0 = gar nicht).</p>':'')+Object.entries(groups).map(([k,zs])=>`<details><summary>${esc(k)} (${zs.length})</summary><div><table><tr><th>Entscheidung</th><th>gelernt</th>${g.netz?'<th class="n">Netz</th>':''}<th>stärkste Einflüsse</th></tr>${
-    zs.sort((a,b)=>b.staerke-a.staerke).map(z=>`<tr><td>${esc(z.name)}</td><td><div class="bar"><i style="width:${100*z.staerke/mx}%"></i></div></td>${g.netz?`<td class="n">${z.netz!=null?z.netz.toLocaleString('de-DE',{maximumFractionDigits:2}):'–'}</td>`:''}<td class="small">${
-      (z.einfluss.length?z.einfluss.map(e=>`<span class="${e.w>0?'plus':'minus'}">${e.w>0?'eher':'seltener'}, wenn ${esc(e.was)} (${e.w>0?'+':''}${e.w})</span> <span class="mute">in ${Math.round((e.oft??1)*100)} % der Spiele erlebt</span>`).join('<br>'):'<span class="mute">noch nichts gelernt</span>')+(z.rauschen&&z.rauschen.length?'<br><span class="mute">Nur Rauschen, noch nie erlebt: '+z.rauschen.map(e=>esc(e.was)+' ('+e.w+')').join(', ')+'</span>':'')}</td></tr>`).join('')}</table></div></details>`).join('');
-}
+  function renderNetz(s) {
+    var nz = s.netz || {}, on = !!(s.netz_an || nz.an), pl = s.netz_plan || [24, 24];
+    $('titel').textContent = on ? 'Insel-KI-Training mit neuronalem Netz' : 'Insel-KI-Training';
+    document.title = $('titel').textContent;
+    $('netzpanel').hidden = !on;
+    if (on) {
+      var h1 = nz.h1 || pl[0], h2 = nz.h2 || pl[1];
+      $('netz-meta').textContent = '96 → ' + h1 + ' → ' + h2;
+      var h = '<p class="lese">Die bisherige Tabelle aus Gewichten rechnet wie vorher. Das Netz legt zu jedem Wert eine Korrektur dazu und kann Dinge verbinden, zum Beispiel „Winter und wenig Holz“. Am Anfang ist die Korrektur 0.</p>';
+      h += '<div class="block">' + zeilen([
+        ['Zahlen im Netz', nz.zahlen ? fmt(nz.zahlen) : '–', ''],
+        ['Es lernt', nz.an ? (nz.tabelle_lernt ? 'Netz und Tabelle' : 'nur das Netz') : '–', nz.an && !nz.tabelle_lernt ? 'Tabelle steht fest' : ''],
+        ['Ausschlag', dez(nz.ausschlag || 0, 3), '0 = ändert noch nichts']
+      ], true) + '</div>';
+      $('netzbox').innerHTML = h;
+    }
+    var w = s.import_wartet, im = s.import, t = '';
+    if (w) t += '<strong>Wartet auf den nächsten Start:</strong> ' + esc(w.datei || '') + (w.runde != null ? ' (Runde ' + w.runde + ')' : '') + '. <a href="#" data-aktion="importWeg">Doch nicht übernehmen</a><br>';
+    if (im) t += 'Zuletzt übernommen: ' + esc(im.datei || '') + (im.runde != null ? ', Stand nach Runde ' + im.runde : '') + ', ' + fmt(im.zahlen) + ' Gewichte ungleich 0' + (im.netz ? ', mit Netz' : '') + ' (' + new Date((im.zeit || 0) * 1000).toLocaleString('de-DE') + ').';
+    else if (!w) t += 'Noch nichts übernommen' + (on ? ': ohne Übernahme fängt die KI bei null an.' : '.');
+    if (s.laeuft) t += ' Zum Übernehmen erst anhalten.';
+    $('impinfo').innerHTML = t;
+  }
 
-// ---------- Programmcode
-const KW=/\b(func|var|const|static|class_name|extends|return|if|elif|else|for|while|in|match|break|continue|and|or|not|true|false|null|def|class|import|from|as|try|except|finally|with|lambda|None|True|False|self|pass|raise|global|await|signal|function|let|async)\b/g;
-function hl(line,ext){
-  let s=esc(line), com='';
-  const ci=ext==='json'?-1:findComment(line);
-  if(ci>=0){com='<span class="co">'+esc(line.slice(ci))+'</span>';s=esc(line.slice(0,ci))}
-  s=s.replace(/("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')/g,'\u0001$1\u0002');
-  s=s.split(/(\u0001.*?\u0002)/).map(p=>p.startsWith('\u0001')?'<span class="st">'+p.slice(1,-1)+'</span>':p.replace(KW,'<span class="kw">$1</span>').replace(/\b(\d+\.?\d*)\b/g,'<span class="nu">$1</span>')).join('');
-  return s+com;
-}
-function findComment(l){let q='';for(let i=0;i<l.length;i++){const c=l[i];if(q){if(c==='\\')i++;else if(c===q)q=''}else if(c==='"'||c==="'")q=c;else if(c==='#')return i}return -1}
-let FILES=null;
-async function loadFiles(){
-  if(!FILES)FILES=await get('/api/dateien');
-  const main=FILES.filter(f=>f.haupt), rest=FILES.filter(f=>!f.haupt);
-  $('flist').innerHTML='<h3 style="margin-top:0">Training und KI</h3>'+main.map(link).join('')+`<details style="border:0"><summary style="padding:8px 0">Alle Dateien des Spiels (${rest.length})</summary><div style="padding:0">${rest.map(link).join('')}</div></details>`;
-  $('flist').querySelectorAll('a').forEach(a=>a.onclick=()=>openFile(a.dataset.p));
-  if(!curFile&&main.length)openFile(main[0].p);
-}
-const link=f=>`<a data-p="${esc(f.p)}" class="${f.p===curFile?'sel':''}">${esc(f.titel)}${f.text?`<small>${esc(f.text)}</small>`:''}</a>`;
-async function openFile(p){
-  curFile=p; $('flist').querySelectorAll('a').forEach(a=>a.classList.toggle('sel',a.dataset.p===p));
-  const r=await get('/api/datei?p='+encodeURIComponent(p)); const ext=p.split('.').pop();
-  const lines=(r.text||'').split('\n');
-  $('ftitle').textContent=p+' · '+lines.length+' Zeilen';
-  $('fview').innerHTML=lines.map((l,i)=>`<span class="l" data-n="${i+1}">${ext==='html'||ext==='md'||ext==='command'?esc(l):hl(l,ext)}</span>`).join('');
-  $('fview').scrollTop=0;
-}
+  function renderStatus() {
+    var s = S; if (!s) return;
+    var v = s.verlauf || [], ch = s.pruefungen || [], nm = s.namen || {}, ages = nm.ages || [];
+    sperre(!!s.laeuft);
+    $('chip').textContent = s.laeuft ? 'Training läuft' : 'angehalten';
+    $('seg-lauf').textContent = s.laeuft ? 'Training läuft' : 'Training angehalten';
+    $('seg-punkt').classList.toggle('aus', !s.laeuft);
+    fillStufen(s, ages);
+    if (!s.laeuft && document.activeElement !== $('istufe')) $('istufe').value = String((s.stufe || 0) + 1);
+    var sts = s.stufen || DEF_STUFEN, k = s.stufe || 0;
+    $('seg-stufe').textContent = 'Stufe ' + (k + 1) + ' von ' + sts.length;
+    $('s-meta').textContent = 'Stufe ' + (k + 1) + ': ' + stufeText(sts[k] || sts[0], ages) + ' · Runde ' + fmt(s.runde);
+    var lz = v.length ? v[v.length - 1].zeit : (ch.length ? ch[ch.length - 1].zeit : null);
+    alle('[data-wert="zeit"]').forEach(function (e) { e.textContent = lz ? uhr(lz) : '–'; });
+    $('seg-rechts').textContent = 'Runde ' + fmt(s.runde) + ' · ' + fmt(s.spiele) + ' Spiele';
+
+    // Durchgänge dieses Starts
+    var n = s.durchgaenge || 0, d = Math.min(n, s.durchgang || 0);
+    $('seg-durch').textContent = n ? 'Durchgang ' + d + ' von ' + n : 'Durchgang –';
+    var recent = v.slice(-Math.max(1, Math.min(d, 5))).map(function (r) { return r.sek || 0; }).filter(function (x) { return x > 0; });
+    var per = recent.length ? recent.reduce(function (a, b) { return a + b; }, 0) / recent.length : 0;
+    $('durch-text').textContent = n ? 'Durchgang ' + d + ' von ' + n + (s.laeuft && n > d && per ? ', noch etwa ' + dur((n - d) * per * 1.1) : '') : 'Noch kein Durchgang gestartet';
+    $('durch-proz').textContent = n ? Math.round(100 * d / n) + ' %' : '0 %';
+    $('durch-fuell').style.width = (n ? 100 * d / n : 0) + '%';
+    $('durch-leiste').setAttribute('aria-valuenow', String(n ? Math.round(100 * d / n) : 0));
+    $('lauf-meta').textContent = s.arbeiter ? s.arbeiter + ' Spiele gleichzeitig' : '';
+    $('phase').innerHTML = s.laeuft ? esc(s.phase || '') + (per ? ' · ein Durchgang zuletzt ' + dur(per) : '') :
+      (s.phase && s.phase !== 'Start' ? '<strong>' + esc(s.phase) + '.</strong> ' : '') + 'Stufe und Zahl der Durchgänge wählen, dann Starten. ' + (s.import_wartet ? 'Beim Start wird das Gelernte aus dem genannten Ordner übernommen.' : 'Die KI lernt mit den bisherigen Gewichten weiter.');
+    var run = s.laeuft ? (s.laufend || []) : [];
+    $('run-block').hidden = !run.length;
+    $('run').innerHTML = run.length ? '<tr><th>Spiel</th><th>Art</th><th>Spieltag</th><th></th><th class="n">Siedler</th><th>Zeitalter</th><th class="n">Forschungen</th><th>forscht gerade</th><th class="n">Inseln</th><th class="n">Punkte</th><th class="n">läuft seit</th></tr>' +
+      run.map(function (r) { return '<tr><td class="n">' + (r.platz + 1) + '</td><td>' + esc(r.art) + '</td><td>' + (r.day || 0) + ' von ' + r.tage + '</td><td><div class="mini-leiste"><i style="width:' + Math.min(100, 100 * (r.day || 0) / r.tage) + '%"></i></div></td><td class="n">' + (r.pop == null ? '–' : r.pop) + '</td><td>' + esc(r.age || '–') + '</td><td class="n">' + (r.techs == null ? '–' : r.techs) + '</td><td>' + esc(r.research || '') + '</td><td class="n">' + (r.islands == null ? '–' : r.islands) + '</td><td class="n">' + fmt(r.score) + '</td><td class="n">' + dur(r.sek) + '</td></tr>'; }).join('') : '';
+
+    // Kennzahlen
+    var maxAge = Math.max.apply(null, [0].concat(v.map(function (r) { return r.alter_max || 0; }), [].concat.apply([], ch.map(function (c) { return c.spiele.map(function (g) { return g.alter || 0; }); }))));
+    var maxTech = Math.max.apply(null, [0].concat(v.map(function (r) { return r.forschungen_max || 0; }), [].concat.apply([], ch.map(function (c) { return c.spiele.map(function (g) { return g.forschungen || 0; }); }))));
+    var goals = v.reduce(function (a, r) { return a + (r.ziel || 0); }, 0);
+    var nz = s.netz || {};
+    $('cards').innerHTML = zeilen([
+      ['Runde', fmt(s.runde), 'bisher gelernt'],
+      ['Spiellänge', fmt(s.tage) + ' Tage', '= ' + dez((s.tage || 0) / 12) + ' Spieljahre'],
+      ['Spiele', fmt(s.spiele), 'jedes vom Anfang'],
+      ['Laufzeit', dur(s.sek), s.arbeiter ? s.arbeiter + ' gleichzeitig' : ''],
+      ['Weitestes Zeitalter', esc(ages[maxAge] || '–'), 'Stufe ' + (maxAge + 1) + ' von ' + (ages.length || 8)],
+      ['Meiste Forschungen', maxTech + ' von ' + (nm.techs_total || '?'), 'in einem Spiel'],
+      ['Zukunftsstadt', goals + ' mal', 'das Ziel des Spiels'],
+      nz.an ? ['Lernende Zahlen', fmt((nz.zahlen || 0) + (nz.tabelle_lernt ? s.gewichte : 0)), nz.tabelle_lernt ? 'Netz und Tabelle' : 'Netz; Tabelle (' + fmt(s.gewichte) + ') fest'] : ['Gewichte', fmt(s.gewichte), fmt(s.handlungen) + ' Handlungen']
+    ], true);
+    renderStufen(s, ch, nm);
+    renderNetz(s);
+
+    chart($('c1'), [{ name: 'Mittel der Runde', farbe: BLAU, pts: v.map(function (r) { return [r.runde, r.mittel / Math.max(1, r.tag || r.tage)]; }) }, { name: 'Prüfung', farbe: ROT, dots: true, pts: ch.map(function (c) { return [c.runde, c.je_tag]; }) }]);
+    chart($('c2'), [{ name: 'Mittel', farbe: BLAU, pts: v.map(function (r) { return [r.runde, r.forschungen]; }) }, { name: 'bestes Spiel', farbe: ROT, pts: v.map(function (r) { return [r.runde, r.forschungen_max]; }) }]);
+    chart($('c3'), [{ name: 'Mittel', farbe: BLAU, pts: v.map(function (r) { return [r.runde, r.siedler]; }) }, { name: 'bestes Spiel', farbe: ROT, pts: v.map(function (r) { return [r.runde, r.siedler_max]; }) }]);
+    chart($('c4'), [{ name: 'geplant', farbe: BLAU, pts: v.map(function (r) { return [r.runde, r.tage]; }) }, { name: 'erreicht (Mittel)', farbe: ROT, pts: v.map(function (r) { return [r.runde, r.tag]; }) }]);
+    $('checks').innerHTML = '<tr><th class="n">nach Runde</th><th class="n">Spieltage</th><th class="n">Punkte</th><th class="n">je Tag</th><th class="n">Siedler</th><th>Zeitalter</th><th class="n">Forschungen</th><th class="n">Inseln</th><th>Ende</th></tr>' +
+      (ch.length ? ch.slice().reverse().map(function (c) { var g = c.spiele[0], best = s.best && s.best.runde === c.runde; return '<tr' + (best ? ' class="aktiv"' : '') + '><td class="n">' + c.runde + (best ? ' ★' : '') + '</td><td class="n">' + g.tag + '</td><td class="n">' + fmt(c.mittel) + '</td><td class="n">' + dez(c.je_tag) + '</td><td class="n">' + g.siedler + '</td><td>' + esc(g.zeitalter) + '</td><td class="n">' + g.forschungen + '</td><td class="n">' + g.inseln + '</td><td>' + (g.ziel ? 'Zukunftsstadt' : g.stillstand ? 'Stillstand' : g.ende ? 'alle tot' : 'Zeit um') + '</td></tr>'; }).join('') : '<tr><td colspan="9" class="neben">Noch keine Prüfung.</td></tr>');
+    $('log').textContent = s.log || '';
+    var un = nm.unlock || [];
+    $('unlock').innerHTML = '<tr><th>Gebäude</th><th>Die KI übernimmt</th></tr>' + (un.length ? un.map(function (u) { return '<tr><td><strong>' + esc(u[0]) + '</strong></td><td>' + esc(u[1]) + '</td></tr>'; }).join('') : '<tr><td colspan="2" class="neben">Erscheint, sobald das Training einmal gestartet wurde.</td></tr>');
+  }
+
+  function poll() {
+    return get('/api/status').then(function (s) { S = s; renderStatus(); }).catch(function () {
+      $('chip').textContent = 'keine Verbindung'; $('seg-lauf').textContent = 'Keine Verbindung zum Trainingsprogramm'; $('seg-punkt').classList.add('aus');
+    });
+  }
+  setInterval(poll, 3000); poll();
+
+  /* ---------------- Gelernt ---------------- */
+  function loadCheck(r) {
+    get('/api/pruefung?runde=' + r).then(function (c) {
+      if (c.leer) { $('gcards').innerHTML = zeilen([['Prüfung', 'noch keine', 'die erste kommt gleich nach dem Start']], true); return; }
+      CH = c;
+      $('selr').innerHTML = c.alle_runden.map(function (x) { return '<option ' + (x === c.runde ? 'selected' : '') + '>' + x + '</option>'; }).join('');
+      var d = c.days || [];
+      $('gcards').innerHTML = zeilen([
+        ['Punkte', fmt(c.score), 'in ' + Math.round(c.day) + ' Spieltagen'], ['Siedler am Ende', c.pop, ''], ['Zeitalter', esc(c.age_name), ''],
+        ['Forschungen', c.techs.length, ''], ['Inseln', c.islands, 'besiedelt'], ['Droiden', c.droids, ''],
+        ['Ende', c.goal ? 'Zukunftsstadt' : c.stalled ? 'Stillstand' : c.over ? 'alle tot' : 'Zeit um', '']], true);
+      chart($('g1'), [{ name: 'Siedler', farbe: BLAU, pts: d.map(function (x) { return [x.day, x.pop]; }) }], { xl: 'Tag' });
+      chart($('g2'), [{ name: 'Punkte am Tag', farbe: ROT, pts: d.map(function (x) { return [x.day, x.total]; }) }], { xl: 'Tag' });
+      var ages = (S && S.namen && S.namen.ages) || [];
+      $('gage').innerHTML = (c.age_days.length ? '<ol class="lektionen" style="margin-top:0">' + c.age_days.map(function (t, i) { return '<li class="fertig"><span class="nr">' + HAKEN + '</span>' + esc(ages[i + 1] || 'Zeitalter ' + (i + 2)) + '<span class="neben">Tag ' + Math.round(t) + '</span></li>'; }).join('') + '</ol>' : '<p class="hinweis">Noch kein neues Zeitalter erreicht.</p>') +
+        '<p class="lese" style="margin-top:12px"><strong>Erforscht, der Reihe nach:</strong> ' + (c.forschung.map(esc).join(', ') || 'nichts') + '</p>';
+      $('gacts').innerHTML = '<tr><th>Handlung</th><th>Gruppe</th><th class="n">wie oft</th></tr>' + (c.handlungen.map(function (h) { return '<tr><td>' + esc(h.name) + '</td><td class="neben">' + esc(h.gruppe) + '</td><td class="n">' + h.anzahl + '</td></tr>'; }).join('') || '<tr><td colspan="3" class="neben">nichts</td></tr>');
+      var ty = Object.entries(c.types || {}).sort(function (a, b) { return b[1] - a[1]; });
+      $('gtypes').innerHTML = ty.length ? ty.map(function (e, i) { return '<span class="token ' + (i % 2 ? 'r' : 'b') + '">' + e[1] + ' × ' + esc(e[0]) + '</span>'; }).join('') : '<span class="hinweis" style="margin:0">keine</span>';
+      renderTrace();
+      var ch = (S && S.pruefungen) || [];
+      $('gcmp').innerHTML = '<tr><th class="n">Runde</th><th class="n">Tage</th><th class="n">je Tag</th><th class="n">Siedler</th><th>Zeitalter</th><th class="n">Forsch.</th></tr>' +
+        ch.map(function (k) { var g = k.spiele[0]; return '<tr' + (k.runde === c.runde ? ' class="aktiv"' : '') + '><td class="n">' + k.runde + '</td><td class="n">' + g.tag + '</td><td class="n">' + dez(k.je_tag) + '</td><td class="n">' + g.siedler + '</td><td>' + esc(g.zeitalter) + '</td><td class="n">' + g.forschungen + '</td></tr>'; }).join('');
+    });
+  }
+  function renderTrace() {
+    if (!CH) return; var f = $('gfilter').value.toLowerCase();
+    var rows = (CH.trace || []).filter(function (t) { return !f || String(t[2]).toLowerCase().indexOf(f) >= 0; });
+    $('gtrace').innerHTML = '<tr><th class="n">Tag</th><th>Insel</th><th>Entscheidung</th></tr>' + rows.slice(0, 1500).map(function (t) { return '<tr><td class="n">' + dez(t[0]) + '</td><td class="neben">' + esc(t[1]) + '</td><td>' + esc(t[2]) + '</td></tr>'; }).join('') + (rows.length > 1500 ? '<tr><td colspan="3" class="neben">… und ' + (rows.length - 1500) + ' weitere</td></tr>' : '');
+  }
+  $('gfilter').addEventListener('input', renderTrace);
+  $('selr').addEventListener('change', function () { loadCheck($('selr').value); });
+  $('selw').addEventListener('change', loadWeights);
+  function loadWeights() {
+    get('/api/gelernt?welche=' + $('selw').value).then(function (g) {
+      if (!g.zeilen.length) { $('weights').innerHTML = '<p class="hinweis">Noch keine Gewichte gespeichert.</p>'; $('gew-meta').textContent = ''; return; }
+      $('gew-meta').textContent = g.runde != null ? 'Stand nach Runde ' + g.runde : '';
+      var groups = {};
+      g.zeilen.forEach(function (z) { var k = z.gruppe || 'Sonstiges'; (groups[k] = groups[k] || []).push(z); });
+      var mx = Math.max.apply(null, [1e-9].concat(g.zeilen.map(function (z) { return z.staerke; })));
+      $('weights').innerHTML = (g.netz ? '<p class="hinweis">Hier steht die Tabelle. Was das Netz dazulegt, lässt sich nicht in einzelne Sätze fassen. Die Spalte „Netz“ zeigt, wie stark es bei einer Entscheidung mitredet (0 = gar nicht).</p>' : '') +
+        Object.keys(groups).map(function (k) {
+          var zs = groups[k].sort(function (a, b) { return b.staerke - a.staerke; });
+          return '<details class="gruppe"><summary>' + esc(k) + ' (' + zs.length + ')' + PFEIL + '</summary><div class="gruppe-inhalt" style="overflow-x:auto"><table class="tab"><tr><th>Entscheidung</th><th>gelernt</th>' + (g.netz ? '<th class="n">Netz</th>' : '') + '<th>stärkste Einflüsse</th></tr>' +
+            zs.map(function (z) {
+              var ein = z.einfluss.length ? z.einfluss.map(function (e) { return '<span class="' + (e.w > 0 ? 'plus' : 'minus') + '">' + (e.w > 0 ? 'eher' : 'seltener') + ', wenn ' + esc(e.was) + ' (' + (e.w > 0 ? '+' : '') + dez(e.w, 3) + ')</span> <span class="neben">in ' + Math.round((e.oft == null ? 1 : e.oft) * 100) + ' % der Spiele erlebt</span>'; }).join('<br>') : '<span class="neben">noch nichts gelernt</span>';
+              if (z.rauschen && z.rauschen.length) ein += '<br><span class="neben">Nur Rauschen, noch nie erlebt: ' + z.rauschen.map(function (e) { return esc(e.was) + ' (' + dez(e.w, 3) + ')'; }).join(', ') + '</span>';
+              return '<tr><td>' + esc(z.name) + '</td><td><div class="mini-leiste"><i style="width:' + (100 * z.staerke / mx) + '%"></i></div></td>' + (g.netz ? '<td class="n">' + (z.netz != null ? dez(z.netz, 2) : '–') + '</td>' : '') + '<td>' + ein + '</td></tr>';
+            }).join('') + '</table></div></details>';
+        }).join('');
+    });
+  }
+
+  /* ---------------- Programmcode ---------------- */
+  var KW = /\b(func|var|const|static|class_name|extends|return|if|elif|else|for|while|in|match|break|continue|and|or|not|true|false|null|def|class|import|from|as|try|except|finally|with|lambda|None|True|False|self|pass|raise|global|await|signal|function|let|async)\b/g;
+  function findComment(l) { var q = ''; for (var i = 0; i < l.length; i++) { var c = l[i]; if (q) { if (c === '\\') i++; else if (c === q) q = ''; } else if (c === '"' || c === "'") q = c; else if (c === '#') return i; } return -1; }
+  function hl(line, ext) {
+    var s = esc(line), com = '', ci = ext === 'json' ? -1 : findComment(line);
+    if (ci >= 0) { com = '<span class="co">' + esc(line.slice(ci)) + '</span>'; s = esc(line.slice(0, ci)); }
+    s = s.replace(/("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')/g, '\u0001$1\u0002');
+    s = s.split(/(\u0001.*?\u0002)/).map(function (p) { return p.charAt(0) === '\u0001' ? '<span class="st">' + p.slice(1, -1) + '</span>' : p.replace(KW, '<span class="kw">$1</span>').replace(/\b(\d+\.?\d*)\b/g, '<span class="nu">$1</span>'); }).join('');
+    return s + com;
+  }
+  function link(f) { return '<button type="button" class="liste-eintrag' + (f.p === curFile ? ' hervor' : '') + '" data-datei="' + esc(f.p) + '">' + esc(f.titel) + (f.text ? '<small>' + esc(f.text) + '</small>' : '') + '</button>'; }
+  function loadFiles() {
+    (FILES ? Promise.resolve(FILES) : get('/api/dateien')).then(function (fs) {
+      FILES = fs;
+      var main = fs.filter(function (f) { return f.haupt; }), rest = fs.filter(function (f) { return !f.haupt; });
+      $('flist').innerHTML = '<p class="zwischen">Training und KI</p>' + main.map(link).join('') + '<details class="gruppe" style="margin-top:10px"><summary>Alle Dateien des Spiels (' + rest.length + ')' + PFEIL + '</summary><div class="gruppe-inhalt" style="padding:6px">' + rest.map(link).join('') + '</div></details>';
+      if (!curFile && main.length) openFile(main[0].p);
+    });
+  }
+  $('flist').addEventListener('click', function (e) { var b = e.target.closest('[data-datei]'); if (b) openFile(b.getAttribute('data-datei')); });
+  function openFile(p) {
+    curFile = p;
+    alle('#flist [data-datei]').forEach(function (a) { a.classList.toggle('hervor', a.getAttribute('data-datei') === p); });
+    get('/api/datei?p=' + encodeURIComponent(p)).then(function (r) {
+      var ext = p.split('.').pop(), lines = (r.text || r.fehler || '').split('\n');
+      $('ftitle').textContent = p.split('/').pop();
+      $('fmeta').textContent = p + ' · ' + lines.length + ' Zeilen';
+      $('fview').innerHTML = lines.map(function (l, i) { return '<span class="l" data-n="' + (i + 1) + '">' + (ext === 'html' || ext === 'md' || ext === 'command' ? esc(l) : hl(l, ext)) + '</span>'; }).join('');
+      $('fview').scrollTop = 0;
+    });
+  }
+
+  anwenden();
+  if (zustand.ansicht === 'gelernt') { loadCheck(-1); loadWeights(); }
+  if (zustand.ansicht === 'code') loadFiles();
+})();
 </script>
 </body>
 </html>
