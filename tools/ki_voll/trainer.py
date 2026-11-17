@@ -73,6 +73,7 @@ DEFAULTS = {
     "ereignisse": True,       # mit Ereignissen (harte Winter, Piraten ...)
     "runden": 100000,         # Ende des Trainings (praktisch: läuft, bis du stoppst)
     "saat": 7,
+    "min_frei_gb": 2,         # weniger freier Platz auf dem Laufwerk des Trainings: das Training hält an
     # kleines neuronales Netz (josh 2026-11-16)
     "netz": False,            # true: zusätzlich zur Tabelle lernt ein kleines Netz
     "netz_h1": 24,            # Zellen der ersten verdeckten Schicht
@@ -98,9 +99,51 @@ def load_config(path):
     return cfg
 
 
+def local_env(base, extra=None):
+    """Umgebung für Godot (josh 2026-11-17): alles, was Godot oder macOS sonst im Benutzerordner oder im
+    Temp-Ordner des Systemlaufwerks ablegt (Spielstände, Protokolle, Einstellungen, Zwischenspeicher, Temp),
+    landet unter base, also auf dem Laufwerk, auf dem das Training liegt."""
+    e = dict(os.environ)
+    for k, sub in (("XDG_DATA_HOME", "daten"), ("XDG_CONFIG_HOME", "einstellungen"), ("XDG_CACHE_HOME", "cache"), ("TMPDIR", "tmp")):
+        p = os.path.join(base, sub)
+        os.makedirs(p, exist_ok=True)
+        e[k] = p
+    e["TMP"] = e["TEMP"] = e["TMPDIR"]
+    if extra:
+        e.update(extra)
+    return e
+
+
+def move_old_temp(lauf):
+    """Holt Arbeitsordner früherer Trainings (insel_ki_*) aus dem Temp-Ordner des Systemlaufwerks in
+    lauf/alte_temp_dateien. Gibt die Zahl der verschobenen Ordner zurück."""
+    found = 0
+    places = {os.environ.get("INSEL_ALT_TMP", ""), tempfile.gettempdir(), "/tmp", "/private/tmp"}
+    dest = os.path.join(lauf, "alte_temp_dateien")
+    for place in places:
+        if not place or not os.path.isdir(place) or os.path.realpath(place).startswith(os.path.realpath(lauf)):
+            continue
+        try:
+            names = os.listdir(place)
+        except OSError:
+            continue
+        for n in names:
+            src = os.path.join(place, n)
+            if not n.startswith("insel_ki_") or not os.path.isdir(src):
+                continue
+            try:
+                os.makedirs(dest, exist_ok=True)
+                shutil.move(src, os.path.join(dest, n))
+                found += 1
+                print("Alte Trainingsdateien vom Systemlaufwerk verschoben: %s -> %s" % (src, dest), flush=True)
+            except Exception as e:
+                print("Konnte %s nicht verschieben: %s" % (src, e), flush=True)
+    return found
+
+
 def write_json(path, data):
     """Erst in eine Nebendatei schreiben, dann umbenennen: die Oberfläche liest nie eine halbe Datei."""
-    tmp = path + ".tmp"
+    tmp = "%s.%d.tmp" % (path, threading.get_ident())  # eigene Nebendatei je Faden: zwei Schreiber stören sich nicht
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False)
     os.replace(tmp, path)
@@ -192,7 +235,11 @@ class Trainer:
         self.cfg = load_config(os.path.join(self.lauf, "einstellungen.json"))
         if not os.path.exists(os.path.join(self.lauf, "einstellungen.json")):
             write_json(os.path.join(self.lauf, "einstellungen.json"), {k: (0 if k in ("arbeiter", "richtungen") else v) for k, v in DEFAULTS.items()})
-        self.tmp = tempfile.mkdtemp(prefix="insel_ki_")
+        # Arbeitsordner auf dem Laufwerk des Trainings, nicht im Temp-Ordner des Systems (josh 2026-11-17)
+        move_old_temp(self.lauf)
+        self.tmp = os.path.join(self.lauf, "arbeit")
+        shutil.rmtree(self.tmp, ignore_errors=True)
+        os.makedirs(self.tmp, exist_ok=True)
         self.procs = {}
         self.lock = threading.Lock()
         self.stop = False
@@ -237,10 +284,7 @@ class Trainer:
 
     # ------------------------------------------------------------ Spiel starten
     def env(self, slot):
-        e = dict(os.environ)
-        e["XDG_DATA_HOME"] = os.path.join(self.tmp, "platz_%d" % slot)  # eigener Speicherplatz je Spiel
-        e["KI_LANG"] = "de"
-        return e
+        return local_env(os.path.join(self.tmp, "platz_%d" % slot), {"KI_LANG": "de"})  # eigener Speicherplatz je Spiel
 
     def ask_names(self):
         out = os.path.join(self.tmp, "namen.json")
@@ -259,11 +303,15 @@ class Trainer:
         wpath = os.path.join(d, "w.json")
         out = os.path.join(d, "r.json")
         prog = os.path.join(d, "p.json")
-        for p in (out, prog):
-            if os.path.exists(p):
-                os.remove(p)
-        with open(wpath, "w") as f:
-            json.dump(self.game(vec), f)
+        try:
+            for p in (out, prog):
+                if os.path.exists(p):
+                    os.remove(p)
+            with open(wpath, "w") as f:
+                json.dump(self.game(vec), f)
+        except OSError as e:
+            print("  Spiel nicht gestartet (Platz %d): %s" % (slot, e), file=sys.stderr, flush=True)
+            return None, None
         cmd = [self.godot, "--headless", "--fixed-fps", "60", "--path", self.spiel, "--", "--autotest=999999", "--scale=10",
                "--kitrain=1", "--kifull=1", "--kiw=" + wpath, "--kidays=%d" % days, "--kiseed=%d" % seed,
                "--kistall=%d" % int(self.cfg["stillstand_tage"]), "--kiprog=" + prog, "--kiout=" + out]
@@ -599,7 +647,15 @@ class Trainer:
             self.save_state()
         end = self.start_round + self.goal
         while not self.stop and self.round < end:
-            if not self.one_round():
+            if self.disk_full():
+                break
+            try:
+                if not self.one_round():
+                    break
+            except OSError as e:
+                self.phase = "Angehalten: Schreibfehler (%s). Bitte freien Platz prüfen, dann wieder Start." % e
+                print(self.phase, flush=True)
+                self.stop = True
                 break
             last = self.round >= end
             if (self.round % int(self.cfg["pruefung_alle"]) == 0 or last) and not self.stop:
@@ -609,9 +665,25 @@ class Trainer:
             if not self.stop:
                 self.save_state()
         done = self.round - self.start_round
+        if self.phase.startswith("Angehalten:"):
+            write_json(os.path.join(self.lauf, "status.json"), self.status())
+            shutil.rmtree(self.tmp, ignore_errors=True)
+            return
         self.phase = ("Fertig: %d von %d Durchgängen" % (done, self.goal)) if done >= self.goal else ("Angehalten nach %d von %d Durchgängen" % (done, self.goal))
         write_json(os.path.join(self.lauf, "status.json"), self.status())
         shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def disk_full(self):
+        """Zu wenig Platz auf dem Laufwerk des Trainings: sauber anhalten (der Stand bis zur letzten Runde bleibt)."""
+        try:
+            free = shutil.disk_usage(self.lauf).free / 1e9
+        except OSError:
+            return False
+        if free >= float(self.cfg.get("min_frei_gb", 2)):
+            return False
+        self.phase = "Angehalten: auf dem Laufwerk des Trainings sind nur noch %.1f GB frei (nötig %.0f GB)" % (free, float(self.cfg.get("min_frei_gb", 2)))
+        print(self.phase, flush=True)
+        return True
 
     def halt(self, *_):
         """Stopp: laufende Spiele beenden; die angefangene Runde wird beim nächsten Start wiederholt."""

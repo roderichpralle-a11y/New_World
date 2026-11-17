@@ -11,6 +11,16 @@ if ! command -v python3 >/dev/null 2>&1 || ! python3 -c "import sys; sys.exit(0 
   exit 1
 fi
 
+# Alles, was beim Training entsteht, bleibt auf dem Laufwerk dieses Ordners (josh 2026-11-17): Godot und
+# Python schreiben Temp-Dateien, Einstellungen und Zwischenspeicher sonst auf das Systemlaufwerk.
+export INSEL_ALT_TMP="${TMPDIR:-/tmp}"
+mkdir -p lauf/arbeit_start/tmp lauf/arbeit_start/daten lauf/arbeit_start/einstellungen lauf/arbeit_start/cache
+export TMPDIR="$PWD/lauf/arbeit_start/tmp" TMP="$PWD/lauf/arbeit_start/tmp" TEMP="$PWD/lauf/arbeit_start/tmp"
+export XDG_DATA_HOME="$PWD/lauf/arbeit_start/daten" XDG_CONFIG_HOME="$PWD/lauf/arbeit_start/einstellungen" XDG_CACHE_HOME="$PWD/lauf/arbeit_start/cache"
+export PYTHONPYCACHEPREFIX="$PWD/lauf/arbeit_start/pycache"
+FREI=$(df -k . | awk 'NR==2 {print int($4/1048576)}')
+echo "Trainingsordner: $PWD (frei auf diesem Laufwerk: ${FREI} GB)"
+
 GODOT_VERSION="4.7.2-stable"
 if [ -z "$GODOT" ]; then
   GODOT="$PWD/godot/Godot.app/Contents/MacOS/Godot"

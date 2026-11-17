@@ -97,3 +97,10 @@ Das Paket **Insel-KI-Netz** ist dasselbe Training mit eingeschaltetem neuronalen
 - **Import:** Auf der Seite Status im Kasten „Gelerntes aus einem anderen Training übernehmen“ den Ordner des bisherigen Trainings nennen (eintippen, aus dem Finder ins Feld ziehen oder „Ordner wählen“). Das Programm sucht dort `best.json` (auch im Unterordner `lauf`). Übernommen wird beim nächsten Start. Das Zählen der Runden beginnt neu; der alte Stand bleibt als `zustand_vor_import_<Zeit>.json` liegen. Der andere Ordner wird nicht verändert.
 - Der Import geht in beiden Paketen. Ein Stand mit Netz lässt sich später genauso in einen anderen Ordner übernehmen.
 - Beide Pakete benutzen dieselbe Adresse im Browser, deshalb immer nur eines zur selben Zeit starten.
+
+## Alles bleibt auf dem Laufwerk des Trainings (2026-11-17)
+
+- Das Training schreibt nur noch in den eigenen Ordner, also auf das Laufwerk, auf dem du es entpackt hast (zum Beispiel ein externes Laufwerk): Arbeitsdateien der Spiele in `lauf/arbeit`, Godot-Einstellungen, Zwischenspeicher und Temp-Dateien in `lauf/arbeit_*`.
+- Beim Start holt das Training alte Arbeitsordner früherer Läufe (`insel_ki_...`) aus dem Temp-Ordner des Mac-Systemlaufwerks nach `lauf/alte_temp_dateien`. Die kannst du danach löschen, sie werden nicht mehr gebraucht.
+- Sind auf dem Laufwerk des Trainings weniger als 2 GB frei (`min_frei_gb` in `lauf/einstellungen.json`), hält das Training sauber an. Der Stand bis zur letzten fertigen Runde bleibt erhalten.
+- Was das Programm nicht steuern kann: Wenn der Arbeitsspeicher knapp wird, lagert macOS selbst auf das Systemlaufwerk aus. Weniger gleichzeitige Spiele (`arbeiter` in `lauf/einstellungen.json`) verringern das.

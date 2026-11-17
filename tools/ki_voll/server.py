@@ -16,6 +16,7 @@ import os
 import shutil
 import signal
 import subprocess
+import tempfile
 import sys
 import threading
 import time
@@ -24,6 +25,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+from trainer import local_env  # noqa: E402  (alles Schreiben auf dem Laufwerk des Trainings, josh 2026-11-17)
 ROOT = os.path.dirname(HERE)
 
 # Die 96 Eingänge der KI (Reihenfolge wie in ki_brain.gd features() und ki_acts.gd more_features())
@@ -118,7 +121,8 @@ class App:
             cmd += ["--durchgaenge", str(max(1, int(durchgaenge))), "--stufe", str(max(0, int(stufe)))]
             log.write("Durchgänge %d, Stufe %s\n" % (int(durchgaenge), stufe or "wie zuletzt"))
             log.flush()
-            self.proc = subprocess.Popen(cmd, stdout=log, stderr=subprocess.STDOUT)
+            self.proc = subprocess.Popen(cmd, stdout=log, stderr=subprocess.STDOUT, env=local_env(os.path.join(self.p["lauf"], "arbeit_programm"),
+                                         {"INSEL_ALT_TMP": os.environ.get("INSEL_ALT_TMP") or tempfile.gettempdir()}))
             return "gestartet"
 
     def stop(self):
@@ -222,9 +226,7 @@ class App:
         os.makedirs(d, exist_ok=True)
         w = os.path.join(d, "w.json")
         shutil.copyfile(g, w)
-        env = dict(os.environ)
-        env["XDG_DATA_HOME"] = os.path.join(d, "daten")  # eigener Speicherplatz: deine Spielstände bleiben unberührt
-        env["KI_LANG"] = "de"
+        env = local_env(d, {"KI_LANG": "de"})  # eigener Speicherplatz auf dem Laufwerk: deine Spielstände bleiben unberührt
         cmd = [self.a.godot, "--path", self.p["spiel"], "--", "--autotest=999999", "--scale=%s" % tempo, "--kitrain=1", "--kifull=1",
                "--kiw=" + w, "--kidays=999999", "--kiseed=%d" % seed, "--kiwatch=1", "--kiout=" + os.path.join(d, "r.json")]
         subprocess.Popen(cmd, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
