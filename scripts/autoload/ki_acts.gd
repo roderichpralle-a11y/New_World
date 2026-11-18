@@ -511,6 +511,14 @@ static func _outputs_full(w, b) -> bool:
 	return false
 
 
+static func _makes_needed(b) -> bool:
+	var nd: Dictionary = KiBrain.needs()
+	for id in b.prod_def().get("outputs", {}):
+		if nd.has(id):
+			return true
+	return false
+
+
 static func _idle_shop(w):
 	var best = null
 	var best_n := 0
@@ -518,6 +526,8 @@ static func _idle_shop(w):
 		if not _free(b) or not b.complete or not b.def.has("production") or b.def.get("ships", false) or young(b):
 			continue
 		if not b.occupants.is_empty() or not (b.paused or b.prod_blocker() != ""):
+			continue
+		if _makes_needed(b):  # Abrissschutz (josh 2026-11-18): wartet nur auf Rohstoff, seine Ware wird gebraucht
 			continue
 		var n := _count_type(w, b.type)
 		if n > best_n:

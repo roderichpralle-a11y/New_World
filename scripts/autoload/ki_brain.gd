@@ -1091,6 +1091,11 @@ func score_start() -> void:
 	score_on = true
 	_needs_at = -1.0
 	waste_today = 0
+	_firsts = {}
+	for o in Sea.all_worlds():
+		for id in o.stock:
+			if float(o.stock[id]) > 0.0:
+				_firsts[id] = true
 	score_log = []
 	score_total = 0.0
 	processed_today = 0.0
@@ -1121,6 +1126,12 @@ var distress_today := 0.0
 ## gebaut und 220 wieder abgerissen.
 const WASTE_PTS := -20.0
 var waste_today := 0
+## Zwischenpunkte (josh 2026-11-18, Karte "Zwischenpunkte und Abrissschutz"): 300 Punkte, wenn eine gebrauchte
+## Ware (needs(): Forschungskosten, Prüfungswaren und ihre Vorstufen) zum ersten Mal in einem Lager liegt. Einmal je
+## Ware und Spiel; Waren, die schon beim Start da waren, zählen nicht. Fund im Training: die KI baute nie eine
+## Köhlerei und nie Getreidefelder, weil Punkte erst nach der ganzen Kette (Kohle -> Erz -> Eisen -> Werkzeug) kamen.
+const FIRST_PTS := 300.0
+var _firsts: Dictionary = {}
 var work_today := 0.0
 var _age0 := 0
 var _sample_t := 0.0
@@ -1218,10 +1229,22 @@ func score_day() -> Dictionary:
 	r["dead"] = DEATH_PTS * deaths_today
 	r["waste"] = WASTE_PTS * waste_today
 	waste_today = 0
+	var first := 0.0
+	if train_all or unlock_list:
+		for id in needs():
+			if _firsts.has(id):
+				continue
+			for o in ws:
+				if Game.amount(id, o) > 0:
+					_firsts[id] = true
+					first += FIRST_PTS
+					note(o, "erste Ware: " + str(Data.resources.get(id, {}).get("name", id)))
+					break
+	r["first"] = first
 	r["pop"] = heads
 	r["islands"] = ws.size()
 	r["total"] = float(r.food) + float(r.wood) + float(r.proc) + float(r.res) + sat + mood + float(r.dead) \
-		+ float(r.isl) + float(r.need) + float(r.work) + float(r.goal) + float(r.waste)
+		+ float(r.isl) + float(r.need) + float(r.work) + float(r.goal) + float(r.waste) + float(r.first)
 	score_total += float(r.total)
 	score_log.append(r)
 	processed_today = 0.0
