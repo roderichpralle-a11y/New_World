@@ -106,3 +106,18 @@ Das Paket **Insel-KI-Netz** ist dasselbe Training mit eingeschaltetem neuronalen
 - Beim Start holt das Training alte Arbeitsordner früherer Läufe (`insel_ki_...`) aus dem Temp-Ordner des Mac-Systemlaufwerks nach `lauf/alte_temp_dateien`. Die kannst du danach löschen, sie werden nicht mehr gebraucht.
 - Sind auf dem Laufwerk des Trainings weniger als 2 GB frei (`min_frei_gb` in `lauf/einstellungen.json`), hält das Training sauber an. Der Stand bis zur letzten fertigen Runde bleibt erhalten.
 - Was das Programm nicht steuern kann: Wenn der Arbeitsspeicher knapp wird, lagert macOS selbst auf das Systemlaufwerk aus. Weniger gleichzeitige Spiele (`arbeiter` in `lauf/einstellungen.json`) verringern das.
+
+## Im Docker auf einem Server (josh 2026-11-18)
+
+Dasselbe Paket läuft auch im Docker. Im Paketordner liegen `Dockerfile`, `docker-compose.yml` und `docker-start.sh`.
+
+    docker compose up -d --build
+
+Danach im Browser `http://<server>:8765/`. Beim Bauen lädt das Bild Godot für Linux (x86_64 oder arm64, je nach Server) und bereitet das Spiel einmal vor.
+
+- **Ordner `lauf/`** ist ein Volume: Stand, Gewichte und Einstellungen bleiben beim Neustart des Containers erhalten. Es ist derselbe Ordner wie beim Start auf dem Mac, du kannst also zwischen Mac und Server wechseln (nie beide gleichzeitig laufen lassen).
+- **Passwort:** `INSEL_PASSWORT` in `docker-compose.yml`. Leer = ohne Passwort. Sonst fragt der Browser danach, Name `insel`. Ohne Passwort sollte der Port nur im eigenen Netz erreichbar sein.
+- **Altes Training übernehmen:** in den Ordner `import/` legen und auf der Seite `/insel/import/<Ordner>` eintippen (das Auswahlfenster gibt es nur auf dem Mac).
+- **Zusehen** geht im Docker nicht, weil der Container keinen Bildschirm hat.
+- Startet der Container neu, hält das Training an. Auf der Seite wieder „Starten“ drücken; es macht beim letzten Stand weiter.
+- Weitere Einstellungen über Umgebungsvariablen: `INSEL_PORT` (Port im Container, Standard 8765).

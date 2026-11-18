@@ -1,0 +1,6 @@
+godot/
+spiel/.godot/
+lauf/*
+!lauf/einstellungen.json
+import/
+*.zip

@@ -1,0 +1,13 @@
+# Insel-KI-Training im Docker (josh 2026-11-18). Im Paketordner:  docker compose up -d --build
+services:
+  insel-ki:
+    build: .
+    image: insel-ki-training
+    ports:
+      - "8765:8765"            # links: Port auf deinem Server
+    volumes:
+      - ./lauf:/insel/lauf      # derselbe Ordner wie beim Mac-Start: Stand, Gewichte, Einstellungen
+      - ./import:/insel/import  # hier alte Trainings ablegen; auf der Seite als /insel/import/<Ordner> übernehmen
+    environment:
+      - INSEL_PASSWORT=         # leer = ohne Passwort; sonst fragt der Browser (Name: insel)
+    restart: unless-stopped

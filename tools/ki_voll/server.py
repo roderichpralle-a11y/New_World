@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Oberfläche für das KI-Training (josh 2026-11-15).
 
-Ein kleiner Web-Server nur auf diesem Rechner (127.0.0.1). Er zeigt im Browser drei Dinge:
+Ein kleiner Web-Server, normal nur auf diesem Rechner (127.0.0.1); im Docker mit --host 0.0.0.0 (josh 2026-11-18). Er zeigt im Browser drei Dinge:
   1. den Programmcode (Trainingsprogramm und die KI im Spiel),
   2. den Status des Trainings insgesamt und was gerade läuft,
   3. was die KI gelernt hat (Prüfspiele mit allen Entscheidungen, Vergleich über die Runden, Gewichte in Worten).
@@ -11,6 +11,8 @@ Aufruf:  python3 server.py --godot <Pfad zu Godot> [--start] [--open]
 Nur Python-Standardbibliothek.
 """
 import argparse
+import base64
+import hmac
 import json
 import os
 import shutil
@@ -229,7 +231,7 @@ class App:
     def choose_folder(self):
         """Öffnet auf dem Mac das Fenster zum Wählen eines Ordners."""
         if sys.platform != "darwin":
-            return {"fehler": "Das Auswahlfenster gibt es nur auf dem Mac. Bitte den Ordner eintippen."}
+            return {"fehler": "Das Auswahlfenster gibt es nur auf dem Mac. Bitte den Ordner eintippen" + (" (im Docker: der Pfad im Container, zum Beispiel /insel/import/…)." if os.environ.get("INSEL_DOCKER") else ".")}
         try:
             r = subprocess.run(["osascript", "-e", 'POSIX path of (choose folder with prompt "Ordner mit dem bisherigen Training wählen")'],
                                capture_output=True, text=True, timeout=600)
@@ -318,6 +320,8 @@ class App:
         """Ein Spiel mit Fenster starten: die KI spielt vom Anfang, du siehst zu (Fenster schließen beendet es).
         Gleiche Gewichte und gleiche Würfel wie im Training; ganz genau gleich wird es nicht, weil das Spiel nicht
         in jedem Punkt vorherbestimmt ist."""
+        if os.environ.get("INSEL_DOCKER") or (sys.platform.startswith("linux") and not os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY")):
+            return "Zusehen braucht einen Bildschirm am Rechner des Trainings. Im Docker geht das nicht; starte es auf dem Mac mit dem gleichen Stand (best.json)."
         g = os.path.join(self.p["lauf"], "best.json" if which == "best" else "aktuell.json")
         if not os.path.exists(g):
             return "Es gibt noch keine Gewichte. Warte auf die erste Prüfung."
@@ -494,10 +498,22 @@ def act_label(act, names):
     return act
 
 
-def make_handler(app):
+def make_handler(app, password=""):
+    want = ("Basic " + base64.b64encode(("insel:" + password).encode("utf-8")).decode("ascii")) if password else ""
+
     class H(BaseHTTPRequestHandler):
         def log_message(self, *_):
             pass
+
+        def allowed(self):
+            """Mit Passwort (INSEL_PASSWORT): der Browser fragt einmal danach (Name: insel)."""
+            if not want or hmac.compare_digest(self.headers.get("Authorization") or "", want):
+                return True
+            self.send_response(401)
+            self.send_header("WWW-Authenticate", 'Basic realm="Insel-KI-Training", charset="UTF-8"')
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return False
 
         def send(self, code, body, ctype="application/json; charset=utf-8"):
             data = body if isinstance(body, bytes) else body.encode("utf-8")
@@ -512,6 +528,8 @@ def make_handler(app):
             self.send(code, json.dumps(obj, ensure_ascii=False))
 
         def do_GET(self):
+            if not self.allowed():
+                return
             u = urlparse(self.path)
             q = parse_qs(u.query)
             try:
@@ -537,8 +555,12 @@ def make_handler(app):
                 return self.js({"fehler": str(e)}, 500)
 
         def do_POST(self):
-            if self.headers.get("Origin") and "127.0.0.1" not in self.headers.get("Origin") and "localhost" not in self.headers.get("Origin"):
-                return self.js({"fehler": "nur von diesem Rechner"}, 403)
+            if not self.allowed():
+                return
+            # Befehle nur von der eigenen Seite (Schutz gegen fremde Webseiten im selben Browser)
+            org = self.headers.get("Origin")
+            if org and urlparse(org).netloc != (self.headers.get("Host") or ""):
+                return self.js({"fehler": "nur von der Seite des Trainings"}, 403)
             if self.path.startswith("/api/start"):
                 q = parse_qs(urlparse(self.path).query)
                 try:
@@ -574,11 +596,17 @@ def main():
     ap.add_argument("--init", default="", help="Startgewichte für ein neues Training")
     ap.add_argument("--start", action="store_true", help="Training sofort starten")
     ap.add_argument("--open", action="store_true", help="Seite im Browser öffnen")
+    ap.add_argument("--host", default=os.environ.get("INSEL_HOST", "127.0.0.1"),
+                    help="Adresse des Servers; 0.0.0.0 = auch von anderen Rechnern erreichbar (Docker)")
     a = ap.parse_args()
+    a.port = int(os.environ.get("INSEL_PORT", a.port))
     app = App(a)
-    srv = ThreadingHTTPServer(("127.0.0.1", a.port), make_handler(app))
-    url = "http://127.0.0.1:%d/" % a.port
+    pw = os.environ.get("INSEL_PASSWORT", "")
+    srv = ThreadingHTTPServer((a.host, a.port), make_handler(app, pw))
+    url = "http://%s:%d/" % ("127.0.0.1" if a.host in ("0.0.0.0", "::") else a.host, a.port)
     print("Oberfläche: %s   (Fenster offen lassen, Strg+C beendet alles)" % url, flush=True)
+    if a.host not in ("127.0.0.1", "localhost", "::1"):
+        print("Erreichbar auf allen Netzwerkadressen dieses Rechners, Port %d. Passwort: %s" % (a.port, "an (Name insel)" if pw else "AUS"), flush=True)
     if a.start:
         app.start()
     if a.open:

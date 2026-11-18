@@ -15,6 +15,10 @@ cp "$HERE/trainer.py" "$HERE/server.py" "$P/training/"
 cp "$HERE/web/index.html" "$P/training/web/"
 cp "$HERE/START.command" "$HERE/LIESMICH.md" "$P/"
 chmod +x "$P/START.command"
+# Docker (josh 2026-11-18): dasselbe Paket läuft auch im Container
+cp "$HERE/docker/Dockerfile" "$HERE/docker/docker-compose.yml" "$HERE/docker/docker-start.sh" "$P/"
+cp "$HERE/docker/dockerignore" "$P/.dockerignore"
+chmod +x "$P/docker-start.sh"
 python3 -c "
 import json,sys
 sys.path.insert(0,'$HERE')
