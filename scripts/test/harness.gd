@@ -223,7 +223,9 @@ func _ki_train_finish(args: Dictionary) -> void:
 		"techs": Game.research.done.duplicate(), "goal": KiBrain.goal_done, "over": Game.is_over, "stalled": _ki_stalled,
 		"day": Game.time_days, "islands": Sea.settled_islands().size(), "droids": Droids.count(),
 		"trace": KiBrain.trace_log.duplicate(), "types": _ki_types(),
-		"seen": Array(KiBrain.feat_seen), "seen_x": Array(KiBrain.act_seen)}
+		"seen": Array(KiBrain.feat_seen), "seen_x": Array(KiBrain.act_seen),
+		# offene Prüfung am Ende (josh 2026-11-18): [Bedingung, jetzt, nötig, erfüllt]
+		"exam": Exams.status(Exams.passed).map(func(x): return [GoalChecks.label(x[0]), x[1], x[2], x[3]])}
 	var out := str(args.get("kiout", ""))
 	if out != "":
 		var f := FileAccess.open(out, FileAccess.WRITE)
