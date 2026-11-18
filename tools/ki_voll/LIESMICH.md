@@ -64,6 +64,8 @@ Handlung trifft (z. B. welches leere Haus abgerissen wird). Gelernt wird, **was*
 
 ## Einstellungen
 
+Am einfachsten auf der Seite: Knopf **Einstellungen** links. Dort hat jeder Wert ein eigenes Feld; **Übernehmen** prüft die Zahlen, speichert sie und lädt die Seite neu.
+
 `lauf/einstellungen.json` (gilt ab dem nächsten Start des Trainings):
 
 - `arbeiter`: Spiele gleichzeitig. 0 = Zahl der Prozessorkerne minus 1.

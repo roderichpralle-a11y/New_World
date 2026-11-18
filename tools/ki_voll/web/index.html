@@ -431,6 +431,24 @@ pre.protokoll{margin:0;padding:10px 12px;max-height:300px;overflow:auto;white-sp
   .panel-inhalt{padding:14px 14px 16px}
   .panel-kopf{padding:12px 14px 10px}
 }
+/* Einstellungen ändern */
+.einst-titel{margin:18px 0 8px;font-size:calc(1rem * var(--s));font-weight:700;color:var(--titel)}
+.einst-titel:first-child{margin-top:4px}
+.feldzeile.einst{grid-template-columns:200px 150px minmax(0,1fr)}
+.feldzeile .erkl{margin:0;padding:8px 12px;align-self:stretch;display:flex;flex-direction:column;justify-content:center;gap:2px;border-left:1px solid var(--linie);
+  font-size:calc(0.875rem * var(--s));color:var(--text-2);line-height:1.4}
+.feldzeile .erkl .grenze{font-size:calc(0.8125rem * var(--s))}
+.feldzeile.stufenzeile{grid-template-columns:200px minmax(0,1fr) 150px}
+.feldzeile.stufenzeile .wert{display:flex;align-items:center;min-height:42px;padding:8px 12px;font-weight:600;color:var(--titel)}
+.feldzeile .tagfeld{display:flex;align-items:center;border-left:1px solid var(--linie)}
+.feldzeile .tagfeld input{min-width:0;flex:1}
+.feldzeile .tagfeld span{padding:0 12px 0 4px;color:var(--text-2);font-size:calc(0.875rem * var(--s))}
+.einst-knoepfe{margin-top:18px}
+@media (max-width:760px){
+  .feldzeile.einst{grid-template-columns:minmax(0,1fr) 120px}
+  .feldzeile.einst .erkl{grid-column:1 / -1;border-left:0;border-top:1px solid var(--linie)}
+  .feldzeile.stufenzeile{grid-template-columns:84px minmax(0,1fr) 112px}
+}
 @media print{
   .ansicht[hidden]{display:none!important}
   .tabelle-block,.dateiliste,pre.quelltext{max-height:none;overflow:visible}
@@ -471,6 +489,7 @@ pre.protokoll{margin:0;padding:10px 12px;max-height:300px;overflow:auto;white-sp
 <button class="liste-eintrag" type="button" role="menuitemradio" data-aktion="zeige:gelernt"><span class="mit-haken"><span class="haken-platz"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>Was die KI gelernt hat</span><span class="kuerzel">Strg+2</span></button>
 <button class="liste-eintrag" type="button" role="menuitemradio" data-aktion="zeige:code"><span class="mit-haken"><span class="haken-platz"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>Programmcode</span><span class="kuerzel">Strg+3</span></button>
 <button class="liste-eintrag" type="button" role="menuitemradio" data-aktion="zeige:frei"><span class="mit-haken"><span class="haken-platz"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>Freischalt-Liste</span><span class="kuerzel">Strg+4</span></button>
+<button class="liste-eintrag" type="button" role="menuitemradio" data-aktion="zeige:einst"><span class="mit-haken"><span class="haken-platz"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>Einstellungen</span><span class="kuerzel">Strg+5</span></button>
 <div class="liste-trenner"></div>
 <button class="liste-eintrag" type="button" role="menuitemradio" data-aktion="setNormal"><span class="mit-haken"><span class="haken-platz"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>Normale Schrift</span><span class="kuerzel"></span></button>
 <button class="liste-eintrag" type="button" role="menuitemradio" data-aktion="setGross"><span class="mit-haken"><span class="haken-platz"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>Große Schrift</span><span class="kuerzel"></span></button>
@@ -482,7 +501,7 @@ pre.protokoll{margin:0;padding:10px 12px;max-height:300px;overflow:auto;white-sp
 <button class="menue-knopf" type="button" aria-expanded="false" data-aktion="menue:hilfe">Hilfe</button>
 <div data-wenn="menue:hilfe" hidden class="liste" role="menu" aria-label="Hilfe">
 <button class="liste-eintrag" type="button" role="menuitem" data-aktion="anleitung"><span>Anleitung lesen</span><span class="kuerzel"></span></button>
-<button class="liste-eintrag" type="button" role="menuitem" data-aktion="einstellungen"><span>Einstellungen ansehen</span><span class="kuerzel"></span></button>
+<button class="liste-eintrag" type="button" role="menuitem" data-aktion="einstellungen"><span>Einstellungen ändern</span><span class="kuerzel"></span></button>
 <div class="liste-trenner"></div>
 <button class="liste-eintrag" type="button" role="menuitem" data-aktion="protokoll"><span>Protokoll des Trainings</span><span class="kuerzel"></span></button>
 </div>
@@ -507,6 +526,7 @@ pre.protokoll{margin:0;padding:10px 12px;max-height:300px;overflow:auto;white-sp
 <button class="knopf stahl" type="button" data-aktion="zeige:gelernt" data-ansicht="gelernt"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.3 1.1 2.2h5c0-.9.4-1.6 1.1-2.2A6 6 0 0 0 12 3z"/></svg>Gelernt</button>
 <button class="knopf stahl" type="button" data-aktion="zeige:code" data-ansicht="code"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 7 3.5 12l5 5M15.5 7l5 5-5 5M13.5 4.5l-3 15"/></svg>Code</button>
 <button class="knopf stahl" type="button" data-aktion="zeige:frei" data-ansicht="frei"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="10" rx="1.5"/><path d="M8 10.5V7a4 4 0 0 1 7.6-1.7"/><path d="M12 14.5v2.5"/></svg><span class="nur-breit">Freischalten</span><span class="nur-schmal">Freigabe</span></button>
+<button class="knopf stahl" type="button" data-aktion="zeige:einst" data-ansicht="einst"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2.2"/><circle cx="10" cy="17" r="2.2"/></svg><span class="nur-breit">Einstellungen</span><span class="nur-schmal">Werte</span></button>
 </nav>
 <main class="arbeitsfeld" id="feld">
 
@@ -683,6 +703,26 @@ pre.protokoll{margin:0;padding:10px 12px;max-height:300px;overflow:auto;white-sp
 </section>
 </div>
 </section>
+
+<!-- ================= Einstellungen (josh 2026-11-18) ================= -->
+<section class="ansicht" data-ansicht-inhalt="einst" hidden>
+<div class="seitenkopf"><p class="meta" style="margin:0 0 4px">Datei lauf/einstellungen.json</p><h2 class="seitentitel disp">Einstellungen</h2></div>
+<div class="raster eins">
+<section class="panel" aria-labelledby="t-einst">
+<div class="panel-kopf"><h3 class="panel-titel disp" id="t-einst">Werte ändern</h3></div>
+<div class="panel-inhalt">
+<p class="lese">Trage bei jedem Wert eine eigene Zahl ein und drücke „Übernehmen“. Die Werte werden geprüft, gespeichert und die Seite lädt neu. Sie gelten ab dem nächsten Start des Trainings.</p>
+<p class="meldung falsch" id="einst-laeuft" hidden>Gerade läuft ein Training. Es arbeitet mit den alten Werten weiter, bis du es anhältst und neu startest.</p>
+<div id="einst-felder"><p class="hinweis">Lade die Werte …</p></div>
+<div class="knopfreihe eng einst-knoepfe">
+<button class="knopf rot" type="button" id="beinst" data-aktion="einstUebernehmen"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Übernehmen</button>
+<button class="knopf blau" type="button" data-aktion="einstStandard"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3"/><path d="M4.5 4.5v4h4"/></svg>Standardwerte eintragen</button>
+</div>
+<p class="meldung" id="einstmsg"></p>
+</div>
+</section>
+</div>
+</section>
 </main>
 
 <div data-wenn="blattOffen" hidden class="blatt" role="dialog" aria-label="Menü">
@@ -705,11 +745,12 @@ pre.protokoll{margin:0;padding:10px 12px;max-height:300px;overflow:auto;white-sp
 <button class="liste-eintrag" type="button" data-aktion="zeige:gelernt"><span>Was die KI gelernt hat</span></button>
 <button class="liste-eintrag" type="button" data-aktion="zeige:code"><span>Programmcode</span></button>
 <button class="liste-eintrag" type="button" data-aktion="zeige:frei"><span>Freischalt-Liste</span></button>
+<button class="liste-eintrag" type="button" data-aktion="zeige:einst"><span>Einstellungen</span></button>
 </div>
 <button class="blatt-gruppe" type="button" data-aktion="blatt:hilfe" aria-expanded="false">Hilfe<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
 <div class="blatt-unter" data-wenn="blatt:hilfe" hidden>
 <button class="liste-eintrag" type="button" data-aktion="anleitung"><span>Anleitung lesen</span></button>
-<button class="liste-eintrag" type="button" data-aktion="einstellungen"><span>Einstellungen ansehen</span></button>
+<button class="liste-eintrag" type="button" data-aktion="einstellungen"><span>Einstellungen ändern</span></button>
 <button class="liste-eintrag" type="button" data-aktion="protokoll"><span>Protokoll des Trainings</span></button>
 </div>
 </div>
@@ -745,7 +786,7 @@ pre.protokoll{margin:0;padding:10px 12px;max-height:300px;overflow:auto;white-sp
 
   /* ---------------- Zustand der Oberfläche (Vorlage Standard-Format) ---------------- */
   var gemerktNacht = speicher.lies('sf-nacht');
-  var ANSICHTEN = ['status', 'gelernt', 'code', 'frei'];
+  var ANSICHTEN = ['status', 'gelernt', 'code', 'frei', 'einst'];
   var zustand = {
     nacht: gemerktNacht !== null ? gemerktNacht === '1' : (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches),
     gross: speicher.lies('sf-schrift') === 'gross',
@@ -793,6 +834,7 @@ pre.protokoll{margin:0;padding:10px 12px;max-height:300px;overflow:auto;white-sp
     $('feld').scrollTop = 0;
     if (a === 'gelernt') { loadCheck(-1); loadWeights(); }
     if (a === 'code') loadFiles();
+    if (a === 'einst') ladeEinst();
   }
   function hinZu(id) {
     zustand.menue = null; zustand.blatt = false;
@@ -856,7 +898,9 @@ pre.protokoll{margin:0;padding:10px 12px;max-height:300px;overflow:auto;white-sp
       });
     },
     anleitung: function () { wechsle('code'); openFile('LIESMICH.md'); },
-    einstellungen: function () { wechsle('code'); openFile('lauf/einstellungen.json'); },
+    einstellungen: function () { wechsle('einst'); },
+    einstUebernehmen: function () { speichereEinst(); },
+    einstStandard: function () { if (EINST) { fuelleEinst(EINST.standard, EINST.standard_stufen); melde($('einstmsg'), 'Standardwerte eingetragen. Zum Speichern „Übernehmen“ drücken.', true); } },
     protokoll: function () { wechsle('status'); $('log-box').open = true; setTimeout(function () { $('log-box').scrollIntoView({ block: 'start', behavior: 'smooth' }); }, 30); }
   };
 
@@ -877,9 +921,86 @@ pre.protokoll{margin:0;padding:10px 12px;max-height:300px;overflow:auto;white-sp
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && (zustand.menue || zustand.blatt)) { zustand.menue = null; zustand.blatt = false; anwenden(); }
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); aktionen.start(); anwenden(); }
-    if ((e.ctrlKey || e.metaKey) && /^[1-4]$/.test(e.key)) { e.preventDefault(); wechsle(ANSICHTEN[+e.key - 1]); }
+    if ((e.ctrlKey || e.metaKey) && /^[1-5]$/.test(e.key)) { e.preventDefault(); wechsle(ANSICHTEN[+e.key - 1]); }
   });
   $('iordner').addEventListener('keydown', function (e) { if (e.key === 'Enter') aktionen.importieren(); });
+
+
+  /* ---------------- Einstellungen ändern (josh 2026-11-18) ---------------- */
+  var EINST = null;
+  var EINST_GRUPPEN = [
+    ['Training', ['arbeiter', 'richtungen', 'rauschen', 'lernrate', 'ereignisse', 'saat', 'runden']],
+    ['Neuronales Netz', ['netz', 'netz_h1', 'netz_h2', 'netz_rauschen', 'netz_lernrate', 'lerne_linear']],
+    ['Prüfung und Ziel', ['ziel_in_folge', 'tempo_punkte', 'stillstand_tage', 'pruefung_alle', 'pruefung_wuerfel']],
+    ['Laufwerk', ['min_frei_gb']]
+  ];
+  function einstAges() { var a = (EINST && EINST.ages && EINST.ages.length) ? EINST.ages : ((S && S.namen && S.namen.ages) || []); return a; }
+  function ladeEinst() {
+    get('/api/einstellungen').then(function (r) {
+      EINST = r; baueEinst(); fuelleEinst(r.werte, r.stufen);
+      $('einst-laeuft').hidden = !r.laeuft;
+      var ok = null; try { ok = sessionStorage.getItem('einst-ok'); sessionStorage.removeItem('einst-ok'); } catch (e) {}
+      if (ok) melde($('einstmsg'), 'Gespeichert: ' + ok, true);
+    }).catch(function () { $('einst-felder').innerHTML = '<p class="meldung falsch">Die Werte konnten nicht geladen werden.</p>'; });
+  }
+  function baueEinst() {
+    var f = {}; EINST.felder.forEach(function (x) { f[x.key] = x; });
+    var html = EINST_GRUPPEN.map(function (g) {
+      return '<h4 class="einst-titel">' + g[0] + '</h4><div class="block">' + g[1].filter(function (k) { return f[k]; }).map(function (k) {
+        var x = f[k], id = 'e-' + k, feld;
+        if (x.art === 'bool') feld = '<select id="' + id + '" data-key="' + k + '"><option value="1">Ja</option><option value="0">Nein</option></select>';
+        else feld = '<input id="' + id + '" data-key="' + k + '" type="number" inputmode="' + (x.art === 'int' ? 'numeric' : 'decimal') + '" step="' + (x.art === 'int' ? '1' : 'any') + '" min="' + x.min + '" max="' + x.max + '" required>';
+        return '<div class="feldzeile einst"><label for="' + id + '">' + esc(x.name) + '</label>' + feld + '<p class="erkl">' + esc(x.text) + ' <span class="grenze">Erlaubt: ' + (x.art === 'bool' ? 'Ja oder Nein' : dez(x.min, 3) + ' bis ' + dez(x.max, 3)) + ', Standard: ' + standardText(x) + '</span></p></div>';
+      }).join('') + '</div>';
+    }).join('');
+    var ages = einstAges();
+    html += '<h4 class="einst-titel">Stufen</h4><p class="hinweis">Jede Stufe hat ein Ziel und eine feste Spiellänge in Spieltagen (12 Spieltage sind ein Spieljahr).</p><div class="block">' +
+      (EINST.stufen || []).map(function (st, i) {
+        var ziel = st.ziel ? '<div class="wert">Zukunftsstadt bauen</div>' :
+          '<select id="es-a' + i + '" aria-label="Ziel der Stufe ' + (i + 1) + '">' + [1, 2, 3, 4, 5, 6, 7].map(function (a) { return '<option value="' + a + '">' + esc(ages[a] || ('Zeitalter ' + (a + 1))) + ' erreichen</option>'; }).join('') + '</select>';
+        return '<div class="feldzeile stufenzeile"><label for="es-t' + i + '">Stufe ' + (i + 1) + '</label>' + ziel +
+          '<div class="tagfeld"><input id="es-t' + i + '" type="number" inputmode="numeric" step="1" min="1" max="100000" required><span>Tage</span></div></div>';
+      }).join('') + '</div>';
+    $('einst-felder').innerHTML = html;
+  }
+  function standardText(x) { var v = EINST.standard[x.key]; return x.art === 'bool' ? (v ? 'Ja' : 'Nein') : dez(v, 3); }
+  function fuelleEinst(werte, stufen) {
+    Object.keys(werte || {}).forEach(function (k) {
+      var el = $('e-' + k); if (!el) return;
+      el.value = el.tagName === 'SELECT' ? (werte[k] ? '1' : '0') : werte[k];
+    });
+    (stufen || []).forEach(function (st, i) {
+      if ($('es-t' + i)) $('es-t' + i).value = st.tage;
+      if ($('es-a' + i) && st.alter != null) $('es-a' + i).value = st.alter;
+    });
+  }
+  function speichereEinst() {
+    if (!EINST) return;
+    var werte = {}, falsch = [];
+    alle('#einst-felder [data-key]').forEach(function (el) {
+      var k = el.getAttribute('data-key');
+      if (el.tagName === 'SELECT') { werte[k] = el.value === '1'; return; }
+      if (el.value === '' || !el.checkValidity()) falsch.push(el.closest('.feldzeile').querySelector('label').textContent);
+      werte[k] = el.value;
+    });
+    var stufen = (EINST.stufen || []).map(function (st, i) {
+      var t = $('es-t' + i); if (t.value === '' || !t.checkValidity()) falsch.push('Stufe ' + (i + 1));
+      var o = { tage: t.value }; if ($('es-a' + i)) o.alter = $('es-a' + i).value; return o;
+    });
+    if (falsch.length) { melde($('einstmsg'), 'Bitte prüfen: ' + falsch.join(', ') + '. Dort steht keine erlaubte Zahl.', false); return; }
+    $('beinst').disabled = true;
+    melde($('einstmsg'), 'Speichere …', true);
+    fetch('/api/einstellungen', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ werte: werte, stufen: stufen }) })
+      .then(function (r) { return r.json(); })
+      .then(function (r) {
+        if (r.ok) {
+          try { sessionStorage.setItem('einst-ok', new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) + ' Uhr' + (r.laeuft ? ', gilt ab dem nächsten Start' : '')); } catch (e) {}
+          speicher.schreib('ki-ansicht', 'einst');
+          location.reload();
+        } else { $('beinst').disabled = false; melde($('einstmsg'), r.fehler || 'Das hat nicht geklappt.', false); }
+      })
+      .catch(function () { $('beinst').disabled = false; melde($('einstmsg'), 'Der Server antwortet nicht.', false); });
+  }
 
   /* ---------------- Daten des Trainings ---------------- */
   var S = null, FILES = null, curFile = '', CH = null, stufenKey = '';
@@ -1131,6 +1252,7 @@ pre.protokoll{margin:0;padding:10px 12px;max-height:300px;overflow:auto;white-sp
   anwenden();
   if (zustand.ansicht === 'gelernt') { loadCheck(-1); loadWeights(); }
   if (zustand.ansicht === 'code') loadFiles();
+  if (zustand.ansicht === 'einst') ladeEinst();
 })();
 </script>
 </body>

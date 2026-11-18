@@ -26,7 +26,31 @@ from urllib.parse import parse_qs, urlparse
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-from trainer import local_env  # noqa: E402  (alles Schreiben auf dem Laufwerk des Trainings, josh 2026-11-17)
+from trainer import local_env, DEFAULTS as T_DEFAULTS  # noqa: E402  (alles Schreiben auf dem Laufwerk des Trainings, josh 2026-11-17)
+
+# Einstellungen, die josh auf der Seite ändern kann (josh 2026-11-18): (Schlüssel, Name, Art, kleinster, größter Wert, Erklärung)
+SETTINGS = [
+    ("arbeiter", "Spiele gleichzeitig", "int", 0, 64, "0 = Zahl der Prozessorkerne minus 1."),
+    ("richtungen", "Richtungen je Runde", "int", 0, 256, "So viele veränderte Fassungen probiert eine Runde aus, jede in 2 Spielen. 0 = so viele wie Spiele gleichzeitig, mindestens 16."),
+    ("rauschen", "Rauschen Tabelle", "float", 0.0, 5.0, "Wie stark die Gewichte der Tabelle zum Ausprobieren verändert werden."),
+    ("lernrate", "Lernrate Tabelle", "float", 0.0, 5.0, "Wie weit die Gewichte der Tabelle je Runde wandern."),
+    ("netz", "Neuronales Netz", "bool", 0, 1, "An: zusätzlich zur Tabelle lernt ein kleines Netz."),
+    ("netz_h1", "Netz: Zellen Schicht 1", "int", 1, 256, "Achtung: eine andere Zahl fängt das Netz neu bei null an."),
+    ("netz_h2", "Netz: Zellen Schicht 2", "int", 1, 256, "Achtung: eine andere Zahl fängt das Netz neu bei null an."),
+    ("netz_rauschen", "Rauschen Netz", "float", 0.0, 5.0, "Wie stark das Netz zum Ausprobieren verändert wird."),
+    ("netz_lernrate", "Lernrate Netz", "float", 0.0, 5.0, "Wie weit das Netz je Runde wandert."),
+    ("lerne_linear", "Tabelle lernt mit", "bool", 0, 1, "An: mit Netz lernt auch die Tabelle weiter. Aus: die Tabelle bleibt stehen."),
+    ("ziel_in_folge", "Ziel in Folge", "int", 1, 1000, "Die Stufe gilt als geschafft, wenn so viele Prüfspiele in Folge das Ziel erreichen."),
+    ("tempo_punkte", "Punkte je gesparter Tag", "float", 0.0, 100000.0, "Punkte für jeden Spieltag, den ein Spiel das Ziel früher erreicht."),
+    ("stillstand_tage", "Stillstand nach Tagen", "int", 1, 10000, "Ein Spiel endet, wenn so lange nichts Neues entsteht."),
+    ("pruefung_alle", "Prüfung alle … Runden", "int", 1, 1000, "Wie oft die festen Prüfspiele laufen."),
+    ("pruefung_wuerfel", "Prüfspiele je Prüfung", "int", 5, 100, "Mindestens 5."),
+    ("ereignisse", "Ereignisse", "bool", 0, 1, "An: harte Winter, Piraten und andere Ereignisse kommen vor."),
+    ("runden", "Runden bis zum Ende", "int", 1, 100000000, "Danach hört das Training von selbst auf. Praktisch: läuft, bis du anhältst."),
+    ("saat", "Zufallszahl", "int", 0, 2000000000, "Startwert für den Zufall des Trainings."),
+    ("min_frei_gb", "Mindestens frei (GB)", "float", 0.0, 10000.0, "Ist auf dem Laufwerk weniger frei, hält das Training an."),
+]
+
 ROOT = os.path.dirname(HERE)
 
 # Die 96 Eingänge der KI (Reihenfolge wie in ki_brain.gd features() und ki_acts.gd more_features())
@@ -213,6 +237,81 @@ class App:
             return {"ordner": path} if path else {"abbruch": True}
         except Exception as e:
             return {"fehler": "Das Auswahlfenster ließ sich nicht öffnen (%s). Bitte den Ordner eintippen." % e}
+
+    # ------------------------------------------------------------ Einstellungen ändern (josh 2026-11-18)
+    def settings(self):
+        p = os.path.join(self.p["lauf"], "einstellungen.json")
+        cfg = dict(T_DEFAULTS)
+        cfg.update(self.read("einstellungen.json", {}) or {})
+        fields = [{"key": k, "name": n, "art": a, "min": lo, "max": hi, "text": t} for k, n, a, lo, hi, t in SETTINGS]
+        st = cfg.get("stufen") or T_DEFAULTS["stufen"]
+        return {"felder": fields, "werte": {k: cfg.get(k) for k, *_ in SETTINGS}, "stufen": st, "laeuft": self.running(),
+                "standard": {k: T_DEFAULTS.get(k) for k, *_ in SETTINGS}, "standard_stufen": T_DEFAULTS["stufen"],
+                "datei": p, "ages": (self.read("namen.json", {}) or {}).get("ages", [])}
+
+    def save_settings(self, body):
+        """Prüft jeden Wert und schreibt lauf/einstellungen.json. Unbekannte Schlüssel in der Datei bleiben."""
+        try:
+            new = json.loads(body or "{}")
+        except Exception:
+            return {"fehler": "Die Werte kamen nicht lesbar an."}
+        vals = new.get("werte", {})
+        errs = []
+        cfg = dict(T_DEFAULTS)
+        cfg.update(self.read("einstellungen.json", {}) or {})
+        for k, n, a, lo, hi, _t in SETTINGS:
+            if k not in vals:
+                continue
+            v = vals[k]
+            try:
+                if a == "bool":
+                    v = bool(v) if isinstance(v, bool) else str(v).lower() in ("1", "true", "ja", "an")
+                elif a == "int":
+                    v = int(str(v).replace(",", ".").split(".")[0])
+                else:
+                    v = float(str(v).replace(",", "."))
+            except ValueError:
+                errs.append("%s: „%s“ ist keine Zahl." % (n, vals[k]))
+                continue
+            if a != "bool" and not (lo <= v <= hi):
+                errs.append("%s: erlaubt ist %s bis %s." % (n, lo, hi))
+                continue
+            cfg[k] = v
+        stufen = new.get("stufen")
+        if isinstance(stufen, list) and stufen:
+            out = []
+            for i, s in enumerate(stufen):
+                try:
+                    tage = int(str(s.get("tage")).split(".")[0])
+                except (ValueError, AttributeError):
+                    errs.append("Stufe %d: Spieltage ist keine Zahl." % (i + 1))
+                    continue
+                if not 1 <= tage <= 100000:
+                    errs.append("Stufe %d: Spieltage erlaubt 1 bis 100000." % (i + 1))
+                    continue
+                old = (cfg.get("stufen") or T_DEFAULTS["stufen"])
+                e = dict(old[i]) if i < len(old) else {}
+                e["tage"] = tage
+                if not e.get("ziel") and s.get("alter") is not None:
+                    try:
+                        al = int(str(s.get("alter")).split(".")[0])
+                    except ValueError:
+                        errs.append("Stufe %d: Zeitalter ist keine Zahl." % (i + 1))
+                        continue
+                    if not 1 <= al <= 7:
+                        errs.append("Stufe %d: Zeitalter erlaubt 1 bis 7." % (i + 1))
+                        continue
+                    e["alter"] = al
+                out.append(e)
+            if len(out) == len(stufen):
+                cfg["stufen"] = out
+        if errs:
+            return {"fehler": " ".join(errs)}
+        tmp = os.path.join(self.p["lauf"], "einstellungen.json.tmp")
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(cfg, f, indent=1, ensure_ascii=False)
+        os.replace(tmp, os.path.join(self.p["lauf"], "einstellungen.json"))
+        return {"ok": True, "laeuft": self.running()}
 
     # ------------------------------------------------------------ Spiel ansehen
     def watch(self, which, seed, tempo):
@@ -429,6 +528,8 @@ def make_handler(app):
                 if u.path == "/api/pruefung":
                     c = app.check(int(q.get("runde", ["-1"])[0]))
                     return self.js(c if c is not None else {"leer": True})
+                if u.path == "/api/einstellungen":
+                    return self.js(app.settings())
                 if u.path == "/api/gelernt":
                     return self.js(app.learned(q.get("welche", ["aktuell"])[0]))
                 return self.js({"fehler": "unbekannt"}, 404)
@@ -446,6 +547,9 @@ def make_handler(app):
                 except ValueError:
                     return self.js({"fehler": "Zahl erwartet"}, 400)
                 return self.js({"ok": app.start(n, st)})
+            if self.path == "/api/einstellungen":
+                n = min(int(self.headers.get("Content-Length") or 0), 200000)
+                return self.js(app.save_settings(self.rfile.read(n).decode("utf-8", "replace")))
             if self.path.startswith("/api/import_weg"):
                 return self.js(app.drop_import())
             if self.path.startswith("/api/import"):
