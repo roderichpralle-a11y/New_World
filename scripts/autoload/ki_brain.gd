@@ -11,7 +11,10 @@ extends Node
 
 const JOBS := ["holzfaeller", "steinmetz", "sammler", "fischer", "bauer", "koch", "handwerker", "jaeger", "forscher", "foerster", "frei"]
 const OLD_JOBS := 9      # so viele Berufe kennen die Gewichte bis 3.0.19; Förster und „frei“ nur mit neuen Gewichten
-const FEATURES := 96
+const FEATURES := 108
+## Eingänge 96..107 kamen am 2026-11-19 dazu (josh). Ältere Gewichtsdateien haben 96; sie werden beim Laden an
+## der richtigen Stelle mit Nullen erweitert (Spalte F_OLD.. vor den ACT_X-Eingängen der Handlungen).
+const F_OLD := 96
 ## Ganzes Spiel (josh 2026-11-15): jede Handlung aus KiActs.names() hat eine Zeile mit FEATURES + ACT_X Gewichten
 ## (die letzten ACT_X Eingänge beschreiben die Handlung selbst, z. B. wie viele Gebäude dieser Art schon stehen).
 const ACT_X := 4
@@ -66,6 +69,10 @@ var feat_seen := PackedInt32Array()
 var act_seen := PackedInt32Array()
 var built_log: Dictionary = {}  # Handlung -> Anzahl (Training, Anzeige)
 var _bnext: Dictionary = {}     # Insel-ID -> Spieltag der nächsten Bau-Entscheidung
+var _last_death := -99.0  # Spieltag des letzten Todes (Eingang 96)
+var _fd_hist: Dictionary = {}  # Insel-ID -> [Zeit der Probe, Nahrungstage dann, Nahrungstage davor] (Eingang 97)
+var _res_n := -1  # fertige Forschungen beim letzten Blick (Eingang 104)
+var _res_t := 0.0
 var _last_build: Dictionary = {}  # Insel-ID -> Spieltag des letzten eigenen Baus
 var brain_score := 0        # aus der Datei: Punkte im Prüflauf (12 Tage ab Tag 163)
 var brain_base := 0         # ... und untrainiert
@@ -90,7 +97,7 @@ func _ready() -> void:
 	Game.state_reset.connect(_on_reset)
 	Game.state_save.connect(_on_save)
 	Game.state_load.connect(_on_load)
-	Game.settler_died.connect(func(_s, _c): deaths_today += 1)
+	Game.settler_died.connect(_on_died)
 	if OS.has_feature("itch"):
 		available = false  # itch.io-Fassung 2.1.0 ohne KI (josh 2026-11-07)
 	elif OS.has_feature("web"):
@@ -113,10 +120,12 @@ func _load_weights(path: String) -> bool:
 	var w: Array = d.w
 	if w.is_empty() or w.size() > JOBS.size():
 		return false
+	# Zahl der Eingänge der Datei: "f", sonst die Länge der Berufszeilen (ältere Dateien)
+	_file_f = int(d.get("f", (w[0] as Array).size()))
 	# ältere Gewichte (weniger Berufe oder Eingänge) mit Nullen auffüllen
 	var out: Array = []
 	for i in JOBS.size():
-		var row: Array = (w[i] as Array).duplicate() if i < w.size() else []
+		var row: Array = _fix_old((w[i] as Array).duplicate()) if i < w.size() else []
 		while row.size() < FEATURES:
 			row.append(0.0)
 		out.append(row)
@@ -173,6 +182,13 @@ func _load_net(d) -> void:
 	var a1 := PackedFloat32Array(d.get("w1", []))
 	var a2 := PackedFloat32Array(d.get("w2", []))
 	var a3 := PackedFloat32Array(d.get("w3", []))
+	if h1 > 0 and _file_f < FEATURES and a1.size() == h1 * _file_f:  # ältere Datei: neue Eingänge mit 0
+		var b1 := PackedFloat32Array()
+		b1.resize(h1 * FEATURES)
+		for j in h1:
+			for k in _file_f:
+				b1[j * FEATURES + k] = 0.0 if (_file_f == F_OLD and k == 70) else a1[j * _file_f + k]
+		a1 = b1
 	if h1 <= 0 or h2 <= 0 or a1.size() != h1 * FEATURES or a2.size() != h2 * h1 or a3.size() != n * h2:
 		push_warning("KI: Netz passt nicht zum Spiel, es wird nicht benutzt")
 		return
@@ -229,9 +245,27 @@ func net_corr(w, x: PackedFloat32Array) -> Dictionary:
 	return out
 
 
+var _file_f := FEATURES  # Eingänge der zuletzt geladenen Gewichtsdatei
+
+
+## Alte Datei mit 96 Eingängen: Eingang 70 („Prüfung: es fehlen Inseln“) war bis 2026-11-19 immer 0 (falscher
+## Name der Bedingung); sein Gewicht ist nur Zufall vom Ausprobieren und wird deshalb auf 0 gesetzt.
+func _fix_old(row: Array) -> Array:
+	if _file_f == F_OLD and row.size() > 70:
+		row[70] = 0.0
+	return row
+
+
 ## Zeile einer Handlung auf FEATURES + ACT_X bringen (alte Zeilen haben nur die Eingänge der Insel).
 func _pad_act(r) -> Array:
-	var row: Array = (r as Array).duplicate()
+	var row: Array = _fix_old((r as Array).duplicate())
+	if _file_f < FEATURES and row.size() == _file_f + ACT_X:  # Eingänge der Insel, dann die der Handlung
+		var tail := row.slice(_file_f)
+		row = row.slice(0, _file_f)
+		while row.size() < FEATURES:
+			row.append(0.0)
+		row.append_array(tail)
+		return row
 	if row.size() <= FEATURES:
 		while row.size() < FEATURES:
 			row.append(0.0)
@@ -747,6 +781,7 @@ func features(w) -> PackedFloat32Array:
 	x[64] = minf(Extras.fuel(w) / maxf(1.0, need_full), 3.0)
 	x[65] = minf(maxf(0.0, Extras.fuel(w) - Extras.heat_reserve(w)) / 500.0, 3.0)
 	KiActs.more_features(w, x, n, adults.size(), beds)  # 66..95: Zeitalter, Prüfung, Droiden, Funk, Tiere, See, Waren
+	_new_features(w, x)  # 96..107 (josh 2026-11-19)
 	if score_on:
 		if feat_seen.size() != FEATURES:
 			feat_seen.resize(FEATURES)
@@ -755,6 +790,71 @@ func features(w) -> PackedFloat32Array:
 			if absf(x[k]) > 0.000001:
 				feat_seen[k] += 1
 	return x
+
+
+## Eingänge 96..107 (josh 2026-11-19): Verlauf (Tod, Nahrung), Baustellen ohne Material, offene Prüfungs-
+## bedingungen, warum Werkstätten stillstehen, Forschung hängt, Gefahren, Brot fehlt.
+func _new_features(w, x: PackedFloat32Array) -> void:
+	var now := Game.time_days
+	x[96] = clampf(1.0 - (now - _last_death) / 6.0, 0.0, 1.0)
+	var iid := int(w.island_id)
+	var fd := food_days(w)
+	var hst: Array = _fd_hist.get(iid, [])
+	if hst.is_empty():
+		hst = [now, fd, fd]
+	elif now - float(hst[0]) >= 1.0:
+		hst = [now, fd, float(hst[1])]
+	_fd_hist[iid] = hst
+	var prev := float(hst[2])
+	if prev > 0.0:
+		x[97] = clampf((prev - fd) / prev, 0.0, 1.0)
+	var sites: Array = w.construction_sites()
+	if not sites.is_empty():
+		var wait := 0
+		for b in sites:
+			var rc: Dictionary = b.remaining_cost()
+			for res in rc:
+				if Game.amount(res, w) < int(rc[res]):
+					wait += 1
+					break
+		x[98] = float(wait) / sites.size()
+	if not Exams.exam_def(Exams.passed).is_empty():
+		for e in Exams.status(Exams.passed):
+			if e[3]:
+				continue
+			var gap := clampf(float(int(e[2]) - int(e[1])) / maxf(1.0, float(e[2])), 0.0, 1.0)
+			match str(e[0].get("type", "")):
+				"no_starve_days":
+					x[99] = gap
+				"variety":
+					x[100] = gap
+				"building":
+					x[101] = 1.0
+	var prod := 0
+	var no_input := 0
+	var no_worker := 0
+	for b in w.buildings:
+		if not is_instance_valid(b) or not b.complete or b.paused or not b.def.has("production") or b.def.get("ships", false):
+			continue
+		prod += 1
+		var p: Dictionary = b.prod_def()
+		for res in p.get("inputs", {}):
+			if Game.amount(res, w) < int(p.inputs[res]):
+				no_input += 1
+				break
+		if b.slots() > 0 and b.occupants.is_empty():
+			no_worker += 1
+	if prod > 0:
+		x[102] = float(no_input) / prod
+		x[103] = float(no_worker) / prod
+	var nd: int = (Game.research.done as Array).size()
+	if nd != _res_n:
+		_res_n = nd
+		_res_t = now
+	x[104] = clampf((now - _res_t) / 20.0, 0.0, 1.0)
+	x[105] = 1.0 if Events.busy(w) else 0.0
+	x[106] = 1.0 if Seasons.season() == Seasons.WINTER and Seasons.winter_type() in ["hart", "bitter"] else 0.0
+	x[107] = minf(float(needs().get("brot", 0)) / 20.0, 3.0)
 
 
 func _count_job(w, job: String) -> int:
@@ -1261,7 +1361,15 @@ func score_day() -> Dictionary:
 
 
 # ---------------------------------------------------------------- Spielstand
+func _on_died(_s, _c) -> void:
+	deaths_today += 1
+	_last_death = Game.time_days
+
+
 func _on_reset() -> void:
+	_last_death = -99.0
+	_fd_hist = {}
+	_res_n = -1
 	on = v3 and available
 	_kept_on = false
 	_next = 0.0

@@ -153,7 +153,7 @@ static func more_features(w, x: PackedFloat32Array, n: int, adults: int, beds: i
 			var gap := clampf(float(int(e[2]) - int(e[1])) / maxf(1.0, float(e[2])), 0.0, 1.0)
 			if typ == "pop":
 				x[69] = gap
-			elif typ == "islands":
+			elif typ == "islands_settled":  # bis 2026-11-19 stand hier "islands" (gibt es nicht): Eingang war immer 0
 				x[70] = gap
 			elif typ == "houses":
 				x[71] = gap

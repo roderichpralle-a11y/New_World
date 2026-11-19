@@ -55,7 +55,7 @@ SETTINGS = [
 
 ROOT = os.path.dirname(HERE)
 
-# Die 96 Eingänge der KI (Reihenfolge wie in ki_brain.gd features() und ki_acts.gd more_features())
+# Die 108 Eingänge der KI (96..107 seit 2026-11-19) (Reihenfolge wie in ki_brain.gd features() und ki_acts.gd more_features())
 FEATURES = [
     "Grundneigung (immer)", "Frühling", "Sommer", "Herbst", "Winter", "wie weit die Jahreszeit ist", "Nahrung reicht für viele Tage",
     "viele Beeren im Lager", "viel Fisch im Lager", "viel Weizen im Lager", "viele Äpfel im Lager", "viel Mehl im Lager",
@@ -77,6 +77,11 @@ FEATURES = [
     "viele Werkstätten", "viele Werkstätten stehen still", "viele Siedler ohne Beruf", "hoher Lebensstil", "viele Anordnungen laufen",
     "viele freie Betten", "hoher Anteil Kinder", "Nebeninsel hat genug Nahrung", "viele Forschungen wählbar", "spät im Spiel",
     "viele Waren an der Höchstmenge",
+    # neu 2026-11-19 (josh)
+    "zuletzt ist jemand gestorben", "die Nahrung nimmt ab", "Baustellen warten auf Material",
+    "Prüfung: es fehlen Tage ohne Hungertod", "Prüfung: es fehlt Vielfalt der Nahrung", "Prüfung: ein Gebäude fehlt",
+    "Werkstätten fehlt ein Rohstoff", "Werkstätten fehlt ein Arbeiter", "lange keine Forschung fertig",
+    "Piraten angekündigt oder da", "harter Winter", "es fehlt Brot (Forschung oder Prüfung)",
 ]
 ACT_X = ["davon stehen schon viele", "davon steht noch keins", "liefert, was für eine Forschung oder die Prüfung fehlt (auch Vorstufen)", "die vorhandenen sind voll besetzt"]
 TECH_F = ["Grundneigung", "hohe Stufe", "teuer (viele Forschungspunkte)", "Kosten liegen im Lager", "es fehlen Waren für die Kosten",
@@ -464,7 +469,7 @@ class App:
             rows.append({"gruppe": "Berufe", "name": "Beruf: " + nm, "netz": nstr.get("job:" + names["jobs"][j]), "staerke": norm(r), "einfluss": tops(r, FEATURES), "rauschen": unseen(r, FEATURES)})
         for k, r in g.get("a", {}).items():
             rows.append({"gruppe": GROUPS.get(group_of(k, names), ""), "name": act_label(k, names), "staerke": norm(r), "netz": nstr.get(k),
-                         "neigung": round(r[0], 3), "einfluss": tops(r, FEATURES[:F] + ACT_X), "rauschen": unseen(r, FEATURES[:F] + ACT_X)})
+                         "neigung": round(r[0], 3), "einfluss": tops(r, FEATURES[:len(r) - len(ACT_X)] + ACT_X), "rauschen": unseen(r, FEATURES[:len(r) - len(ACT_X)] + ACT_X)})
         t = g.get("t", [])
         if t:
             rows.append({"gruppe": "Forschung", "name": "Welche Forschung als Nächstes", "staerke": norm(t), "einfluss": [{"was": TECH_F[i], "w": round(t[i], 3), "oft": 1.0} for i in sorted(range(len(t)), key=lambda i: -abs(t[i]))[:8] if abs(t[i]) > 1e-9], "rauschen": []})

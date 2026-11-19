@@ -183,14 +183,33 @@ class Layout:
         return {"h1": h1, "h2": h2, "aus": self.outs, "w1": parts[0], "b1": parts[1], "w2": parts[2], "b2": parts[3],
                 "w3": parts[4], "b3": parts[5]}
 
-    def net_from_game(self, d, h1, h2):
-        """Netz aus einer Gewichtsdatei, wenn es genau passt (gleiche Größe, gleiche Ausgänge). Sonst None."""
+    def net_from_game(self, d, h1, h2, f_old=None):
+        """Netz aus einer Gewichtsdatei, wenn es passt (gleiche Größe, gleiche Ausgänge). Sonst None.
+        Hat die Datei weniger Eingänge (f_old, ältere Fassung), bekommen die neuen Eingänge das Gewicht 0."""
         if not isinstance(d, dict) or int(d.get("h1", 0)) != h1 or int(d.get("h2", 0)) != h2 or list(d.get("aus", [])) != self.outs:
             return None
-        net = []
-        for k in ("w1", "b1", "w2", "b2", "w3", "b3"):
+        w1 = list(d.get("w1", []))
+        fo = int(f_old or 0)
+        if fo and fo < self.F and len(w1) == h1 * fo:
+            w1 = [r for j in range(h1) for r in (self.fix_old(w1[j * fo:(j + 1) * fo], fo) + [0.0] * (self.F - fo))]
+        net = w1
+        for k in ("b1", "w2", "b2", "w3", "b3"):
             net += list(d.get(k, []))
         return net if len(net) == self.net_size(h1, h2) else None
+
+    F_OLD = 96  # Eingänge bis 2026-11-18; Eingang 70 war damals immer 0 (Prüfung: Inseln, falscher Name)
+
+    @staticmethod
+    def file_f(d):
+        """Zahl der Eingänge einer Gewichtsdatei: "f", sonst die Länge der ersten Berufszeile."""
+        rows = d.get("w", []) if isinstance(d, dict) else []
+        return int(d.get("f") or (len(rows[0]) if rows else 0)) if isinstance(d, dict) else 0
+
+    def fix_old(self, row, fo):
+        row = list(row)
+        if fo == self.F_OLD and len(row) > 70:
+            row[70] = 0.0
+        return row
 
     def to_game(self, vec):
         """Flache Zahlenliste -> Gewichtsdatei, wie sie ki_brain.gd liest."""
@@ -204,21 +223,24 @@ class Layout:
         for n in self.acts:
             a[n] = vec[i:i + F + X]
             i += F + X
-        return {"w": w, "a": a, "t": vec[i:i + self.T], "full": True}
+        return {"w": w, "a": a, "t": vec[i:i + self.T], "full": True, "f": F}
 
     def from_game(self, d):
         """Gewichtsdatei -> flache Liste (fehlende Zeilen und Eingänge sind 0)."""
         F, X = self.F, self.X
+        fo = self.file_f(d) or F
         vec = []
         rows = d.get("w", [])
         for j in range(len(self.jobs)):
-            r = list(rows[j]) if j < len(rows) else []
+            r = self.fix_old(rows[j], fo) if j < len(rows) else []
             vec += (r + [0.0] * F)[:F]
         old = ["haus", "ausbau", "lager", "feld", "obstgarten", "strasse", "werft", "schiff", "erkunden", "besiedeln"]
         a = {old[i]: r for i, r in enumerate(d.get("b", [])[:len(old)])}
         a.update(d.get("a", {}))
         for n in self.acts:
-            r = list(a.get(n, []))
+            r = self.fix_old(a.get(n, []), fo)
+            if fo < F and len(r) == fo + X:  # ältere Datei: Eingänge der Insel, dann die der Handlung
+                r = r[:fo] + [0.0] * (F - fo) + r[fo:]
             if len(r) <= F:  # alte Zeile ohne die Eingänge der Handlung
                 r = (r + [0.0] * F)[:F] + [0.0] * X
             vec += (r + [0.0] * (F + X))[:F + X]
@@ -381,7 +403,7 @@ class Trainer:
             shutil.move(pr, os.path.join(self.lauf, "pruefungen_vor_import_%s" % stamp))
             os.makedirs(pr, exist_ok=True)
         self.vec = vec
-        net = self.lay.net_from_game(g.get("netz"), self.h1, self.h2) if self.net_on else None
+        net = self.lay.net_from_game(g.get("netz"), self.h1, self.h2, self.lay.file_f(g)) if self.net_on else None
         self.net = net or []
         self.round = 0
         self.lin_free = False
@@ -419,6 +441,7 @@ class Trainer:
         p = os.path.join(self.lauf, "zustand.json")
         if os.path.exists(p):
             s = json.load(open(p, encoding="utf-8"))
+            self.upgrade_state(s)
             if len(s.get("vec", [])) == self.lay.size:
                 self.round = int(s["runde"])
                 self.vec = s["vec"]
@@ -446,6 +469,29 @@ class Trainer:
             self.vec = self.lay.from_game(json.load(open(init, encoding="utf-8")))
             print("Startgewichte aus", init, flush=True)
 
+    def upgrade_state(self, s):
+        """zustand.json einer älteren Fassung mit weniger Eingängen (96 bis 2026-11-18): Tabelle, Netz und
+        Zähler an der richtigen Stelle mit Nullen erweitern. Das Spiel rechnet danach genau wie vorher."""
+        fo = int(s.get("f") or self.lay.F_OLD)
+        if fo >= self.lay.F or len(s.get("vec", [])) == self.lay.size:
+            return
+        old = Layout({"jobs": self.lay.jobs, "acts": self.lay.acts, "features": fo, "act_x": self.lay.X, "tech_f": self.lay.T})
+        if len(s.get("vec", [])) != old.size:
+            return
+        g = old.to_game(s["vec"])
+        s["vec"] = self.lay.from_game(g)
+        net = s.get("netz") or []
+        if net:
+            if self.h1 and old.net_size(self.h1, self.h2) == len(net):
+                s["netz"] = self.lay.net_from_game(old.net_to_game(net, self.h1, self.h2), self.h1, self.h2, fo) or []
+            else:
+                s["netz"] = []
+                print("Netz in zustand.json passt nicht zu netz_h1/netz_h2: das Netz fängt neu an", flush=True)
+        seen = s.get("gesehen", [])
+        if len(seen) == fo + self.lay.X:
+            s["gesehen"] = seen[:fo] + [0] * (self.lay.F - fo) + seen[fo:]
+        print("zustand.json von %d auf %d Eingänge erweitert (neue Gewichte 0)" % (fo, self.lay.F), flush=True)
+
     def save_state(self):
         st = self.rng.getstate()
         write_json(os.path.join(self.lauf, "zustand.json"), {
@@ -453,7 +499,7 @@ class Trainer:
             "sek": self.secs_total + (time.time() - self.t_start), "spiele": self.games_total,
             "gesehen": self.seen, "gesehen_spiele": self.seen_games, "stufe": self.stage, "wartet": self.waiting,
             "netz": self.net, "import": self.imp, "tabelle_frei": self.learn_lin and self.net_on,
-            "zufall": [st[0], list(st[1]), st[2]]})
+            "zufall": [st[0], list(st[1]), st[2]], "f": self.lay.F})
 
     def days_for(self, rnd):
         return int(self.cfg["stufen"][self.stage]["tage"])

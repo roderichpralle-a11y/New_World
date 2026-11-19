@@ -93,7 +93,7 @@ Schick sie Claude im Projekt, dann kommt sie in Version 3.
 
 Das Paket **Insel-KI-Netz** ist dasselbe Training mit eingeschaltetem neuronalen Netz (in `lauf/einstellungen.json`: `"netz": true`).
 
-- Die bisherige Tabelle aus Gewichten bleibt und rechnet wie vorher. Dazu kommt ein Netz mit zwei verdeckten Schichten (96 Eingänge, 24 Zellen, 24 Zellen, eine Korrektur je Handlung und Beruf, 5.528 Zahlen). Die Korrektur wird zum Wert der Tabelle addiert.
+- Die bisherige Tabelle aus Gewichten bleibt und rechnet wie vorher. Dazu kommt ein Netz mit zwei verdeckten Schichten (108 Eingänge, 24 Zellen, 24 Zellen, eine Korrektur je Handlung und Beruf, 5.816 Zahlen). Die Korrektur wird zum Wert der Tabelle addiert.
 - Am Anfang ist die Korrektur 0. Die KI spielt dann genau wie die Tabelle allein, das Gelernte geht also nicht verloren.
 - Gelernt wird mit demselben Verfahren, aber nur das Netz. Die übernommene Tabelle bleibt stehen (`"lerne_linear": true` lässt beide lernen). Ohne Import ist die Tabelle leer, dann lernen Tabelle und Netz zusammen.
 - **Import:** Auf der Seite Status im Kasten „Gelerntes aus einem anderen Training übernehmen“ den Ordner des bisherigen Trainings nennen (eintippen, aus dem Finder ins Feld ziehen oder „Ordner wählen“). Das Programm sucht dort `best.json` (auch im Unterordner `lauf`). Übernommen wird beim nächsten Start. Das Zählen der Runden beginnt neu; der alte Stand bleibt als `zustand_vor_import_<Zeit>.json` liegen. Der andere Ordner wird nicht verändert.
@@ -121,3 +121,9 @@ Danach im Browser `http://<server>:8765/`. Beim Bauen lädt das Bild Godot für 
 - **Zusehen** geht im Docker nicht, weil der Container keinen Bildschirm hat.
 - Startet der Container neu, hält das Training an. Auf der Seite wieder „Starten“ drücken; es macht beim letzten Stand weiter.
 - Weitere Einstellungen über Umgebungsvariablen: `INSEL_PORT` (Port im Container, Standard 8765).
+
+## Neue Beobachtungen (josh 2026-11-19)
+
+Die KI sieht jetzt 108 statt 96 Dinge. Neu: zuletzt ist jemand gestorben, die Nahrung nimmt ab, Baustellen warten auf Material, Prüfung: es fehlen Tage ohne Hungertod / Vielfalt der Nahrung / ein Gebäude, Werkstätten fehlt ein Rohstoff / ein Arbeiter, lange keine Forschung fertig, Piraten angekündigt oder da, harter Winter, es fehlt Brot. Außerdem war „Prüfung: es fehlen Inseln“ bisher immer 0 (falscher Name im Code); das ist behoben.
+
+Ein bisheriger Stand (zustand.json, best.json, Übernehmen) wird beim Start von selbst erweitert: die neuen Gewichte beginnen bei 0, Tabelle und Netz spielen danach genau wie vorher. Geprüft: dieselben Gewichte geben vorher und nachher dasselbe Spiel, Punkt für Punkt.
