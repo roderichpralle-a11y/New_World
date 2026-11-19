@@ -127,3 +127,7 @@ Danach im Browser `http://<server>:8765/`. Beim Bauen lädt das Bild Godot für 
 Die KI sieht jetzt 108 statt 96 Dinge. Neu: zuletzt ist jemand gestorben, die Nahrung nimmt ab, Baustellen warten auf Material, Prüfung: es fehlen Tage ohne Hungertod / Vielfalt der Nahrung / ein Gebäude, Werkstätten fehlt ein Rohstoff / ein Arbeiter, lange keine Forschung fertig, Piraten angekündigt oder da, harter Winter, es fehlt Brot. Außerdem war „Prüfung: es fehlen Inseln“ bisher immer 0 (falscher Name im Code); das ist behoben.
 
 Ein bisheriger Stand (zustand.json, best.json, Übernehmen) wird beim Start von selbst erweitert: die neuen Gewichte beginnen bei 0, Tabelle und Netz spielen danach genau wie vorher. Geprüft: dieselben Gewichte geben vorher und nachher dasselbe Spiel, Punkt für Punkt.
+
+## Größe der Felder (josh 2026-11-19)
+
+Die Felder passen sich der Breite des Browsers an. Zwischen den Feldern liegt ein kleiner Strich: Ziehen mit der Maus (oder mit dem Finger, oder mit den Pfeiltasten, wenn der Strich ausgewählt ist) ändert die Größe. Das gilt für die Breite von Spalten und Diagrammen und die Höhe von Feldern übereinander. Doppelklick auf den Strich stellt die Standardgröße wieder her. Die Größen merkt sich der Browser. Auf dem Handy und bei schmalen Fenstern gibt es die Striche nicht.

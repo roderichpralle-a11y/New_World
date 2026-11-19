@@ -143,7 +143,7 @@ body{margin:0}
 .aktionen .knopf{width:100%;justify-content:flex-start;white-space:nowrap}
 .arbeitsfeld{flex:1 1 auto;min-width:0;overflow:auto;padding:16px 24px 16px;background:var(--feld-verlauf)}
 .raster{display:grid;grid-template-columns:minmax(0,1fr) 380px;grid-template-areas:"lektion plan" "lektion notiz";
-  gap:18px 24px;align-items:start;max-width:1240px}
+  gap:18px 24px;align-items:start}
 
 /* Panels */
 .panel{background:var(--panel);border:1.5px solid var(--rand-gold);border-radius:12px}
@@ -330,8 +330,8 @@ html,body{height:100%}
 
 /* ================= Insel-KI-Training: Layout dieser App (nur Raster und Bausteine, Farben aus den Variablen) ================= */
 .raster{grid-template-areas:none}
-.raster.zwei{grid-template-columns:minmax(0,1fr) 380px}
-.raster.code{grid-template-columns:300px minmax(0,1fr)}
+.raster.zwei{grid-template-columns:minmax(0,1fr) 14px minmax(200px,calc(var(--sp-r,.36) * 100%));column-gap:5px}
+.raster.code{grid-template-columns:minmax(160px,calc(var(--sp-l,.24) * 100%)) 14px minmax(0,1fr);column-gap:5px}
 .raster.eins{grid-template-columns:minmax(0,1fr)}
 .spalte{display:flex;flex-direction:column;gap:18px;min-width:0}
 .seitenkopf{margin:2px 0 14px}
@@ -449,6 +449,31 @@ pre.protokoll{margin:0;padding:10px 12px;max-height:300px;overflow:auto;white-sp
   .feldzeile.einst .erkl{grid-column:1 / -1;border-left:0;border-top:1px solid var(--linie)}
   .feldzeile.stufenzeile{grid-template-columns:84px minmax(0,1fr) 112px}
 }
+/* Griffe zwischen den Feldern: ein ganz kleiner Strich, zum Ziehen (josh 2026-11-19) */
+.griff{position:relative;flex:none;touch-action:none;z-index:2;outline:0}
+.griff::before{content:"";position:absolute;background:var(--rand-gold);opacity:.55;border-radius:1px;transition:opacity .12s ease,background .12s ease}
+.griff:hover::before,.griff:focus-visible::before,.griff.zieht::before{opacity:1;background:var(--gold)}
+.griff:focus-visible::before{box-shadow:0 0 0 3px var(--fokus)}
+.griff.spalten{cursor:col-resize;align-self:stretch;min-height:40px}
+.griff.spalten::before{left:50%;top:6px;bottom:6px;width:2px;margin-left:-1px}
+.griff.zeilen{cursor:row-resize;height:10px;margin:-14px 0}
+.griff.zeilen::before{top:50%;left:6px;right:6px;height:2px;margin-top:-1px}
+.griff.diag{position:absolute;top:0;bottom:0;width:10px;margin-left:-5px;cursor:col-resize}
+.griff.diag::before{left:50%;top:6px;bottom:6px;width:2px;margin-left:-1px}
+.panel.feste-hoehe{overflow:auto}
+body.zieht-spalten,body.zieht-spalten *{cursor:col-resize!important;user-select:none!important}
+body.zieht-zeilen,body.zieht-zeilen *{cursor:row-resize!important;user-select:none!important}
+.diagramme{position:relative;grid-template-columns:minmax(0,calc((100% - 14px) * var(--dg,.5))) minmax(0,1fr)}
+.diagramme .griff.diag{left:calc((100% - 14px) * var(--dg,.5) + 7px)}
+@media (max-width:1180px){
+  .raster.zwei,.raster.code{column-gap:0}
+  .griff.spalten{display:none}
+}
+@media (max-width:760px){
+  .griff{display:none}
+  .diagramme{grid-template-columns:minmax(0,1fr)}
+}
+@media print{.griff{display:none}}
 @media print{
   .ansicht[hidden]{display:none!important}
   .tabelle-block,.dateiliste,pre.quelltext{max-height:none;overflow:visible}
@@ -1248,6 +1273,93 @@ pre.protokoll{margin:0;padding:10px 12px;max-height:300px;overflow:auto;white-sp
       $('fview').scrollTop = 0;
     });
   }
+
+
+  /* ---------------- Größe der Felder ändern (josh 2026-11-19) ---------------- */
+  /* Die Felder passen sich der Breite des Browsers an. Zwischen den Feldern liegt ein kleiner Strich:
+     ziehen ändert die Größe (Maus, Finger oder Pfeiltasten), Doppelklick stellt die Standardgröße wieder her. */
+  var teilung = {};
+  try { teilung = JSON.parse(speicher.lies('ki-teilung') || '{}') || {}; } catch (e) { teilung = {}; }
+  function sichereTeilung() { speicher.schreib('ki-teilung', JSON.stringify(teilung)); }
+  function zwischen(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+  function neuerGriff(klasse, richtung, name) {
+    var g = document.createElement('div');
+    g.className = 'griff ' + klasse;
+    g.setAttribute('role', 'separator');
+    g.setAttribute('aria-orientation', richtung);
+    g.setAttribute('aria-label', name);
+    g.tabIndex = 0;
+    g.title = 'Ziehen ändert die Größe, Doppelklick stellt sie zurück';
+    return g;
+  }
+  /* start() gibt den Ausgangszustand zurück, bewege(zustand, dx, dy) setzt die neue Größe, zurueck() die alte. */
+  function ziehbar(g, bodyKlasse, start, bewege, zurueck) {
+    g.addEventListener('pointerdown', function (e) {
+      if (e.button) return;
+      e.preventDefault();
+      var st = start(), x0 = e.clientX, y0 = e.clientY;
+      try { g.setPointerCapture(e.pointerId); } catch (x) {}
+      g.classList.add('zieht'); document.body.classList.add(bodyKlasse);
+      var m = function (ev) { bewege(st, ev.clientX - x0, ev.clientY - y0); };
+      var u = function () {
+        g.removeEventListener('pointermove', m); g.removeEventListener('pointerup', u); g.removeEventListener('pointercancel', u);
+        g.classList.remove('zieht'); document.body.classList.remove(bodyKlasse); sichereTeilung();
+      };
+      g.addEventListener('pointermove', m); g.addEventListener('pointerup', u); g.addEventListener('pointercancel', u);
+    });
+    g.addEventListener('dblclick', function () { zurueck(); sichereTeilung(); });
+    g.addEventListener('keydown', function (e) {
+      var d = { ArrowLeft: [-24, 0], ArrowRight: [24, 0], ArrowUp: [0, -24], ArrowDown: [0, 24] }[e.key];
+      if (!d) return;
+      e.preventDefault(); bewege(start(), d[0], d[1]); sichereTeilung();
+    });
+  }
+  function ansichtVon(el) { var a = el.closest('[data-ansicht-inhalt]'); return a ? a.getAttribute('data-ansicht-inhalt') : 'x'; }
+
+  /* Spalten nebeneinander (Status, Gelernt, Code) */
+  alle('.raster.zwei, .raster.code').forEach(function (r, i) {
+    var zwei = r.classList.contains('zwei'), key = ansichtVon(r) + ':sp' + i, prop = zwei ? '--sp-r' : '--sp-l';
+    if (r.children.length !== 2) return;
+    var g = neuerGriff('spalten', 'vertical', 'Spaltenbreite');
+    r.insertBefore(g, r.children[1]);
+    if (teilung[key] != null) r.style.setProperty(prop, teilung[key]);
+    ziehbar(g, 'zieht-spalten', function () {
+      return { w: r.getBoundingClientRect().width, v: r.children[zwei ? 2 : 0].getBoundingClientRect().width };
+    }, function (st, dx) {
+      var px = zwischen(zwei ? st.v - dx : st.v + dx, 200, st.w - 14 - 10 - 260);
+      var f = (px / st.w).toFixed(4);
+      r.style.setProperty(prop, f); teilung[key] = f;
+    }, function () { r.style.removeProperty(prop); delete teilung[key]; });
+  });
+
+  /* Felder übereinander: der Strich ändert die Höhe des oberen Feldes */
+  alle('.spalte').forEach(function (sp, si) {
+    var ps = Array.prototype.filter.call(sp.children, function (c) { return c.classList.contains('panel'); });
+    for (var k = 1; k < ps.length; k++) (function (oben, unten, key) {
+      var g = neuerGriff('zeilen', 'horizontal', 'Höhe');
+      sp.insertBefore(g, unten);
+      var setze = function (h) { oben.style.height = h + 'px'; oben.classList.add('feste-hoehe'); };
+      if (teilung[key] != null) setze(teilung[key]);
+      ziehbar(g, 'zieht-zeilen', function () { return { h: oben.getBoundingClientRect().height }; }, function (st, dx, dy) {
+        var h = Math.round(zwischen(st.h + dy, 70, 2400)); setze(h); teilung[key] = h;
+      }, function () { oben.style.height = ''; oben.classList.remove('feste-hoehe'); delete teilung[key]; });
+    })(ps[k - 1], ps[k], ansichtVon(sp) + ':z' + si + ':' + k);
+  });
+
+  /* Diagramme: Strich zwischen den beiden Spalten */
+  alle('.diagramme').forEach(function (d, i) {
+    var key = ansichtVon(d) + ':dg' + i;
+    var g = neuerGriff('diag', 'vertical', 'Breite der Diagramme');
+    d.appendChild(g);
+    if (teilung[key] != null) d.style.setProperty('--dg', teilung[key]);
+    ziehbar(g, 'zieht-spalten', function () {
+      var w = d.getBoundingClientRect().width - 14;
+      return { w: w, l: w * parseFloat(getComputedStyle(d).getPropertyValue('--dg') || '0.5') };
+    }, function (st, dx) {
+      var f = zwischen((st.l + dx) / st.w, 0.25, 0.75).toFixed(4);
+      d.style.setProperty('--dg', f); teilung[key] = f;
+    }, function () { d.style.removeProperty('--dg'); delete teilung[key]; });
+  });
 
   anwenden();
   if (zustand.ansicht === 'gelernt') { loadCheck(-1); loadWeights(); }
