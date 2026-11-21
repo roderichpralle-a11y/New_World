@@ -1213,6 +1213,9 @@ func score_start() -> void:
 	feat_seen = PackedInt32Array()
 	act_seen = PackedInt32Array()
 	_age0 = Game.current_age()
+	_age3 = _age0
+	_exam_idx = Exams.passed
+	_exam_prev = exam_phi()
 	_sample_t = Game.time_days
 	_score_t0 = Game.time_days
 	_score_day = 0
@@ -1232,9 +1235,80 @@ var waste_today := 0
 ## Köhlerei und nie Getreidefelder, weil Punkte erst nach der ganzen Kette (Kohle -> Erz -> Eisen -> Werkzeug) kamen.
 const FIRST_PTS := 300.0
 var _firsts: Dictionary = {}
+const EXAM_COND_PTS := 1000.0    # Wertung 3: je ganz erfüllte Bedingung der aktuellen Prüfung (anteilig)
+const AGE3_PTS := 5000.0         # Wertung 3: je neu erreichtem Zeitalter
+const STOCK_PTS := 10.0          # Wertung 3: je Tag für volle Zielmenge, je Gruppe (Essen, Brennstoff, Waren)
+const STOCK_FOOD_DAYS := 10.0
+const STOCK_WORK_DAYS := 5.0     # Werkstatt-Vorrat: Eingangswaren für so viele Arbeitsgänge
+var _exam_idx := -1
+var _exam_prev := 0.0
+var _age3 := 0
 var work_today := 0.0
 var _age0 := 0
 var _sample_t := 0.0
+
+
+## Wertung 3, Teil B: Anteil der erfüllten Bedingungen der aktuellen Prüfung (0 .. Zahl der Bedingungen).
+func exam_phi() -> float:
+	var out := 0.0
+	if Exams.exam_def(Exams.passed).is_empty():
+		return out
+	for e in Exams.status(Exams.passed):
+		out += clampf(float(e[1]) / maxf(1.0, float(e[2])), 0.0, 1.0)
+	return out
+
+
+## Wertung 3, Teil C: Zielmengen je Ware auf der Hauptinsel. Was die wählbaren Forschungen kosten, was die
+## Prüfung im Lager sehen will, und für jede fertige Werkstatt ihre Eingangswaren für STOCK_WORK_DAYS Arbeitsgänge.
+func stock_targets(w) -> Dictionary:
+	var out := {}
+	for t in Data.techs:
+		if t == "superintelligenz" or t in Game.research.paid or Game.tech_state(t) != "available":
+			continue
+		var cost: Dictionary = Data.techs[t].get("cost", {})
+		for id in cost:
+			out[id] = maxi(int(out.get(id, 0)), int(cost[id]))
+	if not Exams.exam_def(Exams.passed).is_empty():
+		for e in Exams.status(Exams.passed):
+			if str(e[0].get("type", "")) == "stock":
+				var id := str(e[0].get("what", ""))
+				out[id] = maxi(int(out.get(id, 0)), int(e[2]))
+	for b in w.buildings:
+		if not b.complete:
+			continue
+		var pr: Dictionary = Data.buildings.get(b.type, {}).get("production", {})
+		for inp in pr.get("inputs", {}):
+			out[inp] = int(out.get(inp, 0)) + int(pr.inputs[inp]) * int(STOCK_WORK_DAYS)
+	for id in Data.food_ids():
+		out.erase(id)  # Essen zählt über die Nahrungstage
+	out.erase("holz")  # Holz als Brennstoff über die Winterreserve, als Baustoff über die Forschungskosten unten
+	for t in Data.techs:
+		if Game.tech_state(t) == "available" and Data.techs[t].get("cost", {}).has("holz"):
+			out["holz"] = maxi(int(out.get("holz", 0)), int(Data.techs[t].cost.holz))
+	return out
+
+
+## Wertung 3, Teil C: je Tag bis 3 x STOCK_PTS: Nahrungstage (bis 10, ohne rohen Weizen), Winterreserve an
+## Brennstoff, mittlerer erfüllter Anteil der Zielmengen. Über der Zielmenge gibt es nichts mehr.
+func stock_score(ws: Array) -> float:
+	var fd := 0.0
+	var warm := 0.0
+	var heads := 0.0
+	for o in ws:
+		var n := float(o.settlers.size())
+		fd += minf(1.0, food_days_score(o) / STOCK_FOOD_DAYS) * n
+		var need: float = Extras.heat_reserve(o, true)
+		warm += (1.0 if need <= 0.0 else minf(1.0, Extras.fuel(o) / need)) * n
+		heads += n
+	heads = maxf(1.0, heads)
+	var mw = Sea.main_world()
+	var tg := stock_targets(mw)
+	var g := 0.0
+	for id in tg:
+		if int(tg[id]) > 0:
+			g += minf(1.0, float(Game.amount(id, mw)) / float(tg[id]))
+	g = g / float(tg.size()) if tg.size() > 0 else 1.0
+	return STOCK_PTS * (fd / heads + warm / heads + g)
 
 
 ## Alle 0,25 Tage: Siedler mit Hunger oder Kälte, Anteil der Erwachsenen im eigenen Beruf.
@@ -1343,8 +1417,20 @@ func score_day() -> Dictionary:
 	r["first"] = first
 	r["pop"] = heads
 	r["islands"] = ws.size()
-	r["total"] = float(r.food) + float(r.wood) + float(r.proc) + float(r.res) + sat + mood + float(r.dead) \
-		+ float(r.isl) + float(r.need) + float(r.work) + float(r.goal) + float(r.waste) + float(r.first)
+	# Wertung 3 (josh 2026-11-21): nur Fortschritt zum Ziel zählt. A Forschung + Zeitalter + Zukunftsstadt,
+	# B Fortschritt der aktuellen Prüfung (nur die Änderung zählt), C Vorräte bis zu einer Zielmenge.
+	# Keine Punkte mehr für verarbeitete Güter, Arbeitsanteil, Satt/Zufrieden, Tote, Hunger (D gestrichen).
+	var phi := exam_phi()
+	if Exams.passed != _exam_idx:
+		_exam_idx = Exams.passed
+		_exam_prev = phi  # neue Prüfung: Ausgangsstand, kein Abzug
+	r["exam"] = EXAM_COND_PTS * (phi - _exam_prev)
+	_exam_prev = phi
+	var st := stock_score(ws)
+	r["stock"] = st
+	r["res3"] = research_today + AGE3_PTS * maxf(0.0, float(age - _age3))
+	_age3 = maxi(_age3, age)
+	r["total"] = float(r.res3) + float(r.exam) + st + float(r.goal) + float(r.waste)
 	score_total += float(r.total)
 	score_log.append(r)
 	processed_today = 0.0
