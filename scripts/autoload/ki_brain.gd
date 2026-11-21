@@ -1419,7 +1419,8 @@ func score_day() -> Dictionary:
 	r["islands"] = ws.size()
 	# Wertung 3 (josh 2026-11-21): nur Fortschritt zum Ziel zählt. A Forschung + Zeitalter + Zukunftsstadt,
 	# B Fortschritt der aktuellen Prüfung (nur die Änderung zählt), C Vorräte bis zu einer Zielmenge.
-	# Keine Punkte mehr für verarbeitete Güter, Arbeitsanteil, Satt/Zufrieden, Tote, Hunger (D gestrichen).
+	# Keine Punkte mehr für verarbeitete Güter, Arbeitsanteil, Satt/Zufrieden, Hunger (D gestrichen).
+	# Tote kosten wieder DEATH_PTS (josh 2026-11-21 "mach das", nach Test ohne: 67-79 Tote je Spiel).
 	var phi := exam_phi()
 	if Exams.passed != _exam_idx:
 		_exam_idx = Exams.passed
@@ -1430,7 +1431,7 @@ func score_day() -> Dictionary:
 	r["stock"] = st
 	r["res3"] = research_today + AGE3_PTS * maxf(0.0, float(age - _age3))
 	_age3 = maxi(_age3, age)
-	r["total"] = float(r.res3) + float(r.exam) + st + float(r.goal) + float(r.waste)
+	r["total"] = float(r.res3) + float(r.exam) + st + float(r.goal) + float(r.waste) + float(r.dead)
 	score_total += float(r.total)
 	score_log.append(r)
 	processed_today = 0.0
