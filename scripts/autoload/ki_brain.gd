@@ -1471,7 +1471,11 @@ func score_day() -> Dictionary:
 
 
 # ---------------------------------------------------------------- Spielstand
-func _on_died(_s, _c) -> void:
+func _on_died(_s, c) -> void:
+	# Tod durch Alter kostet nichts (josh 2026-11-22): sonst lernt die KI, die Siedlung klein zu halten. Im Test
+	# waren 19 von 25 Toten alt gestorben, und die KI riss leere Häuser ab, damit weniger geboren werden.
+	if str(c) == "old":
+		return
 	deaths_today += 1
 	_last_death = Game.time_days
 
