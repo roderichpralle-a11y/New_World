@@ -528,6 +528,29 @@ func needs() -> Dictionary:
 				for inp in pr.get("inputs", {}):
 					if not out.has(inp) and Game.amount(inp, mw) < 10:
 						out[inp] = 10 - Game.amount(inp, mw)
+	# Baukosten (2026-11-22): fehlt der Hersteller einer gebrauchten Ware ganz (oder das Haus der Prüfung), dann
+	# braucht es die Baustoffe dafür. Vorher sah die KI 148 Mehl und Backkunst, aber nicht, dass der Bäckerei Ziegel fehlen.
+	var build_for := []
+	if not Exams.exam_def(Exams.passed).is_empty():
+		for e in Exams.status(Exams.passed):
+			if not e[3] and str(e[0].get("type", "")) in ["houses", "building"]:
+				build_for.append(str(e[0].get("what", "")))
+	for bt in Data.buildings:
+		var bd: Dictionary = Data.buildings[bt]
+		if not bd.get("buildable", false) or not Game.is_unlocked(bt):
+			continue
+		for o in bd.get("production", {}).get("outputs", {}):
+			if out.has(o) and Game.amount(o, mw) < 1:
+				build_for.append(bt)
+				break
+	for bt in build_for:
+		if not Data.buildings.has(bt) or not Game.is_unlocked(bt) or KiActs._count_type(mw, bt) > 0:
+			continue
+		var bc: Dictionary = Data.buildings[bt].get("cost", {})
+		for id in bc:
+			var miss := int(bc[id]) - Game.amount(id, mw)
+			if miss > 0:
+				out[id] = maxi(int(out.get(id, 0)), miss)
 	_needs = out
 	return out
 
