@@ -243,6 +243,18 @@ static func wanted(w, act: String) -> bool:
 				var kids: int = w.settlers.filter(func(s): return not s.is_adult()).size()
 				return have * int(d.school.get("slots", 8)) < kids
 			return have == 0 or d.get("repeat", false)
+		# kein Neubau, wenn alles, was es herstellt, schon das Lager oder die Höchstmenge füllt (josh 2026-11-22)
+		var outs: Dictionary = d.get("production", {}).get("outputs", {})
+		var full := not outs.is_empty()
+		for id in outs:
+			if not Data.resources.has(id):
+				full = false
+				continue
+			var lim: int = Game.limit_of(id, w)
+			if Game.space_for(id, w) > 0 and (lim < 0 or Game.amount(id, w) < lim):
+				full = false
+		if full:
+			return false
 		for b in w.buildings:
 			if not is_instance_valid(b) or not (b.type == t or str(b.def.get("base", "")) == t):
 				continue
@@ -528,6 +540,8 @@ static func _idle_shop(w):
 		if not b.occupants.is_empty() or not (b.paused or b.prod_blocker() != ""):
 			continue
 		if _makes_needed(b):  # Abrissschutz (josh 2026-11-18): wartet nur auf Rohstoff, seine Ware wird gebraucht
+			continue
+		if _outputs_full(w, b):  # Abrissschutz (josh 2026-11-22): steht nur, weil das Lager voll ist (Sägegrube 17x gebaut/abgerissen)
 			continue
 		var n := _count_type(w, b.type)
 		if n > best_n:
