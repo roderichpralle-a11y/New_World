@@ -1331,7 +1331,37 @@ func stock_score(ws: Array) -> float:
 		if int(tg[id]) > 0:
 			g += minf(1.0, float(Game.amount(id, mw)) / float(tg[id]))
 	g = g / float(tg.size()) if tg.size() > 0 else 1.0
-	return STOCK_PTS * (fd / heads + warm / heads + g)
+	return STOCK_PTS * (fd / heads + warm / heads + g) * staff_share(ws)
+
+
+## Anteil der gebrauchten Siedler, die da sind (josh 2026-11-23, "an der Beschäftigung orientieren"): Bedarf =
+## Arbeitsplätze (Werkstätten, Forschung, Felder, Baustellen) + Sammler/Fischer für das fehlende Essen + Holzfäller
+## fürs Heizen, gerechnet wie der Verwalter (Steward.food_per_day / food_rate, fuel_per_day / wood_rate).
+## Untergrenze: die Siedlerzahl der nächsten Prüfung. Ohne das bekam die KI mit 2 Siedlern volle Vorratspunkte.
+func staff_share(ws: Array) -> float:
+	var need := 0.0
+	var adults := 0.0
+	var people := 0.0
+	for o in ws:
+		var c := capacities(o)
+		var fixed := 0
+		for j in ["steinmetz", "bauer", "koch", "handwerker", "jaeger", "forscher", "foerster"]:
+			fixed += int(c.get(j, 0))
+		var sites: int = o.construction_sites().size() + o.repair_sites().size()
+		if sites > 0:
+			fixed += 1 + sites / 2
+		var food_w := Steward.food_per_day(o) / maxf(0.01, Steward.food_rate(o))
+		food_w = maxf(0.0, food_w - float(int(c.get("bauer", 0)) + int(c.get("koch", 0))))
+		var wood_w := Steward.fuel_per_day(o) / maxf(0.01, Steward.wood_rate(o))
+		need += float(fixed) + food_w + wood_w
+		adults += float(_adults(o).size())
+		people += float(o.settlers.size())
+	var share := 1.0 if need <= 0.0 else minf(1.0, adults / need)
+	if not Exams.exam_def(Exams.passed).is_empty():
+		for e in Exams.status(Exams.passed):
+			if str(e[0].get("type", "")) == "pop" and int(e[2]) > 0:
+				share = minf(share, people / float(e[2]))
+	return clampf(share, 0.0, 1.0)
 
 
 ## Alle 0,25 Tage: Siedler mit Hunger oder Kälte, Anteil der Erwachsenen im eigenen Beruf.
@@ -1452,6 +1482,7 @@ func score_day() -> Dictionary:
 	_exam_prev = phi
 	var st := stock_score(ws)
 	r["stock"] = st
+	r["staff"] = staff_share(ws)
 	r["res3"] = research_today + AGE3_PTS * maxf(0.0, float(age - _age3))
 	_age3 = maxi(_age3, age)
 	r["total"] = float(r.res3) + float(r.exam) + st + float(r.goal) + float(r.waste) + float(r.dead)
