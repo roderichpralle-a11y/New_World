@@ -799,8 +799,8 @@ static func can(w, act: String) -> bool:
 			return aw == w and Admin.local_manager() == null and KiBrain._adults(w).any(func(s): return KiBrain._movable(s))
 		"abriss_werkstatt":
 			return _idle_shop(w) != null
-		"abriss_haus":
-			return _empty_house(w) != null
+		"abriss_haus":  # Häuser abreißen erst ab Superintelligenz (josh 2026-11-23): Abriss bremste die Geburten
+			return Game.is_researched("superintelligenz") and _empty_house(w) != null
 		"abriss_feld":
 			return _spare_field(w) != null
 		"versetzen":
